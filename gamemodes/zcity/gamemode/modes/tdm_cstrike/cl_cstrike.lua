@@ -9,11 +9,8 @@ function MODE:AddHudPaint()
     self.DisplayMoney = self.DisplayMoney or 0
     self.LastMoney = self.LastMoney or 0
     self.MoneyAnims = self.MoneyAnims or {}
-    local bombSiteLabel = self.BombSiteLabel or "SITE"
-    local siteInsideText = self.SiteInsideText or "You're on site!"
-    local hostageZoneLabel = self.HostageZoneLabel or "HOSTAGE DELIVERY ZONE"
     
-    if not zb:CanActivelyParticipate(ply) then return end
+    if !ply:Alive() then return end
     if zb.rtype == "bomb" then
 
         local pts = zb.ClPoints["BOMB_ZONE_A"]
