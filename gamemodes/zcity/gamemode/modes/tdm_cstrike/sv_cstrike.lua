@@ -432,6 +432,8 @@ end
 
 function MODE:RoundThink()
 end
+    
+local killfeedcv = CreateConVar("zb_killfeed",0,nil,"Killfeed for Counter-Strike",0,1)
 
 local sumamt = 0
 hook.Add("HarmDone", "CS_PlayerDeath", function(ply, victim, amt)
@@ -449,14 +451,13 @@ hook.Add("HarmDone", "CS_PlayerDeath", function(ply, victim, amt)
         victim:SetNWInt( "TDM_Money", math.max(victim:GetNWInt( "TDM_Money" ) - add, 0) )
     end
 
-    net.Start("CS_Killfeed")
-        net.WriteBool(ply:Team() == 0)
-        net.WriteBool(victim:Team() == 0)
-        net.WriteString(ply:Nick())
-        net.WriteString(victim:Nick())
-        net.Broadcast()
-    -- for i,v in player.Iterator() do
-    --     net.Send(v)
-    -- end
+    if killfeedcv:GetBool() then
+        net.Start("CS_Killfeed")
+            net.WriteBool(ply:Team() == 0)
+            net.WriteBool(victim:Team() == 0)
+            net.WriteString(ply:Nick())
+            net.WriteString(victim:Nick())
+            net.Broadcast()
+    end
 end)
 
