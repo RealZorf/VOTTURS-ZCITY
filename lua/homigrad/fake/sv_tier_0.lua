@@ -83,14 +83,7 @@ hg.cacheModel = cacheModel
 local function cacheFakeRagdollData(ragdoll)
 	if not IsValid(ragdoll) then return end
 
-	local physCount = ragdoll:GetPhysicsObjectCount()
-	ragdoll.ZCPhysicsObjectCount = physCount
-	ragdoll.ZCPhysicsObjects = ragdoll.ZCPhysicsObjects or {}
-
-	for i = 0, physCount - 1 do
-		ragdoll.ZCPhysicsObjects[i] = ragdoll:GetPhysicsObjectNum(i)
-	end
-
+	ragdoll.ZCPhysicsObjectCount = ragdoll:GetPhysicsObjectCount()
 	ragdoll.ZCBoneLookup = ragdoll.ZCBoneLookup or {}
 	ragdoll.ZCAttachmentLookup = ragdoll.ZCAttachmentLookup or {}
 
@@ -1083,11 +1076,7 @@ hook.Add("PlayerFootstep", "CustomFootstep", function(ply) if IsValid(ply.FakeRa
 function hg.RagdollOwner(ragdoll)
 	if not IsValid(ragdoll) then return end
 	local ply = ragdoll.ply
-	if not IsValid(ply) then return end
-	if ply.FakeRagdoll == ragdoll then return ply end
-	if ply.RagdollDeath == ragdoll then return ply end
-	local deathRagdoll = ply:GetNWEntity("RagdollDeath")
-	if IsValid(deathRagdoll) and deathRagdoll == ragdoll then return ply end
+	return IsValid(ply) and ply.FakeRagdoll == ragdoll and ply
 end
 
 hook.Add("PlayerDisconnected", "hg-killniers", function(ply)

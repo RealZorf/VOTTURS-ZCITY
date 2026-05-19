@@ -76,14 +76,9 @@ end
 
 hg.realPhysNum = realPhysNum
 local oldtime
-local ensureFakeRagdollCache
 function hg.ShadowControl(ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp)
 	physNumber = realPhysNum(ragdoll, physNumber) or 0
-	ensureFakeRagdollCache(ragdoll)
-
-	local physObjects = ragdoll.ZCPhysicsObjects
-	local phys = physObjects and physObjects[physNumber] or ragdoll:GetPhysicsObjectNum(physNumber)
-	if not IsValid(phys) then return end
+	local phys = ragdoll:GetPhysicsObjectNum(physNumber)
 
 	shadowparams.secondstoarrive = ss
 	shadowparams.angle = ang
@@ -102,7 +97,7 @@ local shadowControl = hg.ShadowControl
 
 local CacheFakeRagdollData = hg.CacheFakeRagdollData
 
-function ensureFakeRagdollCache(ragdoll)
+local function ensureFakeRagdollCache(ragdoll)
 	if not IsValid(ragdoll) then return end
 	if ragdoll.ZCPhysicsObjectCount ~= nil then return end
 	if CacheFakeRagdollData then
@@ -158,8 +153,7 @@ local function getCachedHeadPhys(ragdoll)
 
 	if physBone < 0 then return nil end
 
-	local physObjects = ragdoll.ZCPhysicsObjects
-	return physObjects and physObjects[physBone] or ragdoll:GetPhysicsObjectNum(physBone)
+	return ragdoll:GetPhysicsObjectNum(physBone)
 end
 
 hook.Add("Fake", "Contorl", function(ply, ragdoll)

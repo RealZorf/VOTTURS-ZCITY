@@ -157,10 +157,8 @@ function ENT:ActivateExplosive()
 
 	local attacker = IsValid(self.owner) and self.owner or Entity(0)
 	
-	local concussionSqr = self.ConcussionDis * self.ConcussionDis
-	for _, ply in ipairs(player.GetHumans()) do
-		if not IsValid(ply) or ply:GetPos():DistToSqr(selfPos) > concussionSqr then continue end
-
+	for _, ply in ipairs(ents.FindInSphere(selfPos,self.ConcussionDis)) do
+		if not ply:IsPlayer() then continue end
 		local tr = hg.ExplosionTrace(selfPos,ply:GetPos(),{self})
 		if tr.Entity != ply then continue end
 		local dist = ply:GetPos():Distance(selfPos)
