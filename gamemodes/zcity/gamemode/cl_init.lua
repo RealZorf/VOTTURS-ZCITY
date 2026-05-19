@@ -14,12 +14,15 @@ zb.ROUND_STATE = 0
 --0 = players can join, 1 = round is active, 2 = endround
 local vecZero = Vector(0.2, 0.2, 0.2)
 local vecFull = Vector(1, 1, 1)
-spect,prevspect,viewmode = nil,nil,1
+spect,prevspect,viewmode,spectRagdoll = nil,nil,1,nil
 local hullscale = Vector(0,0,0)
 net.Receive("ZB_SpectatePlayer", function(len)
 	spect = net.ReadEntity()
 	prevspect = net.ReadEntity()
 	viewmode = net.ReadInt(4)
+	spectRagdoll = net.ReadEntity()
+	LocalPlayer().spectLastPos = nil
+	LocalPlayer().spectLastAng = nil
 
 	timer.Simple(0.1,function()
 		-- LocalPlayer():BoneScaleChange()
@@ -28,6 +31,7 @@ net.Receive("ZB_SpectatePlayer", function(len)
 
 		if viewmode == 3 then
 			LocalPlayer():SetMoveType(MOVETYPE_NOCLIP)
+			LocalPlayer():SetObserverMode(OBS_MODE_ROAMING)
 		end
 	end)
 end)
@@ -101,6 +105,94 @@ BlurBackground = BlurBackground or hg.DrawBlur
 local keydownattack
 local keydownattack2
 local keydownreload
+local spectateRagdollCache = {}
+
+local function FindSpectateRagdoll(ply)
+	if not IsValid(ply) then return end
+
+	if ply == spect and IsValid(spectRagdoll) then
+		spectateRagdollCache[ply] = {ragdoll = spectRagdoll, expires = CurTime() + 1}
+		return spectRagdoll
+	end
+
+	local syncedRagdoll = LocalPlayer():GetNWEntity("spect_ragdoll", NULL)
+	if ply == spect and IsValid(syncedRagdoll) then
+		spectateRagdollCache[ply] = {ragdoll = syncedRagdoll, expires = CurTime() + 1}
+		return syncedRagdoll
+	end
+
+	local cached = spectateRagdollCache[ply]
+	if cached and cached.expires > CurTime() then
+		return IsValid(cached.ragdoll) and cached.ragdoll or nil
+	end
+
+	local ragdoll = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or nil
+	if not IsValid(ragdoll) and ply.GetNWEntity then
+		ragdoll = ply:GetNWEntity("FakeRagdoll", NULL)
+	end
+
+	if not IsValid(ragdoll) and ply.GetNWEntity then
+		ragdoll = ply:GetNWEntity("RagdollDeath", NULL)
+	end
+
+	if IsValid(ragdoll) then
+		spectateRagdollCache[ply] = {ragdoll = ragdoll, expires = CurTime() + 0.5}
+		return ragdoll
+	end
+
+	for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
+		if ent.ply == ply or ent:GetNWEntity("ply") == ply then
+			spectateRagdollCache[ply] = {ragdoll = ent, expires = CurTime() + 0.5}
+			return ent
+		end
+	end
+
+	local plyName = ply.GetPlayerName and ply:GetPlayerName() or ply:Name()
+	for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
+		local ragName = ent:GetNWString("PlayerName", "")
+		if ragName ~= "" and ragName == plyName then
+			spectateRagdollCache[ply] = {ragdoll = ent, expires = CurTime() + 0.5}
+			return ent
+		end
+	end
+
+	spectateRagdollCache[ply] = {ragdoll = nil, expires = CurTime() + 0.25}
+end
+
+local function GetSpectateCharacter(ply)
+	local ent = hg.GetCurrentCharacter and hg.GetCurrentCharacter(ply) or ply
+	if ent == ply then
+		local ragdoll = FindSpectateRagdoll(ply)
+		if IsValid(ragdoll) then ent = ragdoll end
+	end
+
+	return ent
+end
+
+local function GetSpectateEye(ent)
+	local attachmentID = ent.LookupAttachment and ent:LookupAttachment("eyes") or 0
+	if attachmentID and attachmentID > 0 then
+		local attachment = ent:GetAttachment(attachmentID)
+		if attachment then return attachment.Pos, attachment.Ang, true end
+	end
+
+	if ent.LookupBone and ent.GetBoneMatrix then
+		local headBone = ent:LookupBone("ValveBiped.Bip01_Head1") or ent:LookupBone("ValveBiped.Bip01_Spine1") or 1
+		local boneMatrix = ent:GetBoneMatrix(headBone)
+		if boneMatrix then return boneMatrix:GetTranslation(), boneMatrix:GetAngles(), false end
+
+		if ent.TranslateBoneToPhysBone and ent.GetPhysicsObjectNum then
+			local physBone = ent:TranslateBoneToPhysBone(headBone)
+			local phys = physBone and physBone >= 0 and ent:GetPhysicsObjectNum(physBone)
+			if IsValid(phys) then return phys:GetPos(), phys:GetAngles(), false end
+		end
+	end
+
+	local eyePos = ent.EyePos and ent:EyePos()
+	if eyePos and eyePos ~= vector_origin and ent.EyeAngles then return eyePos, ent:EyeAngles(), false end
+
+	return ent:GetPos() + Vector(0, 0, 64), ent:GetAngles(), false
+end
 
 hook.Add("HUDPaint","FUCKINGSAMENAMEUSEDINHOOKFUCKME",function()
     if LocalPlayer():Alive() then return end
@@ -155,9 +247,6 @@ hook.Add("HG_CalcView", "zzzzzzzUwU", function(ply, pos, angles, fov)
 			keydownreload = false
 		end
 
-		local spect = lply:GetNWEntity("spect",spect)
-		if not IsValid(spect) then return end
-
 		local viewmode = lply:GetNWInt("viewmode",viewmode)
 		
 		if viewmode == 3 then
@@ -165,58 +254,51 @@ hook.Add("HG_CalcView", "zzzzzzzUwU", function(ply, pos, angles, fov)
 				lply:SetMoveType(MOVETYPE_NOCLIP)
 			end
 			lply:SetObserverMode(OBS_MODE_ROAMING)
-			return
-		else
-			lply:SetPos(spect:GetPos())
-		end
-		
-		local ent = hg.GetCurrentCharacter(spect)
-		if not IsValid(ent) then return end
-		
-		local headBone = ent:LookupBone("ValveBiped.Bip01_Head1") or ent:LookupBone("ValveBiped.Bip01_Spine1") or 1
-		local bon = ent:GetBoneMatrix(headBone)
-		
-		if not bon then 
-			local eyePos = ent:EyePos()
-			if eyePos and eyePos ~= vector_origin then
-				pos = eyePos
-				ang = ent:EyeAngles()
-			else
-				pos = ent:GetPos() + Vector(0, 0, 64)
-				ang = ent:GetAngles()
-			end
-		else
-			pos, ang = bon:GetTranslation(), bon:GetAngles()
-		end
+			lply.spectLastPos = nil
+			lply.spectLastAng = nil
 
-		local eyePos, eyeAng = lply:EyePos(), lply:EyeAngles()
-		
-		local tr = {}
-		tr.start = pos
-		tr.endpos = pos + eyeAng:Forward() * -120
-		tr.filter = {ent, lply, spect}
-		tr.mins = Vector(-4, -4, -4)
-		tr.maxs = Vector(4, 4, 4)
-		tr = util.TraceHull(tr)
+			return {
+				origin = pos,
+				angles = angles,
+				fov = fov,
+			}
+		else
+			local spect = lply:GetNWEntity("spect",spect)
+			if not IsValid(spect) then return end
 
-		if viewmode == 2 then
-			pos = tr.HitPos + eyeAng:Forward() * 8
-			ang = eyeAng
-		elseif viewmode == 1 then
-			if ent ~= spect and IsValid(ent) then
-				local eyeAtt = ent:GetAttachment(ent:LookupAttachment("eyes"))
-				if eyeAtt then
-					ang = eyeAtt.Ang
+			local ent = GetSpectateCharacter(spect)
+			if not IsValid(ent) then return end
+			lply:SetPos(ent:GetPos())
+
+			local usedEyeAttachment
+			pos, ang, usedEyeAttachment = GetSpectateEye(ent)
+
+			local eyePos, eyeAng = lply:EyePos(), lply:EyeAngles()
+
+			local tr = {}
+			tr.start = pos
+			tr.endpos = pos + eyeAng:Forward() * -120
+			tr.filter = {ent, lply, spect}
+			tr.mins = Vector(-4, -4, -4)
+			tr.maxs = Vector(4, 4, 4)
+			tr = util.TraceHull(tr)
+
+			if viewmode == 2 then
+				pos = tr.HitPos + eyeAng:Forward() * 8
+				ang = eyeAng
+			elseif viewmode == 1 then
+				if ent ~= spect and IsValid(ent) then
+					if not usedEyeAttachment and IsValid(spect) then
+						ang = spect:EyeAngles()
+					end
 				else
 					ang = spect:EyeAngles()
 				end
+				pos = pos + ang:Forward() * (ent ~= spect and 3 or 8)
 			else
-				ang = spect:EyeAngles()
+				pos = eyePos
+				ang = eyeAng
 			end
-			pos = pos + spect:EyeAngles():Forward() * 8
-		else
-			pos = eyePos
-			ang = eyeAng
 		end
 		
 		ang[3] = 0

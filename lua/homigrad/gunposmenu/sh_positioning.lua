@@ -53,8 +53,10 @@ if SERVER then
 
     hook.Add("PlayerInitialSpawn", "SendGunPos", function(ply)
         hg.GunPositions[ply] = {ply:GetInfoNum("hg_gunorigin_x",0),ply:GetInfoNum("hg_gunorigin_y",0),ply:GetInfoNum("hg_gunorigin_z",0)}
-        timer.Simple(1, function()
-            net.Start("send_positioning")
+        timer.Simple(5, function()
+            if not IsValid(ply) then return end
+
+            net.Start("send_positioning", true)
                 net.WriteTable(hg.GunPositions)
             net.Send(ply)
         end)

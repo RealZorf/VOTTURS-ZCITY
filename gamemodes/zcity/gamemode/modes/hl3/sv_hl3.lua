@@ -615,6 +615,41 @@ end
 function MODE:ClearVortBattleState(ply)
 	if not IsValid(ply) then return end
 
+	local active = ply:GetActiveWeapon()
+	local wasHoldingVort = IsValid(active) and active:GetClass() == VORT_ALLOWED_WEAPON
+
+	if ply:HasWeapon(VORT_ALLOWED_WEAPON) then
+		ply:StripWeapon(VORT_ALLOWED_WEAPON)
+	end
+
+	if ply:Alive() and ply:Team() ~= TEAM_SPECTATOR then
+		if not ply:HasWeapon("weapon_hands_sh") then
+			ply:Give("weapon_hands_sh")
+		end
+
+		if wasHoldingVort and ply:HasWeapon("weapon_hands_sh") then
+			ply:SelectWeapon("weapon_hands_sh")
+		end
+	end
+
+	if ply.AnimResetGestureSlot then
+		for slot = 0, 6 do
+			ply:AnimResetGestureSlot(slot)
+		end
+	end
+
+	if ply.AnimRestartMainSequence then
+		ply:AnimRestartMainSequence()
+	end
+
+	if ply.SetCycle then
+		ply:SetCycle(0)
+	end
+
+	if ply.SetPlaybackRate then
+		ply:SetPlaybackRate(1)
+	end
+
 	ply:SetNWBool("ZC_HL3_Vort", false)
 	ply:SetNWInt("ZC_HL3_VortHealthCap", 0)
 	ply:SetNWInt("ZC_HL3_VortArmorCap", 0)

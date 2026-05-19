@@ -1,6 +1,7 @@
 local CLASS = player.RegClass("Vortigaunt")
 
 local model = "models/player/vortigaunt.mdl"
+local vortWeapon = "vort_swep"
 local vortNames = {
 	"Va", "Zuun", "Keth", "Ruun", "Sha", "Naar", "Vek", "Thal", "Uun", "Kael",
 	"Zeth", "Vraal", "Niir", "Suun", "Koss", "Rael", "Duun", "Maar", "Vel", "Tuun",
@@ -8,12 +9,58 @@ local vortNames = {
 	"Vorr", "Taln", "Neer", "Zorr", "Ural", "Ka", "Shaal", "Veth", "Ruunak", "Kelth"
 }
 
+local function resetVortAnimationState(ply)
+	if not IsValid(ply) then return end
+
+	if ply.AnimResetGestureSlot then
+		for slot = 0, 6 do
+			ply:AnimResetGestureSlot(slot)
+		end
+	end
+
+	if ply.AnimRestartMainSequence then
+		ply:AnimRestartMainSequence()
+	end
+
+	if ply.SetCycle then
+		ply:SetCycle(0)
+	end
+
+	if ply.SetPlaybackRate then
+		ply:SetPlaybackRate(1)
+	end
+end
+
+local function removeVortWeapon(ply)
+	if not IsValid(ply) then return end
+
+	local active = ply:GetActiveWeapon()
+	local wasHoldingVort = IsValid(active) and active:GetClass() == vortWeapon
+
+	if ply:HasWeapon(vortWeapon) then
+		ply:StripWeapon(vortWeapon)
+	end
+
+	if ply:Alive() and ply:Team() ~= TEAM_SPECTATOR then
+		if not ply:HasWeapon("weapon_hands_sh") then
+			ply:Give("weapon_hands_sh")
+		end
+
+		if wasHoldingVort and ply:HasWeapon("weapon_hands_sh") then
+			ply:SelectWeapon("weapon_hands_sh")
+		end
+	end
+end
+
 function CLASS.Off(self)
 	if CLIENT then return end
 
+	removeVortWeapon(self)
+	resetVortAnimationState(self)
 	self:SetNetVar("Accessories", "")
 	self:SetNWString("PlayerRole", "")
 	self:SetNWString("PlayerName", "")
+	self:SetNWBool("ZC_HL3_Vort", false)
 end
 
 CLASS.NoGloves = true

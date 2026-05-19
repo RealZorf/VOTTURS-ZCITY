@@ -524,7 +524,7 @@ end
 
 hook.Add("PlayerInitialSpawn", "ZB_SendModesOnSpawn", function(ply)
 	if ply:IsAdmin() then
-		timer.Simple(1, function()
+		timer.Simple(10, function()
 			if IsValid(ply) then
 				zb.SendModesInfoToClient(ply)
 				zb.SendRoundListToClient(ply)
@@ -621,14 +621,18 @@ end
 
 hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
 	if ply:IsAdmin() then
-		local modesToSend = {}
-		for key, mode in pairs(zb.modes) do
-			table.insert(modesToSend, {key = key, name = mode.PrintName or mode.name})
-		end
+		timer.Simple(12, function()
+			if not IsValid(ply) then return end
 
-		net.Start("SendAvailableModes")
-			net.WriteTable(modesToSend)
-		net.Send(ply)
+			local modesToSend = {}
+			for key, mode in pairs(zb.modes) do
+				table.insert(modesToSend, {key = key, name = mode.PrintName or mode.name})
+			end
+
+			net.Start("SendAvailableModes")
+				net.WriteTable(modesToSend)
+			net.Send(ply)
+		end)
 	end
 end)
 
@@ -787,14 +791,18 @@ if SERVER then
 
 	hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
 		if ply:IsAdmin() then
-			local modesToSend = {}
-			for key, mode in pairs(zb.modes) do
-				table.insert(modesToSend, {key = key, name = mode.PrintName or mode.name})
-			end
+			timer.Simple(12, function()
+				if not IsValid(ply) then return end
 
-			net.Start("SendAvailableModes")
-				net.WriteTable(modesToSend)
-			net.Send(ply)
+				local modesToSend = {}
+				for key, mode in pairs(zb.modes) do
+					table.insert(modesToSend, {key = key, name = mode.PrintName or mode.name})
+				end
+
+				net.Start("SendAvailableModes")
+					net.WriteTable(modesToSend)
+				net.Send(ply)
+			end)
 		end
 	end)
 

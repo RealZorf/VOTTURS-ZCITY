@@ -324,13 +324,74 @@ local hullscale = Vector(1, 1, 1)
 
 util.AddNetworkString("ZB_ChooseSpecPly")
 
+local function GetSpectateTargets(ply)
+	local alive = zb:CheckAlive()
+	if not istable(alive) then return {} end
+
+	local targets = {}
+	for _, target in ipairs(alive) do
+		if IsValid(target) and target ~= ply and target:Alive() then
+			targets[#targets + 1] = target
+		end
+	end
+
+	return targets
+end
+
+local GetSpectateViewEntity
+
+local function SendSpectateState(ply, target, prevTarget)
+	if not IsValid(ply) then return end
+
+	local viewmode = ply.viewmode or 1
+	local viewEntity = viewmode ~= 3 and GetSpectateViewEntity and GetSpectateViewEntity(target) or nil
+	if viewmode == 3 then
+		ply.chosenSpectEntity = nil
+		ply:SetNWEntity("spect", NULL)
+		ply:SetNWEntity("spect_ragdoll", NULL)
+		ply:SetNWInt("viewmode", 3)
+		ply.lastSpectTarget = nil
+	else
+		ply.chosenSpectEntity = target
+		ply:SetNWEntity("spect", IsValid(target) and target or NULL)
+		ply:SetNWEntity("spect_ragdoll", IsValid(viewEntity) and viewEntity ~= target and viewEntity or NULL)
+		ply:SetNWInt("viewmode", viewmode)
+	end
+
+	net.Start("ZB_SpectatePlayer")
+	net.WriteEntity(viewmode ~= 3 and IsValid(target) and target or NULL)
+	net.WriteEntity(IsValid(prevTarget) and prevTarget or NULL)
+	net.WriteInt(viewmode, 4)
+	net.WriteEntity(IsValid(viewEntity) and viewEntity ~= target and viewEntity or NULL)
+	net.Send(ply)
+end
+
+function GetSpectateViewEntity(target)
+	if not IsValid(target) then return end
+
+	local ent = hg.GetCurrentCharacter and hg.GetCurrentCharacter(target) or target
+	if IsValid(ent) and ent ~= target then return ent end
+
+	local ragdoll = target:GetNWEntity("FakeRagdoll", NULL)
+	if IsValid(ragdoll) then return ragdoll end
+
+	ragdoll = target:GetNWEntity("RagdollDeath", NULL)
+	if IsValid(ragdoll) then return ragdoll end
+
+	return target
+end
+
 net.Receive("ZB_ChooseSpecPly",function(len,ply)
 	if ply:Alive() then return end
 	
 	local key = net.ReadInt(32)
-	local tbl = zb:CheckAlive()
+	local tbl = GetSpectateTargets(ply)
 	
-	if #tbl == 0 then return end
+	if #tbl == 0 then
+		ply.viewmode = key == IN_RELOAD and 3 or (ply.viewmode or 3)
+		SendSpectateState(ply)
+		return
+	end
 	
 	ply.chosenspect = ply.chosenspect and isnumber(ply.chosenspect) and ply.chosenspect or 1
 	ply.viewmode = ply.viewmode or 1
@@ -340,37 +401,27 @@ net.Receive("ZB_ChooseSpecPly",function(len,ply)
 	if key == IN_ATTACK then
 		ply.chosenspect = ply.chosenspect + 1
 		if ply.chosenspect > #tbl then ply.chosenspect = 1 end
-		
-		net.Start("ZB_SpectatePlayer")
-		net.WriteEntity(tbl[ply.chosenspect] or NULL)
-		net.WriteEntity(tbl[ply.chosenspect == 1 and #tbl or ply.chosenspect - 1] or NULL)
-		net.WriteInt(ply.viewmode, 4)
-		net.Send(ply)
+
+		SendSpectateState(ply, tbl[ply.chosenspect], tbl[ply.chosenspect == 1 and #tbl or ply.chosenspect - 1])
 	end
 
 	if key == IN_ATTACK2 then
 		ply.chosenspect = ply.chosenspect - 1
 		if ply.chosenspect < 1 then ply.chosenspect = #tbl end
-		
-		net.Start("ZB_SpectatePlayer")
-		net.WriteEntity(tbl[ply.chosenspect] or NULL)
-		net.WriteEntity(tbl[ply.chosenspect == #tbl and 1 or ply.chosenspect + 1] or NULL)
-		net.WriteInt(ply.viewmode, 4)
-		net.Send(ply)
+
+		SendSpectateState(ply, tbl[ply.chosenspect], tbl[ply.chosenspect == #tbl and 1 or ply.chosenspect + 1])
 	end
 
 	if key == IN_RELOAD then
 		ply.viewmode = (ply.viewmode % 3) + 1  
-		
-		net.Start("ZB_SpectatePlayer")
-		net.WriteEntity(tbl[ply.chosenspect] or NULL)
-		net.WriteEntity(tbl[ply.chosenspect == 1 and #tbl or ply.chosenspect - 1] or NULL)
-		net.WriteInt(ply.viewmode, 4)
-		net.Send(ply)
+
+		SendSpectateState(ply, tbl[ply.chosenspect], tbl[ply.chosenspect == 1 and #tbl or ply.chosenspect - 1])
 	end
 	
 	ply.chosenspect = math.Clamp(ply.chosenspect, 1, #tbl)
-	ply.chosenSpectEntity = tbl[ply.chosenspect]
+	if ply.viewmode ~= 3 then
+		ply.chosenSpectEntity = tbl[ply.chosenspect]
+	end
 	
 	if ply.lastSpectTarget ~= ply.chosenSpectEntity then
 		ply.lastSpectTarget = ply.chosenSpectEntity
@@ -379,11 +430,13 @@ end)
 
 hook.Add("SetupPlayerVisibility", "spectPVS", function(ply, viewent)
 	if ply:Alive() then return end
+	if (ply.viewmode or 1) == 3 then return end
 
 	local entity = ply.chosenSpectEntity
+	local viewEntity = GetSpectateViewEntity(entity)
 
-	if IsValid(entity) and !entity:TestPVS(ply) then
-		AddOriginToPVS(entity:GetPos())
+	if IsValid(viewEntity) and !viewEntity:TestPVS(ply) then
+		AddOriginToPVS(viewEntity:GetPos())
 	end
 end)
 
@@ -391,9 +444,36 @@ hook.Add("PlayerDeathThink", "spectNetwork", function(ply)
 	if ply:Alive() then return end
 	//ply:Spectate(OBS_MODE_ROAMING)
 
-	local ent = ply.chosenSpectEntity or player.GetAll()[1]
+	ply.viewmode = ply.viewmode or 1
+
+	if ply.viewmode == 3 then
+		ply.chosenSpectEntity = nil
+		ply:SetNWEntity("spect", NULL)
+		ply:SetNWEntity("spect_ragdoll", NULL)
+		ply:SetNWInt("viewmode", 3)
+		ply.lastSpectTarget = nil
+
+		if ply:GetMoveType() ~= MOVETYPE_NOCLIP then
+			ply:SetMoveType(MOVETYPE_NOCLIP)
+		end
+
+		if ply:GetObserverMode() ~= OBS_MODE_ROAMING then
+			ply:Spectate(OBS_MODE_ROAMING)
+		end
+
+		return
+	end
+
+	local ent = ply.chosenSpectEntity
+	if not IsValid(ent) then
+		local targets = GetSpectateTargets(ply)
+		ent = targets[1]
+		ply.chosenspect = IsValid(ent) and 1 or ply.chosenspect
+		ply.chosenSpectEntity = ent
+	end
+
 	if IsValid(ply) then
-		ply:SetNWEntity("spect", ent)
+		ply:SetNWEntity("spect", IsValid(ent) and ent or NULL)
 		ply:SetNWInt("viewmode", ply.viewmode or 1)
 		if IsValid(ent) then
 			if ent.organism and ply.viewmode == 1 then
@@ -403,8 +483,16 @@ hook.Add("PlayerDeathThink", "spectNetwork", function(ply)
 					hg.send_organism(ent.organism, ply)
 				end
 			end
-			local entr = hg.GetCurrentCharacter(ent)
-			local pos = ent:GetPos()
+			local entr = GetSpectateViewEntity(ent)
+			local spectRagdoll = IsValid(entr) and entr ~= ent and entr or NULL
+			ply:SetNWEntity("spect_ragdoll", spectRagdoll)
+
+			if ply.lastSpectViewEntity ~= entr then
+				ply.lastSpectViewEntity = entr
+				SendSpectateState(ply, ent)
+			end
+
+			local pos = IsValid(entr) and entr:GetPos() or ent:GetPos()
 			
 			if ply.viewmode ~= 3 then
 				local currentPos = ply:GetPos()
@@ -449,13 +537,25 @@ function GM:PlayerDeath(ply)
 
 	ply.chosenspect = ply:EntIndex()
 	ply.viewmode = 1 
+
+	local alivePlayers = GetSpectateTargets(ply)
+	if #alivePlayers > 0 then
+		ply.chosenSpectEntity = alivePlayers[1]
+		ply.chosenspect = 1
+		local viewEntity = GetSpectateViewEntity(alivePlayers[1])
+		ply:SetPos(IsValid(viewEntity) and viewEntity:GetPos() or alivePlayers[1]:GetPos())
+		SendSpectateState(ply, alivePlayers[1])
+	else
+		SendSpectateState(ply)
+	end
 	
 	timer.Simple(0.1, function()
 		if IsValid(ply) and not ply:Alive() then
-			local alivePlayers = zb:CheckAlive()
+			local alivePlayers = GetSpectateTargets(ply)
 			if #alivePlayers > 0 then
 				ply.chosenSpectEntity = alivePlayers[1]
 				ply.chosenspect = 1
+				SendSpectateState(ply, alivePlayers[1])
 			end
 		end
 	end)

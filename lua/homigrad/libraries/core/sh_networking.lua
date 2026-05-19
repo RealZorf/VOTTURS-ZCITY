@@ -96,7 +96,16 @@ else
 	hook.Add("OnRequestFullUpdate", "OnRequestFullUpdate_zb", function(data)
 		local id = data.userid
 		local ply = Player(id)
+		if not IsValid(ply) then
+			for _, candidate in player.Iterator() do
+				if candidate:UserID() == id then
+					ply = candidate
+					break
+				end
+			end
+		end
 		
+		if not IsValid(ply) then return end
 		ply:SyncVars()
 	end)
 	
@@ -153,37 +162,150 @@ else
     	end
     end
 	
-    function playerMeta:SyncVars()
-    	for k, v in pairs(zb.net.globals) do
-    		net.Start("zbGlobalVarSet")
-    			net.WriteString(k)
-    			net.WriteType(v)
-    		net.Send(self)
-    	end
+	local syncBatchSize = CreateConVar("zb_netvar_sync_batch_size", "12", FCVAR_ARCHIVE, "How many Z-City netvars to send per full-update batch.", 4, 64)
+	local syncBatchDelay = CreateConVar("zb_netvar_sync_batch_delay", "0.05", FCVAR_ARCHIVE, "Delay between Z-City netvar full-update batches.", 0.01, 0.25)
 
-    	for k, v in pairs(zb.net.locals[self] or {}) do
-    		net.Start("zbLocalVarSet")
-    			net.WriteString(k)
-    			net.WriteType(v)
-    		net.Send(self)
-    	end
+	local function queueSyncItem(queue, kind, a, b)
+		queue[#queue + 1] = {kind, a, b}
+	end
 
-    	for entity, data in pairs(zb.net.list) do
-    		if (IsValid(entity)) then
-    			local index = entity:EntIndex()
+	local function sendQueuedSyncItem(ply, item)
+		if not IsValid(ply) then return false end
 
-    			for k, v in pairs(data) do
-    				net.Start("zbNetVarSet")
-    					net.WriteUInt(index, 16)
-    					net.WriteString(k)
-    					net.WriteType(v)
-    				net.Send(self)
-    			end
+		local kind = item[1]
+		if kind == "global" then
+			local key = item[2]
+			local value = zb.net.globals[key]
+			if value == nil then return false end
+
+			net.Start("zbGlobalVarSet")
+				net.WriteString(key)
+				net.WriteType(value)
+			net.Send(ply)
+
+			return true
+		elseif kind == "local" then
+			local key = item[2]
+			local localVars = zb.net.locals[ply]
+			if not localVars then return false end
+
+			local value = localVars[key]
+			if value == nil then return false end
+
+			net.Start("zbLocalVarSet")
+				net.WriteString(key)
+				net.WriteType(value)
+			net.Send(ply)
+
+			return true
+		elseif kind == "entity" then
+			local entity, key = item[2], item[3]
+			if not IsValid(entity) then
+				zb.net.list[entity] = nil
+				return false
+			end
+
+			local data = zb.net.list[entity]
+			if not data then return false end
+
+			local value = data[key]
+			if value == nil then return false end
+
+			net.Start("zbNetVarSet")
+				net.WriteUInt(entity:EntIndex(), 16)
+				net.WriteString(key)
+				net.WriteType(value)
+			net.Send(ply)
+
+			return true
+		end
+
+		return false
+	end
+
+	local function runSyncQueue(ply)
+		if not IsValid(ply) then return end
+
+		local queue = ply.ZBNetVarSyncQueue
+		if not queue then return end
+
+		local sent = 0
+		local maxPerBatch = syncBatchSize:GetInt()
+		local queueIndex = ply.ZBNetVarSyncQueueIndex or 1
+
+		while sent < maxPerBatch and queueIndex <= #queue do
+			local item = queue[queueIndex]
+			queue[queueIndex] = nil
+			queueIndex = queueIndex + 1
+
+			if sendQueuedSyncItem(ply, item) then
+				sent = sent + 1
+			end
+		end
+
+		ply.ZBNetVarSyncQueueIndex = queueIndex
+
+		if queueIndex > #queue then
+			ply.ZBNetVarSyncQueue = nil
+			ply.ZBNetVarSyncQueueIndex = nil
+			ply.ZBNetVarSyncActive = nil
+			ply.ZBNetVarLastSync = CurTime()
+			timer.Remove("ZB_SyncVars_" .. ply:UserID())
+		end
+	end
+
+	function playerMeta:SyncVars(force)
+		if not IsValid(self) then return end
+
+		if self.ZBNetVarSyncActive then return end
+		if not force and (self.ZBNetVarLastSync or 0) > CurTime() - 5 then return end
+
+		local queue = {}
+
+		for k in pairs(zb.net.globals) do
+			queueSyncItem(queue, "global", k)
+		end
+
+		for k in pairs(zb.net.locals[self] or {}) do
+			queueSyncItem(queue, "local", k)
+		end
+
+		for entity, data in pairs(zb.net.list) do
+			if IsValid(entity) then
+				for k in pairs(data) do
+					queueSyncItem(queue, "entity", entity, k)
+				end
 			else
 				zb.net.list[entity] = nil
-    		end
-    	end
-    end
+			end
+		end
+
+		self.ZBNetVarSyncQueue = queue
+		self.ZBNetVarSyncQueueIndex = 1
+
+		if #queue <= 0 then
+			self.ZBNetVarSyncQueueIndex = nil
+			self.ZBNetVarLastSync = CurTime()
+			return
+		end
+
+		self.ZBNetVarSyncActive = true
+
+		local timerName = "ZB_SyncVars_" .. self:UserID()
+		timer.Remove(timerName)
+		timer.Create(timerName, syncBatchDelay:GetFloat(), 0, function()
+			runSyncQueue(self)
+		end)
+
+		runSyncQueue(self)
+	end
+
+	hook.Add("PlayerDisconnected", "ZB_StopNetVarSync", function(ply)
+		timer.Remove("ZB_SyncVars_" .. ply:UserID())
+		ply.ZBNetVarSyncQueue = nil
+		ply.ZBNetVarSyncQueueIndex = nil
+		ply.ZBNetVarSyncActive = nil
+	end)
 	
     function playerMeta:GetLocalVar(key, default)
     	if (zb.net.locals[self] and zb.net.locals[self][key] != nil) then

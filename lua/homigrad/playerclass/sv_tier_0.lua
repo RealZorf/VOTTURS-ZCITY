@@ -1,5 +1,20 @@
 local classList = player.classList
 local Player = FindMetaTable("Player")
+
+local function ResetClassAnimationState(ply)
+	if not IsValid(ply) then return end
+
+	if ply.AnimResetGestureSlot then
+		for slot = 0, 6 do
+			ply:AnimResetGestureSlot(slot)
+		end
+	end
+
+	if ply.AnimRestartMainSequence then ply:AnimRestartMainSequence() end
+	if ply.SetCycle then ply:SetCycle(0) end
+	if ply.SetPlaybackRate then ply:SetPlaybackRate(1) end
+end
+
 function Player:SetPlayerClass(value, data)
 	data = data or {}
 
@@ -10,6 +25,11 @@ function Player:SetPlayerClass(value, data)
 	if old and old.Off then old.Off(self) end
 	self.PlayerClassName = value
 	self:PlayerClassEvent("On", data) -- WHO WRITE THIS SHIT
+	ResetClassAnimationState(self)
+	timer.Simple(0, function()
+		if IsValid(self) then ResetClassAnimationState(self) end
+	end)
+
 	net.Start("setupclass")
 		net.WriteEntity(self)
 		net.WriteString(value)
@@ -33,13 +53,22 @@ end
 
 util.AddNetworkString("setupclass")
 hook.Add("PlayerInitializeSpawn", "PlayerClass", function(plySend)
-	for i, ply in player.Iterator() do
+	local delay = 0
+
+	for _, ply in player.Iterator() do
 		if not ply:GetPlayerClass() then continue end
-		net.Start("setupclass")
-		net.WriteEntity(ply)
-		net.WriteString(ply:GetNWString("Class"))
-		net.WriteString(ply:GetNWString("ClassOld"))
-		net.Send(plySend)
+
+		delay = delay + 0.03
+		timer.Simple(delay, function()
+			if not IsValid(plySend) or not IsValid(ply) then return end
+
+			net.Start("setupclass")
+			net.WriteEntity(ply)
+			net.WriteString(ply:GetNWString("Class"))
+			net.WriteString(ply:GetNWString("ClassOld"))
+			net.WriteTable({})
+			net.Send(plySend)
+		end)
 	end
 end)
 

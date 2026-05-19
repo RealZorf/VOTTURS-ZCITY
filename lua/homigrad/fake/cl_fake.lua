@@ -717,7 +717,9 @@ end)
 function hg.GetCurrentCharacter(ply)
 	if not IsValid(ply) then return end
 
-	return (IsValid(ply.FakeRagdoll) and ply.FakeRagdoll) or ply
+	local ragdoll = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or IsValid(ply:GetNWEntity("FakeRagdoll", NULL)) and ply:GetNWEntity("FakeRagdoll", NULL)
+	ragdoll = IsValid(ragdoll) and ragdoll or IsValid(ply:GetNWEntity("RagdollDeath", NULL)) and ply:GetNWEntity("RagdollDeath", NULL)
+	return (IsValid(ragdoll) and ragdoll) or ply
 end
 
 hook.Add("Player Spawn", "fuckingremoveragdoll", function(ply)

@@ -292,18 +292,29 @@ if CLIENT then
         end
         
         local allowedModes = {
+            ["activeshooter"] = true,
+            ["assassinsgreed"] = true,
+            ["coop"] = true,
+            ["criresp"] = true,
             ["tdm"] = true,
             ["cstrike"] = true,
             ["ww2"] = true,
+            ["defense"] = true,
+            ["dm"] = true,
+            ["event"] = true,
+            ["fear"] = true,
+            ["gwars"] = true,
             ["hmcd"] = true,
             ["hl2dm"] = true,
             ["hl3"] = true,
-            ["shipassassins"] = true,
-            ["riot"] = true,
-            ["gwars"] = true,
-            ["criresp"] = true,
             ["lastmanstanding"] = true,
+            ["melee_tdm"] = true,
+            ["pathowogen"] = true,
+            ["riot"] = true,
             ["sandbox"] = true,
+            ["scugarena"] = true,
+            ["shipassassins"] = true,
+            ["superfighters"] = true,
         }
         
         for i, mode in SortedPairsByMemberValue(zb.availableModes,"canlaunch",true) do

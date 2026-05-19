@@ -464,6 +464,9 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 
 	if not ply:Alive() and not follow then
 		if lply:GetNWInt("viewmode",0) == 1 then
+			local spectView = hook.Run("HG_CalcView", lply, origin, angles, fov, znear, zfar)
+			if spectView then return spectView end
+
 			ply = lply:GetNWEntity("spect",NULL)
 			
 			if IsValid(ply) then
