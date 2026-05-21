@@ -495,10 +495,16 @@ power:defaultAccess(ULib.ACCESS_SUPERADMIN)
 power:help("Toggles super power for a player.")
 
 if SERVER then
-    ULib.ucl.registerAccess("ulx power", {"superadmin", "headadmin"}, "Grants access to the ulx power command", "Command")
+    ULib.ucl.registerAccess("ulx power", {"superadmin", "owner", "servermanager", "headdeveloper", "headadmin"}, "Grants access to the ulx power command", "Command")
     timer.Simple(0, function()
         if not ULib or not ULib.ucl or not ULib.ucl.groupAllow then return end
-
+        
+        ULib.ucl.groupAllow("superadmin", "ulx power")
+        ULib.ucl.groupAllow("owner", "ulx power")
+        ULib.ucl.groupAllow("servermanager", "ulx power")
+        ULib.ucl.groupAllow("headdeveloper", "ulx power")
         ULib.ucl.groupAllow("headadmin", "ulx power")
+        ULib.ucl.groupAllow("developer", "ulx power")
+        ULib.ucl.groupAllow("admin", "ulx power")
     end)
 end

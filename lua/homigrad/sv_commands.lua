@@ -2,13 +2,15 @@ COMMANDS = COMMANDS or {}
 
 local validUserGroupSuperAdmin = {
 	superadmin = true,
-	developer = true,
-	headadmin = true,
+	owner = true,
+	servermanager = true,
+	headdeveloper = true,
 }
 
 local validUserGroup = {
-	admin = true,
-    mapper = true,
+	headadmin = true,
+	developer = true,
+	admin = true
 }
 
 function COMMAND_GETACCES(ply)
@@ -151,9 +153,17 @@ if SERVER then
     local function ZC_CanUsePowerCommand(ply)
         if not IsValid(ply) then return false end
 
-        local user_group = ply:GetUserGroup()
+        local group = ply:GetUserGroup()
 
-        return user_group == "superadmin" or user_group == "headadmin"
+        if validUserGroupSuperAdmin[group] then
+            return true
+        end
+
+        if validUserGroup[group] then
+            return true
+        end
+
+        return false
     end
 
     local function ZC_HasPowerMelee(attacker)
