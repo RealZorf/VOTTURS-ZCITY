@@ -146,6 +146,8 @@ end
 SWEP.modelscale = 1
 SWEP.modelscale2 = 1
 
+local ResetMeleeClientState
+
 if CLIENT then
     function PrintBones( entity )
         for i = 0, entity:GetBoneCount() - 1 do
@@ -157,6 +159,55 @@ if CLIENT then
         PrintTable(entity:GetSequenceList())
     end
 
+    function ResetMeleeClientState(self, owner, keepModel)
+        self.rhandik = false
+        self.lhandik = false
+        self.velocityAdd = nil
+        self.velocityAddVel = nil
+        self.walkLerped = nil
+        self.walkTime = nil
+        self.lerpedAddPos = nil
+        self.lerpedAddAng = nil
+        self.lastAddPos = nil
+        self.timetick2 = nil
+        self.lasthuyhuy = nil
+
+        if IsValid(owner) and hg.ResetTPIKState then
+            hg.ResetTPIKState(owner)
+        end
+
+        if not keepModel then
+            if IsValid(self.worldModel) then
+                self.worldModel:Remove()
+            end
+            self.worldModel = nil
+
+            if IsValid(self.worldModel2) then
+                self.worldModel2:Remove()
+            end
+            self.worldModel2 = nil
+        end
+    end
+
+    local function EnsureMeleeAnimationModel(self, model)
+        if not IsValid(model) or not self.WorldModelReal then return end
+        if model:GetModel() == self.WorldModelReal then return end
+
+        model:SetModel(self.WorldModelReal)
+        model:SetNoDraw(true)
+        model:SetupBones()
+
+        local idle = self.AnimList and self.AnimList.idle
+        if idle then
+            model:SetSequence(idle)
+        end
+
+        self.animtime = CurTime()
+        self.animspeed = 1
+        self.cycling = false
+        self.reverseanim = false
+    end
+
 	function SWEP:GetWM()
         if IsValid(self.worldModel) then
             return self.worldModel
@@ -164,6 +215,7 @@ if CLIENT then
             self.worldModel = ClientsideModel(self.WorldModel)
             self.worldModel:SetNoDraw(true)
             self.worldModel:SetupBones()
+            local model = self.worldModel
             self:CallOnRemove("remove_worldmodel1",function()
                 if IsValid(model) then
                     model:Remove()
@@ -179,6 +231,7 @@ if CLIENT then
 		local ent = self:GetOwner()
         if not IsValid(ent) then
             self:DrawWorldModel2()
+            return
         end
         
         if ent:IsNPC() then
@@ -220,7 +273,7 @@ if CLIENT then
 
     SWEP.Current = 1
 
-	function SWEP:DrawWorldModel2()
+	function SWEP:DrawWorldModel2(updateOnly)
 		local owner = self:GetOwner()
         
         if not IsValid(self.worldModel) then
@@ -236,7 +289,25 @@ if CLIENT then
 		local WorldModel = self.worldModel
         
         self.worldModel:SetModelScale(self.modelscale2)
+        if IsValid(owner) then
+            EnsureMeleeAnimationModel(self, WorldModel)
+        end
+
         local ent = hg.GetCurrentCharacter(owner)
+        if IsValid(owner) and not IsValid(ent) then
+            ResetMeleeClientState(self, owner, true)
+            return
+        end
+
+        local worldModelName = WorldModel:GetModel()
+        local entModel = IsValid(ent) and ent:GetModel() or nil
+        if self.ZCMeleeLastOwner ~= owner or self.ZCMeleeLastEnt ~= ent or self.ZCMeleeLastEntModel ~= entModel or self.ZCMeleeLastWorldModel ~= worldModelName then
+            ResetMeleeClientState(self, owner, true)
+            self.ZCMeleeLastOwner = owner
+            self.ZCMeleeLastEnt = ent
+            self.ZCMeleeLastEntModel = entModel
+            self.ZCMeleeLastWorldModel = worldModelName
+        end
 
         local inuse = self:InUse()
 
@@ -297,6 +368,7 @@ if CLIENT then
         WorldModel:SetupBones()
         
         if IsValid(owner) and !inuse then
+            if not IsValid(ent) then return end
             local bon = ent:LookupBone("ValveBiped.Bip01_R_Hand")
             if not bon then return end
             local mat = ent:GetBoneMatrix(bon)
@@ -330,6 +402,8 @@ if CLIENT then
                 WorldModel:SetBoneMatrix(i, mata)
             end
         end
+
+        if updateOnly then return end
 
         if not self.WorldModelExchange then
             WorldModel:DrawModel()
@@ -599,6 +673,12 @@ function SWEP:SetHandPos(noset)
     if not localOwner and (not ply.shouldTransmit or ply.NotSeen) then return end
 
     local ent = hg.GetCurrentCharacter(ply)
+    if not IsValid(ent) then
+        if CLIENT and ResetMeleeClientState then
+            ResetMeleeClientState(self, ply, true)
+        end
+        return
+    end
 
 	local bones = hg.TPIKBonesLH
 
@@ -717,6 +797,10 @@ function SWEP:SetupDataTables()
 end
 
 function SWEP:OwnerChanged()
+    if CLIENT then
+        ResetMeleeClientState(self, self:GetOwner(), false)
+    end
+
     if IsValid(self:GetOwner()) and self:GetOwner():IsPlayer() then
         self:PlayAnim("deploy",0.5,false,nil,false)
         self:SetHold(self.HoldType)
@@ -728,14 +812,19 @@ function SWEP:OwnerChanged()
 end
 
 function SWEP:OnRemove()
+    if CLIENT then
+        ResetMeleeClientState(self, self:GetOwner(), false)
+        return
+    end
+
     if IsValid(self.worldModel) then
         self.worldModel:Remove()
     end
 end
 SWEP.Initialzed = false
 function SWEP:Deploy()
-    if CLIENT and hg.ResetTPIKState and IsValid(self:GetOwner()) then
-        hg.ResetTPIKState(self:GetOwner())
+    if CLIENT then
+        ResetMeleeClientState(self, self:GetOwner(), false)
     end
     if SERVER and self.Initialzed and not self:GetOwner().noSound then self:GetOwner():EmitSound(self.DeploySnd,65) end
     self.Initialzed = true
@@ -746,8 +835,8 @@ function SWEP:Deploy()
 end
 
 function SWEP:Holster(wep)
-    if CLIENT and hg.ResetTPIKState and IsValid(self:GetOwner()) then
-        hg.ResetTPIKState(self:GetOwner())
+    if CLIENT then
+        ResetMeleeClientState(self, self:GetOwner(), false)
     end
     self:SetInAttack(false)
     return true

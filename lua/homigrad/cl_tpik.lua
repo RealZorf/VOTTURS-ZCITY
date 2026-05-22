@@ -677,6 +677,25 @@ function hg.ResetTPIKState(ply)
     ply.oldposrh = nil
     ply.BonesLength = nil
     ply.leftClicking = nil
+    ply.lerp_hand = nil
+    ply.ply_r_upperarm_pos = nil
+    ply.ply_r_upperarm_angle = nil
+    ply.ply_r_forearm_pos = nil
+    ply.ply_r_forearm_angle = nil
+    ply.ply_l_upperarm_pos = nil
+    ply.ply_l_upperarm_angle = nil
+    ply.ply_l_forearm_pos = nil
+    ply.ply_l_forearm_angle = nil
+    ply.pullingTowards = nil
+    ply.pullingTowardsStart = nil
+    ply.pullingTowardsTime = nil
+    ply.pullingTowardsWeapon = nil
+    ply.pullingTowardsCallback = nil
+    ply.pullingTowardsOffsets = nil
+    if IsValid(ply.pullingTowardsModel) then
+        ply.pullingTowardsModel:Remove()
+    end
+    ply.pullingTowardsModel = nil
     ply.ZCTPIKLastWeapon = nil
     ply.ZCTPIKLastModel = nil
     ply.ZCTPIKLastEnt = nil
@@ -767,7 +786,11 @@ function hg.MainTPIKFunction(ent, ply, wpn)
         end
         
         //local systime = SysTime()
-        if wpn.SetHandPos then
+        if IsValid(wpn) and wpn.ismelee and wpn.DrawWorldModel2 then
+            wpn:DrawWorldModel2(true)
+        end
+
+        if IsValid(wpn) and wpn.SetHandPos then
             wpn:SetHandPos()
         end
 
