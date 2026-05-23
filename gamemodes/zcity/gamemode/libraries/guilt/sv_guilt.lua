@@ -90,17 +90,8 @@ local function ResetRoundRefundState(ply)
     ply.GuiltSuicideDamageAt = 0
 end
 
-hook.Add("DatabaseConnected", "GuiltCreateData", function()
-	local query
-
-	query = mysql:Create("zb_guilt")
-		query:Create("steamid", "VARCHAR(20) NOT NULL")
-		query:Create("steam_name", "VARCHAR(32) NOT NULL")
-		query:Create("value", "FLOAT NOT NULL")
-		query:PrimaryKey("steamid")
-	query:Execute()
-
-    zb.GuiltSQL.Active = true
+hook.Add("ZCITY_DatabaseReady", "GuiltActivate", function()
+	zb.GuiltSQL.Active = ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB:IsReady() or zb.GuiltSQL.Active
 end)
 
 hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
@@ -180,10 +171,14 @@ function plyMeta:guilt_SetValue( zb_guilt )
 	
     zb.GuiltSQL.PlayerInstances[self:SteamID64()].value = zb_guilt
 
-	local updateQuery = mysql:Update("zb_guilt")
-		updateQuery:Update("value", zb_guilt)
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
+	if ZCITY_DB and ZCITY_DB.QueueGuiltSave then
+		ZCITY_DB.QueueGuiltSave(steamID64)
+	else
+		local updateQuery = mysql:Update("zb_guilt")
+			updateQuery:Update("value", zb_guilt)
+			updateQuery:Where("steamid", steamID64)
+		updateQuery:Execute()
+	end
 end
 
 local function IsLookingAt(ply, targetVec)

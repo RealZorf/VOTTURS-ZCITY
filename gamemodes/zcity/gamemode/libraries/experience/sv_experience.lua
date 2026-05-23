@@ -5,21 +5,45 @@ zb.Experience = zb.Experience or {}
 zb.Experience.PlayerInstances = zb.Experience.PlayerInstances or {}
 zb.Experience.Active = zb.Experience.Active or false
 
-hook.Add("DatabaseConnected", "ExperienceCreateData", function()
-	local query
+hook.Add("ZCITY_DatabaseReady", "ExperienceActivate", function()
+	zb.Experience.Active = ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB:IsReady() or zb.Experience.Active
 
-	query = mysql:Create("zb_experience")
-		query:Create("steamid", "VARCHAR(20) NOT NULL")
-		query:Create("steam_name", "VARCHAR(32) NOT NULL")
-		query:Create("skill", "FLOAT NOT NULL")
-		query:Create("experience", "INT NOT NULL") -- Надо перевести в большие числа INT НЕ ХВАТАЕТ!!! - хватает просто кое-кто придурок да салат?
-        query:Create("deaths", "INT NOT NULL")
-        query:Create("kills", "INT NOT NULL")
-        query:Create("suicides", "INT NOT NULL")
-		query:PrimaryKey("steamid")
+	if not zb.Experience.Active then return end
+
+	for _, ply in player.Iterator() do
+		if IsValid(ply) and ply:IsPlayer() and not ply:IsBot() then
+			hook.Run("ZB_Exp_ReloadPlayer", ply)
+		end
+	end
+end)
+
+hook.Add("ZB_Exp_ReloadPlayer", "ZB_Exp_ReloadPlayerQuery", function(ply)
+	if not IsValid(ply) then return end
+
+	local name = ply:Name()
+	local steamID64 = ply:SteamID64()
+
+	local query = mysql:Select("zb_experience")
+	query:Select("skill")
+	query:Select("experience")
+	query:Select("deaths")
+	query:Select("kills")
+	query:Select("suicides")
+	query:Where("steamid", steamID64)
+	query:Callback(function(result)
+		if not IsValid(ply) then return end
+
+		zb.Experience.PlayerInstances[steamID64] = zb.Experience.PlayerInstances[steamID64] or {}
+
+		if istable(result) and #result > 0 then
+			zb.Experience.PlayerInstances[steamID64].skill = tonumber(result[1].skill) or 0
+			zb.Experience.PlayerInstances[steamID64].experience = tonumber(result[1].experience) or 0
+			zb.Experience.PlayerInstances[steamID64].deaths = tonumber(result[1].deaths) or 0
+			zb.Experience.PlayerInstances[steamID64].kills = tonumber(result[1].kills) or 0
+			zb.Experience.PlayerInstances[steamID64].suicides = tonumber(result[1].suicides) or 0
+		end
+	end)
 	query:Execute()
-
-    zb.Experience.Active = true
 end)
 
 --local query = mysql:Drop("zb_experience")
@@ -97,10 +121,14 @@ function plyMeta:GiveExp( ammout )
 
     zb.Experience.PlayerInstances[steamID64].experience =  math.max( (zb.Experience.PlayerInstances[steamID64].experience or 0) + ammout, 0 )
 
-	local updateQuery = mysql:Update("zb_experience")
-		updateQuery:Update("experience", self:GetExp(),0)
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
+	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
+		ZCITY_DB.QueueExperienceSave(steamID64)
+	else
+		local updateQuery = mysql:Update("zb_experience")
+			updateQuery:Update("experience", self:GetExp(),0)
+			updateQuery:Where("steamid", steamID64)
+		updateQuery:Execute()
+	end
 
     local points = math.min(ammout / 5, 10) * (1 + (self.EA_HasAccess and self:EA_HasAccess() and 2 or 0))
     local mul = math.min(player.GetCount() / 10, 1)
@@ -127,10 +155,14 @@ function plyMeta:GiveSkill( ammout )
 
     zb.Experience.PlayerInstances[steamID64].skill = math.max( zb.Experience.PlayerInstances[steamID64].skill + ammout, 0 )
 
-	local updateQuery = mysql:Update("zb_experience")
-		updateQuery:Update("skill", self:GetSkill())
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
+	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
+		ZCITY_DB.QueueExperienceSave(steamID64)
+	else
+		local updateQuery = mysql:Update("zb_experience")
+			updateQuery:Update("skill", self:GetSkill())
+			updateQuery:Where("steamid", steamID64)
+		updateQuery:Execute()
+	end
     --self:SetNWFloat( "skill", skill + ammout )
     
 end
@@ -153,10 +185,14 @@ function plyMeta:GiveDeaths( ammout )
 
     zb.Experience.PlayerInstances[steamID64].deaths = math.max( zb.Experience.PlayerInstances[steamID64].deaths + ammout, 0 )
 
-	local updateQuery = mysql:Update("zb_experience")
-		updateQuery:Update("deaths", self:GetDeaths())
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
+	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
+		ZCITY_DB.QueueExperienceSave(steamID64)
+	else
+		local updateQuery = mysql:Update("zb_experience")
+			updateQuery:Update("deaths", self:GetDeaths())
+			updateQuery:Where("steamid", steamID64)
+		updateQuery:Execute()
+	end
     --self:SetNWInt( "experience", exp + ammout )
 end
 
@@ -177,10 +213,14 @@ function plyMeta:GiveKills( ammout )
 
     zb.Experience.PlayerInstances[steamID64].kills = math.max( zb.Experience.PlayerInstances[steamID64].kills + ammout, 0 )
 
-	local updateQuery = mysql:Update("zb_experience")
-		updateQuery:Update("kills", self:GetKills())
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
+	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
+		ZCITY_DB.QueueExperienceSave(steamID64)
+	else
+		local updateQuery = mysql:Update("zb_experience")
+			updateQuery:Update("kills", self:GetKills())
+			updateQuery:Where("steamid", steamID64)
+		updateQuery:Execute()
+	end
     --self:SetNWInt( "experience", exp + ammout )
 end
 
@@ -202,10 +242,14 @@ function plyMeta:GiveSuicides( ammout )
 
     zb.Experience.PlayerInstances[steamID64].suicides =  math.max( zb.Experience.PlayerInstances[steamID64].suicides + ammout, 0 )
 
-	local updateQuery = mysql:Update("zb_experience")
-		updateQuery:Update("suicides", self:GetSuicides())
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
+	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
+		ZCITY_DB.QueueExperienceSave(steamID64)
+	else
+		local updateQuery = mysql:Update("zb_experience")
+			updateQuery:Update("suicides", self:GetSuicides())
+			updateQuery:Where("steamid", steamID64)
+		updateQuery:Execute()
+	end
     --self:SetNWInt( "experience", exp + ammout )
 end
 
