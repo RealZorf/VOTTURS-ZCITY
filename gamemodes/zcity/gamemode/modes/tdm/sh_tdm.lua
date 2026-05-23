@@ -13,6 +13,14 @@ zb.Points.HMCD_TDM_T.Name = "HMCD_TDM_T"
 
 MODE.PrintName = "Team Deathmatch"
 
+MODE.BuyMenuTheme = {
+	Background = Color(0, 0, 0, 155),
+	InnerBackground = Color(0, 0, 0, 140),
+	Outline = Color(255, 0, 0, 128),
+	Gradient = Color(155, 0, 0, 55),
+	AttachmentGradient = Color(55, 155, 55, 25),
+}
+
 --[[
     ["weapon_hk_usp"] = {
         Type = "Weapon",

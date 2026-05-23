@@ -377,9 +377,33 @@ local defaultBuyMenuTheme = {
 	AttachmentGradient = Color(55, 155, 55, 25),
 }
 
+zb = zb or {}
+zb.TDM_BuyMenuTheme = defaultBuyMenuTheme
+
 local function GetBuyMenuTheme()
 	local round = CurrentRound and CurrentRound()
-	return (round and round.BuyMenuTheme) or defaultBuyMenuTheme
+	local theme = (round and round.BuyMenuTheme) or defaultBuyMenuTheme
+
+	return {
+		Background = theme.Background or defaultBuyMenuTheme.Background,
+		InnerBackground = theme.InnerBackground or defaultBuyMenuTheme.InnerBackground,
+		Outline = theme.Outline or defaultBuyMenuTheme.Outline,
+		Gradient = theme.Gradient or defaultBuyMenuTheme.Gradient,
+		AttachmentGradient = theme.AttachmentGradient or defaultBuyMenuTheme.AttachmentGradient,
+	}
+end
+
+local function ApplyBuyMenuFrameColors(frame)
+	if not IsValid(frame) then return end
+
+	local theme = GetBuyMenuTheme()
+	frame:SetColorBR(Color(theme.Outline.r, theme.Outline.g, theme.Outline.b, math.min(255, theme.Outline.a + 40)))
+	frame:SetColorBG(Color(
+		theme.InnerBackground.r,
+		theme.InnerBackground.g,
+		theme.InnerBackground.b,
+		math.min(255, theme.InnerBackground.a + 15)
+	))
 end
 
 local function SetThemeDrawColor(color, fallback)
@@ -459,7 +483,8 @@ local function OpenBuyMenu()
 	Frame:MakePopup()
 	Frame:SetTitle("Buy menu")
 	Frame.Paint = PaintFrame
-	
+	ApplyBuyMenuFrameColors(Frame)
+
 	local Sheet = vgui.Create( "DPropertySheet", Frame )
 	Sheet:Dock( FILL )
 	Sheet:SetTextInset(50)
