@@ -469,179 +469,325 @@ local rtabFunc = function(self)
 
 end
 
+local TDM_BuyMenuBuildTimer
+local TDM_BuyMenuBuildingPanel
+local TDM_BUY_ITEMS_PER_TICK = 8
+
+local function cancelBuyMenuBuildTimer()
+	if TDM_BuyMenuBuildTimer then
+		timer.Remove(TDM_BuyMenuBuildTimer)
+		TDM_BuyMenuBuildTimer = nil
+	end
+
+	if IsValid(TDM_BuyMenuBuildingPanel) and TDM_BuyMenuBuildingPanel._tdmBuilding then
+		TDM_BuyMenuBuildingPanel._tdmBuilding = false
+		TDM_BuyMenuBuildingPanel._tdmBuilt = false
+
+		local canvas = TDM_BuyMenuBuildingPanel.GetCanvas and TDM_BuyMenuBuildingPanel:GetCanvas()
+		if IsValid(canvas) then
+			canvas:Clear()
+		end
+	end
+
+	TDM_BuyMenuBuildingPanel = nil
+end
+
+local function buildAmmoLookup(buyItems)
+	local lookup = {}
+
+	for name2, ammoEntry in pairs(buyItems["Ammo"] or {}) do
+		if istable(ammoEntry) and ammoEntry.ItemClass then
+			lookup[ammoEntry.ItemClass] = name2
+		end
+	end
+
+	return lookup
+end
+
+local function getCachedWeapon(class, cache)
+	if cache[class] == nil then
+		cache[class] = weapons.GetStored(class)
+	end
+
+	return cache[class]
+end
+
+local function getCachedEnt(class, cache)
+	if cache[class] == nil then
+		cache[class] = scripted_ents.GetStored(class)
+	end
+
+	return cache[class]
+end
+
+local function collectVisibleCategoryItems(category, team)
+	local itemsList = {}
+
+	for n, Item in pairs(category) do
+		if n == "Priority" then continue end
+		if Item.TeamBased != nil and Item.TeamBased != team then continue end
+		itemsList[#itemsList + 1] = {n = n, item = Item}
+	end
+
+	return itemsList
+end
+
+local function categoryHasVisibleItems(category, team)
+	for n, Item in pairs(category) do
+		if n == "Priority" then continue end
+		if Item.TeamBased != nil and Item.TeamBased != team then continue end
+		return true
+	end
+
+	return false
+end
+
+local function addBuyItemRow(CategoryPanel, categoryName, itemName, Item, buyItems, ammoLookup, weaponCache, entCache)
+	local weapon = getCachedWeapon(Item.ItemClass, weaponCache)
+	local ent = getCachedEnt(Item.ItemClass, entCache)
+
+	local ItemPanel = vgui.Create("DPanel", CategoryPanel)
+	ItemPanel:SetSize(0, ScrH() * 0.1)
+	ItemPanel:Dock(TOP)
+	ItemPanel:DockMargin(0, 8, 0, 0)
+	ItemPanel.Paint = PaintPanel1
+
+	if (weapon ~= nil and ((weapon.WepSelectIcon2 and weapon.WepSelectIcon2:GetName()) or weapon.IconOverride)) or (ent and ent.t.IconOverride) then
+		local ItemButton = vgui.Create("DImage", ItemPanel)
+		local bBox = (ent and ent.t.IconOverride) or weapon ~= nil and weapon.WepSelectIcon2box
+		ItemButton:SetSize(ScrH() * ((bBox and 0.1) or 0.17), ScrH() * 0.1)
+		ItemButton:Dock(LEFT)
+		local boxed = ScrH() * 0.07 / 2
+		ItemButton:DockMargin(5 + (bBox and boxed or 0), 5, 5 + (bBox and boxed or 0), 5)
+		ItemButton:SetImage((weapon ~= nil and ((weapon.WepSelectIcon2 and weapon.WepSelectIcon2:GetName() .. ".png") or weapon.IconOverride)) or ((ent and ent.t.IconOverride) or "none"))
+	end
+
+	local ItemButton = vgui.Create("DPanel", ItemPanel)
+	ItemButton:Dock(FILL)
+	ItemButton:DockMargin(0, 5, 0, 0)
+	ItemButton.Paint = function() end
+
+	local lbl = vgui.Create("DLabel", ItemButton)
+	lbl:SetText(itemName)
+	lbl:DockMargin(10, 0, 5, 0)
+	lbl:Dock(TOP)
+	lbl:SetFont("ZB_TDM_MENU")
+	lbl:SetSize(ScrW() * 0.5, ScrH() * 0.04)
+
+	lbl = vgui.Create("DLabel", ItemButton)
+	lbl:SetText("Price: $" .. Item.Price)
+	lbl:DockMargin(10, 0, 5, 0)
+	lbl:Dock(TOP)
+	lbl:SetTextColor(Color(155, 200, 155))
+	lbl:SetFont("ZB_TDM_DESC")
+	lbl:SetSize(ScrW() * 0.5, ScrH() * 0.02)
+
+	local BuyBtn = vgui.Create("DButton", ItemButton)
+	BuyBtn:DockMargin(10, 5, 10, 10)
+	BuyBtn:Dock(LEFT)
+	BuyBtn:SetText("Buy")
+	BuyBtn:SetTextColor(Color(200, 200, 200))
+	BuyBtn:SetFont("ZB_TDM_DESC")
+	BuyBtn:SetHeight(ScrH() * 0.025)
+	BuyBtn.Paint = PaintPanel
+	BuyBtn.Item = {categoryName, itemName}
+
+	function BuyBtn:DoClick()
+		net.Start("tdm_buyitem")
+			net.WriteTable(self.Item)
+		net.SendToServer()
+	end
+
+	if weapon and weapon.Primary then
+		local ammo = weapon.Primary.Ammo != "none" and weapon.Primary.Ammo or weapon.Ammo
+		if not ammo and weapon.Base then
+			local baseWeapon = getCachedWeapon(weapon.Base, weaponCache)
+			ammo = baseWeapon and baseWeapon.Primary and baseWeapon.Primary.Ammo
+		end
+
+		if ammo and hg.ammotypeshuy[ammo] then
+			local amm = vgui.Create("DButton", ItemButton)
+			amm:DockMargin(10, 5, 10, 10)
+			amm:Dock(LEFT)
+			amm:SetText(ammo)
+			amm:SetTextColor(Color(200, 200, 200))
+			amm:SetFont("ZB_TDM_DESCSMALL")
+
+			surface.SetFont("ZB_TDM_DESCSMALL")
+			local textW = surface.GetTextSize(ammo)
+
+			amm:SetHeight(ScrH() * 0.025)
+			amm:SetWidth(textW + 7)
+			local ammo2 = "ent_ammo_" .. hg.ammotypeshuy[ammo].name
+			local name = ammoLookup[ammo2]
+
+			amm.huy = {"Ammo", name}
+
+			function amm:DoClick()
+				net.Start("tdm_buyitem")
+					net.WriteTable(amm.huy)
+				net.SendToServer()
+			end
+
+			amm.Paint = PaintPanel
+		end
+	end
+
+	if Item.Attachments and #Item.Attachments > 0 then
+		local ItemAtt = vgui.Create("DGrid", ItemPanel)
+		local ItemIcon = math.ceil(ScrH() * 0.06)
+		ItemAtt:Dock(RIGHT)
+		ItemAtt:DockMargin(0, 5, 0, 0)
+		ItemAtt:SetCols(4)
+		ItemAtt:SetColWide(ItemIcon)
+		ItemAtt:SetRowHeight(ItemIcon)
+		ItemAtt.Paint = function() end
+
+		for _, AttachN in pairs(Item.Attachments) do
+			local ico = hg.attachmentsIcons[AttachN]
+			local Attach = vgui.Create("DImageButton")
+
+			if not ico then
+				print("[ATTACHMENT ERROR] Missing icon for:", AttachN, "Item:", itemName, "Category:", categoryName)
+			else
+				Attach:SetImage(ico)
+			end
+
+			Attach:SetSize(ItemIcon - 5, ItemIcon - 5)
+			Attach.Attachment = {categoryName, itemName, AttachN}
+
+			function Attach:DoClick()
+				net.Start("tdm_buyitem")
+					net.WriteTable(self.Attachment)
+				net.SendToServer()
+			end
+
+			Attach.Paint = PaintPanel2
+			ItemAtt:AddItem(Attach)
+		end
+	end
+end
+
+local function buildCategoryItems(categoryName, categoryPanel, category, buyItems, ammoLookup, weaponCache, entCache)
+	if not IsValid(categoryPanel) or categoryPanel._tdmBuilt or categoryPanel._tdmBuilding then return end
+
+	cancelBuyMenuBuildTimer()
+
+	local itemsList = collectVisibleCategoryItems(category, LocalPlayer():Team())
+	if #itemsList == 0 then
+		categoryPanel._tdmBuilt = true
+		return
+	end
+
+	categoryPanel._tdmBuilding = true
+	TDM_BuyMenuBuildingPanel = categoryPanel
+
+	local index = 1
+	local timerName = "TDM_BuyMenuBuild_" .. categoryName .. "_" .. tostring(categoryPanel)
+
+	TDM_BuyMenuBuildTimer = timerName
+	timer.Create(timerName, 0, 0, function()
+		if not IsValid(categoryPanel) then
+			cancelBuyMenuBuildTimer()
+			return
+		end
+
+		for _ = 1, TDM_BUY_ITEMS_PER_TICK do
+			if index > #itemsList then
+				categoryPanel._tdmBuilt = true
+				categoryPanel._tdmBuilding = false
+				cancelBuyMenuBuildTimer()
+				return
+			end
+
+			local entry = itemsList[index]
+			addBuyItemRow(categoryPanel, categoryName, entry.n, entry.item, buyItems, ammoLookup, weaponCache, entCache)
+			index = index + 1
+		end
+	end)
+end
+
 local function OpenBuyMenu()
+	cancelBuyMenuBuildTimer()
+
 	if TDM_OpenedBuyMenu then
 		TDM_OpenedBuyMenu:Remove()
 		TDM_OpenedBuyMenu = nil
 	end
+
 	local StartTime = zb.ROUND_START or CurTime()
 	if not LocalPlayer():Alive() or StartTime + 40 < CurTime() then return end
+
+	local round = CurrentRound and CurrentRound() or MODE
+	local buyItems = (round and round.BuyItems) or MODE.BuyItems
+	if not buyItems then return end
+
+	local playerTeam = LocalPlayer():Team()
+	local ammoLookup = buildAmmoLookup(buyItems)
+	local weaponCache = {}
+	local entCache = {}
+	local categoryPanels = {}
+	local categoryData = {}
+
 	TDM_OpenedBuyMenu = vgui.Create("ZFrame")
 	local Frame = TDM_OpenedBuyMenu
-	Frame:SetSize(ScrW() * 0.35,ScrH() * 0.85)
+	Frame:SetSize(ScrW() * 0.35, ScrH() * 0.85)
 	Frame:Center()
 	Frame:MakePopup()
 	Frame:SetTitle("Buy menu")
 	Frame.Paint = PaintFrame
 	ApplyBuyMenuFrameColors(Frame)
 
-	local Sheet = vgui.Create( "DPropertySheet", Frame )
-	Sheet:Dock( FILL )
+	function Frame:OnRemove()
+		cancelBuyMenuBuildTimer()
+	end
+
+	local Sheet = vgui.Create("DPropertySheet", Frame)
+	Sheet:Dock(FILL)
 	Sheet:SetTextInset(50)
 	Sheet.Paint = function() end
-	Sheet.tabScroller:SetOverlap( 0 )
-	Sheet.tabScroller:DockMargin( 8, 0, 8, 0 )
+	Sheet.tabScroller:SetOverlap(0)
+	Sheet.tabScroller:DockMargin(8, 0, 8, 0)
 	Sheet:SetFadeTime(0.1)
 
-	local round = CurrentRound and CurrentRound() or MODE
-	local buyItems = (round and round.BuyItems) or MODE.BuyItems
-	if not buyItems then return end
+	for k, category in SortedPairsByMemberValue(buyItems, "Priority") do
+		if not categoryHasVisibleItems(category, playerTeam) then continue end
 
-	for k,category in SortedPairsByMemberValue(buyItems, "Priority") do
-		local CategoryPanel = vgui.Create( "DScrollPanel", Sheet )
-		--CategoryPanel:Dock()
+		categoryData[k] = category
+
+		local CategoryPanel = vgui.Create("DScrollPanel", Sheet)
 		CategoryPanel.Paint = function() end
-		local hasItems = false
-		for n,Item in pairs(category) do
-			if n == "Priority" then continue end
-			if Item.TeamBased != nil and Item.TeamBased != LocalPlayer():Team() then continue end
-			hasItems = true
+		categoryPanels[k] = CategoryPanel
 
-			local weapon = weapons.GetStored( Item.ItemClass )
-			local ent = scripted_ents.GetStored( Item.ItemClass )
-
-			local ItemPanel = vgui.Create("DPanel",CategoryPanel)
-			ItemPanel:SetSize(0,ScrH()*0.1)
-			ItemPanel:Dock(TOP)
-			ItemPanel:DockMargin(0,8,0,0)
-			ItemPanel.Paint = PaintPanel1
-			--print(Item.ItemClass,weapon)
-			if ( weapon ~= nil and ( (weapon.WepSelectIcon2 and weapon.WepSelectIcon2:GetName()) or (weapon.IconOverride)) ) or ((ent and ent.t.IconOverride)) then
-				local ItemButton = vgui.Create("DImage",ItemPanel)
-				local bBox = ((ent and ent.t.IconOverride) or weapon~=nil and weapon.WepSelectIcon2box)
-				ItemButton:SetSize(ScrH() * ( (bBox and 0.1) or 0.17), ScrH() * 0.1)
-				ItemButton:Dock(LEFT)
-				local boxed = ScrH()*0.07/2
-				ItemButton:DockMargin(5 + (bBox and boxed or 0),5,5 + (bBox and boxed or 0),5)
-				ItemButton:SetImage( ( weapon ~= nil and ( (weapon.WepSelectIcon2 and weapon.WepSelectIcon2:GetName() .. ".png") or weapon.IconOverride) ) or ((ent and ent.t.IconOverride) or "none") )
-			end
-
-			local ItemButton = vgui.Create("DPanel",ItemPanel)
-			ItemButton:Dock(FILL)
-			ItemButton:DockMargin(0,5,0,0)
-			ItemButton.Paint = function() end
-
-			local lbl = vgui.Create("DLabel", ItemButton)
-			lbl:SetText(n)
-			lbl:DockMargin(10,0,5,0)
-			lbl:Dock(TOP)
-			lbl:SetFont("ZB_TDM_MENU")
-			lbl:SetSize(ScrW()*0.5,ScrH()*0.04)
-
-			local lbl = vgui.Create("DLabel", ItemButton)
-			lbl:SetText("Price: $"..Item.Price)
-			lbl:DockMargin(10,0,5,0)
-			lbl:Dock(TOP)
-			lbl:SetTextColor(Color(155,200,155))
-			lbl:SetFont("ZB_TDM_DESC")
-			lbl:SetSize(ScrW()*0.5,ScrH()*0.02)
-
-			local BuyBtn = vgui.Create("DButton", ItemButton)
-			BuyBtn:DockMargin(10,5,10,10)
-			BuyBtn:Dock(LEFT)
-			BuyBtn:SetText("Buy")
-			BuyBtn:SetTextColor(Color(200,200,200))
-			BuyBtn:SetFont("ZB_TDM_DESC")
-			BuyBtn:SetHeight(ScrH()*0.025)
-			BuyBtn.Paint = PaintPanel
-			BuyBtn.Item = {k,n}
-
-			function BuyBtn:DoClick()
-				net.Start("tdm_buyitem")
-					net.WriteTable(self.Item)
-				net.SendToServer()
-			end
-			
-			if weapon and weapon.Primary then
-				local ammo = weapon.Primary.Ammo != "none" and weapon.Primary.Ammo or weapon.Ammo or (weapons.GetStored( weapon.Base ) and weapons.GetStored( weapon.Base ).Primary.Ammo)
-				
-				if hg.ammotypeshuy[ammo] then
-					local amm = vgui.Create( "DButton", ItemButton)
-					amm:DockMargin(10,5,10,10)
-					amm:Dock(LEFT)
-					amm:SetText(ammo)
-					amm:SetTextColor(Color(200,200,200))
-					amm:SetFont("ZB_TDM_DESCSMALL")
-					
-					surface.SetFont("ZB_TDM_DESCSMALL")
-					local w, h = surface.GetTextSize(ammo)
-
-					amm:SetHeight(ScrH()*0.025)
-					amm:SetWidth(w + 7)
-					local ammo2 = "ent_ammo_"..hg.ammotypeshuy[ammo].name
-					local name
-					for name2, ammo in pairs(buyItems["Ammo"] or {}) do
-						if not istable(ammo) then continue end
-						if ammo.ItemClass == ammo2 then
-							name = name2
-						end
-					end
-					
-					amm.huy = {"Ammo", name}
-
-					function amm:DoClick()
-						net.Start("tdm_buyitem")
-							net.WriteTable(amm.huy)
-						net.SendToServer()
-					end
-
-					amm.Paint = PaintPanel
-				end
-			end
-
-			if Item.Attachments and #Item.Attachments > 0 then
-				local ItemAtt = vgui.Create("DGrid",ItemPanel)
-				local ItemIcon = math.ceil(ScrH()*0.06)
-				ItemAtt:Dock(RIGHT)
-				ItemAtt:DockMargin(0,5,0,0)
-				ItemAtt:SetCols( 4 )
-				ItemAtt:SetColWide(ItemIcon)
-				ItemAtt:SetRowHeight(ItemIcon)
-				ItemAtt.Paint = function() end
-				for id,AttachN in pairs(Item.Attachments) do
-					local ico = hg.attachmentsIcons[AttachN]
-					local Attach = vgui.Create( "DImageButton" )
-					if not ico then
-    					print("[ATTACHMENT ERROR] Missing icon for:", AttachN, "Item:", n, "Category:", k)
-					else
-    					Attach:SetImage(ico)
-					end
-					Attach:SetSize(ItemIcon-5,ItemIcon-5)
-
-					Attach.Attachment = {k,n,AttachN}
-
-					function Attach:DoClick()
-						net.Start("tdm_buyitem")
-							net.WriteTable(self.Attachment)
-						net.SendToServer()
-					end
-
-					Attach.Paint = PaintPanel2
-					ItemAtt:AddItem(Attach)
-				end
-			end
-		end
-		if not hasItems then continue end
-
-		local tab = Sheet:AddSheet(k,CategoryPanel)
+		local tab = Sheet:AddSheet(k, CategoryPanel)
 		local rTab = tab["Tab"]
 		rTab.Paint = PaintPanel
 		rTab:SetFont("ZB_TDM_CATEGORY")
 		rTab.ApplySchemeSettings = rtabFunc
-		--rTab:SetTextInset(50)
+		rTab._categoryName = k
 	end
 
-	local StartTime = zb.ROUND_START or CurTime()
+	local function buildActiveCategoryTab(tab)
+		if not IsValid(tab) or not tab._categoryName then return end
+
+		local categoryName = tab._categoryName
+		local categoryPanel = categoryPanels[categoryName]
+		local category = categoryData[categoryName]
+
+		if IsValid(categoryPanel) and category then
+			buildCategoryItems(categoryName, categoryPanel, category, buyItems, ammoLookup, weaponCache, entCache)
+		end
+	end
+
+	function Sheet:OnActiveTabChanged(_, new)
+		buildActiveCategoryTab(new)
+	end
+
+	timer.Simple(0, function()
+		if not IsValid(Frame) then return end
+		buildActiveCategoryTab(Sheet:GetActiveTab())
+	end)
+
 	local lbl = vgui.Create("DLabel", Frame)
 	lbl:SetText("Time Left: "..string.FormattedTime(StartTime + 40 - CurTime(), "%02i:%02i:%02i"))
 	lbl:DockMargin(10,0,10,10)

@@ -89,6 +89,19 @@ local function formatContractTime(seconds)
 	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
 end
 
+local function getBuyMenuTheme()
+	if zb and zb.TDM_BuyMenuTheme then
+		return zb.TDM_BuyMenuTheme
+	end
+
+	return {
+		Background = Color(0, 0, 0, 155),
+		InnerBackground = Color(0, 0, 0, 140),
+		Outline = Color(255, 0, 0, 128),
+		Gradient = Color(155, 0, 0, 55),
+	}
+end
+
 local function getBuyMenuMetrics()
 	return {
 		width = ui(380),
@@ -444,12 +457,13 @@ local function openBuyMenu()
 
 	function buyMenu:Paint(w, h)
 		local metrics = self.LayoutMetrics or getBuyMenuMetrics()
-		draw.RoundedBox(0, 0, 0, w, h, Color(10, 21, 39, 245))
-		surface.SetDrawColor(frameBlue)
+		local theme = getBuyMenuTheme()
+		draw.RoundedBox(0, 0, 0, w, h, theme.Background)
+		surface.SetDrawColor(theme.Outline)
 		surface.DrawOutlinedRect(0, 0, w, h, metrics.border)
-		draw.SimpleText("Black Market", "ZB_ShipAssassinsLarge", w * 0.5, metrics.titleY, targetColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		draw.SimpleText("Cash: $" .. LocalPlayer():GetNWInt("ShipAssassins_Money", 0), "ZB_ShipAssassinsMedium", w * 0.5, metrics.cashY, neutralColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		draw.SimpleText("F3 to close", "ZB_ShipAssassinsSmall", w * 0.5, h - metrics.footerY, Color(160, 185, 215), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("Black Market", "ZB_ShipAssassinsLarge", w * 0.5, metrics.titleY, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("Cash: $" .. LocalPlayer():GetNWInt("ShipAssassins_Money", 0), "ZB_ShipAssassinsMedium", w * 0.5, metrics.cashY, Color(61, 173, 61), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("F3 to close", "ZB_ShipAssassinsSmall", w * 0.5, h - metrics.footerY, Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
 	local list = vgui.Create("DScrollPanel", buyMenu)
@@ -464,12 +478,13 @@ local function openBuyMenu()
 
 		function panel:Paint(w, h)
 			local metrics = buyMenu.LayoutMetrics or getBuyMenuMetrics()
-			draw.RoundedBox(0, 0, 0, w, h, Color(17, 35, 62, 230))
-			surface.SetDrawColor(Color(83, 140, 220, 180))
+			local theme = getBuyMenuTheme()
+			draw.RoundedBox(0, 0, 0, w, h, theme.InnerBackground or theme.Background)
+			surface.SetDrawColor(theme.Outline)
 			surface.DrawOutlinedRect(0, 0, w, h, math.max(1, ui(1)))
-			draw.SimpleText(item.name, "ZB_ShipAssassinsMedium", metrics.rowTitleX, metrics.rowTitleY, neutralColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-			draw.SimpleText("$" .. item.price, "ZB_ShipAssassinsMedium", w - metrics.rowPriceX, metrics.rowTitleY, targetColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
-			draw.SimpleText(item.description, "ZB_ShipAssassinsSmall", metrics.rowTitleX, metrics.rowDescY, Color(178, 205, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(item.name, "ZB_ShipAssassinsMedium", metrics.rowTitleX, metrics.rowTitleY, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText("$" .. item.price, "ZB_ShipAssassinsMedium", w - metrics.rowPriceX, metrics.rowTitleY, Color(155, 200, 155), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(item.description, "ZB_ShipAssassinsSmall", metrics.rowTitleX, metrics.rowDescY, Color(200, 200, 200), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 		end
 
 		function panel:DoClick()
