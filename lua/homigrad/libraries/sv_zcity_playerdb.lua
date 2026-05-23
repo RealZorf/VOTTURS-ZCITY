@@ -127,7 +127,71 @@ local SCHEMA_DDL = {
 		`updated_at` INT UNSIGNED NOT NULL DEFAULT 0,
 		PRIMARY KEY (`meta_key`)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;]],
+	[[CREATE TABLE IF NOT EXISTS `ulib_groups` (
+		`id` INT AUTO_INCREMENT PRIMARY KEY,
+		`name` VARCHAR(32) NOT NULL,
+		`old_name` VARCHAR(32) DEFAULT NULL,
+		`inherit_from` VARCHAR(32) DEFAULT NULL,
+		`allow` MEDIUMTEXT,
+		`team_kv` MEDIUMTEXT,
+		`can_target` VARCHAR(512) DEFAULT NULL,
+		`removed` TINYINT(1) NOT NULL DEFAULT 0,
+		`is_builtin` TINYINT(1) NOT NULL DEFAULT 0,
+		`date_created` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+		`date_updated` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+		UNIQUE KEY `uq_ulib_groups_name` (`name`)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;]],
+	[[CREATE TABLE IF NOT EXISTS `ulib_users` (
+		`id` INT AUTO_INCREMENT PRIMARY KEY,
+		`steamid` VARCHAR(24) NOT NULL,
+		`group` VARCHAR(32) DEFAULT NULL,
+		`allow` MEDIUMTEXT,
+		`deny` MEDIUMTEXT,
+		`removed` TINYINT(1) NOT NULL DEFAULT 0,
+		`date_created` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+		`date_updated` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+		UNIQUE KEY `uq_ulib_users_steamid` (`steamid`)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;]],
+	[[CREATE TABLE IF NOT EXISTS `ulib_bans` (
+		`id` INT AUTO_INCREMENT PRIMARY KEY,
+		`steamid` VARCHAR(24) NOT NULL,
+		`reason` TEXT,
+		`unban` VARCHAR(16) NOT NULL DEFAULT '0',
+		`manual_unban` TINYINT(1) NOT NULL DEFAULT 0,
+		`username` VARCHAR(64) DEFAULT NULL,
+		`host` VARCHAR(96) NOT NULL DEFAULT '',
+		`admin` VARCHAR(64) DEFAULT NULL,
+		`date_created` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+		`date_updated` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+		UNIQUE KEY `uq_ulib_bans_steamid` (`steamid`)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;]],
 }
+
+local SCHEMA_MIGRATIONS = {
+	[[ALTER TABLE `ulib_groups` MODIFY COLUMN `can_target` VARCHAR(512) DEFAULT NULL;]],
+}
+
+local function runSchemaMigrations(onReady)
+	if not mysqlConnected() or #SCHEMA_MIGRATIONS == 0 then
+		if isfunction(onReady) then onReady() end
+		return
+	end
+
+	local index = 1
+
+	local function step()
+		if index > #SCHEMA_MIGRATIONS then
+			if isfunction(onReady) then onReady() end
+			return
+		end
+
+		local ddl = SCHEMA_MIGRATIONS[index]
+		index = index + 1
+		runQuery(ddl, step)
+	end
+
+	step()
+end
 
 local function ensureTables(onReady)
 	if not mysqlConnected() or not istable(SCHEMA_DDL) or #SCHEMA_DDL == 0 then
@@ -139,8 +203,8 @@ local function ensureTables(onReady)
 
 	local function step()
 		remaining = remaining - 1
-		if remaining <= 0 and isfunction(onReady) then
-			onReady()
+		if remaining <= 0 then
+			runSchemaMigrations(onReady)
 		end
 	end
 
@@ -494,6 +558,14 @@ function DB.ApplyPlaytimeToPlayer(ply)
 	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
 
 	local steamId64 = ply:SteamID64()
+	local cached = DB.PlayerCache[steamId64]
+	if cached and cached.playtime_seconds ~= nil then
+		local seconds = math.max(0, math.floor(tonumber(cached.playtime_seconds) or 0))
+		ply:SetNWInt("pat_scoreboard_playtime", seconds)
+		ply.PATSB_PlaytimeSeconds = seconds
+		return
+	end
+
 	DB.LoadPlaytime(steamId64, function(seconds)
 		if not IsValid(ply) then return end
 
@@ -501,6 +573,199 @@ function DB.ApplyPlaytimeToPlayer(ply)
 		ply.PATSB_PlaytimeSeconds = seconds
 	end)
 end
+
+DB.ProfileLoading = DB.ProfileLoading or {}
+DB.ProfileLoadedSession = DB.ProfileLoadedSession or {}
+
+local unifiedLoadCvar = CreateConVar("zcity_unified_player_load", "1", FCVAR_ARCHIVE, "Load guilt, XP, achievements, pointshop, and playtime in one MySQL round-trip on join.", 0, 1)
+
+function DB.UsesUnifiedPlayerLoad()
+	return DB.IsReady() and unifiedLoadCvar:GetBool()
+end
+
+local function applyPlaytimeFromProfile(steamId64, seconds)
+	seconds = math.max(0, math.floor(tonumber(seconds) or 0))
+	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
+	DB.PlayerCache[steamId64].playtime_seconds = seconds
+end
+
+local function applyUnifiedProfileRow(ply, row)
+	if not IsValid(ply) or not istable(row) then return end
+
+	local steamId64 = ply:SteamID64()
+
+	if zb and zb.GuiltSQL and isfunction(zb.GuiltSQL.ApplyJoinRow) then
+		zb.GuiltSQL.ApplyJoinRow(ply, row.guilt_value, true)
+	end
+
+	if zb and zb.Experience and isfunction(zb.Experience.ApplyJoinRow) then
+		local expRow
+		if row.exp_experience ~= nil then
+			expRow = {
+				skill = row.exp_skill,
+				experience = row.exp_experience,
+				deaths = row.exp_deaths,
+				kills = row.exp_kills,
+				suicides = row.exp_suicides,
+			}
+		end
+		zb.Experience.ApplyJoinRow(ply, expRow, true)
+	end
+
+	if hg and hg.achievements and isfunction(hg.achievements.ApplyJoinRow) then
+		hg.achievements.ApplyJoinRow(ply, row.achievements_json, true)
+	end
+
+	if hg and hg.Pointshop and isfunction(hg.Pointshop.ApplyJoinRow) then
+		local psRow
+		if row.ps_donpoints ~= nil then
+			psRow = {
+				donpoints = row.ps_donpoints,
+				points = row.ps_points,
+				items = row.ps_items,
+			}
+		end
+		hg.Pointshop.ApplyJoinRow(ply, psRow, true)
+	end
+
+	applyPlaytimeFromProfile(steamId64, row.playtime_seconds)
+	ply:SetNWInt("pat_scoreboard_playtime", math.max(0, math.floor(tonumber(row.playtime_seconds) or 0)))
+	ply.PATSB_PlaytimeSeconds = math.max(0, math.floor(tonumber(row.playtime_seconds) or 0))
+end
+
+function DB.LoadPlayerProfile(ply)
+	if not DB.UsesUnifiedPlayerLoad() then return end
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+
+	local steamId64 = ply:SteamID64()
+	if not isValidSteamId64(steamId64) then return end
+	if DB.ProfileLoading[steamId64] or DB.ProfileLoadedSession[steamId64] then return end
+
+	DB.ProfileLoading[steamId64] = true
+	local sid = escape(steamId64)
+
+	local queryString = string.format([[
+SELECT
+	(SELECT `value` FROM `zb_guilt` WHERE `steamid` = '%s' LIMIT 1) AS `guilt_value`,
+	(SELECT `skill` FROM `zb_experience` WHERE `steamid` = '%s' LIMIT 1) AS `exp_skill`,
+	(SELECT `experience` FROM `zb_experience` WHERE `steamid` = '%s' LIMIT 1) AS `exp_experience`,
+	(SELECT `deaths` FROM `zb_experience` WHERE `steamid` = '%s' LIMIT 1) AS `exp_deaths`,
+	(SELECT `kills` FROM `zb_experience` WHERE `steamid` = '%s' LIMIT 1) AS `exp_kills`,
+	(SELECT `suicides` FROM `zb_experience` WHERE `steamid` = '%s' LIMIT 1) AS `exp_suicides`,
+	(SELECT `achievements` FROM `hg_achievements` WHERE `steamid` = '%s' LIMIT 1) AS `achievements_json`,
+	(SELECT `playtime_seconds` FROM `zcity_scoreboard_playtime` WHERE `steamid` = '%s' LIMIT 1) AS `playtime_seconds`,
+	(SELECT `donpoints` FROM `hg_pointshop` WHERE `steamid` = '%s' LIMIT 1) AS `ps_donpoints`,
+	(SELECT `points` FROM `hg_pointshop` WHERE `steamid` = '%s' LIMIT 1) AS `ps_points`,
+	(SELECT `items` FROM `hg_pointshop` WHERE `steamid` = '%s' LIMIT 1) AS `ps_items`;
+]], sid, sid, sid, sid, sid, sid, sid, sid, sid, sid, sid)
+
+	local function finishProfileLoad(row)
+		DB.ProfileLoading[steamId64] = nil
+		if not IsValid(ply) then return end
+
+		applyUnifiedProfileRow(ply, row or {})
+		DB.ProfileLoadedSession[steamId64] = true
+		hook.Run("ZCITY_PlayerProfileLoaded", ply)
+	end
+
+	if mysql and mysql.module == "mysqloo" and mysql.connection then
+		local queryObj = mysql.connection:query(queryString)
+
+		if mysqloo and mysqloo.OPTION_NAMED_FIELDS then
+			queryObj:setOption(mysqloo.OPTION_NAMED_FIELDS)
+		end
+
+		queryObj.onSuccess = function(_, result)
+			finishProfileLoad(istable(result) and result[1] or {})
+		end
+
+		queryObj.onError = function()
+			DB.ProfileLoading[steamId64] = nil
+			ErrorNoHalt("[ZCITY_DB] Unified profile load failed for " .. steamId64 .. "; using per-module loaders.\n")
+			if IsValid(ply) then
+				ply.ZCITY_LegacyProfileLoad = true
+				hook.Run("ZCITY_PlayerProfileLoadFailed", ply)
+			end
+		end
+
+		queryObj:start()
+		return
+	end
+
+	runQuery(queryString, function(result)
+		finishProfileLoad(istable(result) and result[1] or {})
+	end)
+end
+
+function DB.RunLegacyPlayerLoads(ply)
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+	if not DB.IsReady() then return end
+
+	ply.ZCITY_LegacyProfileLoad = true
+	local steamId64 = ply:SteamID64()
+	local name = ply:Name()
+
+	if zb and zb.GuiltSQL and isfunction(zb.GuiltSQL.ApplyJoinRow) then
+		local q = mysql:Select("zb_guilt")
+		q:Select("value")
+		q:Where("steamid", steamId64)
+		q:Callback(function(result)
+			if not IsValid(ply) then return end
+			local guiltValue = istable(result) and #result > 0 and result[1].value or nil
+			zb.GuiltSQL.ApplyJoinRow(ply, guiltValue, true)
+		end)
+		q:Execute()
+	end
+
+	if zb and zb.Experience and isfunction(zb.Experience.ApplyJoinRow) and zb.Experience.Active then
+		local q = mysql:Select("zb_experience")
+		q:Select("skill")
+		q:Select("experience")
+		q:Select("deaths")
+		q:Select("kills")
+		q:Select("suicides")
+		q:Where("steamid", steamId64)
+		q:Callback(function(result)
+			if not IsValid(ply) then return end
+			local row = istable(result) and #result > 0 and result[1] or nil
+			zb.Experience.ApplyJoinRow(ply, row and row.experience ~= nil and row or nil, true)
+		end)
+		q:Execute()
+	end
+
+	if hg and hg.achievements and isfunction(hg.achievements.ApplyJoinRow) and hg.achievements.SqlActive then
+		local q = mysql:Select("hg_achievements")
+		q:Select("achievements")
+		q:Where("steamid", steamId64)
+		q:Callback(function(result)
+			if not IsValid(ply) then return end
+			local achievementsJson = istable(result) and #result > 0 and result[1].achievements or nil
+			hg.achievements.ApplyJoinRow(ply, achievementsJson, true)
+		end)
+		q:Execute()
+	end
+
+	if hg and hg.Pointshop and isfunction(hg.Pointshop.ApplyJoinRow) and hg.Pointshop.Active then
+		local q = mysql:Select("hg_pointshop")
+		q:Select("donpoints")
+		q:Select("points")
+		q:Select("items")
+		q:Where("steamid", steamId64)
+		q:Callback(function(result)
+			if not IsValid(ply) then return end
+			local row = istable(result) and #result > 0 and result[1] or nil
+			hg.Pointshop.ApplyJoinRow(ply, row and row.donpoints ~= nil and row or nil, true)
+		end)
+		q:Execute()
+	end
+
+	DB.ApplyPlaytimeToPlayer(ply)
+	hook.Run("ZCITY_PlayerProfileLoaded", ply)
+end
+
+hook.Add("ZCITY_PlayerProfileLoadFailed", "ZCITY_DB_LegacyFallback", function(ply)
+	DB.RunLegacyPlayerLoads(ply)
+end)
 
 local function setMeta(key, value, callback)
 	if not DB.IsReady() then
@@ -822,20 +1087,54 @@ hook.Add("DatabaseConnected", "ZCITY_PlayerDB_Init", function()
 
 		hook.Run("ZCITY_DatabaseReady", true)
 
+		if ULibSync and isfunction(ULibSync.Init) then
+			timer.Simple(1, function()
+				ULibSync.Init()
+			end)
+		else
+			MsgC(Color(255, 180, 80), "[ZCITY_DB] ULibSync addon not loaded — install addons/ulibsync for cross-server ULX sync.\n")
+		end
+
 		for _, ply in player.Iterator() do
 			if IsValid(ply) and ply:IsPlayer() and not ply:IsBot() then
-				DB.ApplyPlaytimeToPlayer(ply)
+				DB.ProfileLoadedSession[ply:SteamID64()] = nil
+				DB.LoadPlayerProfile(ply)
 			end
 		end
 	end)
 end)
 
-hook.Add("PlayerInitialSpawn", "ZCITY_DB_PlaytimeLoad", function(ply)
-	timer.Simple(3, function()
-		if IsValid(ply) then
-			DB.ApplyPlaytimeToPlayer(ply)
+hook.Add("PlayerInitialSpawn", "ZCITY_DB_LoadProfile", function(ply)
+	timer.Simple(0, function()
+		if not IsValid(ply) then return end
+		DB.LoadPlayerProfile(ply)
+	end)
+
+	if not DB.UsesUnifiedPlayerLoad() then
+		timer.Simple(3, function()
+			if IsValid(ply) then
+				DB.ApplyPlaytimeToPlayer(ply)
+			end
+		end)
+	end
+end)
+
+hook.Add("ZCITY_PlayerProfileLoaded", "ZCITY_DB_PostProfileSync", function(ply)
+	if not IsValid(ply) or not ply.SyncVars then return end
+
+	timer.Simple(0.15, function()
+		if IsValid(ply) and ply.SyncVars then
+			ply:SyncVars(true)
 		end
 	end)
+end)
+
+hook.Add("PlayerDisconnected", "ZCITY_DB_ClearProfileSession", function(ply)
+	if not IsValid(ply) then return end
+	local steamId64 = ply:SteamID64()
+	DB.ProfileLoadedSession[steamId64] = nil
+	DB.ProfileLoading[steamId64] = nil
+	ply.ZCITY_LegacyProfileLoad = nil
 end)
 
 hook.Add("PlayerDisconnected", "ZCITY_DB_FlushOnDisconnect", function(ply)

@@ -1,4 +1,12 @@
 if CLIENT then
+    local function localCanF6()
+        return zb and zb.UCL and zb.HasULX and zb.HasULX(LocalPlayer(), zb.UCL.F6Menu)
+    end
+
+    local function localCanAllModes()
+        return zb and zb.UCL and zb.HasULX and zb.HasULX(LocalPlayer(), zb.UCL.AllModes)
+    end
+
     local isMenuOpen = nil
     zb.availableModes = zb.availableModes or {}
     local availableModes = zb.availableModes
@@ -318,7 +326,7 @@ if CLIENT then
         }
         
         for i, mode in SortedPairsByMemberValue(zb.availableModes,"canlaunch",true) do
-            if !LocalPlayer():IsSuperAdmin() and !allowedModes[mode.key] then continue end
+            if not localCanAllModes() and not allowedModes[mode.key] then continue end
             
             local modeBtn = CreateModeItem(dscroll, mode)
             table.insert(modeItems, modeBtn)
@@ -552,7 +560,7 @@ if CLIENT then
     
 
     hook.Add("InitPostEntity", "RequestModeData", function()
-        if LocalPlayer():IsAdmin() then
+        if localCanF6() then
             timer.Simple(2, function()
                 net.Start("ZB_RequestRoundList")
                 net.SendToServer()
@@ -563,7 +571,7 @@ if CLIENT then
     local f6Key = KEY_F6
 
     hook.Add("PlayerButtonDown", "OpenAdminMenuF6", function(ply, key)
-        if key == f6Key and LocalPlayer():IsAdmin() and not IsValid(isMenuOpen) then
+        if key == f6Key and localCanF6() and not IsValid(isMenuOpen) then
             OpenAdminMenu()
         end
     end)

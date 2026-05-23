@@ -1,6 +1,10 @@
 local player_GetAll = player.GetAll
 zb.modes = zb.modes or {}
 
+local function plyCanRoundControl(ply)
+	return IsValid(ply) and zb.HasULX and zb.HasULX(ply, zb.UCL.RoundControl)
+end
+
 util.AddNetworkString("FadeScreen")
 
 function zb.AddFade()
@@ -195,6 +199,7 @@ hook.Add("PlayerInitialSpawn", "zb_SendRoundInfo", function(ply)
 		net.Send(ply)
 	end
 
+	if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() then return end
 	if ply.SyncVars then ply:SyncVars() end
 end)
 
@@ -523,7 +528,7 @@ end
 
 
 hook.Add("PlayerInitialSpawn", "ZB_SendModesOnSpawn", function(ply)
-	if ply:IsAdmin() then
+	if plyCanRoundControl(ply) then
 		timer.Simple(10, function()
 			if IsValid(ply) then
 				zb.SendModesInfoToClient(ply)
@@ -535,14 +540,14 @@ end)
 
 
 net.Receive("ZB_RequestRoundList", function(len, ply)
-	if IsValid(ply) and ply:IsAdmin() then
+	if plyCanRoundControl(ply) then
 		zb.SendModesInfoToClient(ply)
 		zb.SendRoundListToClient(ply)
 	end
 end)
 
 net.Receive("ZB_UpdateRoundList", function(len, ply)
-	if not IsValid(ply) or not ply:IsAdmin() then return end
+	if not plyCanRoundControl(ply) then return end
 
 	local newList = net.ReadTable()
 	local forceUpdate = net.ReadBool()
@@ -637,7 +642,7 @@ hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
 end)
 
 net.Receive("AdminSetGameMode", function(len, ply)
-	if not ply:IsAdmin() then return end
+	if not plyCanRoundControl(ply) then return end
 
 	local command = net.ReadString()
 	local modeKey = net.ReadString()
@@ -668,7 +673,7 @@ net.Receive("AdminSetGameMode", function(len, ply)
 end)
 
 net.Receive("AdminEndRound", function(len, ply)
-	if not ply:IsAdmin() then return end
+	if not plyCanRoundControl(ply) then return end
 
 	ply:ChatPrint("Round ended!")
 	zb:EndRound()
@@ -683,7 +688,7 @@ function zb.SyncQueueToAdmins()
 end
 
 net.Receive("AdminSetGameQueue", function(len, ply)
-	if not ply:IsAdmin() then return end
+	if not plyCanRoundControl(ply) then return end
 
 	local modeQueue = net.ReadTable()
 	zb.QueuedModes = modeQueue
@@ -739,17 +744,19 @@ end
 
 function zb.GetAllAdmins()
 	local admins = {}
+
 	for _, ply in player.Iterator() do
-		if ply:IsAdmin() then
-			table.insert(admins, ply)
+		if plyCanRoundControl(ply) then
+			admins[#admins + 1] = ply
 		end
 	end
+
 	return admins
 end
 
 COMMANDS.setmode = {
 	function(ply, args)
-		if not ply:IsAdmin() then ply:ChatPrint("You don't have access") return end
+		if not plyCanRoundControl(ply) then ply:ChatPrint("You don't have access") return end
 		if not args[1] or (not zb:GetMode(args[1]) and args[1]~="random") then return end
 		ply:ChatPrint(args[1])
 		NextRound(args[1])
@@ -759,7 +766,7 @@ COMMANDS.setmode = {
 
 COMMANDS.setforcemode = {
 	function(ply, args)
-		if not ply:IsAdmin() then ply:ChatPrint("You don't have access") return end
+		if not plyCanRoundControl(ply) then ply:ChatPrint("You don't have access") return end
 		if not args[1] or (not zb:GetMode(args[1]) and args[1]~="random") then return end
 		ply:ChatPrint(args[1])
 		forcemode = args[1]
@@ -771,7 +778,7 @@ COMMANDS.setforcemode = {
 
 COMMANDS.endround = {
 	function(ply, args)
-		if not ply:IsAdmin() then
+		if not plyCanRoundControl(ply) then
 			ply:ChatPrint("You don't have access")
 			return
 		end
@@ -790,7 +797,7 @@ if SERVER then
 	util.AddNetworkString("QueueModifiedNotification")
 
 	hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
-		if ply:IsAdmin() then
+		if plyCanRoundControl(ply) then
 			timer.Simple(12, function()
 				if not IsValid(ply) then return end
 
@@ -807,13 +814,13 @@ if SERVER then
 	end)
 
 	net.Receive("AdminSetGameMode", function(len, ply)
-		if not ply:IsAdmin() then return end
+		if not plyCanRoundControl(ply) then return end
 
 		local command = net.ReadString()
 		local modeKey = net.ReadString()
 		local addToQueue = net.ReadBool() or false
 
-		if !(ply:IsSuperAdmin() or ply:IsAdmin()) and not zb.modes[modeKey]:CanLaunch() then
+		if not zb.HasULX(ply, zb.UCL.AllModes) and not zb.modes[modeKey]:CanLaunch() then
 			ply:ChatPrint("This mode can't launch (No points or Is blocked): " .. modeKey)
 			return
 		end
@@ -851,7 +858,7 @@ if SERVER then
 	end
 
 	net.Receive("AdminSetGameQueue", function(len, ply)
-		if not ply:IsAdmin() then return end
+		if not plyCanRoundControl(ply) then return end
 
 		local modeQueue = net.ReadTable()
 		zb.QueuedModes = modeQueue

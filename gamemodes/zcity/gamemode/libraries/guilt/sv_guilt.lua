@@ -94,64 +94,71 @@ hook.Add("ZCITY_DatabaseReady", "GuiltActivate", function()
 	zb.GuiltSQL.Active = ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB:IsReady() or zb.GuiltSQL.Active
 end)
 
-hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
-    local name = ply:Name()
+function zb.GuiltSQL.ApplyJoinRow(ply, guiltValue, createIfMissing)
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+
+	local name = ply:Name()
+	local steamID64 = ply:SteamID64()
+	local value = tonumber(guiltValue)
+
+	if value == nil then
+		if not createIfMissing then return end
+
+		value = 100
+		zb.GuiltSQL.PlayerInstances[steamID64] = {value = value}
+
+		local insertQuery = mysql:Insert("zb_guilt")
+		insertQuery:Insert("steamid", steamID64)
+		insertQuery:Insert("steam_name", name)
+		insertQuery:Insert("value", value)
+		insertQuery:Execute()
+	else
+		zb.GuiltSQL.PlayerInstances[steamID64] = {value = value}
+	end
+
+	ply.Karma = ply:guilt_GetValue()
+	ply:SetNetVar("Karma", ply.Karma)
+
+	if value < 0 then
+		ply:guilt_SetValue(10)
+		ply.Karma = 10
+		ply:SetNetVar("Karma", ply.Karma)
+
+		timer.Simple(0, function()
+			if not IsValid(ply) then return end
+			if IsBanImmune(ply) then return end
+
+			ply:Ban(5, false)
+			ply:Kick("Your karma is too low: " .. math.Round(ply.Karma, 0) .. ". Try again in 5 minutes.")
+		end)
+	end
+end
+
+hook.Add("PlayerInitialSpawn", "ZB_GuiltSQL", function(ply)
+	if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() and not ply.ZCITY_LegacyProfileLoad then return end
+
+	local name = ply:Name()
 	local steamID64 = ply:SteamID64()
 
-    --if not zb.GuiltSQL.Active then
-    --    zb.GuiltSQL.PlayerInstances[steamID64] = {}
-    --    return
-    --end 
-
 	local query = mysql:Select("zb_guilt")
-		query:Select("value")
-		query:Where("steamid", steamID64)
-		query:Callback(function(result)
-			if (IsValid(ply) and istable(result) and #result > 0 and result[1].value) then
-				local updateQuery = mysql:Update("zb_guilt")
-					updateQuery:Update("steam_name", name)
-					updateQuery:Where("steamid", steamID64)
-				updateQuery:Execute()
+	query:Select("value")
+	query:Where("steamid", steamID64)
+	query:Callback(function(result)
+		if not IsValid(ply) then return end
 
-				zb.GuiltSQL.PlayerInstances[steamID64] = {}
+		local guiltValue
+		if istable(result) and #result > 0 and result[1].value then
+			local updateQuery = mysql:Update("zb_guilt")
+			updateQuery:Update("steam_name", name)
+			updateQuery:Where("steamid", steamID64)
+			updateQuery:Execute()
 
-                zb.GuiltSQL.PlayerInstances[steamID64].value = tonumber(result[1].value)
+			guiltValue = result[1].value
+		end
 
-                ply.Karma = ply:guilt_GetValue()
-                ply:SetNetVar("Karma", ply.Karma)
-
-                if zb.GuiltSQL.PlayerInstances[steamID64].value < 0 then
-                    ply:guilt_SetValue(10)
-
-                    ply.Karma = 10
-                    ply:SetNetVar("Karma", ply.Karma)
-
-                    timer.Simple(0, function()
-                        if not IsValid(ply) then return end
-
-                        if IsBanImmune(ply) then return end
-
-                        ply:Ban(5, false)
-                        ply:Kick("Your karma is too low: " .. math.Round(ply.Karma, 0) .. ". Try again in 5 minutes.")
-                    end)
-                end
-			else
-				local insertQuery = mysql:Insert("zb_guilt")
-					insertQuery:Insert("steamid", steamID64)
-					insertQuery:Insert("steam_name", name)
-					insertQuery:Insert("value", 100)
-				insertQuery:Execute()
-
-				zb.GuiltSQL.PlayerInstances[steamID64] = {}
-
-				zb.GuiltSQL.PlayerInstances[steamID64].value = 100
-
-                ply.Karma = ply:guilt_GetValue()
-                ply:SetNetVar("Karma",ply.Karma)
-			end
-		end)
+		zb.GuiltSQL.ApplyJoinRow(ply, guiltValue, true)
+	end)
 	query:Execute()
-
 end)
 
 local plyMeta = FindMetaTable("Player")

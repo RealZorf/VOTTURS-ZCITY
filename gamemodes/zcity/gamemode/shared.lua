@@ -37,7 +37,7 @@ function hg.DrawBlur(panel, amount, passes, alpha)
 end
 
 local function BlockSpawn(ply, ent)
-	if game.SinglePlayer() or ply:IsAdmin() or ply:IsUserGroup("mapper") then return true end
+	if zb and zb.PlayerCanSpawn and zb.PlayerCanSpawn(ply) then return true end
 	if HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive() then
 		if HG_SANDBOX.IsBypassPlayer and HG_SANDBOX.IsBypassPlayer(ply) then
 			return true
@@ -55,43 +55,19 @@ for _, v in ipairs(spawn) do
 	hook.Add(v, "BlockSpawn", BlockSpawn)
 end
 
-hook.Add( "PlayerNoClip", "FeelFreeToTurnItOff", function( ply, desiredState )
-	if ( desiredState == false ) then -- the player wants to turn noclip off
-		return true -- always allow
-	elseif ( ply:IsAdmin() or ply:IsUserGroup("mapper") ) then
-		return true -- allow administrators to enter noclip
+hook.Add("PlayerNoClip", "FeelFreeToTurnItOff", function(ply, desiredState)
+	if desiredState == false then
+		return true
+	end
+
+	if zb and zb.PlayerCanNoclip and zb.PlayerCanNoclip(ply) then
+		return true
 	end
 
 	return false
-end )
+end)
 
 if CLIENT then
-	local ZCTools_ULXGroups = {
-		superadmin = true,
-		owner = true,
-		servermanager = true,
-		headdeveloper = true,
-		headadmin = true,
-		developer = true,
-		admin = true
-	}
-
-	local function ZCTools_HasULXAccess(ply)
-		if not IsValid(ply) then return false end
-
-		-- Native GMod admin checks
-		if ply:IsSuperAdmin() then return true end
-		if ply:IsAdmin() then return true end
-
-		-- ULX / ULib usergroup check
-		if ply.GetUserGroup then
-			local group = string.lower(tostring(ply:GetUserGroup() or ""))
-			if ZCTools_ULXGroups[group] then return true end
-		end
-
-		return false
-	end
-
 	hook.Add("PlayerBindPress", "PlayerBindPressExample", function(ply, bind, pressed)
 		if string.find(bind, "+menu", 1, true) then
 			-- return true
@@ -106,7 +82,7 @@ if CLIENT then
 			if HG_SANDBOX.IsRestrictedPlayer and HG_SANDBOX.IsRestrictedPlayer(ply) then return true end
 		end
 
-		if ZCTools_HasULXAccess(ply) then return true end
+		if zb and zb.PlayerCanSpawnMenu and zb.PlayerCanSpawnMenu(ply) then return true end
 
 		return false
 	end)

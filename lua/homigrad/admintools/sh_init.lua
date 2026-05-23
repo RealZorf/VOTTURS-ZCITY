@@ -15,10 +15,11 @@ hg.AdminTools = hg.AdminTools or {}
 
 local plyMeta = FindMetaTable("Player")
 
-function plyMeta:ZCTools_GetAccess( bSAdmin ) 
-    if bSAdmin and self:IsSuperAdmin() then return true end
-    if not bSAdmin and self:IsAdmin() then return true end
-    
+function plyMeta:ZCTools_GetAccess(bSAdmin)
+    if zb and zb.PlayerCanAdminTools then
+        return zb.PlayerCanAdminTools(self, bSAdmin == true)
+    end
+
     return false
 end
 

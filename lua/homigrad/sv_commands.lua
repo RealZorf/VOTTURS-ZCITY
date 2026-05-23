@@ -10,27 +10,39 @@ local validUserGroupSuperAdmin = {
 local validUserGroup = {
 	headadmin = true,
 	developer = true,
-	admin = true
+	admin = true,
 }
 
 function COMMAND_GETACCES(ply)
 	if ply == Entity(0) then return 2 end
 
-	local group = ply:GetUserGroup()
-	if validUserGroup[group] then
-		return 1
-	elseif validUserGroupSuperAdmin[group] then
-		return 2
+	if zb and zb.UCL and ULib and ULib.ucl then
+		if ULib.ucl.query(ply, zb.UCL.SuperChat) then return 2 end
+		if ULib.ucl.query(ply, zb.UCL.AdminChat) then return 1 end
 	end
+
+	local group = ply:GetUserGroup()
+	if validUserGroup[group] then return 1 end
+	if validUserGroupSuperAdmin[group] then return 2 end
 
 	return 0
 end
 
-function COMMAND_ACCES(ply,cmd)
+function COMMAND_ACCES(ply, cmd, cmdName)
 	local access = cmd[2] or 1
-	if access ~= 0 and COMMAND_GETACCES(ply) < access then return end
+	if access == 0 then return true end
 
-	return true
+	if zb and zb.UCL and zb.HasULX then
+		if cmdName == "zc_god" then
+			return zb.HasULX(ply, zb.UCL.Godmode)
+		end
+
+		if cmdName == "power" then
+			return ULib.ucl.query(ply, "ulx power")
+		end
+	end
+
+	return COMMAND_GETACCES(ply) >= access
 end
 
 function COMMAND_GETARGS(args)
@@ -70,10 +82,10 @@ function COMMAND_GETARGS(args)
 	return newArgs
 end
 
-function COMMAND_Input(ply,args)
+function COMMAND_Input(ply, args)
 	local cmd = COMMANDS[args[1]]
 	if not cmd then return false end
-	if not COMMAND_ACCES(ply,cmd) then return true,false end
+	if not COMMAND_ACCES(ply, cmd, args[1]) then return true, false end
 
 	table.remove(args,1)
 
@@ -100,7 +112,7 @@ COMMANDS.help = {function(ply,args)
         
 		for _,name in pairs(list) do
 			local cmd = COMMANDS[name]
-            if not COMMAND_ACCES(ply,cmd) then continue end
+            if not COMMAND_ACCES(ply, cmd, name) then continue end
             
 			local argsList = cmd[3]
 			if argsList then argsList = " - " .. argsList else argsList = "" end
@@ -151,19 +163,11 @@ if SERVER then
     end
 
     local function ZC_CanUsePowerCommand(ply)
-        if not IsValid(ply) then return false end
-
-        local group = ply:GetUserGroup()
-
-        if validUserGroupSuperAdmin[group] then
+        if ULib and ULib.ucl and ULib.ucl.query(ply, "ulx power") then
             return true
         end
 
-        if validUserGroup[group] then
-            return true
-        end
-
-        return false
+        return COMMAND_GETACCES(ply) >= 2
     end
 
     local function ZC_HasPowerMelee(attacker)

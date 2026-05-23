@@ -5,11 +5,15 @@ util.AddNetworkString("wOS.DynaBase.SendAllRegisters")
 util.AddNetworkString("wOS.DynaBase.SendRegister")
 util.AddNetworkString("wOS.DynaBase.ForceMountCallback")
 
-hook.Add( "PlayerInitialSpawn", "wOS.DynaBase.NetworkRegisteredAnimations", function( ply )
-    net.Start( "wOS.DynaBase.SendAllRegisters" )
-        net.WriteUInt( wOS.DynaBase:GetSourceCount(), 32 )
-        for name, _ in pairs( wOS.DynaBase:GetAllSources() ) do
-            net.WriteString( name )
-        end
-    net.Send( ply )   
-end )
+hook.Add("PlayerInitialSpawn", "wOS.DynaBase.NetworkRegisteredAnimations", function(ply)
+	timer.Simple(1.5, function()
+		if not IsValid(ply) then return end
+
+		net.Start("wOS.DynaBase.SendAllRegisters")
+			net.WriteUInt(wOS.DynaBase:GetSourceCount(), 32)
+			for name, _ in pairs(wOS.DynaBase:GetAllSources()) do
+				net.WriteString(name)
+			end
+		net.Send(ply)
+	end)
+end)

@@ -24,55 +24,73 @@ end)
 --local query = mysql:Drop("zb_experience")
 --query:Execute()
 
-hook.Add( "PlayerInitialSpawn","Pointshop_OnInitSpawn", function( ply )
-    local name = ply:Name()
+function PLUGIN.ApplyJoinRow(ply, row, createIfMissing)
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+
+	local name = ply:Name()
 	local steamID64 = ply:SteamID64()
 
-    if not PLUGIN.Active then
-        PLUGIN.PlayerInstances[steamID64] = {}
+	if not PLUGIN.Active then
+		PLUGIN.PlayerInstances[steamID64] = {donpoints = 0, points = 0, items = {}}
+		return
+	end
 
-		PLUGIN.PlayerInstances[steamID64].donpoints = 0
-        PLUGIN.PlayerInstances[steamID64].points = 0
-        PLUGIN.PlayerInstances[steamID64].items = {}
-        return
-    end 
+	local hasRow = istable(row) and row.donpoints ~= nil
+	if hasRow then
+		PLUGIN.PlayerInstances[steamID64] = {
+			donpoints = tonumber(row.donpoints) or 0,
+			points = tonumber(row.points) or 0,
+			items = isstring(row.items) and util.JSONToTable(row.items) or {},
+		}
+		hook.Run("PS_PlayerLoaded", ply, steamID64)
+		return
+	end
+
+	if not createIfMissing then return end
+
+	PLUGIN.PlayerInstances[steamID64] = {donpoints = 0, points = 0, items = {}}
+
+	local insertQuery = mysql:Insert("hg_pointshop")
+	insertQuery:Insert("steamid", steamID64)
+	insertQuery:Insert("steam_name", name)
+	insertQuery:Insert("donpoints", 0)
+	insertQuery:Insert("points", 0)
+	insertQuery:Insert("items", util.TableToJSON({}))
+	insertQuery:Execute()
+end
+
+hook.Add("PlayerInitialSpawn", "Pointshop_OnInitSpawn", function(ply)
+	if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() and not ply.ZCITY_LegacyProfileLoad then return end
+
+	if not PLUGIN.Active then
+		local steamID64 = ply:SteamID64()
+		PLUGIN.PlayerInstances[steamID64] = {donpoints = 0, points = 0, items = {}}
+		return
+	end
+
+	local name = ply:Name()
+	local steamID64 = ply:SteamID64()
 
 	local query = mysql:Select("hg_pointshop")
-		query:Select("donpoints")
-		query:Select("points")
-        query:Select("items")
-		query:Where("steamid", steamID64)
-		query:Callback(function(result)
-			if (IsValid(ply) and istable(result) and #result > 0 and result[1].donpoints) then
-				local updateQuery = mysql:Update("hg_pointshop")
-					updateQuery:Update("steam_name", name)
-					updateQuery:Where("steamid", steamID64)
-				updateQuery:Execute()
+	query:Select("donpoints")
+	query:Select("points")
+	query:Select("items")
+	query:Where("steamid", steamID64)
+	query:Callback(function(result)
+		if not IsValid(ply) then return end
 
-				PLUGIN.PlayerInstances[steamID64] = {}
+		local row
+		if istable(result) and #result > 0 and result[1].donpoints then
+			local updateQuery = mysql:Update("hg_pointshop")
+			updateQuery:Update("steam_name", name)
+			updateQuery:Where("steamid", steamID64)
+			updateQuery:Execute()
 
-                PLUGIN.PlayerInstances[steamID64].donpoints = tonumber(result[1].donpoints)
-                PLUGIN.PlayerInstances[steamID64].points = tonumber(result[1].points)
-                PLUGIN.PlayerInstances[steamID64].items = util.JSONToTable(result[1].items)
+			row = result[1]
+		end
 
-                hook.Run( "PS_PlayerLoaded", ply, steamID64 )
-			else
-				local insertQuery = mysql:Insert("hg_pointshop")
-					insertQuery:Insert("steamid", steamID64)
-					insertQuery:Insert("steam_name", name)
-					insertQuery:Insert("donpoints", 0)
-		            insertQuery:Insert("points", 0)
-                    insertQuery:Insert("items", util.TableToJSON({}))
-				insertQuery:Execute()
-
-				PLUGIN.PlayerInstances[steamID64] = {}
-
-				PLUGIN.PlayerInstances[steamID64].donpoints = 0
-                PLUGIN.PlayerInstances[steamID64].points = 0
-                PLUGIN.PlayerInstances[steamID64].items = {}
-
-			end
-		end)
+		PLUGIN.ApplyJoinRow(ply, row, true)
+	end)
 	query:Execute()
 end)
 

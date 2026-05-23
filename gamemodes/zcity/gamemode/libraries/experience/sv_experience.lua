@@ -11,7 +11,12 @@ hook.Add("ZCITY_DatabaseReady", "ExperienceActivate", function()
 	if not zb.Experience.Active then return end
 
 	for _, ply in player.Iterator() do
-		if IsValid(ply) and ply:IsPlayer() and not ply:IsBot() then
+		if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then continue end
+
+		if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() then
+			ZCITY_DB.ProfileLoadedSession[ply:SteamID64()] = nil
+			ZCITY_DB.LoadPlayerProfile(ply)
+		else
 			hook.Run("ZB_Exp_ReloadPlayer", ply)
 		end
 	end
@@ -49,60 +54,80 @@ end)
 --local query = mysql:Drop("zb_experience")
 --query:Execute()
 
-hook.Add( "PlayerInitialSpawn","ZB_Exp_OnInitSpawn", function( ply )
-    local name = ply:Name()
+function zb.Experience.ApplyJoinRow(ply, row, createIfMissing)
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+	if not zb.Experience.Active then
+		zb.Experience.PlayerInstances[ply:SteamID64()] = {}
+		return
+	end
+
+	local name = ply:Name()
+	local steamID64 = ply:SteamID64()
+	local hasRow = istable(row) and row.experience ~= nil
+
+	if hasRow then
+		zb.Experience.PlayerInstances[steamID64] = {
+			skill = tonumber(row.skill) or 0,
+			experience = tonumber(row.experience) or 0,
+			deaths = tonumber(row.deaths) or 0,
+			kills = tonumber(row.kills) or 0,
+			suicides = tonumber(row.suicides) or 0,
+		}
+		return
+	end
+
+	if not createIfMissing then return end
+
+	zb.Experience.PlayerInstances[steamID64] = {
+		skill = 0,
+		experience = 0,
+		deaths = 0,
+		kills = 0,
+		suicides = 0,
+	}
+
+	local insertQuery = mysql:Insert("zb_experience")
+	insertQuery:Insert("steamid", steamID64)
+	insertQuery:Insert("steam_name", name)
+	insertQuery:Insert("skill", 0)
+	insertQuery:Insert("experience", 0)
+	insertQuery:Insert("deaths", 0)
+	insertQuery:Insert("kills", 0)
+	insertQuery:Insert("suicides", 0)
+	insertQuery:Execute()
+end
+
+hook.Add("PlayerInitialSpawn", "ZB_Exp_OnInitSpawn", function(ply)
+	if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() and not ply.ZCITY_LegacyProfileLoad then return end
+
+	if not zb.Experience.Active then
+		zb.Experience.PlayerInstances[ply:SteamID64()] = {}
+		return
+	end
+
+	local name = ply:Name()
 	local steamID64 = ply:SteamID64()
 
-    if not zb.Experience.Active then
-        zb.Experience.PlayerInstances[steamID64] = {}
-        return
-    end 
-
 	local query = mysql:Select("zb_experience")
-		query:Select("skill")
-		query:Select("experience")
-        query:Select("deaths")
-        query:Select("kills")
-        query:Select("suicides")
-		query:Where("steamid", steamID64)
-		query:Callback(function(result)
-			if (IsValid(ply) and istable(result) and #result > 0 and result[1].experience) then
-				local updateQuery = mysql:Update("zb_experience")
-					updateQuery:Update("steam_name", name)
-					updateQuery:Where("steamid", steamID64)
-				updateQuery:Execute()
+	query:Select("skill")
+	query:Select("experience")
+	query:Select("deaths")
+	query:Select("kills")
+	query:Select("suicides")
+	query:Where("steamid", steamID64)
+	query:Callback(function(result)
+		if not IsValid(ply) then return end
 
-				zb.Experience.PlayerInstances[steamID64] = {}
+		if istable(result) and #result > 0 and result[1].experience ~= nil then
+			local updateQuery = mysql:Update("zb_experience")
+			updateQuery:Update("steam_name", name)
+			updateQuery:Where("steamid", steamID64)
+			updateQuery:Execute()
+		end
 
-                zb.Experience.PlayerInstances[steamID64].skill = tonumber(result[1].skill)
-                zb.Experience.PlayerInstances[steamID64].experience = tonumber(result[1].experience)
-                zb.Experience.PlayerInstances[steamID64].deaths = tonumber(result[1].deaths)
-                zb.Experience.PlayerInstances[steamID64].kills = tonumber(result[1].kills)
-                zb.Experience.PlayerInstances[steamID64].suicides = tonumber(result[1].suicides)
-
-			else
-				local insertQuery = mysql:Insert("zb_experience")
-					insertQuery:Insert("steamid", steamID64)
-					insertQuery:Insert("steam_name", name)
-					insertQuery:Insert("skill", 0)
-		            insertQuery:Insert("experience", 0)
-                    insertQuery:Insert("deaths", 0)
-		            insertQuery:Insert("kills", 0)
-                    insertQuery:Insert("suicides", 0)
-				insertQuery:Execute()
-
-				zb.Experience.PlayerInstances[steamID64] = {}
-
-				zb.Experience.PlayerInstances[steamID64].skill = 0
-                zb.Experience.PlayerInstances[steamID64].experience = 0
-                zb.Experience.PlayerInstances[steamID64].deaths = 0
-                zb.Experience.PlayerInstances[steamID64].kills = 0
-                zb.Experience.PlayerInstances[steamID64].suicides = 0
-
-			end
-		end)
+		zb.Experience.ApplyJoinRow(ply, istable(result) and #result > 0 and result[1] or nil, true)
+	end)
 	query:Execute()
-
 end)
 
 local plyMeta = FindMetaTable("Player")

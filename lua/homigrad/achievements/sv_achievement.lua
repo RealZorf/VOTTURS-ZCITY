@@ -3,42 +3,64 @@ hg.achievements.achievements_data = hg.achievements.achievements_data or {}
 hg.achievements.achievements_data.player_achievements = hg.achievements.achievements_data.player_achievements or {}
 hg.achievements.achievements_data.created_achevements = {}
 
-local function updatePlayer(ply)
-    if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+function hg.achievements.ApplyJoinRow(ply, achievementsJson, createIfMissing)
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
 
-    local name = ply:Name()
+	local name = ply:Name()
 	local steamID64 = ply:SteamID64()
 
-    if not hg.achievements.SqlActive then
-        hg.achievements.achievements_data.player_achievements[steamID64] = hg.achievements.achievements_data.player_achievements[steamID64] or {}
-        return
-    end 
+	if not hg.achievements.SqlActive then
+		hg.achievements.achievements_data.player_achievements[steamID64] = hg.achievements.achievements_data.player_achievements[steamID64] or {}
+		return
+	end
+
+	if isstring(achievementsJson) and achievementsJson ~= "" then
+		hg.achievements.achievements_data.player_achievements[steamID64] = util.JSONToTable(achievementsJson) or {}
+		return
+	end
+
+	if not createIfMissing then return end
+
+	hg.achievements.achievements_data.player_achievements[steamID64] = {}
+
+	local insertQuery = mysql:Insert("hg_achievements")
+	insertQuery:Insert("steamid", steamID64)
+	insertQuery:Insert("steam_name", name)
+	insertQuery:Insert("achievements", util.TableToJSON({}))
+	insertQuery:Execute()
+end
+
+local function updatePlayer(ply)
+	if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() and not ply.ZCITY_LegacyProfileLoad then return end
+
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+
+	local name = ply:Name()
+	local steamID64 = ply:SteamID64()
+
+	if not hg.achievements.SqlActive then
+		hg.achievements.achievements_data.player_achievements[steamID64] = hg.achievements.achievements_data.player_achievements[steamID64] or {}
+		return
+	end
 
 	local query = mysql:Select("hg_achievements")
-		query:Select("achievements")
-		query:Where("steamid", steamID64)
-		query:Callback(function(result)
-            --print(result)
-            --PrintTable(result)
-			if (IsValid(ply) and istable(result) and #result > 0 and result[1].achievements) then
-				local updateQuery = mysql:Update("hg_achievements")
-					updateQuery:Update("steam_name", name)
-					updateQuery:Where("steamid", steamID64)
-				updateQuery:Execute()
+	query:Select("achievements")
+	query:Where("steamid", steamID64)
+	query:Callback(function(result)
+		if not IsValid(ply) then return end
 
-                hg.achievements.achievements_data.player_achievements[steamID64] = util.JSONToTable(result[1].achievements)
+		local achievementsJson
+		if istable(result) and #result > 0 and result[1].achievements then
+			local updateQuery = mysql:Update("hg_achievements")
+			updateQuery:Update("steam_name", name)
+			updateQuery:Where("steamid", steamID64)
+			updateQuery:Execute()
 
-                --PrintTable(hg.achievements.achievements_data.player_achievements[steamID64])
-			else
-				local insertQuery = mysql:Insert("hg_achievements")
-					insertQuery:Insert("steamid", steamID64)
-					insertQuery:Insert("steam_name", name)
-					insertQuery:Insert("achievements", util.TableToJSON({}))
-				insertQuery:Execute()
+			achievementsJson = result[1].achievements
+		end
 
-				hg.achievements.achievements_data.player_achievements[steamID64] = {}
-			end
-		end)
+		hg.achievements.ApplyJoinRow(ply, achievementsJson, true)
+	end)
 	query:Execute()
 end
 
