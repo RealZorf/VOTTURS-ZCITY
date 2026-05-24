@@ -69,13 +69,29 @@ net.Receive("tdm_start",function()
     surface.PlaySound("csgo_round.wav")
 	zb.rtype = net.ReadString()
 
+	if zb.RemoveFade then
+		zb.RemoveFade()
+	else
+		zb.fade = 0
+	end
+
 	local round = CurrentRound() or MODE
 	if not StartTDMTheme(round) and hg.DynaMusic then
 		StopTDMTheme()
 		hg.DynaMusic:Start("swat4")
 	end
+end)
 
-	zb.RemoveFade()
+hook.Add("StartCommand", "TDM_DisallowMoveOrShoting", function(ply, mv)
+	if zb.CROUND ~= "tdm" then return end
+	if (zb.ROUND_START or 0) + (zb.RoundFade and zb.RoundFade.TDM_MOVE_BLOCK or 20) > CurTime() then
+		mv:RemoveKey(IN_ATTACK)
+		mv:RemoveKey(IN_ATTACK2)
+		mv:RemoveKey(IN_FORWARD)
+		mv:RemoveKey(IN_BACK)
+		mv:RemoveKey(IN_MOVELEFT)
+		mv:RemoveKey(IN_MOVERIGHT)
+	end
 end)
 
 hook.Add("Think", "TDMThemeVolumeThink", function()
@@ -118,228 +134,37 @@ local teams = {
 	},
 }
 
-hook.Add( "StartCommand", "TDM_DisallowMoveOrShoting", function( ply, mv )
-	--; BLYAT NY NAXUA PISAT VSE V ODNY LINIY BLYAAA
-	if zb.CROUND == "tdm" and (zb.ROUND_START or 0) + 20 > CurTime() then 
-		mv:RemoveKey(IN_ATTACK)
-		mv:RemoveKey(IN_ATTACK2)
-		mv:RemoveKey(IN_FORWARD)
-		mv:RemoveKey(IN_BACK)
-		mv:RemoveKey(IN_MOVELEFT)
-		mv:RemoveKey(IN_MOVERIGHT)
-	end
-end)
 
 function MODE:RenderScreenspaceEffects()
-    local StartTime = zb.ROUND_START or CurTime()
-	if StartTime + 7.5 < CurTime() then return end
-    local fade = math.Clamp(StartTime + 7.5 - CurTime(),0,1)
-
-    surface.SetDrawColor(0,0,0,255 * fade)
-    surface.DrawRect(-1,-1,ScrW() + 1,ScrH() + 1)
+	zb.RoundFade.PaintBlackScreen()
 end
 
 function MODE:HUDPaint()
-    local StartTime = zb.ROUND_START or CurTime()
+	local startTime = zb.ROUND_START or CurTime()
+
 	self:AddHudPaint()
-	if StartTime + 20 > CurTime() then
-		draw.SimpleText( string.FormattedTime(StartTime + 20 - CurTime(), "%02i:%02i:%02i"	), "ZB_HomicideMedium", sw * 0.5, sh * 0.95, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		draw.SimpleText( "Press F3 to open buymenu", "ZB_HomicideMedium", sw * 0.5, sh * 0.9, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+	local buyWindow = self.start_time or 20
+	if startTime + buyWindow > CurTime() then
+		draw.SimpleText(string.FormattedTime(startTime + buyWindow - CurTime(), "%02i:%02i:%02i"), "ZB_HomicideMedium", sw * 0.5, sh * 0.95, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("Press F3 to open buymenu", "ZB_HomicideMedium", sw * 0.5, sh * 0.9, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	else
-		local time = string.FormattedTime( math.max(StartTime + (zb.ROUND_TIME or 400) - CurTime(), 0), "%02i:%02i:%02i" )
-		draw.SimpleText( time, "ZB_HomicideMedium", sw * 0.5, sh * 0.95, ColorObj, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		local time = string.FormattedTime(math.max(startTime + (zb.ROUND_TIME or 400) - CurTime(), 0), "%02i:%02i:%02i")
+		draw.SimpleText(time, "ZB_HomicideMedium", sw * 0.5, sh * 0.95, ColorObj, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
-    if StartTime + 20 < CurTime() then return end
-	 
-	if not lply:Alive() then return end
-	zb.RemoveFade()
-    local fade = math.Clamp(StartTime + 8 - CurTime(),0,1)
-	local team_ = lply:Team()
-    draw.SimpleText("ZBattle | "..(self.PrintName or "Team Deathmatch"), "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0,162,255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    local Rolename = teams[team_].name
-    local ColorRole = teams[team_].color1
-    ColorRole.a = 255 * fade
-    draw.SimpleText("You are "..Rolename , "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.5, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	if startTime + buyWindow < CurTime() then return end
 
-    local Objective = teams[team_].objective
-    local ColorObj = teams[team_].color2
-    ColorObj.a = 255 * fade
-    draw.SimpleText( Objective, "ZB_HomicideMedium", sw * 0.5, sh * 0.9, ColorObj, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-	if hg.PluvTown.Active then
-		surface.SetMaterial(hg.PluvTown.PluvMadness)
-		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * fade / 2)
-		surface.DrawTexturedRect(sw * 0.25, sh * 0.44 - ScreenScale(15), sw / 2, ScreenScale(30))
-
-		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	end
+	zb.RoundFade.PaintStandardIntro(self)
 end
 
 function MODE:AddHudPaint()
 end
 
-local CreateEndMenu
-
-net.Receive("tdm_roundend",function()
-    CreateEndMenu()
-end)
-
-
-
-local colGray = Color(85,85,85,255)
-local colRed = Color(130,10,10)
-local colRedUp = Color(160,30,30)
-
-local colBlue = Color(10,10,160)
-local colBlueUp = Color(40,40,160)
-local col = Color(255,255,255,255)
-
-local colSpect1 = Color(75,75,75,255)
-local colSpect2 = Color(255,255,255)
-
-local colorBG = Color(55,55,55,255)
-local colorBGBlacky = Color(40,40,40,255)
-
-local blurMat = Material("pp/blurscreen")
-local Dynamic = 0
-
-BlurBackground = BlurBackground or hg.DrawBlur
-
-if IsValid(hmcdEndMenu) then
-    hmcdEndMenu:Remove()
-    hmcdEndMenu = nil
-end
-
-CreateEndMenu = function()
-	if IsValid(hmcdEndMenu) then
-		hmcdEndMenu:Remove()
-		hmcdEndMenu = nil
-	end
-	Dynamic = 0
-	hmcdEndMenu = vgui.Create("ZFrame")
-
-    surface.PlaySound("ambient/alarms/warningbell1.wav")
-
-	local sizeX,sizeY = ScrW() / 2.5 ,ScrH() / 1.2
-	local posX,posY = ScrW() / 1.3 - sizeX / 2,ScrH() / 2 - sizeY / 2
-
-	hmcdEndMenu:SetPos(posX,posY)
-	hmcdEndMenu:SetSize(sizeX,sizeY)
-	--hmcdEndMenu:SetBackgroundColor(colGray)
-	hmcdEndMenu:MakePopup()
-	hmcdEndMenu:SetKeyboardInputEnabled(false)
-	hmcdEndMenu:ShowCloseButton(false)
-
-	local closebutton = vgui.Create("DButton",hmcdEndMenu)
-	closebutton:SetPos(5,5)
-	closebutton:SetSize(ScrW() / 20,ScrH() / 30)
-	closebutton:SetText("")
-	
-	closebutton.DoClick = function()
-		if IsValid(hmcdEndMenu) then
-			hmcdEndMenu:Close()
-			hmcdEndMenu = nil
-		end
-	end
-
-	closebutton.Paint = function(self,w,h)
-		surface.SetDrawColor( 122, 122, 122, 255)
-        surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
-		surface.SetFont( "ZB_InterfaceMedium" )
-		surface.SetTextColor(col.r,col.g,col.b,col.a)
-		local lengthX, lengthY = surface.GetTextSize("Close")
-		surface.SetTextPos( lengthX - lengthX/1.1, 4)
-		surface.DrawText("Close")
-	end
-
-    hmcdEndMenu.Paint = function(self,w,h)
-		BlurBackground(self)
-
-		surface.SetFont( "ZB_InterfaceMediumLarge" )
-		surface.SetTextColor(col.r,col.g,col.b,col.a)
-		local lengthX, lengthY = surface.GetTextSize("Players:")
-		surface.SetTextPos(w / 2 - lengthX/2,20)
-		surface.DrawText("Players:")
-
-		surface.SetDrawColor( 255, 0, 0, 128)
-        surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
-	end
-	-- PLAYERS
-	local DScrollPanel = vgui.Create("DScrollPanel", hmcdEndMenu)
-	DScrollPanel:SetPos(10, 80)
-	DScrollPanel:SetSize(sizeX - 20, sizeY - 90)
-	function DScrollPanel:Paint( w, h )
-		BlurBackground(self)
-
-		surface.SetDrawColor( 255, 0, 0, 128)
-        surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
-	end
-
-	for i, ply in player.Iterator() do
-		if ply:Team() == TEAM_SPECTATOR then continue end
-		local but = vgui.Create("DButton",DScrollPanel)
-		but:SetSize(100,50)
-		but:Dock(TOP)
-		but:DockMargin( 8, 6, 8, -1 )
-		but:SetText("")
-		but.Paint = function(self,w,h)
-			local validPly = IsValid(ply)
-			local isAlive = validPly and ply:Alive()
-            local col1 = (isAlive and colRed) or colGray
-            local col2 = (isAlive and colRedUp) or colSpect1
-			surface.SetDrawColor(col1.r,col1.g,col1.b,col1.a)
-			surface.DrawRect(0,0,w,h)
-			surface.SetDrawColor(col2.r,col2.g,col2.b,col2.a)
-			surface.DrawRect(0,h/2,w,h/2)
-
-            local plyColor = validPly and ply:GetPlayerColor():ToColor() or color_white
-			surface.SetFont( "ZB_InterfaceMediumLarge" )
-			local displayName = validPly and (ply:GetPlayerName() or ply:Name()) or "He quited..."
-			local lengthX, lengthY = surface.GetTextSize(displayName)
-			
-			surface.SetTextColor(0,0,0,255)
-			surface.SetTextPos(w / 2 + 1,h/2 - lengthY/2 + 1)
-			surface.DrawText(displayName)
-
-			surface.SetTextColor(plyColor.r,plyColor.g,plyColor.b,plyColor.a)
-			surface.SetTextPos(w / 2,h/2 - lengthY/2)
-			surface.DrawText(displayName)
-
-            
-			local col = colSpect2
-			surface.SetFont( "ZB_InterfaceMediumLarge" )
-			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local leftText = validPly and (ply:Name() .. (not isAlive and " - died" or "")) or "He quited..."
-			local lengthX, lengthY = surface.GetTextSize(leftText)
-			surface.SetTextPos(15,h/2 - lengthY/2)
-			surface.DrawText(leftText)
-
-			surface.SetFont( "ZB_InterfaceMediumLarge" )
-			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local fragsText = validPly and tostring(ply:Frags()) or "0"
-			local lengthX, lengthY = surface.GetTextSize(fragsText)
-			surface.SetTextPos(w - lengthX -15,h/2 - lengthY/2)
-			surface.DrawText(fragsText)
-		end
-
-		function but:DoClick()
-			if not IsValid(ply) then return end
-			if ply:IsBot() then chat.AddText(Color(255,0,0), "no, you can't") return end
-			gui.OpenURL("https://steamcommunity.com/profiles/"..ply:SteamID64())
-		end
-
-		DScrollPanel:AddItem(but)
-	end
-
-	return true
-end
+MODE.IntroTitle = "ZBattle | Team Deathmatch"
+MODE.IntroTeams = teams
 
 function MODE:RoundStart()
-    if IsValid(hmcdEndMenu) then
-        hmcdEndMenu:Remove()
-        hmcdEndMenu = nil
-    end
 end
 
 surface.CreateFont("ZB_TDM_MENU", {
@@ -365,11 +190,27 @@ surface.CreateFont("ZB_TDM_CATEGORY", {
     antialias = true
 })
 
+surface.CreateFont("ZB_TDM_TAB", {
+    font = "Bahnschrift",
+    size = ScreenScale(8),
+    extended = true,
+    weight = 500,
+    antialias = true
+})
+
 surface.CreateFont("ZB_TDM_TAB_COMPACT", {
     font = "Bahnschrift",
-    size = ScreenScale(5),
+    size = ScreenScale(7),
     extended = true,
-    weight = 400,
+    weight = 500,
+    antialias = true
+})
+
+surface.CreateFont("ZB_TDM_TAB_MICRO", {
+    font = "Bahnschrift",
+    size = ScreenScale(6),
+    extended = true,
+    weight = 500,
     antialias = true
 })
 
@@ -465,16 +306,35 @@ local function PaintPanel2(self,w,h)
     surface.DrawTexturedRect( 0, 0, w*1.2, h )
 end
 
-local function getTDMTabPadX()
-	return math.max(ScreenScale(8), 12)
+local function getTDMTabPadX(tab)
+	if IsValid(tab) and tab._tdmTabMicroFont then
+		return math.max(ScreenScale(3), 4)
+	end
+
+	if IsValid(tab) and tab._tdmTabCompactFont then
+		return math.max(ScreenScale(4), 5)
+	end
+
+	return math.max(ScreenScale(5), 6)
 end
 
 local function getTDMTabFont(tab)
+	if IsValid(tab) and tab._tdmTabMicroFont then
+		return "ZB_TDM_TAB_MICRO"
+	end
+
 	if IsValid(tab) and tab._tdmTabCompactFont then
 		return "ZB_TDM_TAB_COMPACT"
 	end
 
-	return "ZB_TDM_CATEGORY"
+	return "ZB_TDM_TAB"
+end
+
+local function getTDMTabBarHeight()
+	surface.SetFont("ZB_TDM_TAB")
+	local _, textH = surface.GetTextSize("Ay")
+
+	return math.ceil(textH + ScreenScale(3))
 end
 
 local function measureTDMTabWidth(tabText, tab)
@@ -487,7 +347,7 @@ local function measureTDMTabWidth(tabText, tab)
 		iconWide = 6 + tab.Image:GetWide()
 	end
 
-	local padX = getTDMTabPadX()
+	local padX = getTDMTabPadX(tab)
 	return textW + iconWide + padX * 2
 end
 
@@ -533,16 +393,16 @@ local function applyTDMPropertySheetTab(self)
 	local tabText = self._tdmTabLabel or ""
 	if tabText == "" then return end
 
-	self._tdmTabPadX = getTDMTabPadX()
+	self._tdmTabPadX = getTDMTabPadX(self)
 	self._tdmTabIconWide = self.Image and (6 + self.Image:GetWide()) or 0
 	self:SetFont(getTDMTabFont(self))
 	self:SetText("")
 	self:SetTextColor(color_white)
 	self:SetTextInset(0, 0)
 
-	if self._tdmTabWidthLocked then return end
+	if self._tdmTabWidthLocked or self._tdmStretchedTab then return end
 
-	local tabH = self.GetTabHeight and self:GetTabHeight() or 22
+	local tabH = getTDMTabBarHeight()
 	self:SetSize(measureTDMTabWidth(tabText, self), tabH)
 end
 
@@ -574,96 +434,245 @@ local function setupTDMPropertySheetTab(tab, label)
 
 	if not tab._tdmTabStyled then
 		tab._tdmTabStyled = true
+		tab._tdmStretchedTab = true
 		installTDMPropertySheetTabPaint(tab)
 	end
 
 	applyTDMPropertySheetTab(tab)
 end
 
-local function sumTDMTabRowWidth(sheet, scroller)
-	local totalW = 0
+local function getTDMTabList(sheet)
+	local tabs = {}
 
-	for _, sheetData in ipairs(sheet.Items) do
-		local tab = sheetData.Tab
-		if IsValid(tab) then
-			totalW = totalW + tab:GetWide() - scroller:GetOverlap()
+	for _, sheetData in ipairs(sheet.Items or {}) do
+		if IsValid(sheetData.Tab) then
+			tabs[#tabs + 1] = sheetData.Tab
 		end
 	end
 
-	return totalW
+	return tabs
 end
 
-local function fitTDMPropertySheetTabs(sheet)
-	if not IsValid(sheet) or not istable(sheet.Items) then return end
+local function getTDMTabSideInset()
+	return math.max(ScreenScale(2), 2)
+end
 
-	local scroller = sheet.tabScroller
-	if not IsValid(scroller) then return end
+local function getTDMTabAvailWidth(sheet, scroller)
+	local inset = getTDMTabSideInset() * 2
+
+	if IsValid(sheet) and sheet:GetWide() > 0 then
+		return math.max(sheet:GetWide() - inset, ScreenScale(80))
+	end
+
+	if IsValid(scroller) and scroller:GetWide() > 0 then
+		return math.max(scroller:GetWide(), ScreenScale(80))
+	end
+
+	return ScreenScale(120)
+end
+
+local function sumTDMTabNaturalWidths(sheet)
+	local total = 0
+
+	for _, tab in ipairs(getTDMTabList(sheet)) do
+		total = total + measureTDMTabWidth(tab._tdmTabLabel, tab)
+	end
+
+	return total
+end
+
+local function assignTDMTabProportionalWidths(sheet, availW)
+	local tabs = getTDMTabList(sheet)
+	local tabCount = #tabs
+	if tabCount <= 0 then return end
+
+	availW = math.floor(availW)
+
+	local naturals = {}
+	local totalNatural = 0
+
+	for index, tab in ipairs(tabs) do
+		local naturalW = measureTDMTabWidth(tab._tdmTabLabel, tab)
+		naturals[index] = naturalW
+		totalNatural = totalNatural + naturalW
+	end
+
+	if totalNatural <= 0 then
+		local baseW = math.floor(availW / tabCount)
+
+		for index, tab in ipairs(tabs) do
+			tab._tdmTabWidthLocked = true
+			tab:SetWide(baseW)
+		end
+
+		return
+	end
+
+	local scale = availW / totalNatural
+	local usedW = 0
+
+	for index, tab in ipairs(tabs) do
+		local tabW = math.max(1, math.floor(naturals[index] * scale))
+		tab._tdmTabWidthLocked = true
+		tab:SetWide(tabW)
+		usedW = usedW + tabW
+	end
+
+	local remainder = availW - usedW
+	if remainder ~= 0 and IsValid(tabs[tabCount]) then
+		tabs[tabCount]:SetWide(tabs[tabCount]:GetWide() + remainder)
+	end
+end
+
+local layoutTDMTabBar
+
+local function disableTDMTabScroller(scroller, sheet)
+	if not IsValid(scroller) or not scroller.SetOverlap then return end
 
 	scroller:SetOverlap(0)
+	scroller._tdmSheet = sheet
 
-	for _, sheetData in ipairs(sheet.Items) do
-		local tab = sheetData.Tab
-		if IsValid(tab) then
-			tab._tdmTabWidthLocked = nil
-			tab._tdmTabCompactFont = nil
-			setupTDMPropertySheetTab(tab, sheetData.Name)
+	local function hideScrollButtons()
+		if IsValid(scroller.btnLeft) then
+			if scroller.btnLeft:IsVisible() then scroller.btnLeft:SetVisible(false) end
+			if scroller.btnLeft:GetWide() ~= 0 then scroller.btnLeft:SetWide(0) end
+			scroller.btnLeft:SetMouseInputEnabled(false)
+		end
+
+		if IsValid(scroller.btnRight) then
+			if scroller.btnRight:IsVisible() then scroller.btnRight:SetVisible(false) end
+			if scroller.btnRight:GetWide() ~= 0 then scroller.btnRight:SetWide(0) end
+			scroller.btnRight:SetMouseInputEnabled(false)
 		end
 	end
 
-	local availW = math.max(sheet:GetWide() - 8, ScreenScale(120))
-	local totalW = sumTDMTabRowWidth(sheet, scroller)
+	scroller.Scroll = 0
+	hideScrollButtons()
 
-	if totalW > availW then
-		for _, sheetData in ipairs(sheet.Items) do
-			local tab = sheetData.Tab
-			if IsValid(tab) then
-				tab._tdmTabCompactFont = true
-				tab._tdmTabWidthLocked = nil
-				applyTDMPropertySheetTab(tab)
-			end
+	if scroller._tdmScrollerPinned then return end
+	scroller._tdmScrollerPinned = true
+
+	local oldPerformLayout = scroller.PerformLayout
+	scroller.PerformLayout = function(s, w, h)
+		if s._tdmPinningLayout then return end
+		s._tdmPinningLayout = true
+
+		if oldPerformLayout then
+			oldPerformLayout(s, w, h)
 		end
 
-		totalW = sumTDMTabRowWidth(sheet, scroller)
-	end
+		s.Scroll = 0
+		hideScrollButtons()
 
-	if totalW > availW then
-		local scale = availW / totalW
-
-		for _, sheetData in ipairs(sheet.Items) do
-			local tab = sheetData.Tab
-			if IsValid(tab) then
-				local naturalW = measureTDMTabWidth(tab._tdmTabLabel, tab)
-				tab._tdmTabWidthLocked = true
-				tab:SetWide(math.max(math.floor(naturalW * scale), math.floor(naturalW * 0.82)))
-			end
+		if IsValid(s._tdmSheet) then
+			layoutTDMTabBar(s._tdmSheet, s, w, h)
 		end
-	end
 
-	local tabCount = #sheet.Items
-	for tabIndex, sheetData in ipairs(sheet.Items) do
-		local tab = sheetData.Tab
-		if IsValid(tab) then
-			tab._tdmTabDrawLeftEdge = tabIndex == 1
-			tab._tdmTabDrawRightEdge = tabIndex == tabCount
-			tab._tdmTabDrawDivider = tabIndex < tabCount
-		end
-	end
-
-	scroller:SetScroll(0)
-
-	if IsValid(scroller.btnLeft) then
-		scroller.btnLeft:SetVisible(false)
-	end
-
-	if IsValid(scroller.btnRight) then
-		scroller.btnRight:SetVisible(false)
+		s._tdmPinningLayout = false
 	end
 
 	scroller.OnMouseWheeled = function()
 		return true
 	end
+end
 
-	scroller:InvalidateLayout(true)
+local function resetTDMTabFonts(sheet)
+	for _, sheetData in ipairs(sheet.Items) do
+		local tab = sheetData.Tab
+		if not IsValid(tab) then continue end
+
+		tab._tdmTabCompactFont = nil
+		tab._tdmTabMicroFont = nil
+		tab._tdmTabLabel = sheetData.Name or tab._tdmTabLabel
+		tab:SetFont(getTDMTabFont(tab))
+		tab:SetText("")
+	end
+end
+
+local function applyTDMTabFontMode(sheet, fontMode)
+	for _, sheetData in ipairs(sheet.Items) do
+		local tab = sheetData.Tab
+		if IsValid(tab) then
+			tab._tdmTabCompactFont = fontMode == "compact" or fontMode == "micro"
+			tab._tdmTabMicroFont = fontMode == "micro"
+			tab:SetFont(getTDMTabFont(tab))
+		end
+	end
+end
+
+local function pickTDMTabFontMode(sheet, availW)
+	local fontModes = {nil, "compact", "micro"}
+
+	for _, fontMode in ipairs(fontModes) do
+		applyTDMTabFontMode(sheet, fontMode)
+
+		if sumTDMTabNaturalWidths(sheet) <= availW then
+			return
+		end
+	end
+
+	applyTDMTabFontMode(sheet, "micro")
+end
+
+local function updateTDMTabEdgeFlags(sheet)
+	local tabs = getTDMTabList(sheet)
+
+	for tabIndex, tab in ipairs(tabs) do
+		tab._tdmTabDrawLeftEdge = tabIndex == 1
+		tab._tdmTabDrawRightEdge = tabIndex == #tabs
+		tab._tdmTabDrawDivider = tabIndex < #tabs
+	end
+end
+
+layoutTDMTabBar = function(sheet, scroller, barW, barH)
+	if not IsValid(sheet) or not IsValid(scroller) then return end
+
+	barW = math.floor(barW or getTDMTabAvailWidth(sheet, scroller))
+	barH = getTDMTabBarHeight()
+
+	if barW <= 0 then return end
+
+	local tabs = getTDMTabList(sheet)
+	if #tabs <= 0 then return end
+
+	resetTDMTabFonts(sheet)
+	pickTDMTabFontMode(sheet, barW)
+	assignTDMTabProportionalWidths(sheet, barW)
+
+	local x = 0
+
+	for _, tab in ipairs(tabs) do
+		tab:SetPos(x, 0)
+		tab:SetTall(barH)
+		x = x + tab:GetWide()
+	end
+
+	local canvasW = math.max(barW, x)
+
+	if IsValid(scroller.pnlCanvas) then
+		scroller.pnlCanvas:SetPos(0, 0)
+		scroller.pnlCanvas:SetSize(canvasW, barH)
+	end
+
+	scroller.Scroll = 0
+	updateTDMTabEdgeFlags(sheet)
+end
+
+local function fitTDMPropertySheetTabs(sheet)
+	if not IsValid(sheet) or not istable(sheet.Items) then return end
+	if sheet._tdmTabFitting then return end
+
+	sheet._tdmTabFitting = true
+
+	local scroller = sheet.tabScroller
+	if IsValid(scroller) then
+		disableTDMTabScroller(scroller, sheet)
+
+		local availW = getTDMTabAvailWidth(sheet, scroller)
+		layoutTDMTabBar(sheet, scroller, availW, getTDMTabBarHeight())
+	end
+
+	sheet._tdmTabFitting = false
 end
 
 local TDM_BuyMenuBuildTimer
@@ -1173,6 +1182,25 @@ end
 
 TDM_ActiveConfirmFrame = TDM_ActiveConfirmFrame or nil
 
+local function flushTDMConfirmPendingInventoryRefresh()
+	if not IsValid(TDM_OpenedBuyMenu) or not TDM_OpenedBuyMenu._tdmPendingInventoryRefresh then return end
+
+	TDM_OpenedBuyMenu._tdmPendingInventoryRefresh = nil
+
+	if IsValid(TDM_OpenedBuyMenu._tdmInventoryPanel) then
+		buildTDMInventoryPanel(TDM_OpenedBuyMenu._tdmInventoryPanel)
+	end
+end
+
+local function restoreBuyMenuInputAfterConfirm()
+	if not IsValid(TDM_OpenedBuyMenu) then return end
+
+	if TDM_OpenedBuyMenu._tdmConfirmRestoreInput ~= nil then
+		TDM_OpenedBuyMenu:SetMouseInputEnabled(TDM_OpenedBuyMenu._tdmConfirmRestoreInput)
+		TDM_OpenedBuyMenu._tdmConfirmRestoreInput = nil
+	end
+end
+
 local function dismissTDMConfirm(frame)
 	if IsValid(frame) then
 		frame:Remove()
@@ -1181,101 +1209,194 @@ local function dismissTDMConfirm(frame)
 	if frame == nil or TDM_ActiveConfirmFrame == frame then
 		TDM_ActiveConfirmFrame = nil
 	end
+
+	restoreBuyMenuInputAfterConfirm()
+	flushTDMConfirmPendingInventoryRefresh()
 end
 
-local function ShowTDMConfirm(title, message, confirmLabel, onConfirm, cancelLabel)
+local function createTDMConfirmButton(parent, label, paintFn, textColor, onClick, btnWide)
+	local btnH = TDM_BTN_ROW_H()
+
+	local btn = vgui.Create("DButton", parent)
+	btn:SetWide(btnWide)
+	btn:SetTall(btnH)
+	btn:SetText(label)
+	btn:SetFont("ZB_TDM_DESC")
+	btn:SetTextColor(textColor)
+	btn.Paint = paintFn
+	btn:SetMouseInputEnabled(true)
+	btn:SetKeyboardInputEnabled(true)
+	styleBuyMenuActionButton(btn)
+
+	function btn:DoClick()
+		if self._tdmConfirmLocked then return end
+		self._tdmConfirmLocked = true
+
+		if onClick then
+			onClick()
+		end
+	end
+
+	return btn
+end
+
+local function getTDMConfirmChrome()
+	return {
+		margin = math.max(ScreenScale(10), 12),
+		btnGap = math.max(ScreenScale(8), 10),
+		titleBarH = math.max(ScreenScale(24), 26),
+		btnPadX = math.max(ScreenScale(14), 20),
+		outlineSlack = ScreenScale(6),
+	}
+end
+
+local function measureTDMConfirmButtonWidth(label, chrome)
+	surface.SetFont("ZB_TDM_DESC")
+	local textW = select(1, surface.GetTextSize(label or ""))
+
+	return math.max(textW + chrome.btnPadX * 2, ScreenScale(52))
+end
+
+local function measureTDMCompactConfirmLayout(title, confirmLabel, cancelLabel)
+	local chrome = getTDMConfirmChrome()
+	local confirmW = measureTDMConfirmButtonWidth(confirmLabel, chrome)
+	local cancelW = measureTDMConfirmButtonWidth(cancelLabel, chrome)
+	local buttonsW = confirmW + cancelW + chrome.btnGap
+	local btnH = TDM_BTN_ROW_H()
+
+	surface.SetFont("ZB_TDM_MENU")
+	local titleW = select(1, surface.GetTextSize(title or ""))
+
+	local frameW = math.max(buttonsW, titleW) + chrome.margin * 2 + chrome.outlineSlack
+	local frameH = chrome.titleBarH + chrome.margin + btnH + chrome.margin + chrome.outlineSlack
+
+	return {
+		frameW = frameW,
+		frameH = frameH,
+		confirmW = confirmW,
+		cancelW = cancelW,
+		btnH = btnH,
+		chrome = chrome,
+	}
+end
+
+local function layoutTDMCompactConfirmButtons(btnRow, confirmBtn, cancelBtn, layout)
+	local chrome = layout.chrome
+	local rowW = layout.confirmW + layout.cancelW + chrome.btnGap
+
+	function btnRow:PerformLayout(w, h)
+		if not IsValid(confirmBtn) or not IsValid(cancelBtn) then return end
+
+		local x = math.max(0, math.floor((w - rowW) * 0.5))
+		local y = math.max(0, math.floor((h - layout.btnH) * 0.5))
+
+		confirmBtn:SetSize(layout.confirmW, layout.btnH)
+		confirmBtn:SetPos(x, y)
+
+		cancelBtn:SetSize(layout.cancelW, layout.btnH)
+		cancelBtn:SetPos(x + layout.confirmW + chrome.btnGap, y)
+	end
+
+	btnRow:InvalidateLayout(true)
+end
+
+local function applyTDMCompactConfirmFrameSize(frame, body, layout)
+	local chrome = layout.chrome
+
+	frame:SetSize(layout.frameW, layout.frameH)
+	frame:Center()
+
+	body:DockMargin(chrome.margin, chrome.titleBarH, chrome.margin, chrome.margin)
+end
+
+local function ShowTDMCompactConfirm(title, confirmLabel, onConfirm, cancelLabel)
 	cancelLabel = cancelLabel or "Cancel"
+	title = title or "Confirm"
+	confirmLabel = confirmLabel or "Confirm"
 
 	dismissTDMConfirm(TDM_ActiveConfirmFrame)
 
-	local frameW = math.min(ScrW() * 0.36, 540)
-	local frameH = math.max(ScrH() * 0.2, 150)
-	local parent = IsValid(TDM_OpenedBuyMenu) and TDM_OpenedBuyMenu or nil
+	local layout = measureTDMCompactConfirmLayout(title, confirmLabel, cancelLabel)
 
-	local frame = vgui.Create("ZFrame", parent)
+	local frame = vgui.Create("ZFrame")
 	TDM_ActiveConfirmFrame = frame
-	frame:SetSize(frameW, frameH)
-	frame:Center()
-	frame:MakePopup()
+	frame:SetTitle(title)
+	frame:ShowCloseButton(false)
+	frame.Paint = PaintFrame
+	ApplyBuyMenuFrameColors(frame)
 	frame:SetKeyboardInputEnabled(true)
 	frame:SetMouseInputEnabled(true)
 	frame:SetDrawOnTop(true)
 	frame:SetZPos(32767)
-	frame:SetTitle(title or "Confirm")
-	frame:ShowCloseButton(false)
-	frame.Paint = PaintFrame
-	ApplyBuyMenuFrameColors(frame)
+	frame._tdmOnConfirm = onConfirm
+	frame._tdmConfirmLayout = layout
+
+	if IsValid(TDM_OpenedBuyMenu) then
+		TDM_OpenedBuyMenu._tdmConfirmRestoreInput = TDM_OpenedBuyMenu:IsMouseInputEnabled()
+		TDM_OpenedBuyMenu:SetMouseInputEnabled(false)
+	end
 
 	function frame:OnRemove()
 		if TDM_ActiveConfirmFrame == self then
 			TDM_ActiveConfirmFrame = nil
 		end
+
+		restoreBuyMenuInputAfterConfirm()
+		flushTDMConfirmPendingInventoryRefresh()
+	end
+
+	function frame:OnKeyCodePressed(key)
+		if key == KEY_ESCAPE then
+			dismissTDMConfirm(self)
+		end
 	end
 
 	local body = vgui.Create("DPanel", frame)
 	body:Dock(FILL)
-	body:DockMargin(16, 30, 16, 14)
 	body.Paint = function() end
-	body:SetMouseInputEnabled(false)
-
-	local msg = vgui.Create("DLabel", body)
-	msg:Dock(TOP)
-	msg:DockMargin(0, 0, 0, 12)
-	msg:SetText(message)
-	msg:SetFont("ZB_TDM_DESC")
-	msg:SetTextColor(Color(230, 230, 230))
-	msg:SetWrap(true)
-	msg:SetAutoStretchVertical(true)
-	msg:SetContentAlignment(1)
-	msg:SetMouseInputEnabled(false)
+	body:SetMouseInputEnabled(true)
 
 	local btnRow = vgui.Create("DPanel", body)
-	btnRow:Dock(BOTTOM)
-	btnRow:SetTall(TDM_BTN_ROW_H())
+	btnRow:Dock(FILL)
 	btnRow.Paint = function() end
+	btnRow:SetMouseInputEnabled(true)
 
-	local btnH = TDM_BTN_ROW_H()
-	local btnPadX = 18
-
-	surface.SetFont("ZB_TDM_DESC")
-	local confirmW = select(1, surface.GetTextSize(confirmLabel)) + btnPadX * 2
-	local cancelW = select(1, surface.GetTextSize(cancelLabel)) + btnPadX * 2
-
-	local confirmBtn = vgui.Create("DButton", btnRow)
-	confirmBtn:Dock(LEFT)
-	confirmBtn:SetWide(math.max(confirmW, ScreenScale(52)))
-	confirmBtn:SetTall(btnH)
-	confirmBtn:SetText(confirmLabel)
-	confirmBtn:SetFont("ZB_TDM_DESC")
-	confirmBtn:SetTextColor(Color(255, 220, 220))
-	confirmBtn.Paint = PaintPanel1
-	confirmBtn:SetMouseInputEnabled(true)
-	styleBuyMenuActionButton(confirmBtn)
-
-	local cancelBtn = vgui.Create("DButton", btnRow)
-	cancelBtn:Dock(LEFT)
-	cancelBtn:DockMargin(8, 0, 0, 0)
-	cancelBtn:SetWide(math.max(cancelW, ScreenScale(52)))
-	cancelBtn:SetTall(btnH)
-	cancelBtn:SetText(cancelLabel)
-	cancelBtn:SetFont("ZB_TDM_DESC")
-	cancelBtn:SetTextColor(Color(210, 210, 210))
-	cancelBtn.Paint = PaintPanel
-	cancelBtn:SetMouseInputEnabled(true)
-	styleBuyMenuActionButton(cancelBtn)
-
-	function cancelBtn:DoClick()
-		dismissTDMConfirm(frame)
-	end
-
-	function confirmBtn:DoClick()
-		local callback = onConfirm
+	local confirmBtn = createTDMConfirmButton(btnRow, confirmLabel, PaintPanel1, Color(255, 220, 220), function()
+		local callback = frame._tdmOnConfirm
+		frame._tdmOnConfirm = nil
 		dismissTDMConfirm(frame)
 
 		if callback then
 			callback()
 		end
-	end
+	end, layout.confirmW)
+
+	local cancelBtn = createTDMConfirmButton(btnRow, cancelLabel, PaintPanel, Color(210, 210, 210), function()
+		frame._tdmOnConfirm = nil
+		dismissTDMConfirm(frame)
+	end, layout.cancelW)
+
+	applyTDMCompactConfirmFrameSize(frame, body, layout)
+	layoutTDMCompactConfirmButtons(btnRow, confirmBtn, cancelBtn, layout)
+	frame:MakePopup()
+	frame:MoveToFront()
+
+	timer.Simple(0, function()
+		if not IsValid(frame) then return end
+
+		local titleBarH = frame.lblTitle and frame.lblTitle:GetTall() or layout.chrome.titleBarH
+		if titleBarH > layout.chrome.titleBarH then
+			layout.chrome.titleBarH = titleBarH
+			layout.frameH = titleBarH + layout.chrome.margin + layout.btnH + layout.chrome.margin + layout.chrome.outlineSlack
+			applyTDMCompactConfirmFrameSize(frame, body, layout)
+			layoutTDMCompactConfirmButtons(btnRow, confirmBtn, cancelBtn, layout)
+		end
+
+		frame:MakePopup()
+		frame:Center()
+		frame:MoveToFront()
+		frame:RequestFocus()
+	end)
 end
 
 local function sendBuyRequest(itemTable, replace)
@@ -1300,15 +1421,7 @@ local function promptBuyAttachment(itemName, item, categoryName, itemTable, attN
 		return
 	end
 
-	local attDisplay = Shop.GetAttachmentDisplayName(attName)
-	local msg = string.format(
-		"Replace attachment on %s?\n%s — $%s (refunds old)",
-		itemName,
-		attDisplay,
-		Shop.AttachmentPrice or 50
-	)
-
-	ShowTDMConfirm("Attachment", msg, "Replace", function()
+	ShowTDMCompactConfirm("Replace Item", "Replace", function()
 		sendBuyRequest(itemTable, true)
 	end)
 end
@@ -1323,10 +1436,10 @@ local function promptBuy(itemName, item, categoryName, itemTable)
 	end
 
 	local ply = LocalPlayer()
-	local needsPrompt, _, _, title, message = Shop.GetWeaponReplacePromptInfo(ply, item, itemName, categoryName)
+	local needsPrompt, _, _, title = Shop.GetWeaponReplacePromptInfo(ply, item, itemName, categoryName)
 
 	if needsPrompt then
-		ShowTDMConfirm(title, message, "Replace", function()
+		ShowTDMCompactConfirm(title, "Replace", function()
 			sendBuyRequest(itemTable, true)
 		end)
 
@@ -1334,6 +1447,11 @@ local function promptBuy(itemName, item, categoryName, itemTable)
 	end
 
 	sendBuyRequest(itemTable, false)
+end
+
+local function requestTDMPurchaseSync()
+	net.Start("tdm_sync_purchases")
+	net.SendToServer()
 end
 
 local function buildTDMInventoryPanel(InventoryPanel)
@@ -1344,7 +1462,9 @@ local function buildTDMInventoryPanel(InventoryPanel)
 
 	canvas:Clear()
 
-	local purchases = LocalPlayer():GetNetVar("TDM_Purchases", {}) or {}
+	local Shop = GetShop()
+	local ply = LocalPlayer()
+	local purchases = ply:GetNetVar("TDM_Purchases", {}) or {}
 	local hasAny = false
 	local weaponCache = {}
 	local entCache = {}
@@ -1353,6 +1473,7 @@ local function buildTDMInventoryPanel(InventoryPanel)
 
 	for purchaseId, purchase in pairs(purchases) do
 		if not istable(purchase) then continue end
+		if Shop and not Shop.PurchaseStillOwned(ply, purchase) then continue end
 		purchaseList[#purchaseList + 1] = {id = purchaseId, purchase = purchase}
 	end
 
@@ -1404,19 +1525,12 @@ local function buildTDMInventoryPanel(InventoryPanel)
 
 		function refundBtn:DoClick()
 			local purchaseId = self.purchaseId
-			local displayName = purchase.displayName or purchase.index or "Item"
-			local refundPrice = purchase.price or 0
 
-			ShowTDMConfirm(
-				"Refund",
-				string.format("Refund %s?\n$%s will be returned.", displayName, refundPrice),
-				"Confirm",
-				function()
-					net.Start("tdm_refunditem")
-						net.WriteUInt(purchaseId, 16)
-					net.SendToServer()
-				end
-			)
+			ShowTDMCompactConfirm("Refund", "Confirm", function()
+				net.Start("tdm_refunditem")
+					net.WriteUInt(purchaseId, 16)
+				net.SendToServer()
+			end)
 		end
 	end
 
@@ -1649,13 +1763,28 @@ local function OpenBuyMenu()
 	Sheet:Dock(FILL)
 	Sheet.Paint = function() end
 	Sheet.tabScroller:SetOverlap(0)
-	Sheet.tabScroller:DockMargin(4, 0, 4, 0)
+	Sheet.tabScroller:DockMargin(getTDMTabSideInset(), 0, getTDMTabSideInset(), 0)
 	Sheet:SetFadeTime(0.1)
+
+	local sheetBasePerformLayout = Sheet.PerformLayout
+	function Sheet:PerformLayout(w, h)
+		if self._tdmTabLayouting then return end
+		self._tdmTabLayouting = true
+
+		if sheetBasePerformLayout then
+			sheetBasePerformLayout(self, w, h)
+		end
+
+		fitTDMPropertySheetTabs(self)
+
+		self._tdmTabLayouting = false
+	end
 
 	local function buildActiveCategoryTab(tab)
 		if not IsValid(tab) or not tab._categoryName then return end
 
 		if tab._tdmInventoryTab then
+			requestTDMPurchaseSync()
 			buildTDMInventoryPanel(categoryPanels.Inventory)
 			return
 		end
@@ -1685,6 +1814,7 @@ local function OpenBuyMenu()
 	inventoryRTab._tdmInventoryTab = true
 
 	Frame._tdmInventoryPanel = InventoryPanel
+	requestTDMPurchaseSync()
 	buildTDMInventoryPanel(InventoryPanel)
 
 	for _, categoryEntry in ipairs(collectSortedBuyCategories(buyItems, playerTeam)) do
@@ -1705,6 +1835,16 @@ local function OpenBuyMenu()
 	end
 
 	fitTDMPropertySheetTabs(Sheet)
+
+	function Frame:PerformLayout(w, h)
+		if self.BaseClass and self.BaseClass.PerformLayout then
+			self.BaseClass.PerformLayout(self, w, h)
+		end
+
+		if IsValid(Sheet) then
+			fitTDMPropertySheetTabs(Sheet)
+		end
+	end
 
 	timer.Simple(0, function()
 		if not IsValid(Frame) then return end
@@ -1747,6 +1887,10 @@ hook.Add("OnNetVarSet", "TDM_BuyMenu_InventoryRefresh", function(index, key)
 	if index != LocalPlayer():EntIndex() then return end
 	if not IsValid(TDM_OpenedBuyMenu) or not IsValid(TDM_OpenedBuyMenu._tdmInventoryPanel) then return end
 
-	dismissTDMConfirm(TDM_ActiveConfirmFrame)
+	if IsValid(TDM_ActiveConfirmFrame) then
+		TDM_OpenedBuyMenu._tdmPendingInventoryRefresh = true
+		return
+	end
+
 	buildTDMInventoryPanel(TDM_OpenedBuyMenu._tdmInventoryPanel)
 end)

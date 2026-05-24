@@ -137,6 +137,6 @@ function hg.AdminTools:Point( str, vec )
 end
 
 concommand.Add("hg_timer",function( ply, _, args )
-    if not ply:IsAdmin() then return end
+    if not (zb and zb.HasULX and zb.HasULX(ply, zb.UCL.AdminTimer)) then return end
     hg.AdminTools:Timer( args[2], args[1] )
 end)

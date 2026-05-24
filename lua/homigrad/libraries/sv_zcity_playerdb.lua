@@ -7,6 +7,7 @@ DB.SchemaReady = DB.SchemaReady or false
 DB.UseMySQL = DB.UseMySQL or false
 DB.PlayerCache = DB.PlayerCache or {}
 DB.PendingFlush = DB.PendingFlush or {}
+DB.PendingFlushReplay = DB.PendingFlushReplay or {}
 DB.LoadingPlayers = DB.LoadingPlayers or {}
 DB.TraitorWeeklyCache = DB.TraitorWeeklyCache or nil
 DB.TraitorAllTimeCache = DB.TraitorAllTimeCache or nil
@@ -49,13 +50,51 @@ function DB.ShouldUseFiles()
 	return not DB.IsReady()
 end
 
-local function runQuery(queryString, callback)
+local function logQueryError(context, err)
+	err = tostring(err or "unknown error")
+	MsgC(Color(255, 80, 80), string.format("[ZCITY_DB] %s failed: %s\n", tostring(context or "query"), err))
+end
+
+function DB.LogPersist(action, steamId64, detail, ok, err)
+	local status = ok and "ok" or ("FAILED (" .. tostring(err or "unknown") .. ")")
+	MsgC(
+		Color(100, 200, 255),
+		string.format("[ZCITY_DB] %s | steamid=%s | %s | %s\n", tostring(action or "persist"), tostring(steamId64 or ""), tostring(detail or ""), status)
+	)
+end
+
+function DB.HasGuiltInstance(steamId64)
+	if not isValidSteamId64(steamId64) then return false end
+	if not zb or not zb.GuiltSQL or not zb.GuiltSQL.PlayerInstances then return false end
+
+	local row = zb.GuiltSQL.PlayerInstances[steamId64]
+	if istable(row) and row.value ~= nil then return true end
+
+	return false
+end
+
+function DB.SyncGuiltFromPlayer(ply)
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+	if not zb or not zb.GuiltSQL or not isfunction(zb.GuiltSQL.SyncInstanceFromPlayer) then return end
+
+	zb.GuiltSQL.SyncInstanceFromPlayer(ply)
+end
+
+local function runQuery(queryString, callback, context)
 	if not mysql or not isfunction(mysql.RawQuery) then
 		if isfunction(callback) then callback() end
 		return
 	end
 
-	mysql:RawQuery(queryString, callback)
+	mysql:RawQuery(queryString, function(...)
+		if select(2, ...) == false then
+			logQueryError(context or "query", select(3, ...) or "unknown error")
+		end
+
+		if isfunction(callback) then
+			callback(...)
+		end
+	end)
 end
 
 local function escape(value)
@@ -86,6 +125,14 @@ local SCHEMA_DDL = {
 		`steamid` VARCHAR(20) NOT NULL,
 		`steam_name` VARCHAR(32) NOT NULL,
 		`achievements` MEDIUMTEXT NOT NULL,
+		PRIMARY KEY (`steamid`)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;]],
+	[[CREATE TABLE IF NOT EXISTS `hg_pointshop` (
+		`steamid` VARCHAR(20) NOT NULL,
+		`steam_name` VARCHAR(32) NOT NULL,
+		`donpoints` FLOAT NOT NULL,
+		`points` FLOAT NOT NULL,
+		`items` TEXT NOT NULL,
 		PRIMARY KEY (`steamid`)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;]],
 	[[CREATE TABLE IF NOT EXISTS `zcity_player_store` (
@@ -242,7 +289,20 @@ function DB.QueueExperienceSave(steamId64)
 end
 
 function DB.QueueGuiltSave(steamId64)
+	if not DB.CanPersistPlayerGuilt(steamId64) then return end
 	DB.MarkDirty(steamId64, "guilt")
+end
+
+function DB.CanPersistPlayerGuilt(steamId64)
+	if not isValidSteamId64(steamId64) or not DB.IsReady() then return false end
+	if not zb or not zb.GuiltSQL or not zb.GuiltSQL.PlayerInstances then return false end
+
+	if DB.UsesUnifiedPlayerLoad() and not DB.ProfileLoadedSession[steamId64] then
+		return false
+	end
+
+	local row = zb.GuiltSQL.PlayerInstances[steamId64]
+	return istable(row) and row.loaded == true and row.value ~= nil
 end
 
 function DB.QueueAchievementSave(steamId64)
@@ -253,13 +313,51 @@ function DB.QueueStoreSave(steamId64)
 	DB.MarkDirty(steamId64, "store")
 end
 
+function DB.MarkDisconnectDirty(ply, steamId64)
+	if not isValidSteamId64(steamId64) then return end
+
+	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
+	local cache = DB.PlayerCache[steamId64]
+	cache.steam_name = IsValid(ply) and ply:Name() or cache.steam_name or ""
+
+	if ply and ply.ZCStoreData then
+		cache.store = ply.ZCStoreData
+		cache.dirty.store = true
+	end
+
+	cache.dirty.experience = true
+	cache.dirty.achievements = true
+
+	DB.SyncGuiltFromPlayer(ply)
+	if DB.HasGuiltInstance(steamId64) or (IsValid(ply) and ply.Karma ~= nil) then
+		cache.dirty.guilt = true
+	end
+
+	if hg and hg.Pointshop and hg.Pointshop.PlayerInstances and hg.Pointshop.PlayerInstances[steamId64] then
+		cache.dirty.pointshop = true
+	end
+
+	if IsValid(ply) and ply.PATSB_PlaytimeSeconds ~= nil then
+		cache.playtime_seconds = ply.PATSB_PlaytimeSeconds
+		cache.dirty.playtime = true
+	end
+end
+
 function DB.FlushPlayer(steamId64, force)
 	if not DB.IsReady() or not isValidSteamId64(steamId64) then return end
 
 	local cache = DB.PlayerCache[steamId64]
 	if not istable(cache) or not istable(cache.dirty) then return end
 
-	if DB.PendingFlush[steamId64] and not force then return end
+	if DB.PendingFlush[steamId64] then
+		if force then
+			DB.PendingFlushReplay[steamId64] = true
+		end
+		return
+	end
+
+	if not next(cache.dirty) then return end
+
 	DB.PendingFlush[steamId64] = true
 
 	local dirty = cache.dirty
@@ -268,57 +366,56 @@ function DB.FlushPlayer(steamId64, force)
 	if dirty.experience and zb and zb.Experience and zb.Experience.PlayerInstances then
 		local row = zb.Experience.PlayerInstances[steamId64]
 		if istable(row) then
-			local q = mysql:Update("zb_experience")
-			q:Update("skill", row.skill or 0)
-			q:Update("experience", row.experience or 0)
-			q:Update("deaths", row.deaths or 0)
-			q:Update("kills", row.kills or 0)
-			q:Update("suicides", row.suicides or 0)
-			q:Update("steam_name", cache.steam_name or "")
-			q:Where("steamid", steamId64)
-			q:Execute()
+			DB.UpsertExperienceData(steamId64, cache.steam_name or "", row)
 		end
 	end
 
-	if dirty.guilt and zb and zb.GuiltSQL and zb.GuiltSQL.PlayerInstances then
-		local row = zb.GuiltSQL.PlayerInstances[steamId64]
-		if istable(row) then
-			local q = mysql:Update("zb_guilt")
-			q:Update("value", row.value or 100)
-			q:Update("steam_name", cache.steam_name or "")
-			q:Where("steamid", steamId64)
-			q:Execute()
+	if dirty.guilt then
+		local row = zb and zb.GuiltSQL and zb.GuiltSQL.PlayerInstances and zb.GuiltSQL.PlayerInstances[steamId64]
+		if istable(row) and row.value ~= nil then
+			DB.UpsertGuiltData(steamId64, cache.steam_name or "", row.value)
 		end
 	end
 
 	if dirty.achievements and hg and hg.achievements and hg.achievements.achievements_data then
 		local achievements = hg.achievements.achievements_data.player_achievements[steamId64] or {}
-		local q = mysql:Update("hg_achievements")
-		q:Update("achievements", safeJSONEncode(achievements))
-		q:Update("steam_name", cache.steam_name or "")
-		q:Where("steamid", steamId64)
-		q:Execute()
+		DB.UpsertAchievementData(steamId64, cache.steam_name or "", achievements)
 	end
 
 	if dirty.store and istable(cache.store) then
-		local q = mysql:Update("zcity_player_store")
-		q:Update("store_data", safeJSONEncode(cache.store))
-		q:Update("steam_name", cache.steam_name or "")
-		q:Update("updated_at", os.time())
-		q:Where("steamid", steamId64)
-		q:Execute()
+		DB.UpsertStoreData(steamId64, cache.steam_name or "", cache.store)
+	end
+
+	if dirty.pointshop and hg and hg.Pointshop and hg.Pointshop.PlayerInstances then
+		local row = hg.Pointshop.PlayerInstances[steamId64]
+		if istable(row) then
+			DB.UpsertPointshopData(steamId64, cache.steam_name or "", row)
+		end
 	end
 
 	if dirty.playtime then
-		local q = mysql:Update("zcity_scoreboard_playtime")
-		q:Update("playtime_seconds", math.max(0, math.floor(tonumber(cache.playtime_seconds) or 0)))
-		q:Update("steam_name", cache.steam_name or "")
-		q:Update("updated_at", os.time())
-		q:Where("steamid", steamId64)
-		q:Execute()
+		DB.UpsertPlaytimeData(
+			steamId64,
+			cache.steam_name or "",
+			math.max(0, math.floor(tonumber(cache.playtime_seconds) or 0))
+		)
 	end
 
-	DB.PendingFlush[steamId64] = nil
+	local function finishFlush()
+		DB.PendingFlush[steamId64] = nil
+
+		if DB.PendingFlushReplay[steamId64] then
+			DB.PendingFlushReplay[steamId64] = nil
+
+			if istable(cache.dirty) and next(cache.dirty) then
+				timer.Simple(0, function()
+					DB.FlushPlayer(steamId64, true)
+				end)
+			end
+		end
+	end
+
+	timer.Simple(0, finishFlush)
 end
 
 function DB.IsShuttingDown()
@@ -399,8 +496,14 @@ function DB.FlushAllPlayers()
 			DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
 			DB.PlayerCache[steamId64].steam_name = ply:Name()
 			DB.PlayerCache[steamId64].dirty.experience = true
-			DB.PlayerCache[steamId64].dirty.guilt = true
+			DB.SyncGuiltFromPlayer(ply)
+			if DB.HasGuiltInstance(steamId64) or ply.Karma ~= nil then
+				DB.PlayerCache[steamId64].dirty.guilt = true
+			end
 			DB.PlayerCache[steamId64].dirty.achievements = true
+			if hg and hg.Pointshop and hg.Pointshop.PlayerInstances and hg.Pointshop.PlayerInstances[steamId64] then
+				DB.PlayerCache[steamId64].dirty.pointshop = true
+			end
 			if ply.ZCStoreData then
 				DB.PlayerCache[steamId64].store = ply.ZCStoreData
 				DB.PlayerCache[steamId64].dirty.store = true
@@ -466,21 +569,297 @@ function DB.LoadStoreData(steamId64, plyName, onLoaded)
 end
 
 function DB.SaveStoreData(steamId64, plyName, data, immediate)
-	if not isValidSteamId64(steamId64) then return end
+	if not isValidSteamId64(steamId64) then
+		return false, "invalid steamid64"
+	end
 
 	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
 	DB.PlayerCache[steamId64].store = data
 	DB.PlayerCache[steamId64].steam_name = plyName or DB.PlayerCache[steamId64].steam_name or ""
 
-	if DB.ShouldUseFiles() then return end
+	if DB.ShouldUseFiles() then
+		return false, "mysql not ready"
+	end
 
 	if immediate then
-		DB.PlayerCache[steamId64].dirty.store = true
-		DB.FlushPlayer(steamId64, true)
-		return
+		timer.Remove(FLUSH_TIMER_PREFIX .. steamId64)
+		DB.UpsertStoreData(steamId64, DB.PlayerCache[steamId64].steam_name or plyName or "", data)
+		DB.PlayerCache[steamId64].dirty.store = nil
+		return true
 	end
 
 	DB.QueueStoreSave(steamId64)
+	return true
+end
+
+function DB.UpsertGuiltData(steamId64, plyName, value)
+	if not DB.IsReady() or not isValidSteamId64(steamId64) then
+		return false, "database not ready"
+	end
+
+	value = math.Clamp(tonumber(value) or 100, 0, (zb and zb.MaxKarma) or 120)
+	local sid = escape(steamId64)
+	local name = escape(plyName or "")
+
+	runQuery(string.format([[
+		INSERT INTO `zb_guilt` (`steamid`, `steam_name`, `value`)
+		VALUES ('%s', '%s', %f)
+		ON DUPLICATE KEY UPDATE
+			`steam_name` = VALUES(`steam_name`),
+			`value` = VALUES(`value`);
+	]], sid, name, value), nil, "upsert guilt")
+
+	return true
+end
+
+function DB.UpsertExperienceData(steamId64, plyName, row)
+	if not DB.IsReady() or not isValidSteamId64(steamId64) or not istable(row) then
+		return false, "database not ready"
+	end
+
+	local sid = escape(steamId64)
+	local name = escape(plyName or "")
+
+	runQuery(string.format([[
+		INSERT INTO `zb_experience`
+			(`steamid`, `steam_name`, `skill`, `experience`, `deaths`, `kills`, `suicides`)
+		VALUES ('%s', '%s', %f, %d, %d, %d, %d)
+		ON DUPLICATE KEY UPDATE
+			`steam_name` = VALUES(`steam_name`),
+			`skill` = VALUES(`skill`),
+			`experience` = VALUES(`experience`),
+			`deaths` = VALUES(`deaths`),
+			`kills` = VALUES(`kills`),
+			`suicides` = VALUES(`suicides`);
+	]],
+		sid,
+		name,
+		tonumber(row.skill) or 0,
+		math.floor(tonumber(row.experience) or 0),
+		math.floor(tonumber(row.deaths) or 0),
+		math.floor(tonumber(row.kills) or 0),
+		math.floor(tonumber(row.suicides) or 0)
+	), nil, "upsert experience")
+
+	return true
+end
+
+function DB.SaveExperienceData(steamId64, plyName, immediate)
+	if not isValidSteamId64(steamId64) then
+		return false, "invalid steamid64"
+	end
+
+	if not zb or not zb.Experience or not zb.Experience.PlayerInstances then
+		return false, "experience unavailable"
+	end
+
+	local row = zb.Experience.PlayerInstances[steamId64]
+	if not istable(row) then
+		return false, "no experience data"
+	end
+
+	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
+	if plyName and plyName ~= "" then
+		DB.PlayerCache[steamId64].steam_name = plyName
+	end
+
+	if DB.ShouldUseFiles() then
+		return false, "mysql not ready"
+	end
+
+	if immediate then
+		timer.Remove(FLUSH_TIMER_PREFIX .. steamId64)
+		DB.UpsertExperienceData(steamId64, DB.PlayerCache[steamId64].steam_name or plyName or "", row)
+		DB.PlayerCache[steamId64].dirty.experience = nil
+		return true
+	end
+
+	DB.QueueExperienceSave(steamId64)
+	return true
+end
+
+function DB.UpsertAchievementData(steamId64, plyName, achievements)
+	if not DB.IsReady() or not isValidSteamId64(steamId64) then
+		return false, "database not ready"
+	end
+
+	local sid = escape(steamId64)
+	local name = escape(plyName or "")
+	local encoded = escape(safeJSONEncode(achievements or {}))
+
+	runQuery(string.format([[
+		INSERT INTO `hg_achievements` (`steamid`, `steam_name`, `achievements`)
+		VALUES ('%s', '%s', '%s')
+		ON DUPLICATE KEY UPDATE
+			`steam_name` = VALUES(`steam_name`),
+			`achievements` = VALUES(`achievements`);
+	]], sid, name, encoded), nil, "upsert achievements")
+
+	return true
+end
+
+function DB.SaveAchievementData(steamId64, plyName, achievements, immediate)
+	if not isValidSteamId64(steamId64) then
+		return false, "invalid steamid64"
+	end
+
+	if hg and hg.achievements and hg.achievements.achievements_data then
+		hg.achievements.achievements_data.player_achievements[steamId64] = achievements
+			or hg.achievements.achievements_data.player_achievements[steamId64]
+			or {}
+	end
+
+	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
+	if plyName and plyName ~= "" then
+		DB.PlayerCache[steamId64].steam_name = plyName
+	end
+
+	if DB.ShouldUseFiles() then
+		return false, "mysql not ready"
+	end
+
+	if immediate then
+		timer.Remove(FLUSH_TIMER_PREFIX .. steamId64)
+		local data = hg.achievements.achievements_data.player_achievements[steamId64] or achievements or {}
+		local ok, err = DB.UpsertAchievementData(steamId64, DB.PlayerCache[steamId64].steam_name or plyName or "", data)
+		if ok then
+			DB.PlayerCache[steamId64].dirty.achievements = nil
+		end
+		return ok, err
+	end
+
+	DB.QueueAchievementSave(steamId64)
+	return true
+end
+
+function DB.UpsertPlaytimeData(steamId64, plyName, seconds)
+	if not DB.IsReady() or not isValidSteamId64(steamId64) then
+		return false, "database not ready"
+	end
+
+	seconds = math.max(0, math.floor(tonumber(seconds) or 0))
+	local sid = escape(steamId64)
+	local name = escape(plyName or "")
+	local now = os.time()
+
+	runQuery(string.format([[
+		INSERT INTO `zcity_scoreboard_playtime` (`steamid`, `steam_name`, `playtime_seconds`, `updated_at`)
+		VALUES ('%s', '%s', %d, %d)
+		ON DUPLICATE KEY UPDATE
+			`steam_name` = VALUES(`steam_name`),
+			`playtime_seconds` = VALUES(`playtime_seconds`),
+			`updated_at` = VALUES(`updated_at`);
+	]], sid, name, seconds, now), nil, "upsert playtime")
+
+	return true
+end
+
+function DB.UpsertPointshopData(steamId64, plyName, row)
+	if not DB.IsReady() or not isValidSteamId64(steamId64) or not istable(row) then
+		return false, "database not ready"
+	end
+
+	local sid = escape(steamId64)
+	local name = escape(plyName or "")
+	local items = escape(safeJSONEncode(row.items or {}))
+
+	runQuery(string.format([[
+		INSERT INTO `hg_pointshop`
+			(`steamid`, `steam_name`, `donpoints`, `points`, `items`)
+		VALUES ('%s', '%s', %f, %f, '%s')
+		ON DUPLICATE KEY UPDATE
+			`steam_name` = VALUES(`steam_name`),
+			`donpoints` = VALUES(`donpoints`),
+			`points` = VALUES(`points`),
+			`items` = VALUES(`items`);
+	]],
+		sid,
+		name,
+		tonumber(row.donpoints) or 0,
+		tonumber(row.points) or 0,
+		items
+	), nil, "upsert pointshop")
+
+	return true
+end
+
+function DB.SavePointshopData(steamId64, plyName, immediate)
+	if not isValidSteamId64(steamId64) then
+		return false, "invalid steamid64"
+	end
+
+	if not hg or not hg.Pointshop or not hg.Pointshop.PlayerInstances then
+		return false, "pointshop unavailable"
+	end
+
+	local row = hg.Pointshop.PlayerInstances[steamId64]
+	if not istable(row) then
+		return false, "no pointshop data"
+	end
+
+	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
+	if plyName and plyName ~= "" then
+		DB.PlayerCache[steamId64].steam_name = plyName
+	end
+
+	if DB.ShouldUseFiles() then
+		return false, "mysql not ready"
+	end
+
+	if immediate then
+		timer.Remove(FLUSH_TIMER_PREFIX .. steamId64)
+		DB.UpsertPointshopData(steamId64, DB.PlayerCache[steamId64].steam_name or plyName or "", row)
+		return true
+	end
+
+	DB.MarkDirty(steamId64, "pointshop")
+	return true
+end
+
+function DB.SaveGuiltData(steamId64, plyName, value, immediate)
+	if not isValidSteamId64(steamId64) then
+		return false, "invalid steamid64"
+	end
+
+	value = math.Clamp(tonumber(value) or 100, 0, (zb and zb.MaxKarma) or 120)
+	plyName = tostring(plyName or "")
+
+	if zb and zb.GuiltSQL and isfunction(zb.GuiltSQL.EnsureInstance) then
+		local inst = zb.GuiltSQL.EnsureInstance(steamId64)
+		if inst then
+			inst.value = value
+			inst.loaded = true
+			inst.pending = nil
+		end
+	end
+
+	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
+	if plyName ~= "" then
+		DB.PlayerCache[steamId64].steam_name = plyName
+	end
+
+	if DB.ShouldUseFiles() then
+		return false, "mysql not ready"
+	end
+
+	if immediate then
+		timer.Remove(FLUSH_TIMER_PREFIX .. steamId64)
+
+		local ok, err = DB.UpsertGuiltData(steamId64, DB.PlayerCache[steamId64].steam_name or plyName, value)
+		if ok then
+			DB.PlayerCache[steamId64].dirty.guilt = nil
+		end
+		return ok, err
+	end
+
+	if DB.CanPersistPlayerGuilt(steamId64) then
+		DB.QueueGuiltSave(steamId64)
+		return true
+	end
+
+	DB.PlayerCache[steamId64].dirty.guilt = true
+	DB.MarkDirty(steamId64, "guilt")
+	return true
 end
 
 function DB.UpsertStoreData(steamId64, plyName, data)
@@ -498,7 +877,7 @@ function DB.UpsertStoreData(steamId64, plyName, data)
 			`steam_name` = VALUES(`steam_name`),
 			`store_data` = VALUES(`store_data`),
 			`updated_at` = VALUES(`updated_at`);
-	]], sid, name, encoded, now))
+	]], sid, name, encoded, now), nil, "upsert store")
 end
 
 function DB.GetPlaytimeSeconds(steamId64)
@@ -523,8 +902,9 @@ function DB.SetPlaytimeSeconds(steamId64, plyName, seconds, immediate)
 	if DB.ShouldUseFiles() then return end
 
 	if immediate then
-		DB.PlayerCache[steamId64].dirty.playtime = true
-		DB.FlushPlayer(steamId64, true)
+		timer.Remove(FLUSH_TIMER_PREFIX .. steamId64)
+		DB.UpsertPlaytimeData(steamId64, DB.PlayerCache[steamId64].steam_name or plyName or "", seconds)
+		DB.PlayerCache[steamId64].dirty.playtime = nil
 		return
 	end
 
@@ -595,7 +975,8 @@ local function applyUnifiedProfileRow(ply, row)
 	local steamId64 = ply:SteamID64()
 
 	if zb and zb.GuiltSQL and isfunction(zb.GuiltSQL.ApplyJoinRow) then
-		zb.GuiltSQL.ApplyJoinRow(ply, row.guilt_value, true)
+		local hasGuiltRow = row.guilt_value ~= nil
+		zb.GuiltSQL.ApplyJoinRow(ply, row.guilt_value, not hasGuiltRow)
 	end
 
 	if zb and zb.Experience and isfunction(zb.Experience.ApplyJoinRow) then
@@ -692,9 +1073,19 @@ SELECT
 		return
 	end
 
-	runQuery(queryString, function(result)
+	runQuery(queryString, function(result, success)
+		if success == false then
+			DB.ProfileLoading[steamId64] = nil
+			ErrorNoHalt("[ZCITY_DB] Unified profile load failed for " .. steamId64 .. "; using per-module loaders.\n")
+			if IsValid(ply) then
+				ply.ZCITY_LegacyProfileLoad = true
+				hook.Run("ZCITY_PlayerProfileLoadFailed", ply)
+			end
+			return
+		end
+
 		finishProfileLoad(istable(result) and result[1] or {})
-	end)
+	end, "load unified profile")
 end
 
 function DB.RunLegacyPlayerLoads(ply)
@@ -712,7 +1103,7 @@ function DB.RunLegacyPlayerLoads(ply)
 		q:Callback(function(result)
 			if not IsValid(ply) then return end
 			local guiltValue = istable(result) and #result > 0 and result[1].value or nil
-			zb.GuiltSQL.ApplyJoinRow(ply, guiltValue, true)
+			zb.GuiltSQL.ApplyJoinRow(ply, guiltValue, guiltValue == nil)
 		end)
 		q:Execute()
 	end
@@ -760,6 +1151,7 @@ function DB.RunLegacyPlayerLoads(ply)
 	end
 
 	DB.ApplyPlaytimeToPlayer(ply)
+	DB.ProfileLoadedSession[steamId64] = true
 	hook.Run("ZCITY_PlayerProfileLoaded", ply)
 end
 
@@ -820,6 +1212,7 @@ function DB.LoadTraitorWeekly(callback)
 	local function done()
 		pending = pending - 1
 		if pending > 0 then return end
+		DB.TraitorWeeklyLoaded = true
 		if callback then callback(true) end
 		hook.Run("ZCITY_DB_TraitorWeeklyLoaded")
 	end
@@ -1018,8 +1411,11 @@ function DB.MigrateStoreFromFiles()
 	MsgC(Color(100, 200, 255), "[ZCITY_DB] Store file migration queued.\n")
 end
 
-function DB.MigrateTraitorWeeklyFromFiles()
-	if not DB.IsReady() or not ZC_TRAITOR_WEEKLY then return end
+function DB.MigrateTraitorWeeklyFromFiles(onFinished)
+	if not DB.IsReady() or not ZC_TRAITOR_WEEKLY then
+		if isfunction(onFinished) then onFinished(false) end
+		return
+	end
 
 	local TW = ZC_TRAITOR_WEEKLY
 	local dataDir = (TW.Config and TW.Config.DataDir) or "zc_traitor_weekly"
@@ -1037,16 +1433,53 @@ function DB.MigrateTraitorWeeklyFromFiles()
 		DB.TraitorRewardDirty = true
 	end
 
-	local boardRaw = readDataFile(dataDir .. "/" .. ((TW.Config and TW.Config.DataFile) or "leaderboard.json"))
-	local board = safeJSONDecode(boardRaw)
-	if istable(board) then
-		DB.TraitorWeekKey = board.week or DB.GetTraitorWeekKey()
-		DB.TraitorWeeklyCache = board
-		DB.TraitorWeeklyDirty = true
+	local function applyFileMigration()
+		local boardRaw = readDataFile(dataDir .. "/" .. ((TW.Config and TW.Config.DataFile) or "leaderboard.json"))
+		local board = safeJSONDecode(boardRaw)
+		if istable(board) then
+			DB.TraitorWeekKey = board.week or DB.GetTraitorWeekKey()
+			DB.TraitorWeeklyCache = board
+			DB.TraitorWeeklyDirty = true
+		end
+
+		DB.SaveTraitorWeekly(true)
+		MsgC(Color(100, 200, 255), "[ZCITY_DB] Traitor weekly file migration complete.\n")
+		if isfunction(onFinished) then onFinished(true) end
 	end
 
-	DB.SaveTraitorWeekly(true)
-	MsgC(Color(100, 200, 255), "[ZCITY_DB] Traitor weekly file migration complete.\n")
+	local countQuery = mysql:Select("zcity_traitor_weekly")
+	countQuery:Select("COUNT(*) AS row_count")
+	countQuery:Callback(function(result)
+		local row = istable(result) and result[1] or nil
+		local rowCount = tonumber(row and (row.row_count or row["COUNT(*)"]) or 0) or 0
+		if rowCount > 0 then
+			MsgC(Color(255, 180, 80), "[ZCITY_DB] Skipping traitor weekly file migration — database already has data.\n")
+			if isfunction(onFinished) then onFinished(false) end
+			return
+		end
+
+		applyFileMigration()
+	end)
+	countQuery:Execute()
+end
+
+local function finishDatabaseStartup()
+	hook.Run("ZCITY_DatabaseReady", true)
+
+	if ULibSync and isfunction(ULibSync.Init) then
+		timer.Simple(1, function()
+			ULibSync.Init()
+		end)
+	else
+		MsgC(Color(255, 180, 80), "[ZCITY_DB] ULibSync addon not loaded — install addons/ulibsync for cross-server ULX sync.\n")
+	end
+
+	for _, ply in player.Iterator() do
+		if IsValid(ply) and ply:IsPlayer() and not ply:IsBot() then
+			DB.ProfileLoadedSession[ply:SteamID64()] = nil
+			DB.LoadPlayerProfile(ply)
+		end
+	end
 end
 
 hook.Add("DatabaseConnected", "ZCITY_PlayerDB_Init", function()
@@ -1072,35 +1505,27 @@ hook.Add("DatabaseConnected", "ZCITY_PlayerDB_Init", function()
 
 		MsgC(Color(100, 255, 100), "[ZCITY_DB] Player persistence tables ready (MySQLOO).\n")
 
-		timer.Simple(2, function()
-			if not file.Exists("zcity_db/migrated_store.txt", "DATA") then
-				file.CreateDir("zcity_db")
-				DB.MigrateStoreFromFiles()
-				file.Write("zcity_db/migrated_store.txt", os.date())
+		file.CreateDir("zcity_db")
+
+		DB.LoadTraitorWeekly(function()
+			local function afterTraitorMigration()
+				if not file.Exists("zcity_db/migrated_store.txt", "DATA") then
+					DB.MigrateStoreFromFiles()
+					file.Write("zcity_db/migrated_store.txt", os.date())
+				end
+
+				finishDatabaseStartup()
 			end
 
 			if not file.Exists("zcity_db/migrated_traitor_weekly.txt", "DATA") then
-				DB.MigrateTraitorWeeklyFromFiles()
-				file.Write("zcity_db/migrated_traitor_weekly.txt", os.date())
+				DB.MigrateTraitorWeeklyFromFiles(function()
+					file.Write("zcity_db/migrated_traitor_weekly.txt", os.date())
+					afterTraitorMigration()
+				end)
+			else
+				afterTraitorMigration()
 			end
 		end)
-
-		hook.Run("ZCITY_DatabaseReady", true)
-
-		if ULibSync and isfunction(ULibSync.Init) then
-			timer.Simple(1, function()
-				ULibSync.Init()
-			end)
-		else
-			MsgC(Color(255, 180, 80), "[ZCITY_DB] ULibSync addon not loaded — install addons/ulibsync for cross-server ULX sync.\n")
-		end
-
-		for _, ply in player.Iterator() do
-			if IsValid(ply) and ply:IsPlayer() and not ply:IsBot() then
-				DB.ProfileLoadedSession[ply:SteamID64()] = nil
-				DB.LoadPlayerProfile(ply)
-			end
-		end
 	end)
 end)
 
@@ -1129,37 +1554,18 @@ hook.Add("ZCITY_PlayerProfileLoaded", "ZCITY_DB_PostProfileSync", function(ply)
 	end)
 end)
 
-hook.Add("PlayerDisconnected", "ZCITY_DB_ClearProfileSession", function(ply)
-	if not IsValid(ply) then return end
-	local steamId64 = ply:SteamID64()
-	DB.ProfileLoadedSession[steamId64] = nil
-	DB.ProfileLoading[steamId64] = nil
-	ply.ZCITY_LegacyProfileLoad = nil
-end)
-
 hook.Add("PlayerDisconnected", "ZCITY_DB_FlushOnDisconnect", function(ply)
 	if DB.IsShuttingDown() then return end
 	if not IsValid(ply) or ply:IsBot() then return end
 
 	local steamId64 = ply:SteamID64()
-	DB.PlayerCache[steamId64] = DB.PlayerCache[steamId64] or {dirty = {}}
-	DB.PlayerCache[steamId64].steam_name = ply:Name()
-
-	if ply.ZCStoreData then
-		DB.PlayerCache[steamId64].store = ply.ZCStoreData
-		DB.PlayerCache[steamId64].dirty.store = true
-	end
-
-	DB.PlayerCache[steamId64].dirty.experience = true
-	DB.PlayerCache[steamId64].dirty.guilt = true
-	DB.PlayerCache[steamId64].dirty.achievements = true
-
-	if ply.PATSB_PlaytimeSeconds ~= nil then
-		DB.PlayerCache[steamId64].playtime_seconds = ply.PATSB_PlaytimeSeconds
-		DB.PlayerCache[steamId64].dirty.playtime = true
-	end
-
+	DB.MarkDisconnectDirty(ply, steamId64)
 	DB.FlushPlayer(steamId64, true)
+
+	DB.ProfileLoadedSession[steamId64] = nil
+	DB.ProfileLoading[steamId64] = nil
+	DB.PendingFlushReplay[steamId64] = nil
+	ply.ZCITY_LegacyProfileLoad = nil
 end)
 
 hook.Add("ShutDown", "ZCITY_DB_FlushShutdown", function()

@@ -5,6 +5,56 @@ zb.Experience = zb.Experience or {}
 zb.Experience.PlayerInstances = zb.Experience.PlayerInstances or {}
 zb.Experience.Active = zb.Experience.Active or false
 
+local function defaultExperienceStats()
+	return {
+		skill = 0,
+		experience = 0,
+		deaths = 0,
+		kills = 0,
+		suicides = 0,
+	}
+end
+
+function zb.Experience.EnsurePlayerInstance(steamID64)
+	if not isstring(steamID64) or steamID64 == "" then return nil end
+
+	local inst = zb.Experience.PlayerInstances[steamID64]
+	if not istable(inst) or inst.experience == nil then
+		inst = defaultExperienceStats()
+		zb.Experience.PlayerInstances[steamID64] = inst
+	else
+		inst.skill = inst.skill or 0
+		inst.experience = inst.experience or 0
+		inst.deaths = inst.deaths or 0
+		inst.kills = inst.kills or 0
+		inst.suicides = inst.suicides or 0
+	end
+
+	return inst
+end
+
+hook.Add("DatabaseConnected", "ExperienceCreateData", function()
+	if ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB:IsReady() then
+		zb.Experience.Active = true
+		return
+	end
+
+	if not mysql or not isfunction(mysql.Create) then return end
+
+	local query = mysql:Create("zb_experience")
+	query:Create("steamid", "VARCHAR(20) NOT NULL")
+	query:Create("steam_name", "VARCHAR(32) NOT NULL")
+	query:Create("skill", "FLOAT NOT NULL")
+	query:Create("experience", "INT NOT NULL")
+	query:Create("deaths", "INT NOT NULL")
+	query:Create("kills", "INT NOT NULL")
+	query:Create("suicides", "INT NOT NULL")
+	query:PrimaryKey("steamid")
+	query:Execute()
+
+	zb.Experience.Active = true
+end)
+
 hook.Add("ZCITY_DatabaseReady", "ExperienceActivate", function()
 	zb.Experience.Active = ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB:IsReady() or zb.Experience.Active
 
@@ -133,9 +183,8 @@ end)
 local plyMeta = FindMetaTable("Player")
 
 function plyMeta:GetExp()
-
-    return math.Round(zb.Experience.PlayerInstances[self:SteamID64()].experience) or 0
-
+	local inst = zb.Experience.PlayerInstances[self:SteamID64()]
+	return math.Round(inst and inst.experience or 0)
 end
 
 function plyMeta:GiveExp( ammout )
@@ -157,28 +206,28 @@ function plyMeta:GiveExp( ammout )
 
     local points = math.min(ammout / 5, 10) * (1 + (self.EA_HasAccess and self:EA_HasAccess() and 2 or 0))
     local mul = math.min(player.GetCount() / 10, 1)
-    self:PS_AddPoints(math.Round(points * mul,0))
+    if self.PS_AddPoints and self.GetPointshopVars and self:GetPointshopVars() then
+        self:PS_AddPoints(math.Round(points * mul, 0))
+    end
     --self:SetNWInt( "experience", exp + ammout )
 end
 
 
 function plyMeta:GetSkill()
-
-    return zb.Experience.PlayerInstances[self:SteamID64()].skill or 0
-
+	local inst = zb.Experience.PlayerInstances[self:SteamID64()]
+	return inst and inst.skill or 0
 end
 
 function plyMeta:GiveSkill( ammout )
-
     local steamID64 = self:SteamID64()
 
     if not zb.Experience.Active then
         zb.Experience.PlayerInstances[steamID64] = {}
         return
-    end 
+    end
 
-
-    zb.Experience.PlayerInstances[steamID64].skill = math.max( zb.Experience.PlayerInstances[steamID64].skill + ammout, 0 )
+	local inst = zb.Experience.EnsurePlayerInstance(steamID64)
+	inst.skill = math.max((inst.skill or 0) + ammout, 0)
 
 	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
 		ZCITY_DB.QueueExperienceSave(steamID64)
@@ -193,22 +242,20 @@ function plyMeta:GiveSkill( ammout )
 end
 
 function plyMeta:GetDeaths()
-
-    return zb.Experience.PlayerInstances[self:SteamID64()].deaths or 0
-
+	local inst = zb.Experience.PlayerInstances[self:SteamID64()]
+	return inst and inst.deaths or 0
 end
 
 function plyMeta:GiveDeaths( ammout )
-
     local steamID64 = self:SteamID64()
 
     if not zb.Experience.Active then
         zb.Experience.PlayerInstances[steamID64] = {}
         return
-    end 
+    end
 
-
-    zb.Experience.PlayerInstances[steamID64].deaths = math.max( zb.Experience.PlayerInstances[steamID64].deaths + ammout, 0 )
+	local inst = zb.Experience.EnsurePlayerInstance(steamID64)
+	inst.deaths = math.max((inst.deaths or 0) + ammout, 0)
 
 	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
 		ZCITY_DB.QueueExperienceSave(steamID64)
@@ -228,15 +275,15 @@ function plyMeta:GetKills()
 end
 
 function plyMeta:GiveKills( ammout )
-
     local steamID64 = self:SteamID64()
 
     if not zb.Experience.Active then
         zb.Experience.PlayerInstances[steamID64] = {}
         return
-    end 
+    end
 
-    zb.Experience.PlayerInstances[steamID64].kills = math.max( zb.Experience.PlayerInstances[steamID64].kills + ammout, 0 )
+	local inst = zb.Experience.EnsurePlayerInstance(steamID64)
+	inst.kills = math.max((inst.kills or 0) + ammout, 0)
 
 	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
 		ZCITY_DB.QueueExperienceSave(steamID64)
@@ -251,21 +298,20 @@ end
 
 
 function plyMeta:GetSuicides( ammout )
-
-    return zb.Experience.PlayerInstances[self:SteamID64()].suicides or 0
-
+	local inst = zb.Experience.PlayerInstances[self:SteamID64()]
+	return inst and inst.suicides or 0
 end
 
 function plyMeta:GiveSuicides( ammout )
-
     local steamID64 = self:SteamID64()
 
     if not zb.Experience.Active then
         zb.Experience.PlayerInstances[steamID64] = {}
         return
-    end 
+    end
 
-    zb.Experience.PlayerInstances[steamID64].suicides =  math.max( zb.Experience.PlayerInstances[steamID64].suicides + ammout, 0 )
+	local inst = zb.Experience.EnsurePlayerInstance(steamID64)
+	inst.suicides = math.max((inst.suicides or 0) + ammout, 0)
 
 	if ZCITY_DB and ZCITY_DB.QueueExperienceSave then
 		ZCITY_DB.QueueExperienceSave(steamID64)
@@ -301,6 +347,98 @@ net.Receive("zb_xp_get",function(len,ply)
 
 end)
 
+
+local function adminAdjustExperience(callingPly, targetPly, field, mode, amount)
+	if not IsValid(targetPly) or not targetPly:IsPlayer() or targetPly:IsBot() then
+		return false, "invalid target"
+	end
+
+	if not zb.Experience.Active then
+		return false, "experience system inactive"
+	end
+
+	local steamID64 = targetPly:SteamID64()
+	local inst = zb.Experience.EnsurePlayerInstance(steamID64)
+	amount = math.floor(tonumber(amount) or 0)
+
+	local before = tonumber(inst[field]) or 0
+	local after = before
+
+	if mode == "set" then
+		after = math.max(0, amount)
+	elseif mode == "add" then
+		after = math.max(0, before + amount)
+	elseif mode == "remove" then
+		after = math.max(0, before - amount)
+	else
+		return false, "invalid mode"
+	end
+
+	inst[field] = after
+
+	if ZCITY_DB and ZCITY_DB.SaveExperienceData then
+		local ok, err = ZCITY_DB.SaveExperienceData(steamID64, targetPly:Name(), true)
+		if ZCITY_DB.LogPersist then
+			ZCITY_DB.LogPersist("admin " .. field .. " " .. mode, steamID64, "before=" .. before .. " after=" .. after, ok ~= false, err)
+		end
+		if not ok and IsValid(callingPly) then
+			callingPly:ChatPrint("[Experience] Database save failed: " .. tostring(err or "unknown"))
+		end
+		return ok ~= false, err
+	end
+
+	return true
+end
+
+local function registerExperienceULXCommands()
+	if not ulx or not ULib then return end
+
+	local CATEGORY = "Z-City"
+
+	local function ulxSetExp(calling_ply, target_plys, amount)
+		for _, target in ipairs(target_plys) do
+			adminAdjustExperience(calling_ply, target, "experience", "set", amount)
+		end
+		ulx.fancyLogAdmin(calling_ply, "#A set #T's experience to #i", target_plys, amount)
+	end
+
+	local setExpCmd = ulx.command(CATEGORY, "ulx setexperience", ulxSetExp, "!setexp")
+	setExpCmd:addParam({type = ULib.cmds.PlayersArg})
+	setExpCmd:addParam({type = ULib.cmds.NumArg, min = 0, hint = "experience"})
+	setExpCmd:defaultAccess(ULib.ACCESS_ADMIN)
+	setExpCmd:help("Set a player's experience. Saves immediately to the shared database.")
+
+	local function ulxAddExp(calling_ply, target_plys, amount)
+		for _, target in ipairs(target_plys) do
+			adminAdjustExperience(calling_ply, target, "experience", "add", amount)
+		end
+		ulx.fancyLogAdmin(calling_ply, "#A added #i experience to #T", amount, target_plys)
+	end
+
+	local addExpCmd = ulx.command(CATEGORY, "ulx addexperience", ulxAddExp, "!addexp")
+	addExpCmd:addParam({type = ULib.cmds.PlayersArg})
+	addExpCmd:addParam({type = ULib.cmds.NumArg, min = 0, hint = "amount"})
+	addExpCmd:defaultAccess(ULib.ACCESS_ADMIN)
+	addExpCmd:help("Add experience to a player. Saves immediately to the shared database.")
+
+	local function ulxRemoveExp(calling_ply, target_plys, amount)
+		for _, target in ipairs(target_plys) do
+			adminAdjustExperience(calling_ply, target, "experience", "remove", amount)
+		end
+		ulx.fancyLogAdmin(calling_ply, "#A removed #i experience from #T", amount, target_plys)
+	end
+
+	local removeExpCmd = ulx.command(CATEGORY, "ulx removeexperience", ulxRemoveExp, "!removeexp")
+	removeExpCmd:addParam({type = ULib.cmds.PlayersArg})
+	removeExpCmd:addParam({type = ULib.cmds.NumArg, min = 0, hint = "amount"})
+	removeExpCmd:defaultAccess(ULib.ACCESS_ADMIN)
+	removeExpCmd:help("Remove experience from a player. Saves immediately to the shared database.")
+
+	MsgC(Color(100, 255, 100), "[Experience] ULX commands registered.\n")
+end
+
+timer.Simple(0, registerExperienceULXCommands)
+hook.Add("InitPostEntity", "Experience_RegisterULX", registerExperienceULXCommands)
 
 --hook.Add( "ZB_EndRound", "ZB_Exp_Give", function()
 --    local exp = ply.RoundEXP or 0

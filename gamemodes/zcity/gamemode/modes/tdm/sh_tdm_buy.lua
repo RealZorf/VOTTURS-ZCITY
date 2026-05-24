@@ -43,13 +43,107 @@ function Shop.IsConsumableItem(item, category)
 		or string.find(class, "fentanyl")
 end
 
+function Shop.PlayerHasFlashlight(ply)
+	if not IsValid(ply) then return false end
+
+	local inv = ply:GetNetVar("Inventory") or ply.inventory
+	if not istable(inv) or not istable(inv.Weapons) then return false end
+
+	return inv.Weapons["hg_flashlight"] == true
+end
+
+function Shop.StripFlashlight(ply)
+	if not IsValid(ply) or not Shop.PlayerHasFlashlight(ply) then return end
+
+	ply:SetNetVar("flashlight", false)
+
+	local inv = ply:GetNetVar("Inventory") or ply.inventory or {}
+	inv.Weapons = inv.Weapons or {}
+	inv.Weapons["hg_flashlight"] = nil
+	ply:SetNetVar("Inventory", inv)
+
+	if ply.inventory then
+		ply.inventory = inv
+	end
+end
+
+function Shop.PlayerHasArmorEquipped(ply, itemClass)
+	if not IsValid(ply) or not itemClass then return false end
+
+	local eqName = Shop.GetArmorEquipmentName(itemClass)
+	if not eqName then return false end
+
+	local armors = Shop.GetPlayerArmors(ply)
+	local placement = Shop.GetArmorPlacement(eqName)
+
+	if placement and armors[placement] then
+		return true
+	end
+
+	for _, equipped in pairs(armors) do
+		if equipped == eqName then
+			return true
+		end
+	end
+
+	return false
+end
+
+function Shop.PurchaseStillOwned(ply, purchase)
+	if not IsValid(ply) or not istable(purchase) then return false end
+
+	local itemClass = purchase.itemClass
+	if not itemClass then return false end
+
+	if purchase.purchaseType == "attachment" then
+		local wep = ply:GetWeapon(purchase.weaponClass or itemClass)
+		if not IsValid(wep) then return false end
+
+		return Shop.WeaponHasAttachmentNamed(wep, purchase.attachment)
+	end
+
+	if itemClass == "hg_flashlight" then
+		return Shop.PlayerHasFlashlight(ply)
+	end
+
+	if purchase.itemType == "Armor" or string.StartWith(itemClass, "ent_armor_") then
+		return Shop.PlayerHasArmorEquipped(ply, itemClass)
+	end
+
+	if Shop.IsWeaponClass(itemClass) then
+		return ply:HasWeapon(itemClass)
+	end
+
+	return ply:HasWeapon(itemClass)
+end
+
+function Shop.PruneStalePurchases(ply)
+	if not IsValid(ply) or not ply.TDM_Purchases then return false end
+
+	local changed = false
+
+	for purchaseId, purchase in pairs(ply.TDM_Purchases) do
+		if not Shop.PurchaseStillOwned(ply, purchase) then
+			ply.TDM_Purchases[purchaseId] = nil
+			changed = true
+		end
+	end
+
+	if changed then
+		Shop.SyncPurchases(ply)
+	end
+
+	return changed
+end
+
 function Shop.ClearStalePurchaseIfMissing(ply, itemClass)
 	if not IsValid(ply) or not itemClass then return end
 
 	local purchaseId = Shop.FindPurchaseByClass(ply, itemClass)
 	if not purchaseId then return end
 
-	if not ply:HasWeapon(itemClass) then
+	local purchase = ply.TDM_Purchases[purchaseId]
+	if purchase and not Shop.PurchaseStillOwned(ply, purchase) then
 		Shop.RemovePurchase(ply, purchaseId)
 	end
 end
@@ -126,7 +220,9 @@ function Shop.GetOccupiedWeaponClassesInInvCategory(ply, invCategory, excludeCla
 
 	if ply.TDM_Purchases then
 		for _, purchase in pairs(ply.TDM_Purchases) do
-			if purchase.purchaseType != "attachment" and Shop.IsWeaponClass(purchase.itemClass) then
+			if purchase.purchaseType != "attachment"
+				and Shop.IsWeaponClass(purchase.itemClass)
+				and Shop.PurchaseStillOwned(ply, purchase) then
 				addWeaponClass(purchase.itemClass)
 			end
 		end
@@ -159,44 +255,25 @@ function Shop.GetWeaponReplacePromptInfo(ply, item, displayName, category)
 
 	if Shop.IsWeaponPurchase(item) and class then
 		if ply:HasWeapon(class) then
-			return true, "same_weapon", class, "Replace weapon?", string.format(
-				"Replace %s?\n$%s — refunds your current gun.",
-				displayName,
-				price
-			)
+			return true, "same_weapon", class, "Replace Weapon"
 		end
 
 		local slotConflict, replaceClass = Shop.GetWeaponSlotConflict(ply, class)
 		if slotConflict and replaceClass then
-			local oldName = Shop.GetWeaponPrintName(replaceClass)
-
-			return true, "slot", replaceClass, "Slot occupied", string.format(
-				"Refund %s and buy %s?\n$%s",
-				oldName,
-				displayName,
-				price
-			)
+			return true, "slot", replaceClass, "Replace Weapon"
 		end
 
 		return false
 	end
 
-	local owns, kind = Shop.PlayerOwnsItem(ply, item, nil)
+	local owns, kind = Shop.PlayerOwnsItem(ply, item, category)
 	if owns then
 		if kind == "weapon" then
-			return true, "same_weapon", class, "Replace weapon?", string.format(
-				"Replace %s?\n$%s — refunds your current gun.",
-				displayName,
-				price
-			)
+			return true, "same_weapon", class, "Replace Weapon"
 		end
 
-		if kind == "armor" or not Shop.IsConsumableItem(item, category) then
-			return true, "item", class, "Replace item?", string.format(
-				"Replace %s?\n$%s",
-				displayName,
-				price
-			)
+		if kind == "flashlight" or kind == "armor" or not Shop.IsConsumableItem(item, category) then
+			return true, kind == "flashlight" and "flashlight" or "item", class, "Replace Item"
 		end
 	end
 
@@ -262,19 +339,17 @@ function Shop.PlayerOwnsItem(ply, item, category)
 	local class = item.ItemClass
 	if not class then return false end
 
-	if item.Type == "Armor" or string.StartWith(class, "ent_armor_") or class == "hg_flashlight" then
-		local eqName = Shop.GetArmorEquipmentName(class)
-		local placement = Shop.GetArmorPlacement(eqName)
-		local armors = Shop.GetPlayerArmors(ply)
-
-		if placement and armors[placement] then
-			return true, "armor"
+	if class == "hg_flashlight" then
+		if Shop.PlayerHasFlashlight(ply) then
+			return true, "flashlight"
 		end
 
-		for _, equipped in pairs(armors) do
-			if equipped == eqName then
-				return true, "armor"
-			end
+		return false
+	end
+
+	if item.Type == "Armor" or string.StartWith(class, "ent_armor_") then
+		if Shop.PlayerHasArmorEquipped(ply, class) then
+			return true, "armor"
 		end
 
 		return false

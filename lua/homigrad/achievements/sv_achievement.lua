@@ -83,6 +83,10 @@ function hg.achievements.EnsureSqlActive()
 	return hg.achievements.ActivateDatabase() == true
 end
 
+hook.Add("DatabaseConnected", "AchievementsCreateData", function()
+	hg.achievements.ActivateDatabase()
+end)
+
 hook.Add("ZCITY_DatabaseReady", "AchievementsActivate", function(mysqlReady)
 	if mysqlReady then
 		hg.achievements.ActivateDatabase()
@@ -90,6 +94,7 @@ hook.Add("ZCITY_DatabaseReady", "AchievementsActivate", function(mysqlReady)
 end)
 
 hook.Add("PlayerInitialSpawn", "hg_Achievements_OnInitSpawn", updatePlayer)
+hook.Add("PlayerInitialSpawn", "hg_Exp_OnInitSpawn", updatePlayer)
 hook.Add("PlayerDisconnected", "savevalues", function(ply)
 	if not hg.achievements.EnsureSqlActive() then return end
 
@@ -106,16 +111,24 @@ function hg.achievements.SaveToSQL(ply, data)
 		hg.achievements.achievements_data.player_achievements[steamID64] = data
 	end
 
-    if ZCITY_DB and ZCITY_DB.QueueAchievementSave then
-        ZCITY_DB.QueueAchievementSave(steamID64)
-		ZCITY_DB.FlushPlayer(steamID64, true)
+    local achData = data or hg.achievements.GetPlayerAchievements(ply) or {}
+
+    if ZCITY_DB and ZCITY_DB.SaveAchievementData then
+        ZCITY_DB.SaveAchievementData(steamID64, name, achData, true)
         return
     end
 
+    if ZCITY_DB and ZCITY_DB.UpsertAchievementData then
+        ZCITY_DB.UpsertAchievementData(steamID64, name, achData)
+        return
+    end
+
+    if not mysql or not isfunction(mysql.Update) then return end
+
     local updateQuery = mysql:Update("hg_achievements")
-        updateQuery:Update("achievements", util.TableToJSON(data or hg.achievements.GetPlayerAchievements(ply) or {}) )
-        updateQuery:Update("steam_name", name)
-        updateQuery:Where("steamid", steamID64)
+    updateQuery:Update("achievements", util.TableToJSON(achData))
+    updateQuery:Update("steam_name", name)
+    updateQuery:Where("steamid", steamID64)
     updateQuery:Execute()
 end
 
@@ -190,6 +203,10 @@ function hg.achievements.SetPlayerAchievement(ply, key, val)
     end
 
     playerAchievements[key].value = val
+
+    if ZCITY_DB and ZCITY_DB.SaveAchievementData and hg.achievements.EnsureSqlActive() then
+        ZCITY_DB.SaveAchievementData(steamID, ply:Name(), playerAchievements, false)
+    end
 end
 
 function hg.achievements.AddPlayerAchievement(ply, key, val)

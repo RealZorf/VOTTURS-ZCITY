@@ -9,35 +9,12 @@ include("shared.lua")
 AddCSLuaFile("loader.lua")
 include("loader.lua")
 
-local zb_voicechat_panel_groups = ConVarExists("zb_voicechat_panel_groups") and GetConVar("zb_voicechat_panel_groups") or CreateConVar(
-	"zb_voicechat_panel_groups",
-	"superadmin,owner,servermanager,headdeveloper,headadmin,developer,admin,moderator",
-	bit.bor(FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY),
-	"Comma-separated ULX/ULib groups allowed to always see alive voice panels."
-)
-
-local function groupCanSeeVoicePanels(groupName)
-	groupName = string.lower(string.Trim(groupName or ""))
-	if groupName == "" then return false end
-
-	local allowList = string.Trim((zb_voicechat_panel_groups and zb_voicechat_panel_groups:GetString()) or "")
-	if allowList == "" then return false end
-
-	for _, rawGroup in ipairs(string.Explode(",", allowList, false)) do
-		local wantedGroup = string.lower(string.Trim(rawGroup or ""))
-		if wantedGroup ~= "" and wantedGroup == groupName then
-			return true
-		end
-	end
-
-	return false
-end
-
 local function playerCanSeeVoicePanels(ply)
 	if not IsValid(ply) then return false end
-
-	local userGroup = (ply.GetUserGroup and ply:GetUserGroup()) or ""
-	return groupCanSeeVoicePanels(userGroup)
+	if zb and zb.HasULX and zb.UCL and zb.UCL.VoicePanels then
+		return zb.HasULX(ply, zb.UCL.VoicePanels)
+	end
+	return false
 end
 
 local PLAYER = FindMetaTable("Player")
@@ -792,7 +769,8 @@ function GM:EntityKeyValue( ent, key, value )
 end
 
 hook.Add("CanProperty", "AntiExploit", function(ply, property, ent)
-	if(!ply:IsAdmin())then
-		return false
+	if zb and zb.PlayerCanSandboxBypass and zb.PlayerCanSandboxBypass(ply) then
+		return
 	end
+	return false
 end)

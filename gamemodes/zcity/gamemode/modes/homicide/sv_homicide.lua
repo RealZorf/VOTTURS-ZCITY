@@ -1,6 +1,7 @@
 local MODE = MODE
 MODE.start_time = 1
-MODE.end_time = 7
+MODE.end_menu_time = 4
+MODE.end_time = 2.5
  
 MODE.ROUND_TIME = 600
  
@@ -1172,8 +1173,10 @@ function MODE:Intermission()
 			traitors_needed = traitors_needed - 1
 			traitors[#traitors + 1] = ply
 
-			main_traitor = ply
-			ply.MainTraitor = true
+			if not main_traitor then
+				main_traitor = ply
+				ply.MainTraitor = true
+			end
 		end
 	end
 
@@ -2282,7 +2285,7 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                 end
             end)
 
-            timer.Simple(0.2 * idx, function()
+            timer.Simple(0, function()
                 if not IsValid(this_player) then return end
 
                 local traitor_amt = 0

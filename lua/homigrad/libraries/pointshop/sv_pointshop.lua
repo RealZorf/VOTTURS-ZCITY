@@ -21,6 +21,12 @@ hook.Add("DatabaseConnected", "PointshopCreateData", function()
     PLUGIN.Active = true
 end)
 
+hook.Add("ZCITY_DatabaseReady", "PointshopActivate", function(mysqlReady)
+    if mysqlReady == true then
+        PLUGIN.Active = true
+    end
+end)
+
 --local query = mysql:Drop("zb_experience")
 --query:Execute()
 
@@ -99,13 +105,14 @@ local plyMeta = FindMetaTable("Player")
 
 function plyMeta:GetPointshopVars()
     local steamID64 = self:SteamID64()
-    if not util.IsBinaryModuleInstalled("mysqloo")  then
-        PLUGIN.PlayerInstances[steamID64] = {}
+    if not steamID64 or steamID64 == "" then return nil end
 
-		PLUGIN.PlayerInstances[steamID64].donpoints = 0
-        PLUGIN.PlayerInstances[steamID64].points = 0
-        PLUGIN.PlayerInstances[steamID64].items = {}
-        return PLUGIN.PlayerInstances[steamID64]
+    if not PLUGIN.PlayerInstances[steamID64] then
+        PLUGIN.PlayerInstances[steamID64] = {
+            donpoints = 0,
+            points = 0,
+            items = {},
+        }
     end
 
     return PLUGIN.PlayerInstances[steamID64]
@@ -113,41 +120,49 @@ end
 
 function plyMeta:PS_AddPoints( ammout )
     local pointshopVars = self:GetPointshopVars()
+    if not pointshopVars then return false, "Pointshop unavailable." end
 
+    ammout = tonumber(ammout) or 0
     if ammout < 1 then
         return false, "How."
     end
 
-    self:PS_SetPoints(pointshopVars.points + ammout)
-
-    if callback then
-        callback( self )
-    end
+    self:PS_SetPoints((pointshopVars.points or 0) + ammout)
 
     return true, ammout .. " points added !pointshop to open a pointshop"
 end
 
 function plyMeta:PS_SetPoints( value )
-    if not util.IsBinaryModuleInstalled("mysqloo") then return end
+    value = tonumber(value) or 0
 	local steamID64 = self:SteamID64()
     local pointshopVars = self:GetPointshopVars()
+    if not pointshopVars then return end
+
+    pointshopVars.points = value
+
+    if ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB.IsReady() and ZCITY_DB.SavePointshopData then
+        ZCITY_DB.SavePointshopData(steamID64, self:Name(), true)
+        return
+    end
+
+    if not util.IsBinaryModuleInstalled("mysqloo") or not PLUGIN.Active then return end
 
     local updateQuery = mysql:Update("hg_pointshop")
 		updateQuery:Update("points", value)
 		updateQuery:Where("steamid", steamID64)
 	updateQuery:Execute()
-
-    pointshopVars.points = value
 end
 
 function plyMeta:PS_TakePoints( ammout, callback )
     local pointshopVars = self:GetPointshopVars()
+    if not pointshopVars then return false, "Pointshop unavailable." end
 
-    if ammout > pointshopVars.points then
+    ammout = tonumber(ammout) or 0
+    if ammout > (pointshopVars.points or 0) then
         return false, "Not enough ZPoints."
     end
 
-    self:PS_SetPoints(pointshopVars.points - ammout)
+    self:PS_SetPoints((pointshopVars.points or 0) - ammout)
 
     if callback then
         callback( self )
@@ -160,31 +175,37 @@ end
 
 function plyMeta:PS_AddDPoints( ammout )
     local pointshopVars = self:GetPointshopVars()
+    if not pointshopVars then return false, "Pointshop unavailable." end
 
+    ammout = tonumber(ammout) or 0
     if ammout < 1 then
         return false, "How."
     end
 
-    self:PS_SetDPoints(pointshopVars.donpoints + ammout)
-
-    if callback then
-        callback( self )
-    end
+    self:PS_SetDPoints((pointshopVars.donpoints or 0) + ammout)
 
     return true, ammout .. " DZPoints added !pointshop to open a pointshop"
 end
 
 function plyMeta:PS_SetDPoints( value )
-    if not util.IsBinaryModuleInstalled("mysqloo") then return end
+    value = tonumber(value) or 0
 	local steamID64 = self:SteamID64()
     local pointshopVars = self:GetPointshopVars()
+    if not pointshopVars then return end
+
+    pointshopVars.donpoints = value
+
+    if ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB.IsReady() and ZCITY_DB.SavePointshopData then
+        ZCITY_DB.SavePointshopData(steamID64, self:Name(), true)
+        return
+    end
+
+    if not util.IsBinaryModuleInstalled("mysqloo") or not PLUGIN.Active then return end
 
     local updateQuery = mysql:Update("hg_pointshop")
 		updateQuery:Update("donpoints", value)
 		updateQuery:Where("steamid", steamID64)
 	updateQuery:Execute()
-
-    pointshopVars.donpoints = value
 end
 
 function plyMeta:PS_TakeDPoints( ammout, callback )
@@ -208,13 +229,21 @@ end
 function plyMeta:PS_SetItems( tItems )
     local steamID64 = self:SteamID64()
     local pointshopVars = self:GetPointshopVars()
+    if not pointshopVars then return end
+
+    pointshopVars.items = tItems
+
+    if ZCITY_DB and ZCITY_DB.IsReady and ZCITY_DB.IsReady() and ZCITY_DB.SavePointshopData then
+        ZCITY_DB.SavePointshopData(steamID64, self:Name(), true)
+        return
+    end
+
+    if not util.IsBinaryModuleInstalled("mysqloo") or not PLUGIN.Active then return end
 
     local updateQuery = mysql:Update("hg_pointshop")
 		updateQuery:Update("items", util.TableToJSON(tItems))
 		updateQuery:Where("steamid", steamID64)
 	updateQuery:Execute()
-
-    pointshopVars.items = tItems
 end
 
 function plyMeta:PS_AddItem( uid )

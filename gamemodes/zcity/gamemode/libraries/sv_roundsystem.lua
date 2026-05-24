@@ -1,5 +1,6 @@
 local player_GetAll = player.GetAll
 zb.modes = zb.modes or {}
+zb.END_MENU_DURATION = 4
 
 local function plyCanRoundControl(ply)
 	return IsValid(ply) and zb.HasULX and zb.HasULX(ply, zb.UCL.RoundControl)
@@ -60,8 +61,12 @@ function zb:PreRound()
 	if zb.ROUND_STATE == 0 and #player_GetAll() > 1 then
 		zb.END_TIME = nil
 
-		zb.START_TIME = zb.START_TIME or CurTime() + (CurrentRound().start_time or 5)
-		if zb.START_TIME < CurTime() then zb:RoundStart() end
+		local prep = zb.Transition and zb.Transition.GetIntermissionDuration and zb.Transition.GetIntermissionDuration(CurrentRound()) or (CurrentRound().prep_time or 5)
+		zb.START_TIME = zb.START_TIME or (CurTime() + prep)
+
+		if zb.START_TIME < CurTime() and not timer.Exists("ZB_IntermissionRoundStart") then
+			zb:RoundStart()
+		end
 	end
 end
 
@@ -76,20 +81,26 @@ hook.Add("CanListenOthers","RoundStartChat",function(output, input, isChat, team
 end)
 
 function zb:EndRound()
-	zb.ROUND_STATE = 3
+	zb.ROUND_STATE = zb.Transition.STATE_END
 	zb.Roundscount = (zb.Roundscount or 0) + 1
+	zb.END_TIME = nil
+	zb.SHOULD_FADE = true
 
 	local mode, round = CurrentRound()
+	local menuTime = zb.Transition.GetEndMenuDuration(mode)
+	zb.END_MENU_UNTIL = CurTime() + menuTime
 
 	net.Start("RoundInfo")
 		net.WriteString(mode.name or "hmcd")
 		net.WriteInt(zb.ROUND_STATE, 4)
 	net.Broadcast()
 
-	--PrintMessage(HUD_PRINTTALK, "Раунд закончен.")
 	CurrentRound():EndRound()
 	hook.Run("ZB_EndRound")
-	zb.AddFade()
+
+	if zb.Transition and zb.Transition.OnRoundEnd then
+		zb.Transition:OnRoundEnd()
+	end
 
 	hg.achievements.SavePlayerAchievements()
 end
@@ -132,60 +143,27 @@ end
 
 function zb:EndRoundThink()
 	if zb.ROUND_STATE == 1 and zb:ShouldRoundEnd() then zb:EndRound() end
-	if zb.ROUND_STATE == 3 then
+	if zb.ROUND_STATE == zb.Transition.STATE_END then
 		if !zb.END_TIME then
-			zb.END_TIME = (CurTime() + (CurrentRound().end_time or 5))
-			if zb.nextround == "coop" and GetGlobalVar("coop_first_round_timer", 0) == 0 then
+			local afterMenu = zb.Transition.GetEndAfterDuration(CurrentRound())
+			zb.END_TIME = (zb.END_MENU_UNTIL or CurTime()) + afterMenu
 
-				zb.END_TIME = (CurTime() + (GetConVar("zb_dev") and 5 or 60))
+			if zb.nextround == "coop" and GetGlobalVar("coop_first_round_timer", 0) == 0 then
+				zb.END_TIME = (zb.END_MENU_UNTIL or CurTime()) + (GetConVar("zb_dev") and 5 or 45)
 				SetGlobalVar("coop_first_round_timer", zb.END_TIME)
 			end
 		end
-		
+
 		zb.SHOULD_FADE = zb.SHOULD_FADE != nil and zb.SHOULD_FADE or true
 
-		if zb.SHOULD_FADE and (zb.END_TIME < CurTime() + 1.5) then
+		if zb.SHOULD_FADE and zb.END_MENU_UNTIL and CurTime() >= zb.END_MENU_UNTIL and (zb.END_TIME < CurTime() + 0.5) then
 			zb.SHOULD_FADE = false
-
-			for _, ply in player.Iterator() do
-				ply:ScreenFade(SCREENFADE.OUT, Color(0, 0, 0), 1, 7)
-			end
+			zb.AddFade()
 		end
 
 		if zb.END_TIME < CurTime() then
-			zb.ROUND_STATE = 0
-
-			zb.SHOULD_FADE = true
-
-			hook.Run("ZB_PreRoundStart")
-			hook.Run("TTTPrepareRound") -- stormfox2 random_round_weather
-
-			zb.CROUND = zb.nextround or "hmcd"
-			if CurrentRound().shouldfreeze then zb:Freeze() end
-
-			--PrintMessage(HUD_PRINTTALK, "Gamemode: " .. CurrentRound().PrintName or "None")
-
-			local mode, round = CurrentRound()
-			net.Start("RoundInfo")
-				net.WriteString(mode.name or "hmcd")
-				net.WriteInt(zb.ROUND_STATE, 4)
-			net.Broadcast()
-
-			hg.UpdateRoundTime(CurrentRound().ROUND_TIME, CurTime(), CurTime() + (CurrentRound().start_time or 5))
-
-			self:KillPlayers()
-			self:AutoBalance()
-
-			if hg.PluvTown.Active then
-				for _, ply in player.Iterator() do
-					ply:SetNetVar("CurPluv", "pluv")
-				end
-			end
-
-			CurrentRound().saved = {}
-
-			CurrentRound():Intermission()
-			CurrentRound():GiveEquipment()
+			zb.END_TIME = nil
+			zb.Transition:BeginIntermission()
 		end
 	end
 end
@@ -566,20 +544,30 @@ end)
 function zb:RoundStart()
 	if CurrentRound().shouldfreeze then zb:Unfreeze() end
 
-	zb.ROUND_STATE = 1
+	zb.ROUND_STATE = zb.Transition.STATE_ACTIVE
 	zb.START_TIME = nil
 
 	local mode, round = CurrentRound()
 
 	VFIRE_DISABLED = (mode.name == "coop")
 
+	zb.ROUND_START = CurTime()
 	zb.ROUND_BEGIN = CurTime()
-	hg.UpdateRoundTime()
+
+	if zb.Transition and zb.Transition.BroadcastTimes then
+		zb.Transition:BroadcastTimes(mode.ROUND_TIME, zb.ROUND_START, zb.ROUND_BEGIN)
+	elseif hg and hg.UpdateRoundTime then
+		hg.UpdateRoundTime(mode.ROUND_TIME, zb.ROUND_START, zb.ROUND_BEGIN)
+	end
 
 	net.Start("RoundInfo")
 		net.WriteString(mode.name or "hmcd")
 		net.WriteInt(zb.ROUND_STATE, 4)
 	net.Broadcast()
+
+	if zb.Transition and zb.Transition.OnRoundActive then
+		zb.Transition:OnRoundActive()
+	end
 
 	if forcemodeconvar:GetString() != "" then
 		forcemode = forcemodeconvar:GetString()

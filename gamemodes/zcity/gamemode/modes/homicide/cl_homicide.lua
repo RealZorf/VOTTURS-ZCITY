@@ -36,6 +36,11 @@ net.Receive("HMCD_RoundStart",function()
 	MODE.HMCDIntroTipSalt = tostring(math.random(1, 2147483647)) .. ":" .. tostring(StartTime)
 	MODE.TraitorsLocal = {}
 
+	if screen_time_is_default then
+		if zb.ClearClientFade then zb.ClearClientFade() end
+		if zb.ClearEngineScreenFade then zb.ClearEngineScreenFade() end
+	end
+
 	if(lply.isTraitor and screen_time_is_default)then
 		if(MODE.TraitorExpectedAmt == 1)then
 			chat.AddText("You are alone on your mission.")
@@ -915,17 +920,16 @@ MODE.TypeObjectives.supermario = {
 }
 
 function MODE:RenderScreenspaceEffects()
-	-- MODE.DynamicFadeScreenEndTime = MODE.DynamicFadeScreenEndTime or 0
-	fade_end_time = MODE.DynamicFadeScreenEndTime or 0
+	if zb.IsEndRoundMenuOpen and zb.IsEndRoundMenuOpen() then return end
+
+	local fade_end_time = MODE.DynamicFadeScreenEndTime or 0
 	local time_diff = fade_end_time - CurTime()
 
-	if(time_diff > 0)then
-		zb.RemoveFade()
-
+	if time_diff > 0 then
 		local fade = math.min(time_diff / MODE.FadeScreenTime, 1)
 
 		surface.SetDrawColor(0, 0, 0, 255 * fade)
-		surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1 )
+		surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1)
 	end
 end
 
@@ -939,9 +943,9 @@ local handicap = {
 function MODE:HUDPaint()
 	if not MODE.Type or not MODE.TypeObjectives[MODE.Type] then return end
 	if lply:Team() == TEAM_SPECTATOR then return end
-	if StartTime + 12 < CurTime() then return end
-	
-	fade = Lerp(FrameTime()*1, fade, math.Clamp(StartTime + 5 - CurTime(),-2,2))
+	if not StartTime or StartTime + 12 < CurTime() then return end
+
+	fade = Lerp(FrameTime() * 1, fade, math.Clamp(StartTime + 5 - CurTime(), -2, 2))
 
 	draw.SimpleText("Homicide | " .. (MODE.TypeNames[MODE.Type] or "Unknown"), "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0,162,255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
@@ -1059,218 +1063,20 @@ function MODE:HUDPaint()
 	end
 end
 
-local CreateEndMenu
+-- [ZB] round end UI handled by libraries/round_transitions/cl_round_transitions.lua
 
-net.Receive("hmcd_roundend", function()
-	local traitors, gunners = {}, {}
-
-	for key = 1, net.ReadUInt(MODE.TraitorExpectedAmtBits) do
-		local traitor = net.ReadEntity()
-		traitors[key] = traitor
-		traitor.isTraitor = true
-	end
-
-	for key = 1, net.ReadUInt(MODE.TraitorExpectedAmtBits) do
-		local gunner = net.ReadEntity()
-		gunners[key] = gunner
-		gunner.isGunner = true
-	end
-
-	timer.Simple(2.5, function()
-
-
-		lply.isPolice = false
-		lply.isTraitor = false
-		lply.isGunner = false
-		lply.MainTraitor = false
-		lply.SubRole = nil
-		lply.Profession = nil
-	end)
-
-	traitor = traitors[1] or Entity(0)
-
-	CreateEndMenu(traitor)
+net.Receive("HMCD(StartPlayersRoleSelection)", function()
+	local role = net.ReadString()
+	hg.SelectPlayerRole(role)
 end)
 
 net.Receive("hmcd_announce_traitor_lose", function()
 	local traitor = net.ReadEntity()
 	local traitor_alive = net.ReadBool()
 
-	if(IsValid(traitor))then
+	if IsValid(traitor) then
 		chat.AddText(color_white, (traitor_alive and "" or "Traitor "), traitor:GetPlayerColor():ToColor(), traitor:GetPlayerName() .. ", " .. traitor:Nick(), color_white, " was " .. (traitor_alive and "a Traitor." or "killed."))
 	end
-end)
-
-local colGray = Color(85,85,85)
-local colRed = Color(130,10,10)
-local colRedUp = Color(160,30,30)
-
-local colBlue = Color(10,10,160)
-local colBlueUp = Color(40,40,160)
-local col = Color(255,255,255,255)
-
-local colSpect1 = Color(75,75,75,255)
-local colSpect2 = Color(255,255,255)
-
-local colorBG = Color(55,55,55,255)
-local colorBGBlacky = Color(40,40,40,255)
-
-local blurMat = Material("pp/blurscreen")
-local Dynamic = 0
-
-BlurBackground = BlurBackground or hg.DrawBlur
-
-if IsValid(hmcdEndMenu) then
-	hmcdEndMenu:Remove()
-	hmcdEndMenu = nil
-end
-
-CreateEndMenu = function(traitor)
-	if IsValid(hmcdEndMenu) then
-		hmcdEndMenu:Remove()
-		hmcdEndMenu = nil
-	end
-
-	Dynamic = 0
-	hmcdEndMenu = vgui.Create("ZFrame")
-
-	if !IsValid(hmcdEndMenu) then return end
-
-	local players = {}
-
-	local traitorName = IsValid(traitor) and traitor:GetPlayerName() or "unknown"
-	local traitorNick = IsValid(traitor) and traitor:Nick() or "unknown"
-
-	for i, ply in player.Iterator() do
-		if ply:Team() == TEAM_SPECTATOR then continue end
-		if !IsValid(ply) then return end
-		
-		players[#players + 1] = {
-			nick = ply:Nick(),
-			name = ply:GetPlayerName(),
-			isTraitor = ply.isTraitor,
-			isGunner = ply.isGunner,
-			incapacitated = ply.organism and ply.organism.otrub,
-			alive = ply:Alive(),
-			col = ply:GetPlayerColor():ToColor(),
-			frags = ply:Frags(),
-			steamid = ply:IsBot() and "BOT" or ply:SteamID64(),
-		}
-	end
-
-	surface.PlaySound("ambient/alarms/warningbell1.wav")
-
-	local sizeX,sizeY = ScrW() / 2.5, ScrH() / 1.2
-	local posX,posY = ScrW() / 1.3 - sizeX / 2, ScrH() / 2 - sizeY / 2
-
-	hmcdEndMenu:SetPos(posX, posY)
-	hmcdEndMenu:SetSize(sizeX, sizeY)
-	hmcdEndMenu:MakePopup()
-	hmcdEndMenu:SetKeyboardInputEnabled(false)
-	hmcdEndMenu:ShowCloseButton(false)
-
-	local closebutton = vgui.Create("DButton", hmcdEndMenu)
-	closebutton:SetPos(5, 5)
-	closebutton:SetSize(ScrW() / 20, ScrH() / 30)
-	closebutton:SetText("")
-
-	closebutton.DoClick = function()
-		if IsValid(hmcdEndMenu) then
-			hmcdEndMenu:Close()
-			hmcdEndMenu = nil
-		end
-	end
-
-	closebutton.Paint = function(self,w,h)
-		surface.SetDrawColor(122, 122, 122, 255)
-		surface.DrawOutlinedRect(0, 0, w, h, 2.5)
-		surface.SetFont("ZB_InterfaceMedium")
-		surface.SetTextColor(col.r, col.g, col.b, col.a)
-		local lengthX, lengthY = surface.GetTextSize("Close")
-		surface.SetTextPos(lengthX - lengthX / 1.1, 4)
-		surface.DrawText("Close")
-	end
-
-	hmcdEndMenu.PaintOver = function(self,w,h)
-		surface.SetFont( "ZB_InterfaceMediumLarge" )
-		surface.SetTextColor(col.r,col.g,col.b,col.a)
-		local lengthX, lengthY = surface.GetTextSize(traitorName .. " was a traitor ("..traitorNick..")")
-		surface.SetTextPos(w / 2 - lengthX / 2, 20)
-		surface.DrawText(traitorName .. " was a traitor ("..traitorNick..")")
-	end
-
-	-- PLAYERS
-	local DScrollPanel = vgui.Create("DScrollPanel", hmcdEndMenu)
-	DScrollPanel:SetPos(10, 80)
-	DScrollPanel:SetSize(sizeX - 20, sizeY - 90)
-
-	for i, info in ipairs(players) do
-		local but = vgui.Create("DButton",DScrollPanel)
-
-		but:SetSize(100,50)
-		but:Dock(TOP)
-		but:DockMargin( 8, 6, 8, -1 )
-		but:SetText("")
-
-		but.Paint = function(self,w,h)
-			local col1 = (info.isTraitor and colRed) or (info.alive and colBlue) or colGray
-			local col2 = info.isTraitor and (info.alive and colRedUp or colSpect1) or ((info.alive and !info.incapacitated) and colBlueUp) or colSpect1
-			local name = info.nick
-			surface.SetDrawColor(col1.r, col1.g, col1.b, col1.a)
-			surface.DrawRect(0, 0, w, h)
-			surface.SetDrawColor(col2.r, col2.g, col2.b, col2.a)
-			surface.DrawRect(0, h / 2, w, h / 2)
-
-			local col = info.col
-			surface.SetFont("ZB_InterfaceMediumLarge")
-			local lengthX, lengthY = surface.GetTextSize(name)
-
-			surface.SetTextColor(0, 0, 0, 255)
-			surface.SetTextPos(w / 2 + 1, h / 2 - lengthY / 2 + 1)
-			surface.DrawText(name)
-
-			surface.SetTextColor(col.r, col.g, col.b, col.a)
-			surface.SetTextPos(w / 2, h / 2 - lengthY / 2)
-			surface.DrawText(name)
-
-
-			local col = colSpect2
-			surface.SetFont("ZB_InterfaceMediumLarge")
-			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local lengthX, lengthY = surface.GetTextSize(info.name)
-			surface.SetTextPos(15, h / 2 - lengthY / 2)
-			surface.DrawText(info.name .. ((!info.alive and " - died") or (info.incapacitated and " - incapacitated") or ""))
-
-			surface.SetFont("ZB_InterfaceMediumLarge")
-			surface.SetTextColor(col.r, col.g, col.b, col.a)
-			local lengthX, lengthY = surface.GetTextSize(info.frags)
-			surface.SetTextPos(w - lengthX -15,h/2 - lengthY/2)
-			surface.DrawText(info.frags)
-		end
-
-		function but:DoClick()
-			if info.steamid == "BOT" then chat.AddText(Color(255, 0, 0), "That's a bot.") return end
-			gui.OpenURL("https://steamcommunity.com/profiles/"..info.steamid)
-		end
-
-		DScrollPanel:AddItem(but)
-	end
-
-	return true
-end
-
-function MODE:RoundStart()
-	-- if IsValid(hmcdEndMenu) then
-	-- 	hmcdEndMenu:Remove()
-	-- 	hmcdEndMenu = nil
-	-- end
-end
-
---\\
-net.Receive("HMCD(StartPlayersRoleSelection)", function()
-	local role = net.ReadString()
-
-	hg.SelectPlayerRole(role)
 end)
 
 function hg.SelectPlayerRole(role, mode, parent)

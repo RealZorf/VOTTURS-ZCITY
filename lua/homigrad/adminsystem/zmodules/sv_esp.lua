@@ -9,15 +9,6 @@ local espPlayers = {}
 local syncQueue = {}
 local allESP = {}
 local lastToggle = {}
-local liveESPUserGroups = {
-	["superadmin"] = true,
-	["owner"] = true,
-	["servermanager"] = true,
-	["headdeveloper"] = true,
-	["headadmin"] = true,
-	["developer"] = true,
-	["admin"] = true,
-}
 
 local ESP_PDATA_KEY = "zcity_live_esp_enabled"
 
@@ -42,14 +33,16 @@ end
 
 function ESP:Init()
 	util.AddNetworkString("AS_Sync")
+	util.AddNetworkString("AS_HMCDRoles")
 
+	self:InitRoleSync()
 	self:SetupHooks()
 	self:SetupCommands()
 
 	timer.Create("AS_AllESP_Sync", 1, 0, function()
 		for steamId, enabled in pairs(allESP) do
 			local ply = player.GetBySteamID64(steamId) or player.GetBySteamID(steamId)
-			if !IsValid(ply) or !ply:IsSuperAdmin() then
+			if !IsValid(ply) or !(zb and zb.HasULX and zb.HasULX(ply, zb.UCL.SuperChat)) then
 				allESP[steamId] = nil
 			end
 		end
@@ -68,7 +61,7 @@ end
 
 function ESP:CanUsePersistentLiveESP( ply )
 	if !IsValid( ply ) then return false end
-	return liveESPUserGroups[string.lower( ply:GetUserGroup() or "" )] == true
+	return zb and zb.HasULX and zb.HasULX( ply, zb.UCL.LiveESP )
 end
 
 function ESP:CanUseESP( ply )
@@ -166,6 +159,113 @@ function ESP:DoSync( ply )
 	net.WriteBool(inAdminMode)
 	net.WriteBool(isAllESP)
 	net.Send(ply)
+
+	self:SyncHMCDRoles(ply)
+end
+
+function ESP:IsHomicideRound()
+	local round = CurrentRound and CurrentRound()
+	return istable(round) and round.name == "hmcd"
+end
+
+function ESP:CollectHMCDPlayers()
+	local players = {}
+
+	for _, target in player.Iterator() do
+		if IsValid(target) and target:IsPlayer() then
+			players[#players + 1] = target
+		end
+	end
+
+	return players
+end
+
+-- Homicide allows only one main traitor; duplicate MainTraitor flags are corrected here.
+function ESP:ResolveMainTraitor(players)
+	local mainTraitor = nil
+
+	for _, target in ipairs(players) do
+		if !IsValid(target) or target.isTraitor != true or target.MainTraitor != true then continue end
+
+		if IsValid(mainTraitor) then
+			target.MainTraitor = false
+		else
+			mainTraitor = target
+		end
+	end
+
+	return mainTraitor
+end
+
+function ESP:SyncHMCDRoles(ply)
+	if !IsValid(ply) or !self:IsEnabled(ply) then return end
+	if !self:IsHomicideRound() or (zb and zb.ROUND_STATE and zb.ROUND_STATE != 1) then
+		net.Start("AS_HMCDRoles")
+			net.WriteUInt(0, 8)
+		net.Send(ply)
+		return
+	end
+
+	local players = self:CollectHMCDPlayers()
+	local mainTraitor = self:ResolveMainTraitor(players)
+
+	net.Start("AS_HMCDRoles")
+		net.WriteUInt(#players, 8)
+		for _, target in ipairs(players) do
+			net.WriteEntity(target)
+			net.WriteBool(target.isTraitor == true)
+			net.WriteBool(target.isGunner == true)
+			net.WriteBool(target == mainTraitor)
+			net.WriteString(target.SubRole or "")
+			net.WriteString(target.Profession or "")
+		end
+	net.Send(ply)
+end
+
+function ESP:SyncHMCDRolesForAll()
+	if !self:IsHomicideRound() or (zb and zb.ROUND_STATE and zb.ROUND_STATE != 1) then return end
+
+	for steamId, enabled in pairs(espPlayers) do
+		if !enabled then continue end
+
+		local ply = player.GetBySteamID64(steamId) or player.GetBySteamID(steamId)
+		if IsValid(ply) then
+			self:SyncHMCDRoles(ply)
+		end
+	end
+
+	for steamId, enabled in pairs(allESP) do
+		if !enabled then continue end
+
+		local ply = player.GetBySteamID64(steamId) or player.GetBySteamID(steamId)
+		if IsValid(ply) then
+			self:SyncHMCDRoles(ply)
+		end
+	end
+end
+
+function ESP:InitRoleSync()
+	timer.Create("AS_HMCDRoleSync", 1, 0, function()
+		if !ESP:IsHomicideRound() or (zb and zb.ROUND_STATE and zb.ROUND_STATE != 1) then return end
+
+		for steamId, enabled in pairs(espPlayers) do
+			if !enabled then continue end
+
+			local ply = player.GetBySteamID64(steamId) or player.GetBySteamID(steamId)
+			if IsValid(ply) then
+				ESP:SyncHMCDRoles(ply)
+			end
+		end
+
+		for steamId, enabled in pairs(allESP) do
+			if !enabled then continue end
+
+			local ply = player.GetBySteamID64(steamId) or player.GetBySteamID(steamId)
+			if IsValid(ply) then
+				ESP:SyncHMCDRoles(ply)
+			end
+		end
+	end)
 end
 
 function ESP:SetupHooks()
@@ -220,6 +320,12 @@ function ESP:SetupHooks()
 			ESP:QueueSync( ply )
 		end )
 	end)
+
+	hook.Add("ZB_StartRound", "AS_ESP_HMCDRoleSync", function()
+		timer.Simple(0, function()
+			ESP:SyncHMCDRolesForAll()
+		end)
+	end)
 end
 
 function ESP:SetupCommands()
@@ -231,8 +337,8 @@ function ESP:SetupCommands()
 
 	concommand.Add("zb_adminmode", function( ply )
 		if !IsValid(ply) then return end
-		if !ply:IsAdmin() then return end
-		if ply:IsSuperAdmin() then return end
+		if !(zb and zb.HasULX and zb.HasULX(ply, zb.UCL.AdminChat)) then return end
+		if zb.HasULX(ply, zb.UCL.SuperChat) then return end
 
 		ESP:ToggleAdminMode(ply)
 	end)
@@ -254,7 +360,7 @@ function ESP:SetupCommands()
 	end)
 
 	concommand.Add("zb_allesp", function( ply, cmd, args )
-		if !IsValid( ply ) or !ply:IsSuperAdmin() then return end
+		if !IsValid( ply ) or !(zb and zb.HasULX and zb.HasULX(ply, zb.UCL.SuperChat)) then return end
 
 		local steamId = getSteamKey( ply )
 		local enable = tonumber(args[1] or "0") == 1

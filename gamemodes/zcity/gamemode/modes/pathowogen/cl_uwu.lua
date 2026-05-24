@@ -158,14 +158,5 @@ function MODE:HUDPaint()
 	end
 end
 
-net.Receive("ZB_Pathowogen_RoundEnd", function()
-	if IsValid(zb.DialogueWindow) then
-		zb.DialogueWindow:Remove()
-	end
+-- [ZB] round end UI handled by libraries/round_transitions/cl_round_transitions.lua
 
-	local win = net.ReadUInt(3)
-	local data = net.ReadTable()
-
-	local panel = vgui.Create("ZB_PathowogenEnd")
-	panel:SetData(win, data)
-end)
