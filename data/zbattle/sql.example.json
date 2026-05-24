@@ -1,0 +1,8 @@
+{
+	"dbmodule": "mysqloo",
+	"hostname": "127.0.0.1",
+	"username": "zcity",
+	"password": "change_me",
+	"database": "zcity",
+	"port": 3306
+}

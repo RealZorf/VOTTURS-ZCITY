@@ -861,8 +861,8 @@ MODE.Types.wildwest = {
 			end)
 			if v.isTraitor then continue end
 			if v.isGunner then
-				v:Give("weapon_winchester")
-				v:Give("weapon_revolver357")
+				v:Give(math.random(1, 2) == 1 and "weapon_winchester" or "weapon_yellowboy")
+				v:Give("weapon_revolvermodel29")
 				v:Give("weapon_handcuffs")
 				v:Give("weapon_handcuffs_key")
 			else
@@ -870,7 +870,8 @@ MODE.Types.wildwest = {
 					"weapon_winchester",
 					"weapon_revolver2",
 					"weapon_doublebarrel",
-					"weapon_doublebarrel_short"
+					"weapon_doublebarrel_short",
+					"weapon_yellowboy"
 				}
 
 				local weapon = v:Give(guns[math.random(#guns)], true)

@@ -6,24 +6,12 @@ local HELD_MODE_PHYSGUN = "physgun"
 local HELD_MODE_GRAVGUN_NATIVE = "gravgun_native"
 local HELD_MODE_GRAVGUN_MANUAL = "gravgun_manual"
 
-local adminPhysgunGroups = {
-	["superadmin"] = true,
-	["owner"] = true,
-	["servermanager"] = true,
-	["headdeveloper"] = true,
-	["headadmin"] = true,
-	["developer"] = true,
-	["admin"] = true,
-}
-
 local function canUseAdminPhysgun(ply)
 	if not IsValid(ply) or not ply:IsPlayer() then
 		return false
 	end
 
-	local userGroup = string.lower(ply:GetUserGroup() or "")
-
-	return adminPhysgunGroups[userGroup] == true
+	return zb and zb.PlayerCanPhysgun and zb.PlayerCanPhysgun(ply)
 end
 
 local function getPlayerFromEntity(ent)

@@ -1,5 +1,9 @@
 MODE.name = "tdm"
 
+if not zb.TDMShop then
+	include("zcity/gamemode/modes/tdm/sh_tdm_buy.lua")
+end
+
 local MODE = MODE
 local MusicVolume = GetConVar("snd_musicvolume")
 local tdmThemeStation
@@ -361,6 +365,14 @@ surface.CreateFont("ZB_TDM_CATEGORY", {
     antialias = true
 })
 
+surface.CreateFont("ZB_TDM_TAB_COMPACT", {
+    font = "Bahnschrift",
+    size = ScreenScale(5),
+    extended = true,
+    weight = 400,
+    antialias = true
+})
+
 surface.CreateFont("ZB_TDM_DESCSMALL", {
     font = "Bahnschrift",
     size = ScreenScale(5),
@@ -375,11 +387,37 @@ local defaultBuyMenuTheme = {
 	Outline = Color(255, 0, 0, 128),
 	Gradient = Color(155, 0, 0, 55),
 	AttachmentGradient = Color(55, 155, 55, 25),
+	AttachmentOutline = Color(55, 155, 55, 200),
 }
+
+zb = zb or {}
+zb.TDM_BuyMenuTheme = defaultBuyMenuTheme
 
 local function GetBuyMenuTheme()
 	local round = CurrentRound and CurrentRound()
-	return (round and round.BuyMenuTheme) or defaultBuyMenuTheme
+	local theme = (round and round.BuyMenuTheme) or defaultBuyMenuTheme
+
+	return {
+		Background = theme.Background or defaultBuyMenuTheme.Background,
+		InnerBackground = theme.InnerBackground or defaultBuyMenuTheme.InnerBackground,
+		Outline = theme.Outline or defaultBuyMenuTheme.Outline,
+		Gradient = theme.Gradient or defaultBuyMenuTheme.Gradient,
+		AttachmentGradient = theme.AttachmentGradient or defaultBuyMenuTheme.AttachmentGradient,
+		AttachmentOutline = theme.AttachmentOutline or defaultBuyMenuTheme.AttachmentOutline,
+	}
+end
+
+local function ApplyBuyMenuFrameColors(frame)
+	if not IsValid(frame) then return end
+
+	local theme = GetBuyMenuTheme()
+	frame:SetColorBR(Color(theme.Outline.r, theme.Outline.g, theme.Outline.b, math.min(255, theme.Outline.a + 40)))
+	frame:SetColorBG(Color(
+		theme.InnerBackground.r,
+		theme.InnerBackground.g,
+		theme.InnerBackground.b,
+		math.min(255, theme.InnerBackground.a + 15)
+	))
 end
 
 local function SetThemeDrawColor(color, fallback)
@@ -427,196 +465,1253 @@ local function PaintPanel2(self,w,h)
     surface.DrawTexturedRect( 0, 0, w*1.2, h )
 end
 
-local rtabFunc = function(self)
+local function getTDMTabPadX()
+	return math.max(ScreenScale(8), 12)
+end
 
-	local ExtraInset = 10
-
-	if ( self.Image ) then
-		ExtraInset = ExtraInset + self.Image:GetWide()
+local function getTDMTabFont(tab)
+	if IsValid(tab) and tab._tdmTabCompactFont then
+		return "ZB_TDM_TAB_COMPACT"
 	end
 
-	self:SetTextInset( ExtraInset, 2 )
-	local w, h = self:GetContentSize()
-	h = self:GetTabHeight()
+	return "ZB_TDM_CATEGORY"
+end
 
-	self:SetSize( w + 10, h + 7 )
+local function measureTDMTabWidth(tabText, tab)
+	local fontName = getTDMTabFont(tab)
+	surface.SetFont(fontName)
+	local textW = surface.GetTextSize(tabText or "")
 
-	DLabel.ApplySchemeSettings( self )
+	local iconWide = 0
+	if IsValid(tab) and tab.Image then
+		iconWide = 6 + tab.Image:GetWide()
+	end
 
+	local padX = getTDMTabPadX()
+	return textW + iconWide + padX * 2
+end
+
+local function paintTDMPropertySheetTab(self, w, h)
+	local theme = GetBuyMenuTheme()
+	local drawH = math.max(h - 2, 1)
+	local outline = theme.Outline or defaultBuyMenuTheme.Outline
+
+	SetThemeDrawColor(theme.Background, defaultBuyMenuTheme.Background)
+	surface.DrawRect(0, 0, w, drawH)
+
+	if self:IsActive() then
+		draw.RoundedBox(0, 1, 1, w - 2, drawH - 2, theme.InnerBackground or defaultBuyMenuTheme.InnerBackground)
+		SetThemeDrawColor(theme.Gradient, defaultBuyMenuTheme.Gradient)
+		surface.SetMaterial(gradient_l)
+		surface.DrawTexturedRect(0, 0, w / 1.5, drawH)
+	end
+
+	SetThemeDrawColor(outline, defaultBuyMenuTheme.Outline)
+	surface.DrawRect(0, 0, w, 1)
+	surface.DrawRect(0, drawH - 1, w, 1)
+
+	if self._tdmTabDrawLeftEdge then
+		surface.DrawRect(0, 0, 1, drawH)
+	end
+
+	if self._tdmTabDrawRightEdge then
+		surface.DrawRect(w - 1, 0, 1, drawH)
+	elseif self._tdmTabDrawDivider then
+		surface.DrawRect(w - 1, 0, 1, drawH)
+	end
+
+	local label = self._tdmTabLabel or ""
+	if label == "" then return end
+
+	local fontName = getTDMTabFont(self)
+	draw.SimpleText(label, fontName, w * 0.5, h * 0.5, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+end
+
+local function applyTDMPropertySheetTab(self)
+	if not IsValid(self) then return end
+
+	local tabText = self._tdmTabLabel or ""
+	if tabText == "" then return end
+
+	self._tdmTabPadX = getTDMTabPadX()
+	self._tdmTabIconWide = self.Image and (6 + self.Image:GetWide()) or 0
+	self:SetFont(getTDMTabFont(self))
+	self:SetText("")
+	self:SetTextColor(color_white)
+	self:SetTextInset(0, 0)
+
+	if self._tdmTabWidthLocked then return end
+
+	local tabH = self.GetTabHeight and self:GetTabHeight() or 22
+	self:SetSize(measureTDMTabWidth(tabText, self), tabH)
+end
+
+local function installTDMPropertySheetTabPaint(tab)
+	tab.Paint = paintTDMPropertySheetTab
+	tab.PaintOver = function() end
+	tab.DrawText = function() end
+	tab.ApplySchemeSettings = function() end
+
+	for _, child in ipairs(tab:GetChildren()) do
+		if IsValid(child) and child ~= tab.Image then
+			child:SetVisible(false)
+			child:SetMouseInputEnabled(false)
+
+			if child.SetText then
+				child:SetText("")
+			end
+		end
+	end
+end
+
+local function setupTDMPropertySheetTab(tab, label)
+	if not IsValid(tab) then return end
+
+	label = label or tab._tdmTabLabel or tab:GetText() or ""
+	if label == "" then return end
+
+	tab._tdmTabLabel = label
+
+	if not tab._tdmTabStyled then
+		tab._tdmTabStyled = true
+		installTDMPropertySheetTabPaint(tab)
+	end
+
+	applyTDMPropertySheetTab(tab)
+end
+
+local function sumTDMTabRowWidth(sheet, scroller)
+	local totalW = 0
+
+	for _, sheetData in ipairs(sheet.Items) do
+		local tab = sheetData.Tab
+		if IsValid(tab) then
+			totalW = totalW + tab:GetWide() - scroller:GetOverlap()
+		end
+	end
+
+	return totalW
+end
+
+local function fitTDMPropertySheetTabs(sheet)
+	if not IsValid(sheet) or not istable(sheet.Items) then return end
+
+	local scroller = sheet.tabScroller
+	if not IsValid(scroller) then return end
+
+	scroller:SetOverlap(0)
+
+	for _, sheetData in ipairs(sheet.Items) do
+		local tab = sheetData.Tab
+		if IsValid(tab) then
+			tab._tdmTabWidthLocked = nil
+			tab._tdmTabCompactFont = nil
+			setupTDMPropertySheetTab(tab, sheetData.Name)
+		end
+	end
+
+	local availW = math.max(sheet:GetWide() - 8, ScreenScale(120))
+	local totalW = sumTDMTabRowWidth(sheet, scroller)
+
+	if totalW > availW then
+		for _, sheetData in ipairs(sheet.Items) do
+			local tab = sheetData.Tab
+			if IsValid(tab) then
+				tab._tdmTabCompactFont = true
+				tab._tdmTabWidthLocked = nil
+				applyTDMPropertySheetTab(tab)
+			end
+		end
+
+		totalW = sumTDMTabRowWidth(sheet, scroller)
+	end
+
+	if totalW > availW then
+		local scale = availW / totalW
+
+		for _, sheetData in ipairs(sheet.Items) do
+			local tab = sheetData.Tab
+			if IsValid(tab) then
+				local naturalW = measureTDMTabWidth(tab._tdmTabLabel, tab)
+				tab._tdmTabWidthLocked = true
+				tab:SetWide(math.max(math.floor(naturalW * scale), math.floor(naturalW * 0.82)))
+			end
+		end
+	end
+
+	local tabCount = #sheet.Items
+	for tabIndex, sheetData in ipairs(sheet.Items) do
+		local tab = sheetData.Tab
+		if IsValid(tab) then
+			tab._tdmTabDrawLeftEdge = tabIndex == 1
+			tab._tdmTabDrawRightEdge = tabIndex == tabCount
+			tab._tdmTabDrawDivider = tabIndex < tabCount
+		end
+	end
+
+	scroller:SetScroll(0)
+
+	if IsValid(scroller.btnLeft) then
+		scroller.btnLeft:SetVisible(false)
+	end
+
+	if IsValid(scroller.btnRight) then
+		scroller.btnRight:SetVisible(false)
+	end
+
+	scroller.OnMouseWheeled = function()
+		return true
+	end
+
+	scroller:InvalidateLayout(true)
+end
+
+local TDM_BuyMenuBuildTimer
+local TDM_BuyMenuBuildingPanel
+local TDM_BUY_ITEMS_PER_TICK = 8
+
+local function cancelBuyMenuBuildTimer()
+	if TDM_BuyMenuBuildTimer then
+		timer.Remove(TDM_BuyMenuBuildTimer)
+		TDM_BuyMenuBuildTimer = nil
+	end
+
+	if IsValid(TDM_BuyMenuBuildingPanel) and TDM_BuyMenuBuildingPanel._tdmBuilding then
+		TDM_BuyMenuBuildingPanel._tdmBuilding = false
+		TDM_BuyMenuBuildingPanel._tdmBuilt = false
+
+		local canvas = TDM_BuyMenuBuildingPanel.GetCanvas and TDM_BuyMenuBuildingPanel:GetCanvas()
+		if IsValid(canvas) then
+			canvas:Clear()
+		end
+	end
+
+	TDM_BuyMenuBuildingPanel = nil
+end
+
+local function buildAmmoLookup(buyItems)
+	local lookup = {}
+
+	for name2, ammoEntry in pairs(buyItems["Ammo"] or {}) do
+		if istable(ammoEntry) and ammoEntry.ItemClass then
+			lookup[ammoEntry.ItemClass] = name2
+		end
+	end
+
+	return lookup
+end
+
+local function getCachedWeapon(class, cache)
+	if cache[class] == nil then
+		cache[class] = weapons.GetStored(class)
+	end
+
+	return cache[class]
+end
+
+local function getCachedEnt(class, cache)
+	if cache[class] == nil then
+		cache[class] = scripted_ents.GetStored(class)
+	end
+
+	return cache[class]
+end
+
+local TDM_ATTACH_ICON_SIZE = function()
+	return math.ceil(ScrH() * 0.068)
+end
+
+local TDM_ATTACH_ICON_COLS = 4
+local TDM_ATTACH_MAX_ROWS = 2
+local TDM_ICON_PAD = 4
+local TDM_ICON_PLACEHOLDER = "icon16/wrench"
+local TDM_CARD_ROW_MARGIN = 6
+local TDM_CONTENT_PAD = 8
+local TDM_CARD_PAD_TOP = 5
+local TDM_CARD_PAD_LEFT = 7
+local TDM_CARD_PAD_BOTTOM = 5
+local TDM_ICON_BOTTOM_ACCENT = 2
+
+local TDM_BTN_ROW_H = function()
+	return math.ceil(ScrH() * 0.036)
+end
+
+local function getTDMItemIconDimensions(rowH)
+	local iconH = math.max(56, math.ceil(rowH - TDM_CARD_PAD_TOP - TDM_CARD_PAD_BOTTOM - TDM_ICON_BOTTOM_ACCENT))
+	local iconW = math.ceil(iconH * 1.12)
+
+	return iconW, iconH
+end
+
+local function getTDMTextBlockHeight()
+	surface.SetFont("ZB_TDM_MENU")
+	local _, nameLineH = surface.GetTextSize("Ay")
+	surface.SetFont("ZB_TDM_DESC")
+	local _, priceLineH = surface.GetTextSize("Ay")
+
+	return math.ceil(nameLineH * 2 + priceLineH + 14)
+end
+
+local function TDM_BUY_ROW_H(hasAttachments, attGridRows)
+	local att = TDM_ATTACH_ICON_SIZE()
+	local btnH = TDM_BTN_ROW_H()
+	local textH = getTDMTextBlockHeight()
+	local minIconH = math.ceil(ScrH() * 0.102)
+	local coreH = math.max(
+		minIconH + TDM_CARD_PAD_TOP + TDM_CARD_PAD_BOTTOM + TDM_ICON_BOTTOM_ACCENT,
+		textH + btnH + 16
+	)
+
+	if not hasAttachments then
+		return coreH
+	end
+
+	local visibleRows = math.min(attGridRows or 1, TDM_ATTACH_MAX_ROWS)
+
+	return math.max(coreH, visibleRows * att + 18)
+end
+
+local function hidePanelScrollBar(scrollBar)
+	if not IsValid(scrollBar) then return end
+
+	scrollBar:SetEnabled(false)
+	scrollBar:SetWide(0)
+end
+
+local function setupBuyMenuScrollPanel(scrollPanel)
+	if not IsValid(scrollPanel) then return end
+
+	if scrollPanel.GetHBar then
+		hidePanelScrollBar(scrollPanel:GetHBar())
+	end
+
+	if scrollPanel.GetVBar then
+		local vBar = scrollPanel:GetVBar()
+		if IsValid(vBar) then
+			vBar:SetHideButtons(true)
+		end
+	end
+end
+
+local function getBuyMenuListParent(categoryPanel)
+	if IsValid(categoryPanel) and categoryPanel.GetCanvas then
+		local canvas = categoryPanel:GetCanvas()
+		if IsValid(canvas) then return canvas end
+	end
+
+	return categoryPanel
+end
+
+local function resolveItemIconPath(weapon, ent)
+	if weapon then
+		if weapon.WepSelectIcon2 then
+			return weapon.WepSelectIcon2:GetName() .. ".png", weapon.WepSelectIcon2box == true
+		end
+
+		if weapon.IconOverride then
+			return weapon.IconOverride, false
+		end
+	end
+
+	if ent and ent.t and ent.t.IconOverride then
+		return ent.t.IconOverride, true
+	end
+
+	return nil
+end
+
+local function resolveAttachmentIconPath(attName)
+	if not attName then return TDM_ICON_PLACEHOLDER end
+
+	if hg and hg.attachmentsIcons and hg.attachmentsIcons[attName] then
+		return hg.attachmentsIcons[attName]
+	end
+
+	local entStored = scripted_ents.Get("ent_att_" .. attName)
+	if entStored and entStored.IconOverride and entStored.IconOverride ~= "" then
+		return entStored.IconOverride
+	end
+
+	if hg and hg.attachments then
+		for _, tbl in pairs(hg.attachments) do
+			local attData = tbl[attName]
+			if istable(attData) and isstring(attData[2]) and attData[2] ~= "" then
+				return attData[2]
+			end
+		end
+	end
+
+	return TDM_ICON_PLACEHOLDER
+end
+
+local function resolvePurchaseIconPath(purchase, weaponCache, entCache)
+	if not istable(purchase) then return nil end
+
+	if purchase.purchaseType == "attachment" and purchase.attachment then
+		return resolveAttachmentIconPath(purchase.attachment)
+	end
+
+	local class = purchase.itemClass or purchase.weaponClass
+	if not class then return nil end
+
+	local weapon = getCachedWeapon(class, weaponCache)
+	local ent = getCachedEnt(class, entCache)
+
+	return resolveItemIconPath(weapon, ent)
+end
+
+local function loadTDMIconMaterial(imagePath)
+	if not imagePath or imagePath == "" then
+		return Material(TDM_ICON_PLACEHOLDER, "smooth mips")
+	end
+
+	local mat = Material(imagePath, "smooth mips")
+	if not mat:IsError() then return mat end
+
+	if not string.find(imagePath, "%.") then
+		mat = Material(imagePath .. ".png", "smooth mips")
+		if not mat:IsError() then return mat end
+	end
+
+	return Material(TDM_ICON_PLACEHOLDER, "smooth mips")
+end
+
+-- Fit entire icon inside the box (letterbox) so nothing is cropped off.
+local function paintContainedImage(mat, w, h, pad)
+	pad = pad or TDM_ICON_PAD
+
+	if not mat or mat:IsError() then return end
+
+	local matW, matH = mat:Width(), mat:Height()
+	if matW < 1 or matH < 1 then
+		matW, matH = 1, 1
+	end
+
+	local boxW, boxH = math.max(1, w - pad * 2), math.max(1, h - pad * 2)
+	local scale = math.min(boxW / matW, boxH / matH)
+	local drawW, drawH = matW * scale, matH * scale
+	local x = pad + (boxW - drawW) * 0.5
+	local y = pad + (boxH - drawH) * 0.5
+
+	surface.SetDrawColor(255, 255, 255, 255)
+	surface.SetMaterial(mat)
+	surface.DrawTexturedRect(x, y, drawW, drawH)
+end
+
+local function configureTDMButton(btn)
+	btn:SetContentAlignment(5)
+end
+
+local function styleBuyMenuActionButton(btn)
+	configureTDMButton(btn)
+	btn:SetTall(TDM_BTN_ROW_H())
+end
+
+local function configureTDMItemLabel(lbl, text, font, textColor, maxLines)
+	lbl:SetText(text or "")
+	lbl:SetFont(font or "ZB_TDM_MENU")
+	lbl:SetTextColor(textColor or color_white)
+	lbl:SetWrap(true)
+	lbl:SetContentAlignment(4)
+	lbl:Dock(TOP)
+
+	if maxLines and maxLines > 0 then
+		surface.SetFont(lbl:GetFont())
+		local _, lineH = surface.GetTextSize("Ay")
+		local extraPad = (font == "ZB_TDM_DESC" or lbl:GetFont() == "ZB_TDM_DESC") and 6 or 2
+		lbl:SetTall(lineH * maxLines + extraPad)
+	else
+		lbl:SetAutoStretchVertical(true)
+	end
+end
+
+local function createTDMItemTextBlock(parent, itemName, priceText)
+	local textBlock = vgui.Create("DPanel", parent)
+	textBlock:Dock(TOP)
+	textBlock:DockMargin(6, 0, 6, 2)
+	textBlock:SetTall(getTDMTextBlockHeight())
+	textBlock.Paint = function() end
+
+	local nameLbl = vgui.Create("DLabel", textBlock)
+	configureTDMItemLabel(nameLbl, itemName, "ZB_TDM_MENU", Color(238, 238, 238), 2)
+	nameLbl:DockMargin(0, 0, 4, 2)
+
+	local priceLbl = vgui.Create("DLabel", textBlock)
+	configureTDMItemLabel(priceLbl, priceText, "ZB_TDM_DESC", Color(130, 210, 145), 1)
+	priceLbl:DockMargin(0, 0, 4, 2)
+
+	return textBlock
+end
+
+local function createTDMRefundTextBlock(parent, itemName, priceText)
+	local textBlock = vgui.Create("DPanel", parent)
+	textBlock:Dock(FILL)
+	textBlock:DockMargin(10, 0, 8, 0)
+	textBlock.Paint = function() end
+
+	local nameLbl = vgui.Create("DLabel", textBlock)
+	nameLbl:SetText(itemName or "")
+	nameLbl:SetFont("ZB_TDM_MENU")
+	nameLbl:SetTextColor(Color(238, 238, 238))
+	nameLbl:SetWrap(true)
+	nameLbl:SetContentAlignment(5)
+
+	local priceLbl = vgui.Create("DLabel", textBlock)
+	priceLbl:SetText(priceText or "")
+	priceLbl:SetFont("ZB_TDM_DESC")
+	priceLbl:SetTextColor(Color(130, 210, 145))
+	priceLbl:SetContentAlignment(5)
+
+	function textBlock:PerformLayout(w, h)
+		surface.SetFont("ZB_TDM_MENU")
+		local _, nameLineH = surface.GetTextSize("Ay")
+		surface.SetFont("ZB_TDM_DESC")
+		local _, priceLineH = surface.GetTextSize("Ay")
+
+		nameLbl:SetWide(w)
+		priceLbl:SetWide(w)
+		nameLbl:SetTall(nameLineH * 2 + 2)
+		priceLbl:SetTall(priceLineH + 2)
+
+		local blockH = nameLbl:GetTall() + priceLbl:GetTall() + 6
+		local y = math.max(0, math.floor((h - blockH) * 0.5))
+
+		nameLbl:SetPos(0, y)
+		priceLbl:SetPos(0, y + nameLbl:GetTall() + 4)
+	end
+
+	return textBlock
+end
+
+local function paintTDMIconSlot(slot, w, h, weaponAccent)
+	local theme = GetBuyMenuTheme()
+	local accentH = weaponAccent and TDM_ICON_BOTTOM_ACCENT or 0
+	local imageH = h - accentH
+
+	draw.RoundedBox(0, 1, 1, w - 2, imageH - 2, theme.InnerBackground)
+	SetThemeDrawColor(theme.Outline, defaultBuyMenuTheme.Outline)
+	surface.DrawOutlinedRect(0, 0, w, imageH, 1)
+
+	paintContainedImage(slot._tdmMat, w, imageH, TDM_ICON_PAD)
+
+	if weaponAccent then
+		SetThemeDrawColor(theme.Outline, defaultBuyMenuTheme.Outline)
+		surface.DrawRect(1, imageH, w - 2, accentH)
+	end
+end
+
+local function createTDMIconSlot(parent, imagePath, opts)
+	opts = opts or {}
+
+	local rowH = opts.rowH
+	local iconW, iconH
+
+	if rowH then
+		iconW, iconH = getTDMItemIconDimensions(rowH)
+	else
+		local size = opts.size or math.ceil(ScrH() * 0.088)
+		iconW, iconH = size, size
+	end
+
+	local marginL = opts.marginL or TDM_CARD_PAD_LEFT
+	local marginT = opts.marginT or TDM_CARD_PAD_TOP
+	local marginR = opts.marginR or 6
+	local marginB = opts.marginB or TDM_CARD_PAD_BOTTOM
+	local weaponAccent = opts.weaponAccent ~= false
+
+	local wrap = vgui.Create("DPanel", parent)
+	wrap:Dock(opts.dock or LEFT)
+	wrap:SetWide(iconW + marginL + marginR)
+	wrap:DockMargin(marginL, marginT, marginR, marginB)
+	wrap.Paint = function() end
+	wrap._tdmIconW = iconW
+	wrap._tdmIconH = iconH
+
+	local slot = vgui.Create("DPanel", wrap)
+	slot._tdmMat = loadTDMIconMaterial(imagePath)
+	slot._tdmWeaponAccent = weaponAccent
+
+	function wrap:PerformLayout(w, h)
+		local iw, ih = self._tdmIconW, self._tdmIconH
+		local totalH = ih + (slot._tdmWeaponAccent and TDM_ICON_BOTTOM_ACCENT or 0)
+		self:SetTall(totalH)
+		slot:SetSize(iw, totalH)
+		slot:SetPos(0, 0)
+	end
+
+	function slot:Paint(w, h)
+		paintTDMIconSlot(self, w, h, self._tdmWeaponAccent)
+	end
+
+	return wrap
+end
+
+local function createTDMAttachmentButton(parent, imagePath, size, onClick)
+	local btn = vgui.Create("DButton", parent)
+	btn:SetSize(size, size)
+	btn:SetText("")
+	btn._tdmMat = loadTDMIconMaterial(imagePath)
+	configureTDMButton(btn)
+
+	function btn:Paint(w, h)
+		PaintPanel2(self, w, h)
+
+		local theme = GetBuyMenuTheme()
+		SetThemeDrawColor(theme.AttachmentOutline, defaultBuyMenuTheme.AttachmentOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+
+		paintContainedImage(self._tdmMat, w, h, TDM_ICON_PAD)
+	end
+
+	function btn:DoClick()
+		if onClick then onClick(self) end
+	end
+
+	return btn
+end
+
+local TDM_BUY_CATEGORY_ORDER = {
+	"Medical",
+	"Melee",
+	"Pistols",
+	"Submachine",
+	"Carbines",
+	"Assault",
+	"Shotguns",
+	"Heavy",
+	"Marksman/Sniper",
+	"Special",
+	"Equipment",
+	"Explosive",
+	"Ammo",
+}
+
+local TDM_BUY_CATEGORY_RANK = {}
+for i, categoryName in ipairs(TDM_BUY_CATEGORY_ORDER) do
+	TDM_BUY_CATEGORY_RANK[categoryName] = i
+end
+
+local function getBuyItemPrice(item)
+	if not istable(item) then return 0 end
+
+	return tonumber(item.Price) or 0
+end
+
+local function compareBuyItemsByPrice(a, b)
+	local priceA = getBuyItemPrice(a.item)
+	local priceB = getBuyItemPrice(b.item)
+
+	if priceA != priceB then
+		return priceA < priceB
+	end
+
+	return a.n < b.n
+end
+
+local function getBuyCategorySortRank(categoryName, category)
+	local rank = TDM_BUY_CATEGORY_RANK[categoryName]
+	if rank then return rank end
+
+	local priority = istable(category) and tonumber(category.Priority) or 999
+
+	return 1000 + priority
+end
+
+local function categoryHasVisibleItems(category, team)
+	for n, Item in pairs(category) do
+		if n == "Priority" then continue end
+		if Item.TeamBased != nil and Item.TeamBased != team then continue end
+		return true
+	end
+
+	return false
+end
+
+local function collectSortedBuyCategories(buyItems, team)
+	local categories = {}
+
+	for categoryName, category in pairs(buyItems) do
+		if categoryHasVisibleItems(category, team) then
+			categories[#categories + 1] = {
+				name = categoryName,
+				category = category,
+			}
+		end
+	end
+
+	table.sort(categories, function(a, b)
+		local rankA = getBuyCategorySortRank(a.name, a.category)
+		local rankB = getBuyCategorySortRank(b.name, b.category)
+
+		if rankA != rankB then
+			return rankA < rankB
+		end
+
+		return a.name < b.name
+	end)
+
+	return categories
+end
+
+local function collectVisibleCategoryItems(category, team)
+	local itemsList = {}
+
+	for n, Item in pairs(category) do
+		if n == "Priority" then continue end
+		if Item.TeamBased != nil and Item.TeamBased != team then continue end
+		itemsList[#itemsList + 1] = {n = n, item = Item}
+	end
+
+	table.sort(itemsList, compareBuyItemsByPrice)
+
+	return itemsList
+end
+
+local function GetShop()
+	return zb.TDMShop
+end
+
+TDM_ActiveConfirmFrame = TDM_ActiveConfirmFrame or nil
+
+local function dismissTDMConfirm(frame)
+	if IsValid(frame) then
+		frame:Remove()
+	end
+
+	if frame == nil or TDM_ActiveConfirmFrame == frame then
+		TDM_ActiveConfirmFrame = nil
+	end
+end
+
+local function ShowTDMConfirm(title, message, confirmLabel, onConfirm, cancelLabel)
+	cancelLabel = cancelLabel or "Cancel"
+
+	dismissTDMConfirm(TDM_ActiveConfirmFrame)
+
+	local frameW = math.min(ScrW() * 0.36, 540)
+	local frameH = math.max(ScrH() * 0.2, 150)
+	local parent = IsValid(TDM_OpenedBuyMenu) and TDM_OpenedBuyMenu or nil
+
+	local frame = vgui.Create("ZFrame", parent)
+	TDM_ActiveConfirmFrame = frame
+	frame:SetSize(frameW, frameH)
+	frame:Center()
+	frame:MakePopup()
+	frame:SetKeyboardInputEnabled(true)
+	frame:SetMouseInputEnabled(true)
+	frame:SetDrawOnTop(true)
+	frame:SetZPos(32767)
+	frame:SetTitle(title or "Confirm")
+	frame:ShowCloseButton(false)
+	frame.Paint = PaintFrame
+	ApplyBuyMenuFrameColors(frame)
+
+	function frame:OnRemove()
+		if TDM_ActiveConfirmFrame == self then
+			TDM_ActiveConfirmFrame = nil
+		end
+	end
+
+	local body = vgui.Create("DPanel", frame)
+	body:Dock(FILL)
+	body:DockMargin(16, 30, 16, 14)
+	body.Paint = function() end
+	body:SetMouseInputEnabled(false)
+
+	local msg = vgui.Create("DLabel", body)
+	msg:Dock(TOP)
+	msg:DockMargin(0, 0, 0, 12)
+	msg:SetText(message)
+	msg:SetFont("ZB_TDM_DESC")
+	msg:SetTextColor(Color(230, 230, 230))
+	msg:SetWrap(true)
+	msg:SetAutoStretchVertical(true)
+	msg:SetContentAlignment(1)
+	msg:SetMouseInputEnabled(false)
+
+	local btnRow = vgui.Create("DPanel", body)
+	btnRow:Dock(BOTTOM)
+	btnRow:SetTall(TDM_BTN_ROW_H())
+	btnRow.Paint = function() end
+
+	local btnH = TDM_BTN_ROW_H()
+	local btnPadX = 18
+
+	surface.SetFont("ZB_TDM_DESC")
+	local confirmW = select(1, surface.GetTextSize(confirmLabel)) + btnPadX * 2
+	local cancelW = select(1, surface.GetTextSize(cancelLabel)) + btnPadX * 2
+
+	local confirmBtn = vgui.Create("DButton", btnRow)
+	confirmBtn:Dock(LEFT)
+	confirmBtn:SetWide(math.max(confirmW, ScreenScale(52)))
+	confirmBtn:SetTall(btnH)
+	confirmBtn:SetText(confirmLabel)
+	confirmBtn:SetFont("ZB_TDM_DESC")
+	confirmBtn:SetTextColor(Color(255, 220, 220))
+	confirmBtn.Paint = PaintPanel1
+	confirmBtn:SetMouseInputEnabled(true)
+	styleBuyMenuActionButton(confirmBtn)
+
+	local cancelBtn = vgui.Create("DButton", btnRow)
+	cancelBtn:Dock(LEFT)
+	cancelBtn:DockMargin(8, 0, 0, 0)
+	cancelBtn:SetWide(math.max(cancelW, ScreenScale(52)))
+	cancelBtn:SetTall(btnH)
+	cancelBtn:SetText(cancelLabel)
+	cancelBtn:SetFont("ZB_TDM_DESC")
+	cancelBtn:SetTextColor(Color(210, 210, 210))
+	cancelBtn.Paint = PaintPanel
+	cancelBtn:SetMouseInputEnabled(true)
+	styleBuyMenuActionButton(cancelBtn)
+
+	function cancelBtn:DoClick()
+		dismissTDMConfirm(frame)
+	end
+
+	function confirmBtn:DoClick()
+		local callback = onConfirm
+		dismissTDMConfirm(frame)
+
+		if callback then
+			callback()
+		end
+	end
+end
+
+local function sendBuyRequest(itemTable, replace)
+	net.Start("tdm_buyitem")
+		net.WriteTable(itemTable)
+		net.WriteBool(replace or false)
+	net.SendToServer()
+end
+
+local function promptBuyAttachment(itemName, item, categoryName, itemTable, attName)
+	local Shop = GetShop()
+	if not Shop then return end
+
+	if not LocalPlayer():HasWeapon(item.ItemClass) then
+		sendBuyRequest(itemTable, false)
+		return
+	end
+
+	local hasConflict = Shop.GetAttachmentConflict(LocalPlayer(), item.ItemClass, attName)
+	if not hasConflict then
+		sendBuyRequest(itemTable, false)
+		return
+	end
+
+	local attDisplay = Shop.GetAttachmentDisplayName(attName)
+	local msg = string.format(
+		"Replace attachment on %s?\n%s — $%s (refunds old)",
+		itemName,
+		attDisplay,
+		Shop.AttachmentPrice or 50
+	)
+
+	ShowTDMConfirm("Attachment", msg, "Replace", function()
+		sendBuyRequest(itemTable, true)
+	end)
+end
+
+local function promptBuy(itemName, item, categoryName, itemTable)
+	local Shop = GetShop()
+	if not Shop then return end
+
+	if Shop.IsAmmoPurchase(categoryName, item) then
+		sendBuyRequest(itemTable, false)
+		return
+	end
+
+	local ply = LocalPlayer()
+	local needsPrompt, _, _, title, message = Shop.GetWeaponReplacePromptInfo(ply, item, itemName, categoryName)
+
+	if needsPrompt then
+		ShowTDMConfirm(title, message, "Replace", function()
+			sendBuyRequest(itemTable, true)
+		end)
+
+		return
+	end
+
+	sendBuyRequest(itemTable, false)
+end
+
+local function buildTDMInventoryPanel(InventoryPanel)
+	if not IsValid(InventoryPanel) then return end
+
+	local canvas = getBuyMenuListParent(InventoryPanel)
+	if not IsValid(canvas) then return end
+
+	canvas:Clear()
+
+	local purchases = LocalPlayer():GetNetVar("TDM_Purchases", {}) or {}
+	local hasAny = false
+	local weaponCache = {}
+	local entCache = {}
+	local rowH = TDM_BUY_ROW_H(false)
+	local purchaseList = {}
+
+	for purchaseId, purchase in pairs(purchases) do
+		if not istable(purchase) then continue end
+		purchaseList[#purchaseList + 1] = {id = purchaseId, purchase = purchase}
+	end
+
+	table.sort(purchaseList, function(a, b)
+		local priceA = tonumber(a.purchase.price) or 0
+		local priceB = tonumber(b.purchase.price) or 0
+
+		if priceA != priceB then
+			return priceA < priceB
+		end
+
+		local nameA = a.purchase.displayName or a.purchase.index or ""
+		local nameB = b.purchase.displayName or b.purchase.index or ""
+
+		return nameA < nameB
+	end)
+
+	for _, entry in ipairs(purchaseList) do
+		local purchaseId = entry.id
+		local purchase = entry.purchase
+		hasAny = true
+
+		local row = vgui.Create("DPanel", canvas)
+		row:SetSize(0, rowH)
+		row:Dock(TOP)
+		row:DockMargin(0, TDM_CARD_ROW_MARGIN, 0, 0)
+		row.Paint = PaintPanel1
+
+		local iconPath = resolvePurchaseIconPath(purchase, weaponCache, entCache)
+		createTDMIconSlot(row, iconPath, {rowH = rowH, weaponAccent = true})
+
+		local textCol = vgui.Create("DPanel", row)
+		textCol:Dock(FILL)
+		textCol:DockMargin(6, 8, 4, 8)
+		textCol.Paint = function() end
+
+		createTDMRefundTextBlock(textCol, purchase.displayName or purchase.index or "Item", "$" .. (purchase.price or 0))
+
+		local refundBtn = vgui.Create("DButton", row)
+		refundBtn:Dock(RIGHT)
+		refundBtn:DockMargin(6, 8, TDM_CONTENT_PAD, 8)
+		refundBtn:SetWide(ScrW() * 0.1)
+		refundBtn:SetText("Refund")
+		refundBtn:SetFont("ZB_TDM_DESCSMALL")
+		refundBtn:SetTextColor(Color(220, 220, 220))
+		refundBtn.Paint = PaintPanel
+		styleBuyMenuActionButton(refundBtn)
+		refundBtn.purchaseId = purchaseId
+
+		function refundBtn:DoClick()
+			local purchaseId = self.purchaseId
+			local displayName = purchase.displayName or purchase.index or "Item"
+			local refundPrice = purchase.price or 0
+
+			ShowTDMConfirm(
+				"Refund",
+				string.format("Refund %s?\n$%s will be returned.", displayName, refundPrice),
+				"Confirm",
+				function()
+					net.Start("tdm_refunditem")
+						net.WriteUInt(purchaseId, 16)
+					net.SendToServer()
+				end
+			)
+		end
+	end
+
+	if not hasAny then
+		local emptyLbl = vgui.Create("DLabel", canvas)
+		emptyLbl:Dock(TOP)
+		emptyLbl:DockMargin(10, 12, 10, 0)
+		emptyLbl:SetFont("ZB_TDM_DESC")
+		emptyLbl:SetTextColor(Color(200, 200, 200))
+		emptyLbl:SetText("No purchased items to refund.")
+	end
+end
+
+local function addBuyItemRow(CategoryPanel, categoryName, itemName, Item, buyItems, ammoLookup, weaponCache, entCache)
+	local weapon = getCachedWeapon(Item.ItemClass, weaponCache)
+	local ent = getCachedEnt(Item.ItemClass, entCache)
+
+	local attachmentNames = {}
+	if Item.Attachments then
+		for _, attachName in pairs(Item.Attachments) do
+			attachmentNames[#attachmentNames + 1] = attachName
+		end
+	end
+
+	local attCount = #attachmentNames
+	local attCols = TDM_ATTACH_ICON_COLS
+	local attIconSize = TDM_ATTACH_ICON_SIZE()
+	local attGridRows = attCount > 0 and math.ceil(attCount / attCols) or 0
+	local attPanelW = attCount > 0 and (attCols * attIconSize + 20) or 0
+	local attPanelH = attCount > 0 and (math.min(attGridRows, TDM_ATTACH_MAX_ROWS) * attIconSize + 14) or 0
+	local rowH = TDM_BUY_ROW_H(attCount > 0, attGridRows)
+	local needsAttScroll = attGridRows > TDM_ATTACH_MAX_ROWS
+
+	local listParent = getBuyMenuListParent(CategoryPanel)
+
+	local ItemPanel = vgui.Create("DPanel", listParent)
+	ItemPanel:SetTall(rowH)
+	ItemPanel:Dock(TOP)
+	ItemPanel:DockMargin(0, TDM_CARD_ROW_MARGIN, 0, 0)
+	ItemPanel.Paint = PaintPanel1
+
+	local iconPath = resolveItemIconPath(weapon, ent)
+	createTDMIconSlot(ItemPanel, iconPath, {rowH = rowH, weaponAccent = true})
+
+	if attCount > 0 then
+		local attWrap = vgui.Create("DPanel", ItemPanel)
+		attWrap:Dock(RIGHT)
+		attWrap:SetWide(attPanelW)
+		attWrap:SetTall(attPanelH)
+		attWrap:DockMargin(4, TDM_CARD_PAD_TOP, TDM_CONTENT_PAD, TDM_CARD_PAD_BOTTOM)
+		attWrap.Paint = function(self, w, h)
+			PaintPanel2(self, w, h)
+		end
+
+		local attParent = attWrap
+
+		if needsAttScroll then
+			local attScroll = vgui.Create("DScrollPanel", attWrap)
+			attScroll:Dock(FILL)
+			attScroll:DockMargin(4, 4, 4, 4)
+			attScroll.Paint = function() end
+			setupBuyMenuScrollPanel(attScroll)
+			attParent = attScroll
+		end
+
+		local ItemAtt = vgui.Create("DGrid", attParent)
+		ItemAtt:Dock(TOP)
+		ItemAtt:SetCols(attCols)
+		ItemAtt:SetColWide(attIconSize)
+		ItemAtt:SetRowHeight(attIconSize)
+		ItemAtt.Paint = function() end
+
+		for _, AttachN in ipairs(attachmentNames) do
+			local ico = resolveAttachmentIconPath(AttachN)
+			local attachmentData = {categoryName, itemName, AttachN}
+			local Attach = createTDMAttachmentButton(ItemAtt, ico, attIconSize, function()
+				promptBuyAttachment(itemName, Item, categoryName, attachmentData, AttachN)
+			end)
+
+			Attach.Attachment = attachmentData
+			ItemAtt:AddItem(Attach)
+		end
+
+		ItemAtt:SetTall(attGridRows * attIconSize)
+	end
+
+	local contentPanel = vgui.Create("DPanel", ItemPanel)
+	contentPanel:Dock(FILL)
+	contentPanel:DockMargin(4, TDM_CARD_PAD_TOP, attCount > 0 and 6 or TDM_CONTENT_PAD, TDM_CARD_PAD_BOTTOM)
+	contentPanel.Paint = function() end
+
+	createTDMItemTextBlock(contentPanel, itemName, "Price: $" .. Item.Price)
+
+	local textSpacer = vgui.Create("DPanel", contentPanel)
+	textSpacer:Dock(FILL)
+	textSpacer.Paint = function() end
+
+	local btnRow = vgui.Create("DPanel", contentPanel)
+	btnRow:Dock(BOTTOM)
+	btnRow:SetTall(TDM_BTN_ROW_H())
+	btnRow:DockMargin(0, 6, 0, 0)
+	btnRow.Paint = function() end
+
+	local BuyBtn = vgui.Create("DButton", btnRow)
+	BuyBtn:Dock(LEFT)
+	BuyBtn:DockMargin(0, 0, 6, 0)
+	BuyBtn:SetWide(math.max(ScrW() * 0.065, 72))
+	BuyBtn:SetText("Buy")
+	BuyBtn:SetTextColor(Color(225, 225, 225))
+	BuyBtn:SetFont("ZB_TDM_DESC")
+	BuyBtn.Paint = PaintPanel
+	styleBuyMenuActionButton(BuyBtn)
+	BuyBtn.Item = {categoryName, itemName}
+
+	function BuyBtn:DoClick()
+		promptBuy(itemName, Item, categoryName, self.Item)
+	end
+
+	if weapon and weapon.Primary then
+		local ammo = weapon.Primary.Ammo != "none" and weapon.Primary.Ammo or weapon.Ammo
+		if not ammo and weapon.Base then
+			local baseWeapon = getCachedWeapon(weapon.Base, weaponCache)
+			ammo = baseWeapon and baseWeapon.Primary and baseWeapon.Primary.Ammo
+		end
+
+		if ammo and hg.ammotypeshuy[ammo] then
+			local amm = vgui.Create("DButton", btnRow)
+			amm:Dock(LEFT)
+			amm:SetText(ammo)
+			amm:SetTextColor(Color(210, 210, 210))
+			amm:SetFont("ZB_TDM_DESCSMALL")
+
+			surface.SetFont("ZB_TDM_DESCSMALL")
+			local textW = surface.GetTextSize(ammo)
+
+			amm:DockMargin(0, 0, 0, 0)
+			amm:SetWide(textW + 16)
+			styleBuyMenuActionButton(amm)
+			local ammo2 = "ent_ammo_" .. hg.ammotypeshuy[ammo].name
+			local name = ammoLookup[ammo2]
+
+			amm.huy = {"Ammo", name}
+
+			function amm:DoClick()
+				sendBuyRequest(amm.huy, false)
+			end
+
+			amm.Paint = PaintPanel
+		end
+	end
+end
+
+local function buildCategoryItems(categoryName, categoryPanel, category, buyItems, ammoLookup, weaponCache, entCache)
+	if not IsValid(categoryPanel) or categoryPanel._tdmBuilt or categoryPanel._tdmBuilding then return end
+
+	cancelBuyMenuBuildTimer()
+
+	local itemsList = collectVisibleCategoryItems(category, LocalPlayer():Team())
+	if #itemsList == 0 then
+		categoryPanel._tdmBuilt = true
+		return
+	end
+
+	categoryPanel._tdmBuilding = true
+	TDM_BuyMenuBuildingPanel = categoryPanel
+
+	local index = 1
+	local timerName = "TDM_BuyMenuBuild_" .. categoryName .. "_" .. tostring(categoryPanel)
+
+	TDM_BuyMenuBuildTimer = timerName
+	timer.Create(timerName, 0, 0, function()
+		if not IsValid(categoryPanel) then
+			cancelBuyMenuBuildTimer()
+			return
+		end
+
+		for _ = 1, TDM_BUY_ITEMS_PER_TICK do
+			if index > #itemsList then
+				categoryPanel._tdmBuilt = true
+				categoryPanel._tdmBuilding = false
+				cancelBuyMenuBuildTimer()
+				return
+			end
+
+			local entry = itemsList[index]
+			addBuyItemRow(categoryPanel, categoryName, entry.n, entry.item, buyItems, ammoLookup, weaponCache, entCache)
+			index = index + 1
+		end
+	end)
 end
 
 local function OpenBuyMenu()
+	cancelBuyMenuBuildTimer()
+
 	if TDM_OpenedBuyMenu then
 		TDM_OpenedBuyMenu:Remove()
 		TDM_OpenedBuyMenu = nil
 	end
+
 	local StartTime = zb.ROUND_START or CurTime()
 	if not LocalPlayer():Alive() or StartTime + 40 < CurTime() then return end
-	TDM_OpenedBuyMenu = vgui.Create("ZFrame")
-	local Frame = TDM_OpenedBuyMenu
-	Frame:SetSize(ScrW() * 0.35,ScrH() * 0.85)
-	Frame:Center()
-	Frame:MakePopup()
-	Frame:SetTitle("Buy menu")
-	Frame.Paint = PaintFrame
-	
-	local Sheet = vgui.Create( "DPropertySheet", Frame )
-	Sheet:Dock( FILL )
-	Sheet:SetTextInset(50)
-	Sheet.Paint = function() end
-	Sheet.tabScroller:SetOverlap( 0 )
-	Sheet.tabScroller:DockMargin( 8, 0, 8, 0 )
-	Sheet:SetFadeTime(0.1)
 
 	local round = CurrentRound and CurrentRound() or MODE
 	local buyItems = (round and round.BuyItems) or MODE.BuyItems
 	if not buyItems then return end
 
-	for k,category in SortedPairsByMemberValue(buyItems, "Priority") do
-		local CategoryPanel = vgui.Create( "DScrollPanel", Sheet )
-		--CategoryPanel:Dock()
-		CategoryPanel.Paint = function() end
-		local hasItems = false
-		for n,Item in pairs(category) do
-			if n == "Priority" then continue end
-			if Item.TeamBased != nil and Item.TeamBased != LocalPlayer():Team() then continue end
-			hasItems = true
+	local playerTeam = LocalPlayer():Team()
+	local ammoLookup = buildAmmoLookup(buyItems)
+	local weaponCache = {}
+	local entCache = {}
+	local categoryPanels = {}
+	local categoryData = {}
 
-			local weapon = weapons.GetStored( Item.ItemClass )
-			local ent = scripted_ents.GetStored( Item.ItemClass )
+	TDM_OpenedBuyMenu = vgui.Create("ZFrame")
+	local Frame = TDM_OpenedBuyMenu
+	Frame:SetSize(math.min(ScrW() * 0.58, 1180), ScrH() * 0.85)
+	Frame:Center()
+	Frame:MakePopup()
+	Frame:SetTitle("Buy menu")
+	Frame.Paint = PaintFrame
+	ApplyBuyMenuFrameColors(Frame)
 
-			local ItemPanel = vgui.Create("DPanel",CategoryPanel)
-			ItemPanel:SetSize(0,ScrH()*0.1)
-			ItemPanel:Dock(TOP)
-			ItemPanel:DockMargin(0,8,0,0)
-			ItemPanel.Paint = PaintPanel1
-			--print(Item.ItemClass,weapon)
-			if ( weapon ~= nil and ( (weapon.WepSelectIcon2 and weapon.WepSelectIcon2:GetName()) or (weapon.IconOverride)) ) or ((ent and ent.t.IconOverride)) then
-				local ItemButton = vgui.Create("DImage",ItemPanel)
-				local bBox = ((ent and ent.t.IconOverride) or weapon~=nil and weapon.WepSelectIcon2box)
-				ItemButton:SetSize(ScrH() * ( (bBox and 0.1) or 0.17), ScrH() * 0.1)
-				ItemButton:Dock(LEFT)
-				local boxed = ScrH()*0.07/2
-				ItemButton:DockMargin(5 + (bBox and boxed or 0),5,5 + (bBox and boxed or 0),5)
-				ItemButton:SetImage( ( weapon ~= nil and ( (weapon.WepSelectIcon2 and weapon.WepSelectIcon2:GetName() .. ".png") or weapon.IconOverride) ) or ((ent and ent.t.IconOverride) or "none") )
-			end
+	function Frame:OnRemove()
+		cancelBuyMenuBuildTimer()
 
-			local ItemButton = vgui.Create("DPanel",ItemPanel)
-			ItemButton:Dock(FILL)
-			ItemButton:DockMargin(0,5,0,0)
-			ItemButton.Paint = function() end
-
-			local lbl = vgui.Create("DLabel", ItemButton)
-			lbl:SetText(n)
-			lbl:DockMargin(10,0,5,0)
-			lbl:Dock(TOP)
-			lbl:SetFont("ZB_TDM_MENU")
-			lbl:SetSize(ScrW()*0.5,ScrH()*0.04)
-
-			local lbl = vgui.Create("DLabel", ItemButton)
-			lbl:SetText("Price: $"..Item.Price)
-			lbl:DockMargin(10,0,5,0)
-			lbl:Dock(TOP)
-			lbl:SetTextColor(Color(155,200,155))
-			lbl:SetFont("ZB_TDM_DESC")
-			lbl:SetSize(ScrW()*0.5,ScrH()*0.02)
-
-			local BuyBtn = vgui.Create("DButton", ItemButton)
-			BuyBtn:DockMargin(10,5,10,10)
-			BuyBtn:Dock(LEFT)
-			BuyBtn:SetText("Buy")
-			BuyBtn:SetTextColor(Color(200,200,200))
-			BuyBtn:SetFont("ZB_TDM_DESC")
-			BuyBtn:SetHeight(ScrH()*0.025)
-			BuyBtn.Paint = PaintPanel
-			BuyBtn.Item = {k,n}
-
-			function BuyBtn:DoClick()
-				net.Start("tdm_buyitem")
-					net.WriteTable(self.Item)
-				net.SendToServer()
-			end
-			
-			if weapon and weapon.Primary then
-				local ammo = weapon.Primary.Ammo != "none" and weapon.Primary.Ammo or weapon.Ammo or (weapons.GetStored( weapon.Base ) and weapons.GetStored( weapon.Base ).Primary.Ammo)
-				
-				if hg.ammotypeshuy[ammo] then
-					local amm = vgui.Create( "DButton", ItemButton)
-					amm:DockMargin(10,5,10,10)
-					amm:Dock(LEFT)
-					amm:SetText(ammo)
-					amm:SetTextColor(Color(200,200,200))
-					amm:SetFont("ZB_TDM_DESCSMALL")
-					
-					surface.SetFont("ZB_TDM_DESCSMALL")
-					local w, h = surface.GetTextSize(ammo)
-
-					amm:SetHeight(ScrH()*0.025)
-					amm:SetWidth(w + 7)
-					local ammo2 = "ent_ammo_"..hg.ammotypeshuy[ammo].name
-					local name
-					for name2, ammo in pairs(buyItems["Ammo"] or {}) do
-						if not istable(ammo) then continue end
-						if ammo.ItemClass == ammo2 then
-							name = name2
-						end
-					end
-					
-					amm.huy = {"Ammo", name}
-
-					function amm:DoClick()
-						net.Start("tdm_buyitem")
-							net.WriteTable(amm.huy)
-						net.SendToServer()
-					end
-
-					amm.Paint = PaintPanel
-				end
-			end
-
-			if Item.Attachments and #Item.Attachments > 0 then
-				local ItemAtt = vgui.Create("DGrid",ItemPanel)
-				local ItemIcon = math.ceil(ScrH()*0.06)
-				ItemAtt:Dock(RIGHT)
-				ItemAtt:DockMargin(0,5,0,0)
-				ItemAtt:SetCols( 4 )
-				ItemAtt:SetColWide(ItemIcon)
-				ItemAtt:SetRowHeight(ItemIcon)
-				ItemAtt.Paint = function() end
-				for id,AttachN in pairs(Item.Attachments) do
-					local ico = hg.attachmentsIcons[AttachN]
-					local Attach = vgui.Create( "DImageButton" )
-					if not ico then
-    					print("[ATTACHMENT ERROR] Missing icon for:", AttachN, "Item:", n, "Category:", k)
-					else
-    					Attach:SetImage(ico)
-					end
-					Attach:SetSize(ItemIcon-5,ItemIcon-5)
-
-					Attach.Attachment = {k,n,AttachN}
-
-					function Attach:DoClick()
-						net.Start("tdm_buyitem")
-							net.WriteTable(self.Attachment)
-						net.SendToServer()
-					end
-
-					Attach.Paint = PaintPanel2
-					ItemAtt:AddItem(Attach)
-				end
-			end
-		end
-		if not hasItems then continue end
-
-		local tab = Sheet:AddSheet(k,CategoryPanel)
-		local rTab = tab["Tab"]
-		rTab.Paint = PaintPanel
-		rTab:SetFont("ZB_TDM_CATEGORY")
-		rTab.ApplySchemeSettings = rtabFunc
-		--rTab:SetTextInset(50)
+		dismissTDMConfirm(TDM_ActiveConfirmFrame)
 	end
 
-	local StartTime = zb.ROUND_START or CurTime()
+	local Sheet = vgui.Create("DPropertySheet", Frame)
+	Sheet:Dock(FILL)
+	Sheet.Paint = function() end
+	Sheet.tabScroller:SetOverlap(0)
+	Sheet.tabScroller:DockMargin(4, 0, 4, 0)
+	Sheet:SetFadeTime(0.1)
+
+	local function buildActiveCategoryTab(tab)
+		if not IsValid(tab) or not tab._categoryName then return end
+
+		if tab._tdmInventoryTab then
+			buildTDMInventoryPanel(categoryPanels.Inventory)
+			return
+		end
+
+		local categoryName = tab._categoryName
+		local categoryPanel = categoryPanels[categoryName]
+		local category = categoryData[categoryName]
+
+		if IsValid(categoryPanel) and category then
+			buildCategoryItems(categoryName, categoryPanel, category, buyItems, ammoLookup, weaponCache, entCache)
+		end
+	end
+
+	function Sheet:OnActiveTabChanged(_, new)
+		buildActiveCategoryTab(new)
+	end
+
+	local InventoryPanel = vgui.Create("DScrollPanel", Sheet)
+	InventoryPanel.Paint = function() end
+	setupBuyMenuScrollPanel(InventoryPanel)
+	categoryPanels.Inventory = InventoryPanel
+
+	local inventoryTab = Sheet:AddSheet("Inventory", InventoryPanel)
+	local inventoryRTab = inventoryTab["Tab"]
+	setupTDMPropertySheetTab(inventoryRTab, "Inventory")
+	inventoryRTab._categoryName = "Inventory"
+	inventoryRTab._tdmInventoryTab = true
+
+	Frame._tdmInventoryPanel = InventoryPanel
+	buildTDMInventoryPanel(InventoryPanel)
+
+	for _, categoryEntry in ipairs(collectSortedBuyCategories(buyItems, playerTeam)) do
+		local k = categoryEntry.name
+		local category = categoryEntry.category
+
+		categoryData[k] = category
+
+		local CategoryPanel = vgui.Create("DScrollPanel", Sheet)
+		CategoryPanel.Paint = function() end
+		setupBuyMenuScrollPanel(CategoryPanel)
+		categoryPanels[k] = CategoryPanel
+
+		local tab = Sheet:AddSheet(k, CategoryPanel)
+		local rTab = tab["Tab"]
+		setupTDMPropertySheetTab(rTab, k)
+		rTab._categoryName = k
+	end
+
+	fitTDMPropertySheetTabs(Sheet)
+
+	timer.Simple(0, function()
+		if not IsValid(Frame) then return end
+		fitTDMPropertySheetTabs(Sheet)
+		buildActiveCategoryTab(Sheet:GetActiveTab())
+	end)
+
 	local lbl = vgui.Create("DLabel", Frame)
 	lbl:SetText("Time Left: "..string.FormattedTime(StartTime + 40 - CurTime(), "%02i:%02i:%02i"))
 	lbl:DockMargin(10,0,10,10)
@@ -646,3 +1741,12 @@ end
 
 net.Receive("tdm_open_buymenu",function() OpenBuyMenu() end)
 TDM_OpenedBuyMenu = TDM_OpenedBuyMenu or nil
+
+hook.Add("OnNetVarSet", "TDM_BuyMenu_InventoryRefresh", function(index, key)
+	if key != "TDM_Purchases" then return end
+	if index != LocalPlayer():EntIndex() then return end
+	if not IsValid(TDM_OpenedBuyMenu) or not IsValid(TDM_OpenedBuyMenu._tdmInventoryPanel) then return end
+
+	dismissTDMConfirm(TDM_ActiveConfirmFrame)
+	buildTDMInventoryPanel(TDM_OpenedBuyMenu._tdmInventoryPanel)
+end)
