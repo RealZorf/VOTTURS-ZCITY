@@ -30,12 +30,6 @@ function hg.RenderHeadcrab(ent, ply)
     end
     local model = ply.headcrabmodel
 
-    local modelName = ent.GetModel and ent:GetModel() or ""
-    if ent.ZCHeadcrabBoneModel ~= modelName then
-        ent.ZCHeadcrabBoneModel = modelName
-        ent.ZCHeadcrabBone = nil
-    end
-
     local headBone = ent.ZCHeadcrabBone
     if headBone == nil then
         headBone = ent:LookupBone("ValveBiped.Bip01_Head1")

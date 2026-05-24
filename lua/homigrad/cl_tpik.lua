@@ -296,7 +296,7 @@ hg.TPIKBonesLH = TPIKBonesLH
 local math, Vector, Angle, util, IsValid, CurTime, game, FrameTime, LerpAngle = math, Vector, Angle, util, IsValid, CurTime, game, FrameTime, LerpAngle
 local math_Clamp = math.Clamp
 local function cachedLookupBone(ent, boneName)
-    if not IsValid(ent) or not ent.LookupBone then return end
+    if not IsValid(ent) then return end
 
     local model = ent.GetModel and ent:GetModel() or ""
     if ent.ZCTPIKBoneCacheModel ~= model then
@@ -657,8 +657,6 @@ local durachok = "models/epangelmatikes/e3_elite_suit.mdl"
 function hg.ResetTPIKState(ply)
     if not IsValid(ply) then return end
 
-    ply.ZCTPIKBoneCache = nil
-    ply.ZCTPIKBoneCacheModel = nil
     ply.lhold = nil
     ply.rhold = nil
     ply.last_lh = nil
@@ -770,7 +768,7 @@ function hg.MainTPIKFunction(ent, ply, wpn)
     if not IsValid(ply) then return end
     if not ply:IsPlayer() then return end
     if not ply.InVehicle then return end
-
+    
     //local systime = SysTime()
     if shouldResetTPIKState(ply, ent, wpn) then
         hg.ResetTPIKState(ply)
@@ -836,7 +834,7 @@ function hg.MainTPIKFunction(ent, ply, wpn)
             hg.DragHands(ply,wpn)
         end
 		
-		if IsValid(wpn) and wpn:GetClass() == "weapon_hands_sh" and ply:GetNetVar("headcrab") and not ply.ZCDisableHeadcrabHands and ply.PlayerClassName ~= "headcrabzombie" then
+		if IsValid(wpn) and wpn:GetClass() == "weapon_hands_sh" and ply:GetNetVar("headcrab") then
 			local headBone = cachedLookupBone(ent, "ValveBiped.Bip01_Head1")
 			local bone_matrix = headBone and ent:GetBoneMatrix(headBone)
 			if bone_matrix then

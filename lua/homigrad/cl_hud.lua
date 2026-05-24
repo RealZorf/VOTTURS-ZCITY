@@ -420,8 +420,28 @@ local firstTime5 = true
 local firstTime6 = true
 
 -- first time?..
+local ZCTools_ULXGroups = {
+	superadmin = true,
+	owner = true,
+	servermanager = true,
+	headdeveloper = true,
+	headadmin = true,
+	developer = true,
+	admin = true
+}
+
 local function ZCTools_HasULXAccess(ply)
-	return zb and zb.PlayerCanSpawnMenu and zb.PlayerCanSpawnMenu(ply)
+	if not IsValid(ply) then return false end
+
+	if ply:IsSuperAdmin() then return true end
+	if ply:IsAdmin() then return true end
+
+	if ply.GetUserGroup then
+		local group = string.lower(tostring(ply:GetUserGroup() or ""))
+		if ZCTools_ULXGroups[group] then return true end
+	end
+
+	return false
 end
 
 hook.Add("HG_OnOtrub", "resetshit", function(ply)

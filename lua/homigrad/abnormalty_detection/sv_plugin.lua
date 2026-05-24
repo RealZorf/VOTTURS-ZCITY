@@ -94,11 +94,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 	end)
 
 	hook.Add("PlayerInitialSpawn", "AbnormaltiesSQL", function(ply)
-		timer.Simple(2, function()
-			if IsValid(ply) then
-				PLUGIN.LoadConsequences(ply, true)
-			end
-		end)
+		PLUGIN.LoadConsequences(ply, true)
 	end)
 --//
 

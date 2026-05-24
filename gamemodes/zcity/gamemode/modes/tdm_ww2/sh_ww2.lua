@@ -11,6 +11,13 @@ MODE.HostageZoneLabel = "EXTRACTION ZONE"
 MODE.SkipSpawnAppearance = true
 MODE.ThemeMusicFile = "tdm_ww2_theme.mp3"
 MODE.ThemeMusicVolume = 0.60
+MODE.BuyMenuTheme = {
+    Background = Color(0, 18, 28, 165),
+    InnerBackground = Color(3, 30, 44, 145),
+    Outline = Color(137, 207, 240, 185),
+    Gradient = Color(137, 207, 240, 75),
+    AttachmentGradient = Color(165, 225, 245, 70),
+}
 
 MODE.TeamNames = {
     [0] = "German Forces",

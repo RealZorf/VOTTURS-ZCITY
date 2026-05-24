@@ -1,7 +1,6 @@
 local MODE = MODE
 MODE.start_time = 1
-MODE.end_menu_time = 4
-MODE.end_time = 2.5
+MODE.end_time = 7
  
 MODE.ROUND_TIME = 600
  
@@ -862,8 +861,8 @@ MODE.Types.wildwest = {
 			end)
 			if v.isTraitor then continue end
 			if v.isGunner then
-				v:Give(math.random(1, 2) == 1 and "weapon_winchester" or "weapon_yellowboy")
-				v:Give("weapon_revolvermodel29")
+				v:Give("weapon_winchester")
+				v:Give("weapon_revolver357")
 				v:Give("weapon_handcuffs")
 				v:Give("weapon_handcuffs_key")
 			else
@@ -871,8 +870,7 @@ MODE.Types.wildwest = {
 					"weapon_winchester",
 					"weapon_revolver2",
 					"weapon_doublebarrel",
-					"weapon_doublebarrel_short",
-					"weapon_yellowboy"
+					"weapon_doublebarrel_short"
 				}
 
 				local weapon = v:Give(guns[math.random(#guns)], true)
@@ -1173,10 +1171,8 @@ function MODE:Intermission()
 			traitors_needed = traitors_needed - 1
 			traitors[#traitors + 1] = ply
 
-			if not main_traitor then
-				main_traitor = ply
-				ply.MainTraitor = true
-			end
+			main_traitor = ply
+			ply.MainTraitor = true
 		end
 	end
 
@@ -2285,7 +2281,7 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                 end
             end)
 
-            timer.Simple(0, function()
+            timer.Simple(0.2 * idx, function()
                 if not IsValid(this_player) then return end
 
                 local traitor_amt = 0

@@ -1,12 +1,36 @@
 hg = hg or {}
 
+local zb_voicechat_panel_groups
+
+if SERVER then
+	zb_voicechat_panel_groups = ConVarExists("zb_voicechat_panel_groups") and GetConVar("zb_voicechat_panel_groups") or CreateConVar(
+		"zb_voicechat_panel_groups",
+		"superadmin,owner,servermanager,headdeveloper,headadmin,developer,admin,moderator",
+		bit.bor(FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY),
+		"Comma-separated ULX/ULib groups allowed to use admin voice panels."
+	)
+end
+
 local function metersToSourceUnits(meters)
 	return meters * 52.4934
 end
 
-local function playerHasVoicePanelAccess(ply)
-	if not IsValid(ply) then return false end
-	return zb and zb.UCL and zb.HasULX and zb.HasULX(ply, zb.UCL.VoicePanels)
+local function groupCanSeeVoicePanels(groupName)
+	groupName = string.lower(string.Trim(groupName or ""))
+	if groupName == "" then return false end
+
+	local cvar = zb_voicechat_panel_groups or GetConVar("zb_voicechat_panel_groups")
+	local allowList = string.Trim((cvar and cvar:GetString()) or "")
+	if allowList == "" then return false end
+
+	for _, rawGroup in ipairs(string.Explode(",", allowList, false)) do
+		local wantedGroup = string.lower(string.Trim(rawGroup or ""))
+		if wantedGroup ~= "" and wantedGroup == groupName then
+			return true
+		end
+	end
+
+	return false
 end
 
 if SERVER then
@@ -25,7 +49,10 @@ if SERVER then
 	)
 
 	local function playerCanSeeVoicePanels(ply)
-		return playerHasVoicePanelAccess(ply)
+		if not IsValid(ply) then return false end
+
+		local userGroup = (ply.GetUserGroup and ply:GetUserGroup()) or ""
+		return groupCanSeeVoicePanels(userGroup)
 	end
 
 	local function getAdminVoicePanelDistanceMeters()
@@ -193,7 +220,8 @@ local function canSeeVoicePanelsInRound(lply)
 	if not IsValid(lply) then return false end
 	if not AdminShowVoiceChat:GetBool() then return false end
 
-	return playerHasVoicePanelAccess(lply)
+	local userGroup = (lply.GetUserGroup and lply:GetUserGroup()) or ""
+	return groupCanSeeVoicePanels(userGroup)
 end
 
 hg.CanSeeVoicePanelsInRound = canSeeVoicePanelsInRound

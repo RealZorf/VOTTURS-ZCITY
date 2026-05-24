@@ -1,10 +1,5 @@
 local player_GetAll = player.GetAll
 zb.modes = zb.modes or {}
-zb.END_MENU_DURATION = 4
-
-local function plyCanRoundControl(ply)
-	return IsValid(ply) and zb.HasULX and zb.HasULX(ply, zb.UCL.RoundControl)
-end
 
 util.AddNetworkString("FadeScreen")
 
@@ -61,12 +56,8 @@ function zb:PreRound()
 	if zb.ROUND_STATE == 0 and #player_GetAll() > 1 then
 		zb.END_TIME = nil
 
-		local prep = zb.Transition and zb.Transition.GetIntermissionDuration and zb.Transition.GetIntermissionDuration(CurrentRound()) or (CurrentRound().prep_time or 5)
-		zb.START_TIME = zb.START_TIME or (CurTime() + prep)
-
-		if zb.START_TIME < CurTime() and not timer.Exists("ZB_IntermissionRoundStart") then
-			zb:RoundStart()
-		end
+		zb.START_TIME = zb.START_TIME or CurTime() + (CurrentRound().start_time or 5)
+		if zb.START_TIME < CurTime() then zb:RoundStart() end
 	end
 end
 
@@ -81,26 +72,20 @@ hook.Add("CanListenOthers","RoundStartChat",function(output, input, isChat, team
 end)
 
 function zb:EndRound()
-	zb.ROUND_STATE = zb.Transition.STATE_END
+	zb.ROUND_STATE = 3
 	zb.Roundscount = (zb.Roundscount or 0) + 1
-	zb.END_TIME = nil
-	zb.SHOULD_FADE = true
 
 	local mode, round = CurrentRound()
-	local menuTime = zb.Transition.GetEndMenuDuration(mode)
-	zb.END_MENU_UNTIL = CurTime() + menuTime
 
 	net.Start("RoundInfo")
 		net.WriteString(mode.name or "hmcd")
 		net.WriteInt(zb.ROUND_STATE, 4)
 	net.Broadcast()
 
+	--PrintMessage(HUD_PRINTTALK, "Раунд закончен.")
 	CurrentRound():EndRound()
 	hook.Run("ZB_EndRound")
-
-	if zb.Transition and zb.Transition.OnRoundEnd then
-		zb.Transition:OnRoundEnd()
-	end
+	zb.AddFade()
 
 	hg.achievements.SavePlayerAchievements()
 end
@@ -143,27 +128,60 @@ end
 
 function zb:EndRoundThink()
 	if zb.ROUND_STATE == 1 and zb:ShouldRoundEnd() then zb:EndRound() end
-	if zb.ROUND_STATE == zb.Transition.STATE_END then
+	if zb.ROUND_STATE == 3 then
 		if !zb.END_TIME then
-			local afterMenu = zb.Transition.GetEndAfterDuration(CurrentRound())
-			zb.END_TIME = (zb.END_MENU_UNTIL or CurTime()) + afterMenu
-
+			zb.END_TIME = (CurTime() + (CurrentRound().end_time or 5))
 			if zb.nextround == "coop" and GetGlobalVar("coop_first_round_timer", 0) == 0 then
-				zb.END_TIME = (zb.END_MENU_UNTIL or CurTime()) + (GetConVar("zb_dev") and 5 or 45)
+
+				zb.END_TIME = (CurTime() + (GetConVar("zb_dev") and 5 or 60))
 				SetGlobalVar("coop_first_round_timer", zb.END_TIME)
 			end
 		end
-
+		
 		zb.SHOULD_FADE = zb.SHOULD_FADE != nil and zb.SHOULD_FADE or true
 
-		if zb.SHOULD_FADE and zb.END_MENU_UNTIL and CurTime() >= zb.END_MENU_UNTIL and (zb.END_TIME < CurTime() + 0.5) then
+		if zb.SHOULD_FADE and (zb.END_TIME < CurTime() + 1.5) then
 			zb.SHOULD_FADE = false
-			zb.AddFade()
+
+			for _, ply in player.Iterator() do
+				ply:ScreenFade(SCREENFADE.OUT, Color(0, 0, 0), 1, 7)
+			end
 		end
 
 		if zb.END_TIME < CurTime() then
-			zb.END_TIME = nil
-			zb.Transition:BeginIntermission()
+			zb.ROUND_STATE = 0
+
+			zb.SHOULD_FADE = true
+
+			hook.Run("ZB_PreRoundStart")
+			hook.Run("TTTPrepareRound") -- stormfox2 random_round_weather
+
+			zb.CROUND = zb.nextround or "hmcd"
+			if CurrentRound().shouldfreeze then zb:Freeze() end
+
+			--PrintMessage(HUD_PRINTTALK, "Gamemode: " .. CurrentRound().PrintName or "None")
+
+			local mode, round = CurrentRound()
+			net.Start("RoundInfo")
+				net.WriteString(mode.name or "hmcd")
+				net.WriteInt(zb.ROUND_STATE, 4)
+			net.Broadcast()
+
+			hg.UpdateRoundTime(CurrentRound().ROUND_TIME, CurTime(), CurTime() + (CurrentRound().start_time or 5))
+
+			self:KillPlayers()
+			self:AutoBalance()
+
+			if hg.PluvTown.Active then
+				for _, ply in player.Iterator() do
+					ply:SetNetVar("CurPluv", "pluv")
+				end
+			end
+
+			CurrentRound().saved = {}
+
+			CurrentRound():Intermission()
+			CurrentRound():GiveEquipment()
 		end
 	end
 end
@@ -177,7 +195,6 @@ hook.Add("PlayerInitialSpawn", "zb_SendRoundInfo", function(ply)
 		net.Send(ply)
 	end
 
-	if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() then return end
 	if ply.SyncVars then ply:SyncVars() end
 end)
 
@@ -506,7 +523,7 @@ end
 
 
 hook.Add("PlayerInitialSpawn", "ZB_SendModesOnSpawn", function(ply)
-	if plyCanRoundControl(ply) then
+	if ply:IsAdmin() then
 		timer.Simple(10, function()
 			if IsValid(ply) then
 				zb.SendModesInfoToClient(ply)
@@ -518,14 +535,14 @@ end)
 
 
 net.Receive("ZB_RequestRoundList", function(len, ply)
-	if plyCanRoundControl(ply) then
+	if IsValid(ply) and ply:IsAdmin() then
 		zb.SendModesInfoToClient(ply)
 		zb.SendRoundListToClient(ply)
 	end
 end)
 
 net.Receive("ZB_UpdateRoundList", function(len, ply)
-	if not plyCanRoundControl(ply) then return end
+	if not IsValid(ply) or not ply:IsAdmin() then return end
 
 	local newList = net.ReadTable()
 	local forceUpdate = net.ReadBool()
@@ -544,30 +561,20 @@ end)
 function zb:RoundStart()
 	if CurrentRound().shouldfreeze then zb:Unfreeze() end
 
-	zb.ROUND_STATE = zb.Transition.STATE_ACTIVE
+	zb.ROUND_STATE = 1
 	zb.START_TIME = nil
 
 	local mode, round = CurrentRound()
 
 	VFIRE_DISABLED = (mode.name == "coop")
 
-	zb.ROUND_START = CurTime()
 	zb.ROUND_BEGIN = CurTime()
-
-	if zb.Transition and zb.Transition.BroadcastTimes then
-		zb.Transition:BroadcastTimes(mode.ROUND_TIME, zb.ROUND_START, zb.ROUND_BEGIN)
-	elseif hg and hg.UpdateRoundTime then
-		hg.UpdateRoundTime(mode.ROUND_TIME, zb.ROUND_START, zb.ROUND_BEGIN)
-	end
+	hg.UpdateRoundTime()
 
 	net.Start("RoundInfo")
 		net.WriteString(mode.name or "hmcd")
 		net.WriteInt(zb.ROUND_STATE, 4)
 	net.Broadcast()
-
-	if zb.Transition and zb.Transition.OnRoundActive then
-		zb.Transition:OnRoundActive()
-	end
 
 	if forcemodeconvar:GetString() != "" then
 		forcemode = forcemodeconvar:GetString()
@@ -630,7 +637,7 @@ hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
 end)
 
 net.Receive("AdminSetGameMode", function(len, ply)
-	if not plyCanRoundControl(ply) then return end
+	if not ply:IsAdmin() then return end
 
 	local command = net.ReadString()
 	local modeKey = net.ReadString()
@@ -661,7 +668,7 @@ net.Receive("AdminSetGameMode", function(len, ply)
 end)
 
 net.Receive("AdminEndRound", function(len, ply)
-	if not plyCanRoundControl(ply) then return end
+	if not ply:IsAdmin() then return end
 
 	ply:ChatPrint("Round ended!")
 	zb:EndRound()
@@ -676,7 +683,7 @@ function zb.SyncQueueToAdmins()
 end
 
 net.Receive("AdminSetGameQueue", function(len, ply)
-	if not plyCanRoundControl(ply) then return end
+	if not ply:IsAdmin() then return end
 
 	local modeQueue = net.ReadTable()
 	zb.QueuedModes = modeQueue
@@ -732,19 +739,17 @@ end
 
 function zb.GetAllAdmins()
 	local admins = {}
-
 	for _, ply in player.Iterator() do
-		if plyCanRoundControl(ply) then
-			admins[#admins + 1] = ply
+		if ply:IsAdmin() then
+			table.insert(admins, ply)
 		end
 	end
-
 	return admins
 end
 
 COMMANDS.setmode = {
 	function(ply, args)
-		if not plyCanRoundControl(ply) then ply:ChatPrint("You don't have access") return end
+		if not ply:IsAdmin() then ply:ChatPrint("You don't have access") return end
 		if not args[1] or (not zb:GetMode(args[1]) and args[1]~="random") then return end
 		ply:ChatPrint(args[1])
 		NextRound(args[1])
@@ -754,7 +759,7 @@ COMMANDS.setmode = {
 
 COMMANDS.setforcemode = {
 	function(ply, args)
-		if not plyCanRoundControl(ply) then ply:ChatPrint("You don't have access") return end
+		if not ply:IsAdmin() then ply:ChatPrint("You don't have access") return end
 		if not args[1] or (not zb:GetMode(args[1]) and args[1]~="random") then return end
 		ply:ChatPrint(args[1])
 		forcemode = args[1]
@@ -766,7 +771,7 @@ COMMANDS.setforcemode = {
 
 COMMANDS.endround = {
 	function(ply, args)
-		if not plyCanRoundControl(ply) then
+		if not ply:IsAdmin() then
 			ply:ChatPrint("You don't have access")
 			return
 		end
@@ -785,7 +790,7 @@ if SERVER then
 	util.AddNetworkString("QueueModifiedNotification")
 
 	hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
-		if plyCanRoundControl(ply) then
+		if ply:IsAdmin() then
 			timer.Simple(12, function()
 				if not IsValid(ply) then return end
 
@@ -802,13 +807,13 @@ if SERVER then
 	end)
 
 	net.Receive("AdminSetGameMode", function(len, ply)
-		if not plyCanRoundControl(ply) then return end
+		if not ply:IsAdmin() then return end
 
 		local command = net.ReadString()
 		local modeKey = net.ReadString()
 		local addToQueue = net.ReadBool() or false
 
-		if not zb.HasULX(ply, zb.UCL.AllModes) and not zb.modes[modeKey]:CanLaunch() then
+		if !(ply:IsSuperAdmin() or ply:IsAdmin()) and not zb.modes[modeKey]:CanLaunch() then
 			ply:ChatPrint("This mode can't launch (No points or Is blocked): " .. modeKey)
 			return
 		end
@@ -846,7 +851,7 @@ if SERVER then
 	end
 
 	net.Receive("AdminSetGameQueue", function(len, ply)
-		if not plyCanRoundControl(ply) then return end
+		if not ply:IsAdmin() then return end
 
 		local modeQueue = net.ReadTable()
 		zb.QueuedModes = modeQueue

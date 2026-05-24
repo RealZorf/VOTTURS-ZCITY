@@ -1,11 +1,36 @@
 COMMANDS = COMMANDS or {}
 
-function COMMAND_ACCES(ply, cmd, cmdName)
-	if ply == Entity(0) then return true end
-	if zb and zb.PlayerHasCommandAccess then
-		return zb.PlayerHasCommandAccess(ply, cmdName)
+local validUserGroupSuperAdmin = {
+	superadmin = true,
+	owner = true,
+	servermanager = true,
+	headdeveloper = true,
+}
+
+local validUserGroup = {
+	headadmin = true,
+	developer = true,
+	admin = true
+}
+
+function COMMAND_GETACCES(ply)
+	if ply == Entity(0) then return 2 end
+
+	local group = ply:GetUserGroup()
+	if validUserGroup[group] then
+		return 1
+	elseif validUserGroupSuperAdmin[group] then
+		return 2
 	end
-	return false
+
+	return 0
+end
+
+function COMMAND_ACCES(ply,cmd)
+	local access = cmd[2] or 1
+	if access ~= 0 and COMMAND_GETACCES(ply) < access then return end
+
+	return true
 end
 
 function COMMAND_GETARGS(args)
@@ -45,25 +70,10 @@ function COMMAND_GETARGS(args)
 	return newArgs
 end
 
--- Handled by ULX say commands (sh_ulxcommands*.lua); avoid double execution.
-local ULX_CHAT_COMMAND_NAMES = {
-	respawn = true, give = true, sendtospawn = true,
-	setmodel = true, model = true, playermodel = true, setplayermodel = true,
-	setscale = true, setsize = true, scale = true, size = true,
-	setmodelscale = true, modelscale = true,
-	zc_cloak = true, zccloak = true,
-	punish = true, notify = true, pluv = true,
-	setmode = true, setforcemode = true, endround = true,
-	zc_god = true, zcgod = true, power = true,
-	permamodel = true, hmcdtraitor = true, innoclass = true,
-}
-
-function COMMAND_Input(ply, args)
-	if ULX_CHAT_COMMAND_NAMES[args[1]] then return false end
-
+function COMMAND_Input(ply,args)
 	local cmd = COMMANDS[args[1]]
 	if not cmd then return false end
-	if not COMMAND_ACCES(ply, cmd, args[1]) then return true, false end
+	if not COMMAND_ACCES(ply,cmd) then return true,false end
 
 	table.remove(args,1)
 
@@ -74,14 +84,35 @@ hook.Add("HG_PlayerSay","commands-chat",function(ply, txtTbl, text)
 	COMMAND_Input(ply, COMMAND_GETARGS(string.Split(string.sub(text, 2, #text), " ")))
 end)
 
-COMMANDS.help = {function(ply, args)
-	if zb.PrintZCityCommandHelp then
-		zb.PrintZCityCommandHelp(ply, args[1])
-		return
+COMMANDS.help = {function(ply,args)
+	local text = ""
+
+	if args[1] then
+		local cmd = COMMANDS[args[1]]
+		local argsList = cmd[3]
+		if argsList then argsList = " - " .. argsList else argsList = "" end
+
+		text = text .. "	" .. args[1] .. argsList .. "\n"
+	else
+		local list = {}
+		for name in pairs(COMMANDS) do list[#list + 1] = name end
+		table.sort(list,function(a,b) return a > b end)
+        
+		for _,name in pairs(list) do
+			local cmd = COMMANDS[name]
+            if not COMMAND_ACCES(ply,cmd) then continue end
+            
+			local argsList = cmd[3]
+			if argsList then argsList = " - " .. argsList else argsList = "" end
+            
+			text = text .. "	" .. name .. argsList .. "\n"
+		end
 	end
 
-	ply:ChatPrint("Z-City help is unavailable right now. Try !zcityhelp in console: ulx zcityhelp")
-end, 0}
+	text = string.sub(text,1,#text - 1)
+
+	ply:ChatPrint(text)
+end,0}
 
 if SERVER then
     util.AddNetworkString("PunishLightningEffect")
@@ -120,7 +151,19 @@ if SERVER then
     end
 
     local function ZC_CanUsePowerCommand(ply)
-        return zb and zb.PlayerHasCommandAccess and zb.PlayerHasCommandAccess(ply, "power")
+        if not IsValid(ply) then return false end
+
+        local group = ply:GetUserGroup()
+
+        if validUserGroupSuperAdmin[group] then
+            return true
+        end
+
+        if validUserGroup[group] then
+            return true
+        end
+
+        return false
     end
 
     local function ZC_HasPowerMelee(attacker)
@@ -342,7 +385,7 @@ if SERVER then
     COMMANDS.power = {function(ply, args)
         if not ZC_CanUsePowerCommand(ply) then
             if IsValid(ply) then
-                ply:Notify("You do not have permission to use this command.")
+                ply:Notify("this command is only for the usergroups superadmin and headadmin")
             end
             return
         end
@@ -519,6 +562,7 @@ if SERVER then
     end, 2, "name; message"}
 
 	COMMANDS.setmodel = {function(ply, args)
+		if not ply:IsAdmin() then return end
 		local plya = #args > 1 and args[1] or ply:Name()
 		local mdl = #args > 1 and args[2] or args[1]
 
@@ -534,7 +578,7 @@ if SERVER then
 				ply:ChatPrint(ply2:Name().. "'s model set to " .. tostring(mdl))
 			end
 		end
-	end}
+	end, 0}
 
 	--// Aliases
 	COMMANDS.model = COMMANDS.setmodel
@@ -542,6 +586,7 @@ if SERVER then
 	COMMANDS.setplayermodel = COMMANDS.setmodel
 
 	COMMANDS.setscale = {function(ply, args)
+		if not ply:IsAdmin() then return end
 		local plya = #args > 1 and args[1] or ply:Name()
 		local scale = #args > 1 and args[2] or args[1]
 
@@ -552,7 +597,7 @@ if SERVER then
 				ply:ChatPrint(ply2:Name().. "'s model scale set to " .. tostring(scale))
 			end
 		end
-	end}
+	end, 0}
 
 	--// Aliases
 	COMMANDS.setsize = COMMANDS.setscale

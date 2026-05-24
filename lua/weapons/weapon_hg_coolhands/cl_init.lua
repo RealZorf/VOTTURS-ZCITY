@@ -23,13 +23,6 @@ local lerpthing = 1
 local lerpalpha = 0
 local colwhite = Color(0, 0, 0, 0)
 local colred = Color(122, 0, 0, 0)
-local furryPlayerModel = "models/eradium/protogen_player.mdl"
-
-local function isFurryHands(owner)
-	if not IsValid(owner) or owner.PlayerClassName ~= "furry" then return false end
-
-	return string.lower(owner:GetModel() or "") == furryPlayerModel
-end
 
 local ang4 = Angle(0,0,180)
 local ang5 = Angle(0,0,0)
@@ -201,20 +194,17 @@ function SWEP:DrawWorldModel()
 
 	if not IsValid(self.worldModel) then
 		self.worldModel = ClientsideModel(self.WorldModel)
-		if not IsValid(self.worldModel) then return end
         initializeSequenceState(self.worldModel)
 	end
 
-	local desiredModel = isFurryHands(owner) and "models/weapons/salat/anims/furry_fists.mdl" or self.WorldModel
-	if self.worldModel:GetModel() ~= desiredModel then
-		self.worldModel:SetModel(desiredModel)
-		initializeSequenceState(self.worldModel)
+	if owner.PlayerClassName == "furry" and self.worldModel:GetModel() ~= "models/weapons/salat/anims/furry_fists.mdl" then
+		self.worldModel:SetModel("models/weapons/salat/anims/furry_fists.mdl")
 	end
 
 	if not self:GetFists() then return end
 
 	local WorldModel = self.worldModel
-	if not normalizeSequenceState(WorldModel, desiredModel) then return end
+	if not normalizeSequenceState(WorldModel) then return end
 
 	if WorldModel.ZCAnimAssigned then
 		WorldModel:SetCycle(1 - math_Clamp(self.animtime - CurTime(),0,1))
@@ -237,7 +227,7 @@ function SWEP:DrawWorldModel()
 
 		local pos, ang = self:ModelAnim(WorldModel, pos, ang)
 
-		if isFurryHands(owner) then
+		if owner.PlayerClassName == "furry" then
 			pos = pos + ang:Forward() * 10
 		end
 
@@ -410,11 +400,6 @@ function SWEP:SetHandPos(noset)
 
 	local wm = self:GetWM()
 	if !IsValid(wm) then return end
-	local desiredModel = isFurryHands(ply) and "models/weapons/salat/anims/furry_fists.mdl" or self.WorldModel
-	if wm:GetModel() ~= desiredModel then
-		wm:SetModel(desiredModel)
-		initializeSequenceState(wm)
-	end
 
 	local inv = ply:GetNetVar("Inventory",{})
 	local havekastet = inv["Weapons"] and inv["Weapons"]["hg_brassknuckles"]
@@ -615,7 +600,7 @@ function SWEP:Think()
 		if owner.PlayerClassName == "sc_infiltrator" and self.PrintName ~= "CQC" then
 			self.PrintName = "CQC"
 			self.WepSelectIcon = cqcicon
-		elseif isFurryHands(owner) and self.PrintName ~= "Paws" then
+		elseif owner.PlayerClassName == "furry" and self.PrintName ~= "Paws" then
 			self.PrintName = "Paws"
 			self.WepSelectIcon = paw
 			self.Instructions = "LMB - raise paws\nRELOAD - lower paws\n\nIn the raised state:\nLMB - strike\nRMB - block\n\n<color=91,121,229>As a bearer of a pathowogen infection, you have new abilities.\n\nIn lowered state, hold RMB to grab uninfected prey, then hold LMB to assimilate them.\n\nYou can press LMB to lick your fellow mates, doing so helps them alleviate their pain.\n\n:3<color=180,180,180>"
@@ -650,7 +635,7 @@ function SWEP:PrimaryAttack(forcespecial)
 	local owner = self:GetOwner()
 	if not IsValid(owner) or owner:InVehicle() then return end
 	if (self.attacked or 0) > CurTime() then return end
-	local isfur = isFurryHands(owner)
+	local isfur = owner.PlayerClassName == "furry"
 	local side = isfur and "fists_left" or "attack_quick_2"
 	local rand = math.Round(util.SharedRandom( "fist_Punching", 1, 2 ),0) == 1
 

@@ -283,10 +283,6 @@ end
 function HG_SANDBOX.IsBypassPlayer(ply)
     if not IsValid(ply) then return false end
 
-    if zb and zb.PlayerCanSandboxBypass and zb.PlayerCanSandboxBypass(ply) then
-        return true
-    end
-
     local group = normalizeText((ply.GetUserGroup and ply:GetUserGroup()) or "")
     return HG_SANDBOX.BypassGroups[group] or false
 end
@@ -1109,16 +1105,12 @@ if CLIENT then
         local ply = getLocalPlayer()
         if not IsValid(ply) then return end
 
-        if not HG_SANDBOX.IsSandboxModeActive() then
-            return
+        if HG_SANDBOX.IsSandboxModeActive() then
+            return true
         end
 
         if HG_SANDBOX.IsBypassPlayer(ply) then
             return
-        end
-
-        if HG_SANDBOX.IsRestrictedPlayer(ply) then
-            return true
         end
 
         return false

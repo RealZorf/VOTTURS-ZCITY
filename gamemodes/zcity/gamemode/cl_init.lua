@@ -7,19 +7,7 @@ if not ConVarExists("hg_newspectate") then
 end
 
 function CurrentRound()
-	if not zb or not zb.modes then return end
-
-	local round = zb.CROUND
-	if not round or round == "" then return end
-
-	local mode = zb.modes[round]
-	if mode then return mode end
-
-	for _, tbl in pairs(zb.modes) do
-		if tbl.Types and tbl.Types[round] then
-			return tbl
-		end
-	end
+	return zb.modes[zb.CROUND]
 end
 
 zb.ROUND_STATE = 0
@@ -464,12 +452,13 @@ end)
 
 zb.fade = zb.fade or 0
 
-hook.Add("RenderScreenspaceEffects", "ZB_ClientIntermissionFade", function()
-	if zb.fade <= 0 then return end
+hook.Add("RenderScreenspaceEffects", "huyhuyUwU", function()
+	if zb.fade > 0 then
+		zb.fade = math.Approach(zb.fade, 0, FrameTime() * 1)
 
-	zb.fade = math.Approach(zb.fade, 0, FrameTime() * 1)
-	surface.SetDrawColor(0, 0, 0, 255 * math.min(zb.fade, 1))
-	surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1)
+		surface.SetDrawColor(0, 0, 0, 255 * math.min(zb.fade, 1))
+		surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1 )
+	end
 end)
 
 zb.ROUND_STATE = 0
@@ -487,26 +476,9 @@ net.Receive("RoundInfo", function()
 	zb.CROUND = rnd
 
 	zb.ROUND_STATE = net.ReadInt(4)
-
-	local round = CurrentRound()
-
+	
 	if zb.ROUND_STATE == 0 then
-		-- Modes with RoundFade (e.g. TDM) paint their own round-start black screen.
-		if round and round.buymenu then
-			zb.fade = 0
-		else
-			zb.fade = zb.RoundFade and zb.RoundFade.INTERMISSION_FADE or 7
-		end
-	elseif zb.ROUND_STATE == 1 then
-		if zb.RemoveFade then
-			zb.RemoveFade()
-		else
-			zb.fade = 0
-		end
-	end
-
-	if zb.Transition and zb.Transition.OnRoundInfo then
-		zb.Transition.OnRoundInfo(zb.ROUND_STATE)
+		zb.fade = 7
 	end
 
 	if zb.CROUND ~= "" then
@@ -995,19 +967,15 @@ function GM:ScoreboardShow()
 		end
 
 		function but:DoRightClick()
+			--if ply:IsBot() then chat.AddText(Color(255,0,0), "no, you can't") return end
 			local Menu = DermaMenu()
-			if zb.AddScoreboardPlayerMenu then
-				zb.AddScoreboardPlayerMenu(Menu, ply)
-			else
-				Menu:AddOption("Account", function()
-					if zb.Experience and zb.Experience.AccountMenu then
-						zb.Experience.AccountMenu(ply)
-					end
-				end)
-				Menu:AddOption("Copy SteamID", function()
-					SetClipboardText(ply:SteamID())
-				end)
-			end
+			Menu:AddOption( "Account", function(self)
+				zb.Experience.AccountMenu( ply )
+			end)
+			Menu:AddOption( "Copy SteamID", function(self)
+				SetClipboardText(ply:SteamID())
+			end)
+
 			Menu:Open()
 		end
 	
@@ -1080,19 +1048,21 @@ function GM:ScoreboardShow()
 		end
 
 		function but:DoRightClick()
+			--if ply:IsBot() then chat.AddText(Color(255,0,0), "no, you can't") return end
 			local Menu = DermaMenu()
-			if zb.AddScoreboardPlayerMenu then
-				zb.AddScoreboardPlayerMenu(Menu, ply)
-			else
-				Menu:AddOption("Account", function()
-					if zb.Experience and zb.Experience.AccountMenu then
-						zb.Experience.AccountMenu(ply)
-					end
-				end)
-				Menu:AddOption("Copy SteamID", function()
-					SetClipboardText(ply:SteamID())
-				end)
-			end
+			Menu:AddOption( "Account", function(self)
+				zb.Experience.AccountMenu( ply )
+			end)
+			Menu:AddOption( "Copy SteamID", function(self)
+				SetClipboardText(ply:SteamID())
+			end)
+			--Menu:AddOption( "Medal", function(self) 
+			--	zb.Experience.OpenMenu(ply)
+			--	timer.Simple( .1, function()
+			--		zb.Experience.Menu(ply)
+			--	end)
+			--end) 
+
 			Menu:Open()
 		end
 

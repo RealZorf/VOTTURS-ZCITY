@@ -1,14 +1,9 @@
 local MODE = MODE
 
-if not zb.TDMShop then
-	include("zcity/gamemode/modes/tdm/sh_tdm_buy.lua")
-end
-
 MODE.name = "tdm"
 MODE.BuyTime = 40
 MODE.StartMoney = 6500
 MODE.start_time = 20
-MODE.prep_time = 4
 MODE.buymenu = true
 
 MODE.ROUND_TIME = 240
@@ -34,12 +29,6 @@ function MODE:Intermission()
 		ply:SetupTeam(ply:Team())
 		
 		ply:SetNWInt( "TDM_Money", self.StartMoney )
-		if zb.TDMShop then
-			zb.TDMShop.ClearPurchases(ply)
-		else
-			ply.TDM_Purchases = {}
-			ply:SetNetVar("TDM_Purchases", {})
-		end
 	end
 
 	net.Start("tdm_start")
@@ -164,8 +153,10 @@ end
 
 util.AddNetworkString("tdm_roundend")
 function MODE:EndRound()
-	net.Start("tdm_roundend")
-	net.Broadcast()
+	timer.Simple(2,function()
+		net.Start("tdm_roundend")
+		net.Broadcast()
+	end)
 	local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 	for k,ply in player.Iterator() do
 		if ply:Team() == winner then
@@ -189,113 +180,44 @@ function MODE:ShowSpare1(ply ) -- OpenMenu
 end
 
 util.AddNetworkString( "tdm_buyitem" )
-util.AddNetworkString( "tdm_refunditem" )
-util.AddNetworkString( "tdm_sync_purchases" )
 
-local Shop = zb.TDMShop
-local AttachmentPrice = Shop.AttachmentPrice or 50
+local AttachmentPrice = 50
+net.Receive("tdm_buyitem",function(len,ply)
+	local round = CurrentRound()
+	if !round.buymenu then return end
+	if ((zb.ROUND_START or 0) + 40 < CurTime()) then ply:ChatPrint("Time's up!") return end
+	local tItem = net.ReadTable()
+	if not istable(tItem) then return end
+	local category = tItem[1]
+	local index = tItem[2]
+	if not category or not index then return end
+	local buyItems = round.BuyItems
+	if not buyItems or not buyItems[category] or not buyItems[category][index] then return end
+	local item = buyItems[category][index]
 
-local function canUseBuyMenu(ply, round)
-	if not round or not round.buymenu then return false end
-	if not IsValid(ply) or not ply:Alive() then return false end
-	if ((zb.ROUND_START or 0) + 40) < CurTime() then
-		ply:ChatPrint("Time's up!")
-		return false
-	end
-
-	return true
-end
-
-local function stripOwnedBuyItem(ply, item, category)
-	local class = item.ItemClass
-
-	if class == "hg_flashlight" then
-		local purchaseId, purchase = Shop.FindPurchaseByClass(ply, class)
-		if purchase then
-			local refundAmount = purchase.price or 0
-			Shop.RemovePurchase(ply, purchaseId)
-
-			if refundAmount > 0 then
-				ply:SetNWInt("TDM_Money", ply:GetNWInt("TDM_Money", 0) + refundAmount)
-			end
-		end
-
-		Shop.StripFlashlight(ply)
+	if not item then return end
+	if item.TeamBased != nil and item.TeamBased != ply:Team() then
+		ply:ChatPrint("This item is not available for your team.")
 		return
 	end
 
-	if item.Type == "Armor" or string.StartWith(class or "", "ent_armor_") then
-		local eqName = Shop.GetArmorEquipmentName(class)
-		local armors = Shop.GetPlayerArmors(ply)
-		local placement = Shop.GetArmorPlacement(eqName)
-		local equippedName = placement and armors[placement]
+	if tItem[3] then
+		if not ply:HasWeapon(item.ItemClass) then ply:ChatPrint("You can't buy this attachment without a weapon.") return end
+		if ((ply:GetNWInt("TDM_Money",0) - AttachmentPrice) < 0) then ply:ChatPrint("Not enough money.") return end
 
-		if not equippedName then
-			for _, equipped in pairs(armors) do
-				if equipped == eqName then
-					equippedName = equipped
-					break
-				end
-			end
-		end
-
-		if equippedName and ply.TDM_Purchases then
-			for purchaseId, purchase in pairs(ply.TDM_Purchases) do
-				if Shop.GetArmorEquipmentName(purchase.itemClass) == equippedName then
-					local refundAmount = purchase.price or 0
-					Shop.RemovePurchase(ply, purchaseId)
-
-					if refundAmount > 0 then
-						ply:SetNWInt("TDM_Money", ply:GetNWInt("TDM_Money", 0) + refundAmount)
-					end
-
-					break
-				end
-			end
-		end
-
-		if equippedName and hg and hg.DropArmor then
-			hg.DropArmor(ply, equippedName)
-		end
+		local wep = ply:GetWeapon(item.ItemClass)
+		hg.AddAttachmentForce( ply,wep,tItem[3] )
+		ply:SetNWInt( "TDM_Money", ply:GetNWInt("TDM_Money",0) - AttachmentPrice )
+		ply:EmitSound("items/itempickup.wav")
 
 		return
 	end
 
-	if ply:HasWeapon(class) then
-		ply:StripWeapon(class)
-	end
-end
-
-local function handleReplaceBeforePurchase(ply, item, category, replace)
-	if not replace then return true end
-
-	local owns, kind = Shop.PlayerOwnsItem(ply, item, category)
-	if not owns then return true end
-
-	if kind == "weapon" then
-		local refundAmount = Shop.RefundAndStripWeapon(ply, item.ItemClass)
-		if refundAmount > 0 then
-			ply:ChatPrint("Refunded $" .. refundAmount .. ".")
-		end
-
-		return true
-	end
-
-	if kind == "flashlight" then
-		stripOwnedBuyItem(ply, item, category)
-		return true
-	end
-
-	stripOwnedBuyItem(ply, item, category)
-
-	return true
-end
-
-local function grantBuyItem(ply, item, category, index)
+	if ((ply:GetNWInt("TDM_Money",0) - item.Price) < 0) then ply:ChatPrint("Not enough money.") return end
 	local ent = ply:Give(item.ItemClass)
-
-	if ent and ent.Use and IsValid(ent) then
-		ent:Use(ply)
+	
+	if ent.Use and IsValid(ent) then
+		ent:Use( ply )
 	end
 
 	if IsValid(ent) and ent:GetClass() == "weapon_bloodbag" then
@@ -303,199 +225,14 @@ local function grantBuyItem(ply, item, category, index)
 		ent.modeValues[1] = 1
 	end
 
-	if IsValid(ent) and item.Amount then
+	if item.Amount then
 		ent.AmmoCount = item.Amount
 	end
 
-	if IsValid(ent) and ent.GetPrimaryAmmoType then
-		ply:GiveAmmo(ent:GetMaxClip1() * 1, ent:GetPrimaryAmmoType(), true)
+	if ent.GetPrimaryAmmoType then
+		ply:GiveAmmo(ent:GetMaxClip1() * 1,ent:GetPrimaryAmmoType(),true)
 	end
 
-	if not Shop.IsAmmoPurchase(category, item) then
-		Shop.AddPurchase(ply, category, index, item)
-	end
-end
-
-net.Receive("tdm_sync_purchases", function(len, ply)
-	local round = CurrentRound()
-	if not canUseBuyMenu(ply, round) then return end
-
-	Shop.PruneStalePurchases(ply)
-end)
-
-net.Receive("tdm_buyitem", function(len, ply)
-	local round = CurrentRound()
-	if not canUseBuyMenu(ply, round) then return end
-
-	Shop.PruneStalePurchases(ply)
-
-	local tItem = net.ReadTable()
-	local replace = net.ReadBool()
-
-	if not istable(tItem) then return end
-
-	local category = tItem[1]
-	local index = tItem[2]
-	if not category or not index then return end
-
-	local buyItems = round.BuyItems
-	if not buyItems or not buyItems[category] or not buyItems[category][index] then return end
-
-	local item = buyItems[category][index]
-	if not item then return end
-
-	if item.TeamBased != nil and item.TeamBased != ply:Team() then
-		ply:ChatPrint("This item is not available for your team.")
-		return
-	end
-
-	if tItem[3] then
-		local attName = tItem[3]
-
-		if not ply:HasWeapon(item.ItemClass) then
-			ply:ChatPrint("You can't buy this attachment without a weapon.")
-			return
-		end
-
-		local wep = ply:GetWeapon(item.ItemClass)
-		if not IsValid(wep) then return end
-
-		local hasConflict, _, existingAtt = Shop.GetAttachmentConflict(ply, item.ItemClass, attName)
-		if hasConflict and not replace then
-			ply:ChatPrint("Choose Replace in the buy menu to swap this attachment.")
-			return
-		end
-
-		if hasConflict and replace then
-			local placement = Shop.GetAttachmentPlacement(attName)
-			local purchaseId, purchase = Shop.FindAttachmentPurchase(ply, item.ItemClass, placement)
-
-			if purchase then
-				ply:SetNWInt("TDM_Money", ply:GetNWInt("TDM_Money", 0) + (purchase.price or AttachmentPrice))
-				Shop.RemovePurchase(ply, purchaseId)
-				ply:ChatPrint("Refunded $" .. (purchase.price or AttachmentPrice) .. ".")
-			end
-
-			if existingAtt then
-				Shop.RemoveWeaponAttachment(wep, existingAtt)
-			end
-		end
-
-		if (ply:GetNWInt("TDM_Money", 0) - AttachmentPrice) < 0 then
-			ply:ChatPrint("Not enough money.")
-			return
-		end
-
-		hg.AddAttachmentForce(ply, wep, attName)
-		Shop.AddAttachmentPurchase(ply, category, index, item.ItemClass, attName, AttachmentPrice)
-		ply:SetNWInt("TDM_Money", ply:GetNWInt("TDM_Money", 0) - AttachmentPrice)
-		ply:EmitSound("items/itempickup.wav")
-
-		return
-	end
-
-	Shop.ClearStalePurchaseIfMissing(ply, item.ItemClass)
-
-	local ownsItem = Shop.PlayerOwnsItem(ply, item, category)
-	local slotConflict = Shop.GetWeaponSlotConflict(ply, item.ItemClass)
-
-	if (ownsItem or slotConflict) and not replace then
-		ply:ChatPrint("You already own this. Confirm Replace in the buy menu to swap it.")
-		return
-	end
-
-	if replace then
-		if ownsItem then
-			if not handleReplaceBeforePurchase(ply, item, category, true) then return end
-		elseif slotConflict then
-			local refundAmount = Shop.HandleWeaponSlotReplace(ply, item.ItemClass)
-			if refundAmount > 0 then
-				ply:ChatPrint("Refunded $" .. refundAmount .. ".")
-			end
-		end
-	end
-
-	if (ply:GetNWInt("TDM_Money", 0) - item.Price) < 0 then
-		ply:ChatPrint("Not enough money.")
-		return
-	end
-
-	grantBuyItem(ply, item, category, index)
-	ply:SetNWInt("TDM_Money", ply:GetNWInt("TDM_Money", 0) - item.Price)
+	ply:SetNWInt( "TDM_Money", ply:GetNWInt("TDM_Money",0) - item.Price )
 	ply:EmitSound("items/itempickup.wav")
-end)
-
-net.Receive("tdm_refunditem", function(len, ply)
-	local round = CurrentRound()
-	if not canUseBuyMenu(ply, round) then return end
-
-	Shop.PruneStalePurchases(ply)
-
-	local purchaseId = net.ReadUInt(16)
-	local purchases = ply.TDM_Purchases
-	local purchase = purchases and purchases[purchaseId]
-	if not purchase then return end
-
-	local buyItems = round.BuyItems
-	local item = buyItems and buyItems[purchase.category] and buyItems[purchase.category][purchase.index]
-	local itemClass = purchase.itemClass or (item and item.ItemClass)
-	if not itemClass then return end
-
-	if not Shop.PurchaseStillOwned(ply, purchase) then
-		Shop.RemovePurchase(ply, purchaseId)
-		return
-	end
-
-	if purchase.purchaseType == "attachment" then
-		local wep = ply:GetWeapon(purchase.weaponClass or itemClass)
-		if not IsValid(wep) or not Shop.WeaponHasAttachmentNamed(wep, purchase.attachment) then
-			ply:ChatPrint("You no longer have this attachment to refund.")
-			Shop.RemovePurchase(ply, purchaseId)
-			return
-		end
-
-		Shop.RemoveWeaponAttachment(wep, purchase.attachment)
-	elseif itemClass == "hg_flashlight" then
-		if not Shop.PlayerHasFlashlight(ply) then
-			ply:ChatPrint("You no longer have this item to refund.")
-			Shop.RemovePurchase(ply, purchaseId)
-			return
-		end
-
-		Shop.StripFlashlight(ply)
-	elseif purchase.itemType == "Armor" or string.StartWith(itemClass, "ent_armor_") then
-		local eqName = Shop.GetArmorEquipmentName(itemClass)
-		local armors = Shop.GetPlayerArmors(ply)
-		local equippedName
-
-		for _, equipped in pairs(armors) do
-			if equipped == eqName then
-				equippedName = equipped
-				break
-			end
-		end
-
-		if not equippedName then
-			ply:ChatPrint("You no longer have this item to refund.")
-			Shop.RemovePurchase(ply, purchaseId)
-			return
-		end
-
-		if hg and hg.DropArmor then
-			hg.DropArmor(ply, equippedName)
-		end
-	else
-		if not ply:HasWeapon(itemClass) then
-			ply:ChatPrint("You no longer have this item to refund.")
-			Shop.RemovePurchase(ply, purchaseId)
-			return
-		end
-
-		ply:StripWeapon(itemClass)
-	end
-
-	ply:SetNWInt("TDM_Money", ply:GetNWInt("TDM_Money", 0) + (purchase.price or 0))
-	Shop.RemovePurchase(ply, purchaseId)
-	ply:EmitSound("items/itempickup.wav")
-	ply:ChatPrint("Refunded $" .. (purchase.price or 0) .. ".")
 end)

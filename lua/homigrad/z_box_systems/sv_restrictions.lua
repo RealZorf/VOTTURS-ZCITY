@@ -102,10 +102,6 @@ function Hook.PlayerSpawnSENT(ply, class)
 end
 
 function Hook.PlayerNoClip(ply)
-    if zb and zb.PlayerCanNoclip and zb.PlayerCanNoclip(ply) then
-        return true
-    end
-
     if HG_SANDBOX and HG_SANDBOX.IsBypassPlayer and HG_SANDBOX.IsBypassPlayer(ply) then
         return true
     end

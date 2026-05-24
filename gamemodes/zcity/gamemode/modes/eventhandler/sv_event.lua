@@ -397,7 +397,7 @@ end)
 
 hook.Add("PlayerInitialSpawn", "ZB_EventLootSync", function(ply)
     timer.Simple(5, function()
-        if IsValid(ply) and ((zb and zb.HasULX and zb.HasULX(ply, zb.UCL.EventLoot)) or MODE.EventersList[ply:SteamID()]) then
+        if IsValid(ply) and (ply:IsAdmin() or MODE.EventersList[ply:SteamID()]) then
             net.Start("event_loot_sync")
             net.WriteTable(MODE.CustomLootTable[1][2] or {})
             net.Send(ply)
@@ -407,7 +407,7 @@ hook.Add("PlayerInitialSpawn", "ZB_EventLootSync", function(ply)
 end)
 
 hook.Add("HG_PlayerSay", "ZB_EventLootCommand", function(ply, txtTbl, text)
-    if string.lower(text) == "!eventloot" and ((zb and zb.HasULX and zb.HasULX(ply, zb.UCL.EventLoot)) or MODE.EventersList[ply:SteamID()]) then
+    if string.lower(text) == "!eventloot" and (ply:IsAdmin() or MODE.EventersList[ply:SteamID()]) then
         ply:ConCommand("zb_event_loot_menu")
         txtTbl[1] = ""
     end

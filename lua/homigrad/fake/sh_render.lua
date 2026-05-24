@@ -5,12 +5,6 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 	local vecSmall = Vector(0.01, 0.01, 0.01)
 	function hg.SmoothUnfake(ent, ply)
 		if ply.gettingup and (ply.gettingup + 1 - CurTime()) > 0 and IsValid(ply) then
-			local model = ent.GetModel and ent:GetModel() or ""
-			if ent.ZCHeadBoneRenderModel ~= model then
-				ent.ZCHeadBoneRenderModel = model
-				ent.ZCHeadBoneRender = nil
-			end
-
 			local headBone = ent.ZCHeadBoneRender
 			if headBone == nil and ent.LookupBone then
 				headBone = ent:LookupBone("ValveBiped.Bip01_Head1")
@@ -68,24 +62,6 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 	local ARMOR_RENDER_DIST_SQR = 1450 * 1450
 	local DETAIL_RENDER_DIST_SQR = 2000 * 2000
 	local angfuck = Angle()
-	local function cachedRenderHeadBone(ent)
-		if not IsValid(ent) or not ent.LookupBone then return end
-
-		local model = ent:GetModel() or ""
-		if ent.ZCHeadBoneRenderModel ~= model then
-			ent.ZCHeadBoneRenderModel = model
-			ent.ZCHeadBoneRender = nil
-		end
-
-		local headBone = ent.ZCHeadBoneRender
-		if headBone == nil then
-			headBone = ent:LookupBone("ValveBiped.Bip01_Head1")
-			ent.ZCHeadBoneRender = headBone or false
-		end
-
-		return headBone ~= false and headBone or nil
-	end
-
 	function DrawPlayerRagdoll(ent, ply) --// actually not only ragdoll render but player too
 		if ply.prevragdoll_index != nil and ply.prevragdoll_index != ply.ragdoll_index and ply.ragdoll_index == 0 then
 			//print(ply.ragdoll_index, ply.prevragdoll_index, Entity(ply.ragdoll_index))
@@ -98,7 +74,12 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 
 		local wep = ply.GetActiveWeapon and ply:GetActiveWeapon()
 
-		local lkp = cachedRenderHeadBone(ent)
+		local lkp = ent.ZCHeadBoneRender
+		if lkp == nil and ent.LookupBone then
+			lkp = ent:LookupBone("ValveBiped.Bip01_Head1")
+			ent.ZCHeadBoneRender = lkp or false
+		end
+		lkp = lkp == false and nil or lkp
 		if !ent.GetManipulateBoneScale or !lkp then return end
 
 		local smoothingUnfake = IsValid(ply.OldRagdoll) and ply.gettingup and (ply.gettingup + 1 - CurTime()) > 0

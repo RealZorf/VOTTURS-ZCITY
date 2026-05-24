@@ -589,7 +589,7 @@ properties.Add( "amputate_limb", {
 } )
 
 local function doorCheck(self, ent, ply)
-    if not (zb and zb.HasULX and zb.HasULX(ply, zb.UCL.DoorTools)) then return false end
+    if not ply:IsAdmin() then return false end
     if not IsValid(ent) then return false end
     if not ent:GetClass():lower():find("door") then return false end
     return true

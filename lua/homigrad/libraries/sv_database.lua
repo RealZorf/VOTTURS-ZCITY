@@ -1,8 +1,10 @@
+--if not util.IsBinaryModuleInstalled("mysqloo") then return end
+
 hg.db = hg.db or {}
 
 function hg.db.Connect()
     local standart_tbl = {
-            dbmodule = "mysqloo",
+            dbmodule = "sqlite",
             hostname = "your_MySQLServerAddres",
             username = "your_username",
             password = "your_password",
@@ -10,10 +12,7 @@ function hg.db.Connect()
             port = 3306
         }
 
-    if not file.Exists("zbattle/sql.json","DATA") then
-        file.CreateDir("zbattle")
-        file.Write("zbattle/sql.json", util.TableToJSON(standart_tbl, true))
-    end
+    if not file.Exists("zbattle/sql.json","DATA") then file.Write("zbattle/sql.json", util.TableToJSON(standart_tbl,true)) end
     local cfg = file.Exists("zbattle/sql.json","DATA") and 
         util.JSONToTable(file.Read("zbattle/sql.json","DATA")) or 
         standart_tbl

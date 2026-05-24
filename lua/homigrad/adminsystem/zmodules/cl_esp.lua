@@ -8,16 +8,22 @@ ESP.InAdminMode = false
 ESP.AllESP = false
 ESP.ToggleKeyDown = false
 ESP.NextToggle = 0
-ESP.HMCDRoles = ESP.HMCDRoles or {}
 
 local ESPEye = CreateClientConVar("zb_espeye", "0", true, false, "Show admin ESP eye trace line")
+local liveESPUserGroups = {
+	["superadmin"] = true,
+	["owner"] = true,
+	["servermanager"] = true,
+	["headdeveloper"] = true,
+	["headadmin"] = true,
+	["developer"] = true,
+	["admin"] = true,
+}
+
 local col_default = Color(255, 0, 0)
 local col_white = Color(255, 255, 255)
 local col_gray = Color(180, 180, 180)
 local col_weapon = Color(255, 200, 100)
-local col_traitor = Color(255, 90, 90)
-local col_innocent = Color(140, 220, 150)
-local col_gunner = Color(255, 180, 80)
 local col_box_outline = Color(0, 0, 0, 200)
 local SHOW_TARGET_OUTLINE = true
 local SHOW_TARGET_BOX = false
@@ -33,7 +39,7 @@ local teamColors = {
 
 local function CanUseLiveESPClient( ply )
 	if !IsValid( ply ) then return false end
-	return zb and zb.UCL and ULib and ULib.ucl and ULib.ucl.query( ply, zb.UCL.LiveESP ) == true
+	return liveESPUserGroups[string.lower( ply:GetUserGroup() or "" )] == true
 end
 
 local function CanUseESPClient( ply )
@@ -69,126 +75,6 @@ end
 local function GetPlayerTeamColor(target)
 	if !IsValid(target) then return col_default end
 	return GetESPTeamColor(target:Team())
-end
-
-local function IsHomicideRound()
-	local round = CurrentRound and CurrentRound()
-	return istable(round) and round.name == "hmcd"
-end
-
-local function GetHomicideMode()
-	return zb and zb.modes and zb.modes["hmcd"]
-end
-
-local function GetHomicideLookupName(id, lookupTable)
-	if !isstring(id) or id == "" then return nil end
-
-	local entry = lookupTable and lookupTable[id]
-	if istable(entry) then
-		if isstring(entry.Name) and entry.Name != "" then
-			return entry.Name
-		end
-
-		if isstring(entry.name) and entry.name != "" then
-			return entry.name
-		end
-	end
-
-	return string.gsub(id, "_", " ")
-end
-
-local function SanitizeHMCDRolesCache()
-	local mainEntIndex = nil
-
-	for entIndex, data in pairs(ESP.HMCDRoles) do
-		if istable(data) and data.mainTraitor then
-			if mainEntIndex == nil then
-				mainEntIndex = entIndex
-			else
-				data.mainTraitor = false
-			end
-		end
-	end
-end
-
-local function GetHomicideRoleData(target)
-	if !IsValid(target) then return nil end
-
-	local cached = ESP.HMCDRoles[target:EntIndex()]
-	if istable(cached) then
-		return cached
-	end
-
-	if target.isTraitor == true or target.isGunner == true or isstring(target.Profession) or isstring(target.SubRole) then
-		return {
-			traitor = target.isTraitor == true,
-			gunner = target.isGunner == true,
-			mainTraitor = false,
-			subRole = target.SubRole or "",
-			profession = target.Profession or "",
-		}
-	end
-
-	return nil
-end
-
-local function IsActiveHomicideRound()
-	return IsHomicideRound() and (!zb or !zb.ROUND_STATE or zb.ROUND_STATE == 1)
-end
-
-local function GetHomicideRoleLabel(target)
-	if !IsValid(target) or !IsActiveHomicideRound() then return nil end
-
-	local roleData = GetHomicideRoleData(target)
-	if !roleData then return nil end
-
-	if roleData.traitor then
-		local mode = GetHomicideMode()
-		local subRoleName = GetHomicideLookupName(roleData.subRole, mode and mode.SubRoles)
-
-		if roleData.mainTraitor then
-			if subRoleName then
-				return "Main Traitor - " .. subRoleName
-			end
-
-			return "Main Traitor"
-		end
-
-		if subRoleName then
-			return "Traitor - " .. subRoleName
-		end
-
-		return "Traitor"
-	end
-
-	if roleData.gunner then
-		return "Gunner"
-	end
-
-	local mode = GetHomicideMode()
-	local className = GetHomicideLookupName(roleData.profession, mode and mode.Professions)
-	if className then
-		return className
-	end
-
-	return "Innocent"
-end
-
-local function GetHomicideRoleColor(target)
-	if !IsValid(target) then return col_innocent end
-
-	local roleData = GetHomicideRoleData(target)
-	if roleData and roleData.traitor then return col_traitor end
-	if roleData and roleData.gunner then return col_gunner end
-	return col_innocent
-end
-
-local function GetPlayerESPOutlineColor(target)
-	if IsActiveHomicideRound() then
-		return GetHomicideRoleColor(target)
-	end
-
-	return GetPlayerTeamColor(target)
 end
 
 local UpVector = Vector(0, 0, 80)
@@ -325,26 +211,6 @@ function ESP:SetupNetworking()
 		ESP.InAdminMode = net.ReadBool()
 		ESP.AllESP = net.ReadBool()
 	end)
-
-	net.Receive("AS_HMCDRoles", function()
-		table.Empty(ESP.HMCDRoles)
-
-		local count = net.ReadUInt(8)
-		for _ = 1, count do
-			local target = net.ReadEntity()
-			if !IsValid(target) then continue end
-
-			ESP.HMCDRoles[target:EntIndex()] = {
-				traitor = net.ReadBool(),
-				gunner = net.ReadBool(),
-				mainTraitor = net.ReadBool(),
-				subRole = net.ReadString(),
-				profession = net.ReadString(),
-			}
-		end
-
-		SanitizeHMCDRolesCache()
-	end)
 end
 
 function ESP:SetupHooks()
@@ -371,22 +237,22 @@ function ESP:SetupHooks()
 		local ply = LocalPlayer()
 		if !CanRenderESP( ply ) then return end
 
-		local colorGroups = {}
+		local teamTargets = {}
 		for _, target in player.Iterator() do
 			if ShouldShowPlayer(ply, target) then
+				local tm = target:Team()
+				teamTargets[tm] = teamTargets[tm] or {}
 				local renderTarget = GetPlayerRenderEntity(target)
 				if IsValid(renderTarget) then
-					local col = GetPlayerESPOutlineColor(target)
-					local key = col.r .. "." .. col.g .. "." .. col.b
-					colorGroups[key] = colorGroups[key] or { col = col, targets = {} }
-					table.insert(colorGroups[key].targets, renderTarget)
+					table.insert(teamTargets[tm], renderTarget)
 				end
 			end
 		end
 
-		for _, group in pairs(colorGroups) do
-			if #group.targets > 0 then
-				Add(group.targets, group.col, OUTLINE_MODE_BOTH)
+		for tm, targets in pairs(teamTargets) do
+			if #targets > 0 then
+				local col = GetESPTeamColor(tm)
+				Add(targets, col, OUTLINE_MODE_BOTH)
 			end
 		end
 	end)
@@ -400,7 +266,7 @@ function ESP:SetupHooks()
 		for _, target in player.Iterator() do
 			if !ShouldShowPlayer(ply, target) then continue end
 
-			local col = GetPlayerESPOutlineColor(target)
+			local col = GetPlayerTeamColor(target)
 			local eyePos = target:EyePos()
 			local eyeDir = target:EyeAngles():Forward()
 			local endPos = eyePos + eyeDir * 10000
@@ -420,7 +286,7 @@ function ESP:SetupHooks()
 		for _, target in player.Iterator() do
 			if !ShouldShowPlayer(ply, target) then continue end
 
-			local col = GetPlayerESPOutlineColor(target)
+			local col = GetPlayerTeamColor(target)
 			local renderTarget = GetPlayerRenderEntity(target)
 			if !IsValid(renderTarget) then continue end
 
@@ -439,15 +305,8 @@ function ESP:SetupHooks()
 
 			local sx, sy = screenPos.x, screenPos.y
 			local dist = math.floor(myPos:Distance(renderTarget:GetPos()) / 52.49)
-			local roleLabel = GetHomicideRoleLabel(target)
-			local nameY = sy - 10
 
-			if roleLabel then
-				draw.SimpleTextOutlined(roleLabel, "TargetIDSmall", sx, nameY - 12, GetHomicideRoleColor(target), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, color_black)
-				nameY = nameY + 2
-			end
-
-			draw.SimpleTextOutlined(target:Nick(), "TargetIDSmall", sx, nameY, col, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, color_black)
+			draw.SimpleTextOutlined(target:Nick(), "TargetIDSmall", sx, sy - 10, col, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, color_black)
 
 			local bottomY = y and (y + h + 5) or (sy + 50)
 			draw.SimpleTextOutlined(dist .. " m.", "TargetIDSmall", sx, bottomY, col_gray, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, color_black)

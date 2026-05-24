@@ -1,7 +1,8 @@
 MODE.name = "assassinsgreed"
-MODE.IntroTitle = "Assassin's Greed"
 
 local MODE = MODE
+
+local startFade = 0
 local lastTarget
 local targetPortrait
 local portraitTarget
@@ -86,19 +87,6 @@ end
 local function formatContractTime(seconds)
 	seconds = math.max(math.ceil(seconds or 0), 0)
 	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
-end
-
-local function getBuyMenuTheme()
-	if zb and zb.TDM_BuyMenuTheme then
-		return zb.TDM_BuyMenuTheme
-	end
-
-	return {
-		Background = Color(0, 0, 0, 155),
-		InnerBackground = Color(0, 0, 0, 140),
-		Outline = Color(255, 0, 0, 128),
-		Gradient = Color(155, 0, 0, 55),
-	}
 end
 
 local function getBuyMenuMetrics()
@@ -456,13 +444,12 @@ local function openBuyMenu()
 
 	function buyMenu:Paint(w, h)
 		local metrics = self.LayoutMetrics or getBuyMenuMetrics()
-		local theme = getBuyMenuTheme()
-		draw.RoundedBox(0, 0, 0, w, h, theme.Background)
-		surface.SetDrawColor(theme.Outline)
+		draw.RoundedBox(0, 0, 0, w, h, Color(10, 21, 39, 245))
+		surface.SetDrawColor(frameBlue)
 		surface.DrawOutlinedRect(0, 0, w, h, metrics.border)
-		draw.SimpleText("Black Market", "ZB_ShipAssassinsLarge", w * 0.5, metrics.titleY, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		draw.SimpleText("Cash: $" .. LocalPlayer():GetNWInt("ShipAssassins_Money", 0), "ZB_ShipAssassinsMedium", w * 0.5, metrics.cashY, Color(61, 173, 61), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		draw.SimpleText("F3 to close", "ZB_ShipAssassinsSmall", w * 0.5, h - metrics.footerY, Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("Black Market", "ZB_ShipAssassinsLarge", w * 0.5, metrics.titleY, targetColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("Cash: $" .. LocalPlayer():GetNWInt("ShipAssassins_Money", 0), "ZB_ShipAssassinsMedium", w * 0.5, metrics.cashY, neutralColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("F3 to close", "ZB_ShipAssassinsSmall", w * 0.5, h - metrics.footerY, Color(160, 185, 215), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
 	local list = vgui.Create("DScrollPanel", buyMenu)
@@ -477,13 +464,12 @@ local function openBuyMenu()
 
 		function panel:Paint(w, h)
 			local metrics = buyMenu.LayoutMetrics or getBuyMenuMetrics()
-			local theme = getBuyMenuTheme()
-			draw.RoundedBox(0, 0, 0, w, h, theme.InnerBackground or theme.Background)
-			surface.SetDrawColor(theme.Outline)
+			draw.RoundedBox(0, 0, 0, w, h, Color(17, 35, 62, 230))
+			surface.SetDrawColor(Color(83, 140, 220, 180))
 			surface.DrawOutlinedRect(0, 0, w, h, math.max(1, ui(1)))
-			draw.SimpleText(item.name, "ZB_ShipAssassinsMedium", metrics.rowTitleX, metrics.rowTitleY, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-			draw.SimpleText("$" .. item.price, "ZB_ShipAssassinsMedium", w - metrics.rowPriceX, metrics.rowTitleY, Color(155, 200, 155), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
-			draw.SimpleText(item.description, "ZB_ShipAssassinsSmall", metrics.rowTitleX, metrics.rowDescY, Color(200, 200, 200), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(item.name, "ZB_ShipAssassinsMedium", metrics.rowTitleX, metrics.rowTitleY, neutralColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText("$" .. item.price, "ZB_ShipAssassinsMedium", w - metrics.rowPriceX, metrics.rowTitleY, targetColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(item.description, "ZB_ShipAssassinsSmall", metrics.rowTitleX, metrics.rowDescY, Color(178, 205, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 		end
 
 		function panel:DoClick()
@@ -502,6 +488,7 @@ net.Receive("ShipAssassins_RoundStart", function()
 	lply.ShipAssassinsTarget = nil
 	lply.ShipAssassinsKills = 0
 	lply.ShipAssassinsAliveCount = 0
+	startFade = CurTime()
 	lastTarget = nil
 	portraitTarget = nil
 	lply.ShipAssassinsTargetInfo = nil
@@ -553,22 +540,33 @@ net.Receive("ShipAssassins_CashHint", function()
 	surface.PlaySound("buttons/button14.wav")
 end)
 
+net.Receive("ShipAssassins_RoundEnd", function()
+	local winner = net.ReadEntity()
+	local kills = net.ReadUInt(8)
+
+	winner = IsValid(winner) and winner or nil
+
+	if winner then
+		chat.AddText(titleColor, "Assassin's Greed: ", neutralColor, winner:Name() .. " won the round.")
+	else
+		chat.AddText(titleColor, "Assassin's Greed: ", neutralColor, "no assassin survived.")
+	end
+
+	chat.AddText(titleColor, "Your kills this round: ", neutralColor, tostring(kills))
+
+	if IsValid(targetPortrait) then
+		targetPortrait:SetVisible(false)
+	end
+end)
+
 function MODE:RenderScreenspaceEffects()
-	zb.RoundFade.PaintBlackScreen()
-end
+	if startFade == 0 then return end
 
--- [ZB] round end UI handled by libraries/round_transitions/cl_round_transitions.lua
+	local fade = math.Clamp((startFade + 7.5 - CurTime()) / 7.5, 0, 1)
+	if fade <= 0 then return end
 
-function MODE:DrawRoundIntro(fade)
-	if not IsValid(lply) or not lply:Alive() then return end
-
-	local sw, sh = ScrW(), ScrH()
-	local title = self.IntroTitle or "Assassin's Greed"
-	draw.SimpleText("ZBattle | " .. title, "ZB_ShipAssassinsLarge", sw * 0.5, sh * 0.12, ColorAlpha(titleColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	draw.SimpleText("You are an Assassin", "ZB_ShipAssassinsLarge", sw * 0.5, sh * 0.5, ColorAlpha(titleColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	draw.SimpleText("Only attack your target or hunter. Other fights are not your concern.", "ZB_ShipAssassinsMedium", sw * 0.5, sh * 0.855, ColorAlpha(warningColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	draw.SimpleText("Interfering in someone else's fight gets you slain.", "ZB_ShipAssassinsMedium", sw * 0.5, sh * 0.892, ColorAlpha(warningColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	draw.SimpleText("Each contract lasts 4 minutes. Contract kills pay $250. F3 opens the buy menu.", "ZB_ShipAssassinsMedium", sw * 0.5, sh * 0.93, ColorAlpha(neutralColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	surface.SetDrawColor(0, 0, 0, 255 * fade)
+	surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1)
 end
 
 function MODE:HUDPaint()
@@ -597,6 +595,17 @@ function MODE:HUDPaint()
 	local target = lply.ShipAssassinsTarget
 	local portrait = ensureTargetPortrait()
 	local metrics = getPortraitMetrics()
+
+	if startFade > 0 then
+		local fade = math.Clamp((startFade + 8 - CurTime()) / 8, 0, 1)
+		if fade > 0 and lply:Alive() then
+			draw.SimpleText("ZBattle | Assassin's Greed", "ZB_ShipAssassinsLarge", sw * 0.5, sh * 0.12, ColorAlpha(titleColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("You are an Assassin", "ZB_ShipAssassinsLarge", sw * 0.5, sh * 0.5, ColorAlpha(titleColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("Only attack your target or hunter. Other fights are not your concern.", "ZB_ShipAssassinsMedium", sw * 0.5, sh * 0.855, ColorAlpha(warningColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("Interfering in someone else's fight gets you slain.", "ZB_ShipAssassinsMedium", sw * 0.5, sh * 0.892, ColorAlpha(warningColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("Each contract lasts 4 minutes. Contract kills pay $250. F3 opens the buy menu.", "ZB_ShipAssassinsMedium", sw * 0.5, sh * 0.93, ColorAlpha(neutralColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		end
+	end
 
 	if IsValid(portrait) then
 		local x = spectatingPlayer and (sw * 0.5 - metrics.radius - metrics.outlineRadius) or metrics.panelX
@@ -675,8 +684,6 @@ function MODE:HUDPaint()
 		draw.SimpleTextOutlined("Contract reward: $" .. tostring(cashHintAmount), "ZB_ShipAssassinsMedium", sw * 0.5, hintY, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, math.max(1, ui(2)), color_black)
 		draw.SimpleTextOutlined("F3 to open the Black Market", "ZB_ShipAssassinsMedium", sw * 0.5, hintY + ui(24), Color(255, 255, 255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, math.max(1, ui(2)), color_black)
 	end
-
-	zb.RoundFade.PaintStandardIntro(self)
 end
 
 hook.Add("PlayerButtonDown", "ShipAssassins_BuyMenuToggle", function(ply, btn)

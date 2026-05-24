@@ -3,137 +3,83 @@ hg.achievements.achievements_data = hg.achievements.achievements_data or {}
 hg.achievements.achievements_data.player_achievements = hg.achievements.achievements_data.player_achievements or {}
 hg.achievements.achievements_data.created_achevements = {}
 
-function hg.achievements.ApplyJoinRow(ply, achievementsJson, createIfMissing)
-	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
-
-	local name = ply:Name()
-	local steamID64 = ply:SteamID64()
-
-	if not hg.achievements.SqlActive then
-		hg.achievements.achievements_data.player_achievements[steamID64] = hg.achievements.achievements_data.player_achievements[steamID64] or {}
-		return
-	end
-
-	if isstring(achievementsJson) and achievementsJson ~= "" then
-		hg.achievements.achievements_data.player_achievements[steamID64] = util.JSONToTable(achievementsJson) or {}
-		return
-	end
-
-	if not createIfMissing then return end
-
-	hg.achievements.achievements_data.player_achievements[steamID64] = {}
-
-	local insertQuery = mysql:Insert("hg_achievements")
-	insertQuery:Insert("steamid", steamID64)
-	insertQuery:Insert("steam_name", name)
-	insertQuery:Insert("achievements", util.TableToJSON({}))
-	insertQuery:Execute()
-end
-
 local function updatePlayer(ply)
-	if ZCITY_DB and ZCITY_DB.UsesUnifiedPlayerLoad and ZCITY_DB.UsesUnifiedPlayerLoad() and not ply.ZCITY_LegacyProfileLoad then return end
-
-	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
-
-	local name = ply:Name()
-	local steamID64 = ply:SteamID64()
-
-	if not hg.achievements.SqlActive then
-		hg.achievements.achievements_data.player_achievements[steamID64] = hg.achievements.achievements_data.player_achievements[steamID64] or {}
-		return
-	end
-
-	local query = mysql:Select("hg_achievements")
-	query:Select("achievements")
-	query:Where("steamid", steamID64)
-	query:Callback(function(result)
-		if not IsValid(ply) then return end
-
-		local achievementsJson
-		if istable(result) and #result > 0 and result[1].achievements then
-			local updateQuery = mysql:Update("hg_achievements")
-			updateQuery:Update("steam_name", name)
-			updateQuery:Where("steamid", steamID64)
-			updateQuery:Execute()
-
-			achievementsJson = result[1].achievements
-		end
-
-		hg.achievements.ApplyJoinRow(ply, achievementsJson, true)
-	end)
-	query:Execute()
-end
-
-function hg.achievements.ActivateDatabase()
-	if hg.achievements.SqlActive then return true end
-	if not ZCITY_DB or not isfunction(ZCITY_DB.IsReady) or not ZCITY_DB.IsReady() then return false end
-
-	hg.achievements.SqlActive = true
-	print("[ZCITY] Achievements SQL database connected.")
-
-	for _, ply in player.Iterator() do
-		updatePlayer(ply)
-	end
-
-	return true
-end
-
-function hg.achievements.EnsureSqlActive()
-	if hg.achievements.SqlActive then return true end
-	return hg.achievements.ActivateDatabase() == true
-end
-
-hook.Add("DatabaseConnected", "AchievementsCreateData", function()
-	hg.achievements.ActivateDatabase()
-end)
-
-hook.Add("ZCITY_DatabaseReady", "AchievementsActivate", function(mysqlReady)
-	if mysqlReady then
-		hg.achievements.ActivateDatabase()
-	end
-end)
-
-hook.Add("PlayerInitialSpawn", "hg_Achievements_OnInitSpawn", updatePlayer)
-hook.Add("PlayerInitialSpawn", "hg_Exp_OnInitSpawn", updatePlayer)
-hook.Add("PlayerDisconnected", "savevalues", function(ply)
-	if not hg.achievements.EnsureSqlActive() then return end
-
-	hg.achievements.SaveToSQL(ply)
-end)
-
-function hg.achievements.SaveToSQL(ply, data)
-	if not hg.achievements.EnsureSqlActive() then return end
-
     local name = ply:Name()
 	local steamID64 = ply:SteamID64()
 
-	if istable(data) then
-		hg.achievements.achievements_data.player_achievements[steamID64] = data
-	end
-
-    local achData = data or hg.achievements.GetPlayerAchievements(ply) or {}
-
-    if ZCITY_DB and ZCITY_DB.SaveAchievementData then
-        ZCITY_DB.SaveAchievementData(steamID64, name, achData, true)
+    if not hg.achievements.SqlActive then
+        hg.achievements.achievements_data.player_achievements[steamID64] = {}
         return
+    end 
+
+	local query = mysql:Select("hg_achievements")
+		query:Select("achievements")
+		query:Where("steamid", steamID64)
+		query:Callback(function(result)
+            --print(result)
+            --PrintTable(result)
+			if (IsValid(ply) and istable(result) and #result > 0 and result[1].achievements) then
+				local updateQuery = mysql:Update("hg_achievements")
+					updateQuery:Update("steam_name", name)
+					updateQuery:Where("steamid", steamID64)
+				updateQuery:Execute()
+
+                hg.achievements.achievements_data.player_achievements[steamID64] = util.JSONToTable(result[1].achievements)
+
+                --PrintTable(hg.achievements.achievements_data.player_achievements[steamID64])
+			else
+				local insertQuery = mysql:Insert("hg_achievements")
+					insertQuery:Insert("steamid", steamID64)
+					insertQuery:Insert("steam_name", name)
+					insertQuery:Insert("achievements", util.TableToJSON({}))
+				insertQuery:Execute()
+
+				hg.achievements.achievements_data.player_achievements[steamID64] = {}
+			end
+		end)
+	query:Execute()
+end
+
+hook.Add("DatabaseConnected", "AchievementsCreateData", function()
+	local query
+
+	query = mysql:Create("hg_achievements")
+		query:Create("steamid", "VARCHAR(20) NOT NULL")
+		query:Create("steam_name", "VARCHAR(32) NOT NULL")
+        query:Create("achievements", "TEXT NOT NULL")
+		query:PrimaryKey("steamid")
+	query:Execute()
+
+    hg.achievements.SqlActive = true
+
+    print("Achievements SQL database connected.")
+
+    for i, ply in player.Iterator() do
+        updatePlayer(ply)
     end
+end)
 
-    if ZCITY_DB and ZCITY_DB.UpsertAchievementData then
-        ZCITY_DB.UpsertAchievementData(steamID64, name, achData)
-        return
-    end
+hook.Add( "PlayerInitialSpawn","hg_Exp_OnInitSpawn", updatePlayer)
+hook.Add("PlayerDisconnected", "savevalues", function(ply)
+    if !hg.achievements.SqlActive then print("Tried to save achievement data to SQL, but it is not active.") return end
+    
+    hg.achievements.SaveToSQL(ply)
+end)
 
-    if not mysql or not isfunction(mysql.Update) then return end
+function hg.achievements.SaveToSQL(ply, data)
+    if not hg.achievements.SqlActive then return end
 
+    local name = ply:Name()
+	local steamID64 = ply:SteamID64()
     local updateQuery = mysql:Update("hg_achievements")
-    updateQuery:Update("achievements", util.TableToJSON(achData))
-    updateQuery:Update("steam_name", name)
-    updateQuery:Where("steamid", steamID64)
+        updateQuery:Update("achievements", util.TableToJSON(data or hg.achievements.GetPlayerAchievements(ply) or {}) )
+        updateQuery:Update("steam_name", name)
+        updateQuery:Where("steamid", steamID64)
     updateQuery:Execute()
 end
 
 function hg.achievements.SavePlayerAchievements()
-    if not hg.achievements.EnsureSqlActive() then return end
+    if !hg.achievements.SqlActive then print("Tried to save achievement data to SQL, but it is not active.") return end
 
     for k, ply in player.Iterator() do
         hg.achievements.SaveToSQL(ply)
@@ -203,10 +149,6 @@ function hg.achievements.SetPlayerAchievement(ply, key, val)
     end
 
     playerAchievements[key].value = val
-
-    if ZCITY_DB and ZCITY_DB.SaveAchievementData and hg.achievements.EnsureSqlActive() then
-        ZCITY_DB.SaveAchievementData(steamID, ply:Name(), playerAchievements, false)
-    end
 end
 
 function hg.achievements.AddPlayerAchievement(ply, key, val)

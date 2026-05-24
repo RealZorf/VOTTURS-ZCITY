@@ -1,5 +1,5 @@
 local function HasAccess(ply)
-    return zb and zb.HasULX and zb.HasULX(ply, zb.UCL.RoundControl)
+    return ply:IsAdmin() or ply:IsSuperAdmin()
 end
 
 util.AddNetworkString("defense_admin_wave_menu")

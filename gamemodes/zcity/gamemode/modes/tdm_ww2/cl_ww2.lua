@@ -20,27 +20,26 @@ local function WithAlpha(color, alpha)
 end
 
 function MODE:HUDPaint()
-    local roundStart = zb.ROUND_START or CurTime()
-    local buyPhaseEnd = roundStart + 20
+    local StartTime = zb.ROUND_START or CurTime()
     local w, h = ScrW(), ScrH()
     local ply = LocalPlayer()
 
     self:AddHudPaint()
 
-    if buyPhaseEnd > CurTime() then
-        draw.SimpleText(string.FormattedTime(buyPhaseEnd - CurTime(), "%02i:%02i:%02i"), "ZB_HomicideMedium", w * 0.5, h * 0.95, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    if StartTime + 20 > CurTime() then
+        draw.SimpleText(string.FormattedTime(StartTime + 20 - CurTime(), "%02i:%02i:%02i"), "ZB_HomicideMedium", w * 0.5, h * 0.95, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         draw.SimpleText("Press F3 to open the field shop", "ZB_HomicideMedium", w * 0.5, h * 0.9, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     else
-        local time = string.FormattedTime(math.max(roundStart + (zb.ROUND_TIME or 400) - CurTime(), 0), "%02i:%02i:%02i")
+        local time = string.FormattedTime(math.max(StartTime + (zb.ROUND_TIME or 400) - CurTime(), 0), "%02i:%02i:%02i")
         draw.SimpleText(time, "ZB_HomicideMedium", w * 0.5, h * 0.95, Color(230, 230, 220), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 
-    if buyPhaseEnd < CurTime() then return end
+    if StartTime + 20 < CurTime() then return end
     if not ply:Alive() then return end
 
-    local fade = math.Clamp(roundStart + 8 - CurTime(), 0, 1)
-    if fade <= 0 then return end
+    zb.RemoveFade()
 
+    local fade = math.Clamp(StartTime + 8 - CurTime(), 0, 1)
     local info = teams[ply:Team()] or teams[0]
     local alpha = 255 * fade
 

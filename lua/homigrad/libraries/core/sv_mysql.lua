@@ -483,11 +483,6 @@ function mysql:Alter(tableName)
 	return QUERY_CLASS:New(tableName, "ALTER")
 end
 
-local function QuoteMySQLIdentifier(name)
-	name = tostring(name or "")
-	return "`" .. string.gsub(name, "`", "``") .. "`"
-end
-
 local UTF8MB4 = "ALTER DATABASE %s CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci"
 
 -- A function to connect to the MySQL database.
@@ -520,10 +515,7 @@ function mysql:Connect(host, username, password, database, port, socket, flags)
 					ErrorNoHalt("Failed to set MySQL encoding!\n")
 					ErrorNoHalt(error_message .. "\n")
 				else
-					-- Optional; may fail without ALTER privilege on shared hosts.
-					self:RawQuery(string.format(UTF8MB4, QuoteMySQLIdentifier(database)), function()
-						-- Charset is also set via setCharacterSet above when supported.
-					end)
+					self:RawQuery(string.format(UTF8MB4, database))
 		        end
 
 				mysql:OnConnected()
@@ -553,9 +545,7 @@ function mysql:RawQuery(query, callback, flags, ...)
 	if (self.module == "mysqloo") then
 		local queryObj = self.connection:query(query)
 
-		if (mysqloo.OPTION_NAMED_FIELDS) then
-			queryObj:setOption(mysqloo.OPTION_NAMED_FIELDS)
-		end
+		queryObj:setOption(mysqloo.OPTION_NAMED_FIELDS)
 
 		queryObj.onSuccess = function(queryObj, result)
 			if (callback) then
@@ -567,20 +557,8 @@ function mysql:RawQuery(query, callback, flags, ...)
 			end
 		end
 
-		queryObj.onError = function(queryObj, err, failedSql)
-			ErrorNoHalt(string.format(
-				"[mysql] MySQL Query Error!\nQuery: %s\n%s\n",
-				tostring(failedSql or query),
-				tostring(err or "unknown error")
-			))
-
-			if (callback) then
-				local bStatus, value = pcall(callback, nil, false, tostring(err or "unknown error"))
-
-				if (!bStatus) then
-					error(string.format("[mysql] MySQL Callback Error!\n%s\n", value))
-				end
-			end
+		queryObj.onError = function(queryObj, errorText)
+			ErrorNoHalt(string.format("[mysql] MySQL Query Error!\nQuery: %s\n%s\n", query, errorText))
 		end
 
 		queryObj:start()
@@ -653,17 +631,7 @@ end
 
 -- Called when the database connects sucessfully.
 function mysql:OnConnected()
-	local versionText = ""
-
-	if (istable(mysqloo)) then
-		if (mysqloo.VERSION) then
-			versionText = " (MySQLOO " .. tostring(mysqloo.VERSION) .. ")"
-		elseif (mysqloo._VERSION) then
-			versionText = " (MySQLOO " .. tostring(mysqloo._VERSION) .. ")"
-		end
-	end
-
-	MsgC(Color(25, 235, 25), "[mysql] Connected to the database!" .. versionText .. "\n")
+	MsgC(Color(25, 235, 25), "[mysql] Connected to the database!\n")
 
 	hook.Run("DatabaseConnected")
 end
@@ -675,9 +643,9 @@ function mysql:OnConnectionFailed(errorText)
 	hook.Run("DatabaseConnectionFailed", errorText)
 end
 
--- Singleton check: use mysql.IsConnected() (dot), not mysql:IsConnected() (colon).
-function mysql.IsConnected()
-	return (mysql.module == "mysqloo" and mysql.connection and mysql.connection:ping()) or mysql.module == "sqlite"
+-- A function to check whether or not the module is connected to a database.
+function mysql:IsConnected()
+	return self.module == "mysqloo" and (self.connection and self.connection:ping()) or self.module == "sqlite"
 end
 
 return mysql

@@ -508,29 +508,3 @@ if SERVER then
         ULib.ucl.groupAllow("admin", "ulx power")
     end)
 end
-
-function ulx.zcgod(calling_ply, target_ply)
-    if CLIENT then return end
-
-    target_ply = IsValid(target_ply) and target_ply or calling_ply
-
-    if not ZCRunHomigradCommand("zc_god", calling_ply, target_ply) then
-        return
-    end
-
-    if target_ply == calling_ply then
-        ulx.fancyLogAdmin(calling_ply, "#A toggled godmode for themselves")
-    else
-        ulx.fancyLogAdmin(calling_ply, "#A toggled godmode for #T", target_ply)
-    end
-end
-
-local zcgod = ulx.command(ZCITY_CATEGORY_NAME, "ulx zcgod", ulx.zcgod, "!zcgod")
-zcgod:addParam{type = ULib.cmds.PlayerArg, default = "^", ULib.cmds.optional}
-zcgod:defaultAccess(ULib.ACCESS_ADMIN)
-zcgod:help("Toggles Z-City godmode for a player.")
-
-if SERVER then
-	ULib.ucl.registerAccess("ulx zcgod", {"superadmin"}, "ULX command: zcgod.", "Z-City")
-end
-

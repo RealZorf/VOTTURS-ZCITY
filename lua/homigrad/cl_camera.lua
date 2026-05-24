@@ -213,12 +213,6 @@ function HGAddView(ply, origin, angles, velLen)
 		camera_position_addition[2] = 0
 		camera_position_addition[3] = (math.sin(breathing_amount + math.pi)) * 0.5
 
-		local spineModel = ply:GetModel() or ""
-		if ply.ZCSpineBoneCameraModel ~= spineModel then
-			ply.ZCSpineBoneCameraModel = spineModel
-			ply.ZCSpineBoneCamera = nil
-		end
-
 		local spineBone = ply.ZCSpineBoneCamera
 		if spineBone == nil then
 			spineBone = ply:LookupBone("ValveBiped.Bip01_Spine")
