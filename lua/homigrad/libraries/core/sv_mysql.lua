@@ -573,6 +573,14 @@ function mysql:RawQuery(query, callback, flags, ...)
 				tostring(failedSql or query),
 				tostring(err or "unknown error")
 			))
+
+			if (callback) then
+				local bStatus, value = pcall(callback, nil, false, tostring(err or "unknown error"))
+
+				if (!bStatus) then
+					error(string.format("[mysql] MySQL Callback Error!\n%s\n", value))
+				end
+			end
 		end
 
 		queryObj:start()

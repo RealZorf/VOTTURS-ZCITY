@@ -91,7 +91,7 @@ end
 
 local function runQuery(queryString, callback, context)
 	if not mysql or not isfunction(mysql.RawQuery) then
-		if isfunction(callback) then callback() end
+		if isfunction(callback) then callback(nil, false, "mysql not loaded") end
 		return
 	end
 
@@ -257,15 +257,19 @@ local function ensureTables(onReady)
 
 	local remaining = #SCHEMA_DDL
 
-	local function step()
+	local function step(_result, ok, err)
+		if ok == false then
+			logQueryError("schema DDL", err)
+		end
+
 		remaining = remaining - 1
 		if remaining <= 0 then
 			runSchemaMigrations(onReady)
 		end
 	end
 
-	for _, ddl in ipairs(SCHEMA_DDL) do
-		runQuery(ddl, step)
+	for i, ddl in ipairs(SCHEMA_DDL) do
+		runQuery(ddl, step, "schema DDL #" .. tostring(i))
 	end
 end
 
