@@ -1,4 +1,9 @@
 local CLASS = player.RegClass("headcrabzombie")
+local zombiePlayerModel = "models/zcity/player/zombie_classic.mdl"
+
+local function IsVisualZombie(ply)
+	return IsValid(ply) and ply.PlayerClassName == "headcrabzombie" and string.lower(ply:GetModel() or "") == zombiePlayerModel
+end
 
 local combines = {
     "npc_combine_s",
@@ -476,7 +481,7 @@ else
 	end
 
 	hook.Add("Post Pre Post Processing", "ZombDrawHeadcrab", function()
-		if lply.PlayerClassName == "headcrabzombie" and lply:Alive() and lply.organism and not lply.organism.otrub and GetViewEntity() == lply then
+		if IsVisualZombie(lply) and lply:Alive() and lply.organism and not lply.organism.otrub and GetViewEntity() == lply then
 			DrawHeadcrab(lply, "models/nova/w_headcrab.mdl", vector_origin, -50)
 		end
 	end)
@@ -484,7 +489,7 @@ else
 	--// Change view from head to upper torso because zombie model doesn't have proper head bone..
 	-- "HG_CalcView", ply, origin, angles, fova, znear, zfar
 	hook.Add("HGAddView", "ZombView", function(ply, origin, angles)
-		if ply:Alive() and ply.PlayerClassName == "headcrabzombie" then
+		if ply:Alive() and IsVisualZombie(ply) then
 			local ply_spine_index = ply:LookupBone("ValveBiped.Bip01_Spine4")
 			if !ply_spine_index then return end
 			local ply_spine_matrix = ply:GetBoneMatrix(ply_spine_index)
@@ -505,7 +510,7 @@ else
 	end)
 
 	hook.Add("hg_AdjustMouseSensitivity", "ZombSens", function(sensitivity)
-		if lply.PlayerClassName == "headcrabzombie" and lply:GetVelocity():LengthSqr() >= 140000 and lply:GetMoveType() == MOVETYPE_WALK then
+		if IsVisualZombie(lply) and lply:GetVelocity():LengthSqr() >= 140000 and lply:GetMoveType() == MOVETYPE_WALK then
 			return 0.25
 		end
 	end)
@@ -513,7 +518,7 @@ else
 	local zombMat = Material("effects/shaders/zb_grain2") -- Material("effects/shaders/zb_zomb")
 	local zombMat_Add = Material("effects/shaders/zb_heat")
 	hook.Add("Post Post Processing", "ZombShaders", function()
-		if lply.PlayerClassName == "headcrabzombie" and lply:Alive() and GetViewEntity() == lply then
+		if IsVisualZombie(lply) and lply:Alive() and GetViewEntity() == lply then
 			render.UpdateScreenEffectTexture()
 
 			zombMat_Add:SetFloat("$c0_x", -CurTime() * 0.1) //time

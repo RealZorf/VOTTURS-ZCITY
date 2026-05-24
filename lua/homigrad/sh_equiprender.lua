@@ -101,6 +101,12 @@ if CLIENT then
 	end
 
 	local function cachedArmorBone(ent, boneName)
+		local model = ent.GetModel and ent:GetModel() or ""
+		if ent.ZCArmorBonesModel ~= model then
+			ent.ZCArmorBonesModel = model
+			ent.ZCArmorBones = {}
+		end
+
 		ent.ZCArmorBones = ent.ZCArmorBones or {}
 		local idx = ent.ZCArmorBones[boneName]
 		if idx == nil then

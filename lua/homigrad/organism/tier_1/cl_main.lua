@@ -698,6 +698,12 @@ local muffedClasses = {
 local hg_heartbeat_volume = ConVarExists("hg_heartbeat_volume") and GetConVar("hg_heartbeat_volume") or CreateClientConVar("hg_heartbeat_volume", 1, true, nil, "heartbeat loudness", 0, 4)
 
 local function cachedClientThinkBone(ent, boneName)
+	local model = ent.GetModel and ent:GetModel() or ""
+	if ent.ZCClientThinkBonesModel ~= model then
+		ent.ZCClientThinkBonesModel = model
+		ent.ZCClientThinkBones = {}
+	end
+
 	ent.ZCClientThinkBones = ent.ZCClientThinkBones or {}
 	local bone = ent.ZCClientThinkBones[boneName]
 	if bone == nil then
@@ -1036,6 +1042,7 @@ function hg.GoreCalc(ent, ply)
 		ent.ZCGoreBones = {}
 	end
 
+	ent.ZCGoreBones = ent.ZCGoreBones or {}
 	local boneCache = ent.ZCGoreBones
 	local fem = ent.ZCGoreFemale or 0
 
