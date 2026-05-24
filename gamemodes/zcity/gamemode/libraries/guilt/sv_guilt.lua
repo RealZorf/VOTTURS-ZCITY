@@ -313,6 +313,14 @@ end)
 hook.Add("PlayerInitialSpawn", "ZB_GuiltSQL", onGuiltPlayerInitialSpawn)
 hook.Add("PlayerInitialSpawn", "GuiltSQL_OnJoin", onGuiltPlayerInitialSpawn)
 
+hook.Add("ShutDown", "GuiltSQL_SaveAllOnMapChange", function()
+	for _, ply in player.Iterator() do
+		if IsValid(ply) and not ply:IsBot() and Guilt.PersistFromPlayer then
+			Guilt.PersistFromPlayer(ply, true)
+		end
+	end
+end)
+
 local plyMeta = FindMetaTable("Player")
 
 function plyMeta:guilt_GetValue()
