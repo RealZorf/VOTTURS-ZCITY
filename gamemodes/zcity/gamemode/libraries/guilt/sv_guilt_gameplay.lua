@@ -236,9 +236,9 @@ hook.Add("Player Think", "karmagain", function(ply)
 	if (ply.KarmaGainThink or 0) > CurTime() then return end
 
 	ply.KarmaGainThink = CurTime() + 120
+	local currentKarma = ply.Karma or (ply.GetKarma and ply:GetKarma()) or 100
 	local karma = math.Clamp(
-		(ply.Karma or (ply.GetKarma and ply:GetKarma()) or 100)
-			+ (ply.Karma > 100 and 0.1 or (ply.KarmaGain or 0.75)),
+		currentKarma + (currentKarma > 100 and 0.1 or (ply.KarmaGain or 0.75)),
 		0,
 		zb.MaxKarma or 120
 	)
