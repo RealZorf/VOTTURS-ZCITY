@@ -59,11 +59,34 @@ function Guilt.SyncInstanceFromPlayer(ply)
 	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
 
 	local steamID64 = ply:SteamID64()
-	local value = clampKarma(ply.Karma or Guilt.DefaultKarma)
 	local inst = Guilt.EnsureInstance(steamID64)
+	local value
+
+	if istable(inst) and inst.value ~= nil then
+		value = clampKarma(inst.value)
+	elseif ply.Karma ~= nil then
+		value = clampKarma(ply.Karma)
+	else
+		value = clampKarma(Guilt.DefaultKarma)
+	end
+
 	inst.value = value
 	inst.loaded = true
 	inst.pending = nil
+	ply.Karma = value
+
+	return value
+end
+
+function Guilt.SyncInstanceFromGameplay(ply, karma)
+	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
+
+	local value = clampKarma(karma)
+	local inst = Guilt.EnsureInstance(ply:SteamID64())
+	inst.value = value
+	inst.loaded = true
+	inst.pending = nil
+	ply.Karma = value
 
 	return value
 end

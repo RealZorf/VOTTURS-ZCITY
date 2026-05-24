@@ -75,9 +75,18 @@ end
 
 function DB.SyncGuiltFromPlayer(ply)
 	if not IsValid(ply) or not ply:IsPlayer() or ply:IsBot() then return end
-	if not zb or not zb.GuiltSQL or not isfunction(zb.GuiltSQL.SyncInstanceFromPlayer) then return end
+	if not zb or not zb.GuiltSQL then return end
 
-	zb.GuiltSQL.SyncInstanceFromPlayer(ply)
+	local steamId64 = ply:SteamID64()
+	local inst = zb.GuiltSQL.PlayerInstances and zb.GuiltSQL.PlayerInstances[steamId64]
+
+	if istable(inst) and inst.value ~= nil and isfunction(zb.GuiltSQL.ApplyToPlayer) then
+		zb.GuiltSQL.ApplyToPlayer(ply, inst.value)
+	end
+
+	if isfunction(zb.GuiltSQL.SyncInstanceFromPlayer) then
+		zb.GuiltSQL.SyncInstanceFromPlayer(ply)
+	end
 end
 
 local function runQuery(queryString, callback, context)
@@ -349,11 +358,16 @@ function DB.FlushPlayer(steamId64, force)
 	local cache = DB.PlayerCache[steamId64]
 	if not istable(cache) or not istable(cache.dirty) then return end
 
-	if DB.PendingFlush[steamId64] then
+	if DB.PendingFlush[steamId64] and not (force and DB.IsShuttingDown()) then
 		if force then
 			DB.PendingFlushReplay[steamId64] = true
 		end
 		return
+	end
+
+	if DB.PendingFlush[steamId64] and force and DB.IsShuttingDown() then
+		DB.PendingFlush[steamId64] = nil
+		DB.PendingFlushReplay[steamId64] = nil
 	end
 
 	if not next(cache.dirty) then return end
@@ -415,7 +429,49 @@ function DB.FlushPlayer(steamId64, force)
 		end
 	end
 
-	timer.Simple(0, finishFlush)
+	if DB.IsShuttingDown() then
+		finishFlush()
+	else
+		timer.Simple(0, finishFlush)
+	end
+end
+
+function DB.ClearProfileSession(steamId64)
+	if not isValidSteamId64(steamId64) then return end
+
+	DB.ProfileLoadedSession[steamId64] = nil
+	DB.ProfileLoading[steamId64] = nil
+	DB.PendingFlushReplay[steamId64] = nil
+end
+
+function DB.ReapplyLoadedProfile(ply)
+	if not IsValid(ply) or ply:IsBot() then return end
+
+	local steamId64 = ply:SteamID64()
+	if not isValidSteamId64(steamId64) then return end
+
+	if zb and zb.GuiltSQL then
+		local inst = zb.GuiltSQL.PlayerInstances and zb.GuiltSQL.PlayerInstances[steamId64]
+		if istable(inst) and inst.value ~= nil and isfunction(zb.GuiltSQL.ApplyToPlayer) then
+			zb.GuiltSQL.ApplyToPlayer(ply, inst.value)
+		end
+	end
+
+	local cached = DB.PlayerCache[steamId64]
+	if cached and cached.playtime_seconds ~= nil then
+		local seconds = math.max(0, math.floor(tonumber(cached.playtime_seconds) or 0))
+		ply:SetNWInt("pat_scoreboard_playtime", seconds)
+		ply.PATSB_PlaytimeSeconds = seconds
+	end
+
+	if zb and zb.Experience and zb.Experience.PlayerInstances then
+		local expRow = zb.Experience.PlayerInstances[steamId64]
+		if istable(expRow) and isfunction(zb.Experience.ApplyJoinRow) then
+			zb.Experience.ApplyJoinRow(ply, expRow, false)
+		end
+	end
+
+	hook.Run("ZCITY_PlayerProfileLoaded", ply)
 end
 
 function DB.IsShuttingDown()
@@ -975,8 +1031,8 @@ local function applyUnifiedProfileRow(ply, row)
 	local steamId64 = ply:SteamID64()
 
 	if zb and zb.GuiltSQL and isfunction(zb.GuiltSQL.ApplyJoinRow) then
-		local hasGuiltRow = row.guilt_value ~= nil
-		zb.GuiltSQL.ApplyJoinRow(ply, row.guilt_value, not hasGuiltRow)
+		local guiltValue = tonumber(row.guilt_value)
+		zb.GuiltSQL.ApplyJoinRow(ply, guiltValue, false)
 	end
 
 	if zb and zb.Experience and isfunction(zb.Experience.ApplyJoinRow) then
@@ -1570,7 +1626,40 @@ end)
 
 hook.Add("ShutDown", "ZCITY_DB_FlushShutdown", function()
 	DB.BeginShutdown()
+
+	for _, ply in player.Iterator() do
+		if IsValid(ply) and ply:IsPlayer() and not ply:IsBot() then
+			local steamId64 = ply:SteamID64()
+			timer.Remove(FLUSH_TIMER_PREFIX .. steamId64)
+		end
+	end
+
 	DB.FlushAllPlayers()
+
+	for _, ply in player.Iterator() do
+		if IsValid(ply) and ply:IsPlayer() and not ply:IsBot() then
+			DB.ClearProfileSession(ply:SteamID64())
+		end
+	end
+end)
+
+hook.Add("PostCleanupMap", "ZCITY_DB_MapChangeResync", function()
+	timer.Simple(0, function()
+		if not DB.IsReady() then return end
+
+		for _, ply in player.Iterator() do
+			if not IsValid(ply) or ply:IsBot() then continue end
+
+			local steamId64 = ply:SteamID64()
+
+			if DB.HasGuiltInstance(steamId64) then
+				DB.ReapplyLoadedProfile(ply)
+			else
+				DB.ClearProfileSession(steamId64)
+				DB.LoadPlayerProfile(ply)
+			end
+		end
+	end)
 end)
 
 function DB.AddPlaytimeSeconds(ply, seconds)

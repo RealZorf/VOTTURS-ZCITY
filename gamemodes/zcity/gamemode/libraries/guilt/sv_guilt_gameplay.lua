@@ -19,7 +19,11 @@ local hg_developer = ConVarExists("hg_developer") and GetConVar("hg_developer") 
 local function applyKarmaNet(ply, karma)
 	if not IsValid(ply) then return end
 
-	ply.Karma = karma
+	if Guilt and Guilt.SyncInstanceFromGameplay then
+		karma = Guilt.SyncInstanceFromGameplay(ply, karma)
+	else
+		ply.Karma = karma
+	end
 
 	if ply.SetNetVar then
 		ply:SetNetVar("Karma", karma)
@@ -223,8 +227,8 @@ hook.Add("Player Spawn", "SlowlyRestoreKarma", function(ply)
 	if OverrideSpawn then return end
 
 	ply.lastwarning = nil
-	ply.Karma = ply.Karma or 100
-	applyKarmaNet(ply, ply.Karma)
+	local karma = ply.GetKarma and ply:GetKarma() or ply.Karma or 100
+	applyKarmaNet(ply, karma)
 	ply.Guilt = 0
 end)
 
@@ -232,13 +236,14 @@ hook.Add("Player Think", "karmagain", function(ply)
 	if (ply.KarmaGainThink or 0) > CurTime() then return end
 
 	ply.KarmaGainThink = CurTime() + 120
-	ply.Karma = math.Clamp(
-		ply.Karma + (ply.Karma > 100 and 0.1 or (ply.KarmaGain or 0.75)),
+	local karma = math.Clamp(
+		(ply.Karma or (ply.GetKarma and ply:GetKarma()) or 100)
+			+ (ply.Karma > 100 and 0.1 or (ply.KarmaGain or 0.75)),
 		0,
 		zb.MaxKarma or 120
 	)
 
-	applyKarmaNet(ply, ply.Karma)
+	applyKarmaNet(ply, karma)
 end)
 
 hook.Add("Org Clear", "removekarmashaking", function(org)

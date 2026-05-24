@@ -225,6 +225,10 @@ function zb.WrapUCLQueryForZCityCommands()
 end
 
 function zb.FinalizeZCityPermissions()
+	if zb.InstallLegacyAdminCompatibility then
+		zb.InstallLegacyAdminCompatibility()
+	end
+
 	zb.WrapUCLQueryForZCityCommands()
 	zb.CleanupDuplicateULXAccessStrings()
 	zb.MigrateULXCommandGrantsToZCity()
