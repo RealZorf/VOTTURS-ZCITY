@@ -12,11 +12,11 @@ MODE.SkipSpawnAppearance = true
 MODE.ThemeMusicFile = "tdm_ww2_theme.mp3"
 MODE.ThemeMusicVolume = 0.60
 MODE.BuyMenuTheme = {
-    Background = Color(0, 18, 28, 165),
-    InnerBackground = Color(3, 30, 44, 145),
-    Outline = Color(137, 207, 240, 185),
-    Gradient = Color(137, 207, 240, 75),
-    AttachmentGradient = Color(165, 225, 245, 70),
+	Background = Color(0, 0, 0, 155),
+	InnerBackground = Color(0, 0, 0, 140),
+	Outline = Color(255, 0, 0, 128),
+	Gradient = Color(155, 0, 0, 55),
+	AttachmentGradient = Color(55, 155, 55, 25),
 }
 
 MODE.TeamNames = {
