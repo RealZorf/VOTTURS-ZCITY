@@ -130,7 +130,7 @@ function zb:CanActivelyParticipate(ply)
 	if not IsValid(ply) or not ply:Alive() then return false end
 
 	local org = ply.organism
-	if not org then return true end
+	if not org then return false end
 
 	return not org.incapacitated and org.canmove
 end

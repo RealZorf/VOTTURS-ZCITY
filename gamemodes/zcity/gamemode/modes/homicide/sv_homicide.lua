@@ -1686,6 +1686,28 @@ function MODE.ShouldStartRoleRound()
 end
 --//
 
+MODE.TraitorKilledRoundEndDelay = MODE.TraitorKilledRoundEndDelay or 15
+
+function MODE:TraitorNeutralizedDelayActive()
+	local incapTraitorAlive = false
+
+	for _, ply in player.Iterator() do
+		if ply.isTraitor and ply:Alive() and not zb:CanActivelyParticipate(ply) then
+			incapTraitorAlive = true
+			break
+		end
+	end
+
+	if not incapTraitorAlive then
+		self.LastTraitorNeutralizedTime = nil
+		return false
+	end
+
+	self.LastTraitorNeutralizedTime = self.LastTraitorNeutralizedTime or CurTime()
+
+	return (CurTime() - self.LastTraitorNeutralizedTime) < self.TraitorKilledRoundEndDelay
+end
+
 function MODE:ShouldRoundEnd()
 	if(MODE.StartRoundTime and MODE.RoleChooseRound)then
 		if(MODE.StartRoundTime > CurTime())then
@@ -1699,6 +1721,10 @@ function MODE:ShouldRoundEnd()
 		end
 	else
 		local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
+
+		if endround and winner == 0 and self:TraitorNeutralizedDelayActive() then
+			return false
+		end
 
 		if(endround)then
 			MODE.ChoosingPlayersList = {}
@@ -1715,6 +1741,7 @@ function MODE:RoundStart()
 	
 
 	self.roundStartType = self.Type
+	self.LastTraitorNeutralizedTime = nil
 	
 
 	self.deadPoliceCount = 0

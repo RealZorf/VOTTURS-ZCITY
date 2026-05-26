@@ -232,7 +232,17 @@ function MODE:Intermission()
 end
 
 function MODE:ShouldRoundEnd()
-	return #zb:CheckAlive(true) == 0
+	local aliveActiveCount = #zb:CheckAlive(true)
+
+	if aliveActiveCount ~= 0 then
+		return
+	end
+
+	if MODE:TraitorNeutralizedDelayActive() then
+		return false
+	end
+
+	return true
 end
 
 function MODE:EndRound()
