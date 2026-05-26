@@ -68,12 +68,12 @@ AddItemToBUY( "III Vest", "Armor", "ent_armor_vest4", 650, "Equipment", {} )
 AddItemToBUY( "IV Vest", "Armor", "ent_armor_vest1", 1000, "Equipment", {} )
 
 -- UTILITY
-AddItemToBUY( "Flashlight", "Armor", "hg_flashlight", 250, "Equipment", {} )
-AddItemToBUY( "NVG-GPNVG-18", "Armor", "ent_armor_nightvision1", 450, "Equipment", {} )
-AddItemToBUY( "Flashbang", "Weapon", "weapon_hg_flashbang_tpik", 250, "Explosive", {} )
-AddItemToBUY( "Smoke Grenade", "Weapon", "weapon_hg_m18_tpik", 350, "Explosive", {} )
-AddItemToBUY( "RGD-5", "Weapon", "weapon_hg_rgd_tpik", 450, "Explosive", {} )
-AddItemToBUY( "M67", "Weapon", "weapon_hg_grenade_tpik", 500, "Explosive", {} )
+AddItemToBUY( "Flashlight", "Armor", "hg_flashlight", 250, "Utility", {} )
+AddItemToBUY( "NVG-GPNVG-18", "Armor", "ent_armor_nightvision1", 450, "Utility", {} )
+AddItemToBUY( "Flashbang", "Weapon", "weapon_hg_flashbang_tpik", 250, "Utility", {} )
+AddItemToBUY( "Smoke Grenade", "Weapon", "weapon_hg_m18_tpik", 350, "Utility", {} )
+AddItemToBUY( "RGD-5", "Weapon", "weapon_hg_rgd_tpik", 450, "Utility", {} )
+AddItemToBUY( "M67", "Weapon", "weapon_hg_grenade_tpik", 500, "Utility", {} )
 
 -- PISTOLS
 AddItemToBUY( "Colt M1911", "Weapon", "weapon_m1911", 400, "Pistols", {}, nil, 0 )
