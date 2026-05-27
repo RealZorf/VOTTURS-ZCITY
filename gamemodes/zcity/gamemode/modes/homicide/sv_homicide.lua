@@ -863,7 +863,7 @@ MODE.Types.wildwest = {
 			if v.isTraitor then continue end
 			if v.isGunner then
 				local shotgun = v:Give("weapon_ithaca37")
-				v:GiveAmmo(shotgun:GetMaxClip1() * 5, shotgun:GetPrimaryAmmoType(), true)
+				v:GiveAmmo(shotgun:GetMaxClip1() * 1, shotgun:GetPrimaryAmmoType(), true)
 				v:Give("weapon_revolvermodel29")
 				v:Give("weapon_handcuffs")
 				v:Give("weapon_handcuffs_key")
