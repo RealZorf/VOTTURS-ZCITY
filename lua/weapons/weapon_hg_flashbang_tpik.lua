@@ -142,7 +142,7 @@ SWEP.ItemsBones = {
 	["Pin"] = {59,60,61},
 }
 SWEP.SpoonSounds = {
-	[1] = {"snd_jack_spoonfling.ogg", 65},
+	[1] = {"snd_jack_spoonfling.wav", 65},
 	[2] = {"m9/m9_fp.wav", 70, 200, true}
 }
 

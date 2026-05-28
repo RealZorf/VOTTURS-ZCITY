@@ -145,7 +145,7 @@ SWEP.ItemsBones = {
 
 SWEP.spoon = "models/weapons/arc9/darsu_eft/skobas/rgd5_skoba.mdl"
 SWEP.SpoonSounds = {
-	[1] = {"snd_jack_spoonfling.ogg", 65},
+	[1] = {"snd_jack_spoonfling.wav", 65},
 	[2] = {"m9/m9_fp.wav", 70, 200, true}
 }
 
