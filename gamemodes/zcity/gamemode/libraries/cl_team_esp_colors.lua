@@ -100,6 +100,22 @@ function TeamESP.GetTeamColor(ply)
 	return nil
 end
 
+local function PlayerIdToHue(ply)
+	local id = ply:SteamID64()
+	if not id or id == "" or id == "0" then
+		id = string.format("ent:%d:uid:%d", ply:EntIndex(), ply:UserID())
+	end
+
+	local crc = util.CRC(id)
+	return (tonumber(crc, 16) or tonumber(crc) or (ply:EntIndex() * 41 + ply:UserID() * 17)) % 360
+end
+
+function TeamESP.GetDistinctPlayerColor(ply, fallback)
+	if not IsValid(ply) then return fallback or TeamESP.DefaultColor end
+
+	return HSVToColor(PlayerIdToHue(ply), 0.8, 0.95)
+end
+
 function TeamESP.GetPlayerColor(ply, fallback)
 	if not IsValid(ply) then return fallback or TeamESP.DefaultColor end
 
@@ -108,8 +124,5 @@ function TeamESP.GetPlayerColor(ply, fallback)
 		if teamCol then return teamCol end
 	end
 
-	local id = ply:SteamID64() or tostring(ply:UserID())
-	local hue = (tonumber(util.CRC(id), 16) or ply:UserID()) % 360
-
-	return HSVToColor(hue, 0.8, 0.95)
+	return HSVToColor(PlayerIdToHue(ply), 0.8, 0.95)
 end

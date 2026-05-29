@@ -583,8 +583,14 @@ local function IsSpectatorESPAllowed()
 end
 
 local function GetSpectatorESPColor(ply)
-	if zb.TeamESP and zb.TeamESP.GetPlayerColor then
+	if not zb.TeamESP then return spectatorESPFallbackColor end
+
+	if zb.TeamESP.IsTeamRound and zb.TeamESP.IsTeamRound() and zb.TeamESP.GetPlayerColor then
 		return zb.TeamESP.GetPlayerColor(ply, spectatorESPFallbackColor)
+	end
+
+	if zb.TeamESP.GetDistinctPlayerColor then
+		return zb.TeamESP.GetDistinctPlayerColor(ply, spectatorESPFallbackColor)
 	end
 
 	return spectatorESPFallbackColor

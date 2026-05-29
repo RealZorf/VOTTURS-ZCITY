@@ -91,6 +91,7 @@ hg.settings:AddOpt("Blood","hg_old_blood", "Old blood")
 
 hg.settings:AddOpt("UI","hg_font", "Change Custom Font", false, true)
 hg.settings:AddOpt("UI", "mzb_MoodleHud_enabled", "Moodle HUD", nil, nil, "bool")
+hg.settings:AddOpt("UI", "zb_spectator_esp", "Spectator ESP", nil, nil, "bool")
 
 hg.settings:AddOpt("Weapons","hg_weaponshotblur_enable", "Shooting Blur")
 hg.settings:AddOpt("Weapons","hg_dynamic_mags", "Dynamic Ammo Inspect")
