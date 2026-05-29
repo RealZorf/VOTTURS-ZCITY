@@ -573,8 +573,10 @@ local function IsSpectatorESPAllowed()
 	local ply = LocalPlayer()
 	if not IsValid(ply) then return false end
 
-	if (not ply:Alive() or ply:Team() == TEAM_SPECTATOR) and ESP and ESP.Enabled then return false end
-	if ply:Alive() and ply:Team() ~= TEAM_SPECTATOR then return false end
+	if ESP and ESP.Enabled then return false end
+
+	if ply:Alive() then return false end
+	if ply:Team() ~= TEAM_SPECTATOR then return false end
 
 	local round = CurrentRound and CurrentRound()
 	if not round or round.name == "coop" then return false end
