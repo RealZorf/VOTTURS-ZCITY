@@ -576,7 +576,6 @@ local function IsSpectatorESPAllowed()
 	if ESP and ESP.Enabled then return false end
 
 	if ply:Alive() then return false end
-	if ply:Team() ~= TEAM_SPECTATOR then return false end
 
 	local round = CurrentRound and CurrentRound()
 	if not round or round.name == "coop" then return false end
