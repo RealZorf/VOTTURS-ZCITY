@@ -9,7 +9,7 @@ if CLIENT then
 		if !broadcastAnyways and self:GetOwner() == LocalPlayer() and !game.SinglePlayer() then return end
 		
 		if self.Shoot then
-			self:Shoot(shoot)
+			self:Shoot(broadcastAnyways or shoot)
 		end
 	end)
 end

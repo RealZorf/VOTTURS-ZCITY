@@ -357,28 +357,32 @@ function SWEP:PlaySnd(snd, server, chan, vol, pitch, entity, tripleaffirmative)
 	local dsproom = (hg_distortedsounds:GetBool() or hg_gopro:GetBool()) and 18 or nil
 	if CLIENT then
 		local view = render.GetViewSetup(true)
-		local time = owner:GetPos():Distance(view.origin) / 17836
+		local ownerPos = owner:GetPos()
+		local soundEntIndex = IsValid(owner) and owner:EntIndex() or 0
+		local time = ownerPos:Distance(view.origin) / 17836
 		local playsnd1 = function()
 			if not IsValid(self) then return end
-			local owner = self:GetOwner()
-			if not IsValid(owner) then return end
-			local ent = hg.GetCurrentCharacter(owner)
-			local ownerPos = owner:GetPos()
+			local entIndex = soundEntIndex
+			local liveOwner = self:GetOwner()
+			if IsValid(liveOwner) then
+				entIndex = liveOwner:EntIndex()
+				ownerPos = liveOwner:GetPos()
+			end
 
 			if type(snd) == "table" then
 				local rand = math.random(-5,5)
-				EmitSound( snd[1], ownerPos, (entity or owner:EntIndex()) + owner:EntIndex(), CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+				EmitSound( snd[1], ownerPos, (entity or entIndex) + entIndex, CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
 				if tripleaffirmative and !hg_quietshots:GetBool() then
-					EmitSound( snd[1], ownerPos-vector_up, (entity or owner:EntIndex()) + 1 + owner:EntIndex(), CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
-					EmitSound( snd[1], ownerPos, (entity or owner:EntIndex()) + 2 + owner:EntIndex(), CHAN_WEAPON, vol, (snd[2] or (self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd[1], ownerPos-vector_up, (entity or entIndex) + 1 + entIndex, CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd[1], ownerPos, (entity or entIndex) + 2 + entIndex, CHAN_WEAPON, vol, (snd[2] or (self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
 				end
 				-- self:EmitSound(snd[1], (snd[2] or (self.Supressor and 75 or 75)), (pitch or 100) + rand, vol, CHAN_AUTO)
 			else
 				local rand = math.random(-5,5)
-				EmitSound( snd, ownerPos, (entity or owner:EntIndex()) + owner:EntIndex(), CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+				EmitSound( snd, ownerPos, (entity or entIndex) + entIndex, CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
 				if tripleaffirmative and !hg_quietshots:GetBool() then
-					EmitSound( snd, ownerPos-vector_up, (entity or owner:EntIndex()) + 1 + owner:EntIndex(), CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
-					EmitSound( snd, ownerPos, (entity or owner:EntIndex()) + 2 + owner:EntIndex(), CHAN_WEAPON, vol, ((self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd, ownerPos-vector_up, (entity or entIndex) + 1 + entIndex, CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd, ownerPos, (entity or entIndex) + 2 + entIndex, CHAN_WEAPON, vol, ((self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
 				end
 				-- self:EmitSound(snd[1], ((self.Supressor and 75 or 75)), (pitch or 100) + rand, vol, CHAN_AUTO)
 			end
@@ -403,32 +407,39 @@ SOUND_LEVEL_GUNFIRE = 150
 
 function SWEP:PlaySndDist(snd)
 	if SERVER then return end
-	local owner = IsValid(self:GetOwner().FakeRagdoll) and self:GetOwner().FakeRagdoll or self:GetOwner()
-	owner = IsValid(owner) and owner or self
+	local owner = self:GetOwner()
+	local soundEnt = IsValid(owner) and (IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner) or self
+	soundEnt = IsValid(soundEnt) and soundEnt or self
 	local view = render.GetViewSetup(true)
-	local pos = owner:GetPos() + vector_up * 72
-	local dist = owner:GetPos():Distance(view.origin)
+	local pos = soundEnt:GetPos() + vector_up * 72
+	local dist = pos:Distance(view.origin)
 	local time = dist / 17836
-	
+	local soundPos = soundEnt:GetPos()
+	local soundEntIndex = soundEnt:EntIndex()
 
 	local bRoom = util.IsSkyboxVisibleFromPoint(pos)
 	
 	timer.Simple(time, function()
-		if not IsValid(self) or not IsValid(self:GetOwner()) then return end
+		if not IsValid(self) then return end
 
-		local owner = IsValid(self) and (IsValid(self:GetOwner()) and (IsValid(self:GetOwner().FakeRagdoll) and self:GetOwner().FakeRagdoll or self:GetOwner()) or self)
-		owner = IsValid(owner) and owner
-		if not owner then return end
+		local owner = self:GetOwner()
+		if IsValid(owner) then
+			local liveEnt = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
+			if IsValid(liveEnt) then
+				soundPos = liveEnt:GetPos()
+				soundEntIndex = liveEnt:EntIndex()
+			end
+		end
 		
 		local roomMultiplier = bRoom and 1.0 or 0.7
 		local suppressorVolume = self.Supressor and (self.DOZVUK and 10 or 60) or 100
 		local finalVolume = suppressorVolume * roomMultiplier
 
-		EmitSound(snd, owner:GetPos(), owner:EntIndex(), CHAN_STATIC, 1, finalVolume, 0, 90)
+		EmitSound(snd, soundPos, soundEntIndex, CHAN_STATIC, 1, finalVolume, 0, 90)
 
 		local farPitch = math.Clamp(100 - (dist / 1000), 75, 95)
 		if dist > 1000 then
-			EmitSound(snd, owner:GetPos(), owner:EntIndex() + 1, CHAN_STATIC, 1, finalVolume * 1.2, 0, farPitch)
+			EmitSound(snd, soundPos, soundEntIndex + 1, CHAN_STATIC, 1, finalVolume * 1.2, 0, farPitch)
 		end
 	end)
 end
@@ -517,13 +528,15 @@ function SWEP:PrimaryAttack(broadcast)
 	if CLIENT and not self:IsClient() then return end
 	if self:KeyDown(IN_USE) and !IsValid(self:GetOwner().FakeRagdoll) then return false end
 	
-	local huy = self:Shoot() ~= false
+	local owner = self:GetOwner()
+	local broadcastToAll = broadcast or (IsValid(owner) and owner.suiciding)
+	local huy = self:Shoot(broadcastToAll) ~= false
 	
 	if SERVER and huy then
 		net.Start("hgwep shoot", true)
 		net.WriteEntity(self)
 		net.WriteBool(huy)
-		net.WriteBool(broadcast)
+		net.WriteBool(broadcastToAll)
 		net.Broadcast()
 	end
 end
