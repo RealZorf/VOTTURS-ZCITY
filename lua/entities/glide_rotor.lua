@@ -121,6 +121,65 @@ end
 local CurTime = CurTime
 local FrameTime = FrameTime
 local TraceHull = util.TraceHull
+local IsValid = IsValid
+
+function ENT:RefreshTraceFilter()
+    local parent = self:GetParent()
+    local filter = { self, parent }
+
+    if IsValid( parent ) and parent.GetAllPlayers then
+        for _, ply in ipairs( parent:GetAllPlayers() ) do
+            if IsValid( ply ) then
+                filter[#filter + 1] = ply
+
+                local ragdoll = ply.FakeRagdoll
+
+                if IsValid( ragdoll ) then
+                    filter[#filter + 1] = ragdoll
+                end
+            end
+        end
+
+        if parent.seats then
+            for _, seat in ipairs( parent.seats ) do
+                if IsValid( seat ) then
+                    filter[#filter + 1] = seat
+                end
+            end
+        end
+    end
+
+    self.traceData.filter = filter
+end
+
+local function IsVehicleOccupant( rotor, ent )
+    if not IsValid( ent ) then return false end
+
+    local parent = rotor:GetParent()
+    if not IsValid( parent ) or not parent.GetAllPlayers then return false end
+
+    if ent:IsPlayer() then
+        local seat = ent:GetVehicle()
+
+        return IsValid( seat ) and seat:GetParent() == parent
+    end
+
+    if ent:GetClass() == "prop_ragdoll" then
+        local ply = ent.ply or ent:GetNWEntity( "ply" )
+
+        if IsValid( ply ) and ply:IsPlayer() then
+            local seat = ply:GetVehicle()
+
+            return IsValid( seat ) and seat:GetParent() == parent
+        end
+    end
+
+    if ent.GlideSeatIndex then
+        return ent:GetParent() == parent
+    end
+
+    return false
+end
 
 function ENT:Think()
     -- Destroy when under water
@@ -148,6 +207,7 @@ function ENT:Think()
 
         -- Do collision detection
         if self.enableTrace and self.spinMultiplier > 0.2 then
+            self:RefreshTraceFilter()
             self:CheckRotorClearance( dt, parent )
         end
     end
@@ -197,7 +257,6 @@ function ENT:CheckRotorClearance( dt, parent )
     end
 end
 
-local IsValid = IsValid
 local DamageInfo = DamageInfo
 
 --- Make an entity take damage from this rotor.
@@ -222,6 +281,8 @@ local PlaySoundSet = Glide.PlaySoundSet
 
 --- Called when the rotor's trace hits something.
 function ENT:OnRotorHit( ent, pos, origin )
+    if IsVehicleOccupant( self, ent ) then return end
+
     self.rotorHealth = self.rotorHealth - 1
 
     local parent = self:GetParent()

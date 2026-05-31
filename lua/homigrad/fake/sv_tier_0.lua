@@ -761,6 +761,11 @@ function hg.Fake(ply, huyragdoll, no_freemove, force)
 		//ply:UnSpectate()
 		--ply:SetSolidFlags(bit.bor(ply:GetSolidFlags(), FSOLID_NOT_SOLID, FSOLID_TRIGGER, FSOLID_USE_TRIGGER_BOUNDS))
 		hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_IN_VEHICLE)
+
+		if ply:InVehicle() then
+			hg.ApplySetCollisionGroupNow(ragdoll, COLLISION_GROUP_IN_VEHICLE)
+		end
+
 		ply:SetPos(pos)
 		ply:SetNoDraw(false)
 		ply:SetRenderMode(RENDERMODE_NONE)
@@ -1133,10 +1138,12 @@ hook.Add("PlayerEnteredVehicle","allowweapons",function(ply,veh,role)
 	//local veh2 = veh:GetParent()
 
 	timer.Create("EnterVehicleRag"..ply:EntIndex(), (veh:GetVehicleClass() == "Pod") and 0.5 or 1, 1, function()
+		if not IsValid(ply) or not ply:InVehicle() then return end
+
 		ply:SetEyeAngles(angle_zero)
 		hg.Fake(ply, nil, nil, true)
-		
-		hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_PLAYER)
+
+		hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_IN_VEHICLE)
 		--ply:SetSolidFlags(bit.band(ply:GetSolidFlags(), bit.bnot(FSOLID_NOT_SOLID), bit.bnot(FSOLID_TRIGGER), bit.bnot(FSOLID_USE_TRIGGER_BOUNDS)))
 	end)
 
