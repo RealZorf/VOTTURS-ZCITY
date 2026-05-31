@@ -181,39 +181,43 @@ CreateEndMenu = function(winnerSide, home)
         but:DockMargin(8, 6, 8, -1)
         but:SetText("")
         but.Paint = function(self, w, h)
-            local isHome = ply.PlayerClassName == "homelander" or ply:GetNWBool("IsHomelander")
-            local col1 = isHome and colHome or (ply:Alive() and colHider or colGray)
-            local col2 = isHome and colHomeUp or (ply:Alive() and colHiderUp or colSpect1)
+            local validPly = IsValid(ply)
+            local isHome = validPly and (ply.PlayerClassName == "homelander" or ply:GetNWBool("IsHomelander"))
+            local isAlive = validPly and ply:Alive()
+            local col1 = isHome and colHome or (isAlive and colHider or colGray)
+            local col2 = isHome and colHomeUp or (isAlive and colHiderUp or colSpect1)
 
             surface.SetDrawColor(col1.r, col1.g, col1.b, col1.a)
             surface.DrawRect(0, 0, w, h)
             surface.SetDrawColor(col2.r, col2.g, col2.b, col2.a)
             surface.DrawRect(0, h / 2, w, h / 2)
 
-            local plyCol = ply:GetPlayerColor():ToColor()
+            local plyCol = validPly and ply:GetPlayerColor():ToColor() or color_white
             surface.SetFont("ZB_InterfaceMediumLarge")
-            local _, lengthY = surface.GetTextSize(ply:GetPlayerName() or "?")
+            local displayName = validPly and (ply:GetPlayerName() or ply:Name()) or "He quited..."
+            local _, lengthY = surface.GetTextSize(displayName)
 
             surface.SetTextColor(0, 0, 0, 255)
             surface.SetTextPos(w / 2 + 1, h / 2 - lengthY / 2 + 1)
-            surface.DrawText(ply:GetPlayerName() or "?")
+            surface.DrawText(displayName)
 
             surface.SetTextColor(plyCol.r, plyCol.g, plyCol.b, plyCol.a)
             surface.SetTextPos(w / 2, h / 2 - lengthY / 2)
-            surface.DrawText(ply:GetPlayerName() or "?")
+            surface.DrawText(displayName)
 
             surface.SetFont("ZB_InterfaceMediumLarge")
             surface.SetTextColor(colSpect2.r, colSpect2.g, colSpect2.b, colSpect2.a)
-            local label = ply:Name() .. (isHome and " - Homelander" or (not ply:Alive() and " - died" or ""))
+            local label = validPly and (ply:Name() .. (isHome and " - Homelander" or (not isAlive and " - died" or ""))) or "He quited..."
             surface.SetTextPos(15, h / 2 - lengthY / 2)
             surface.DrawText(label)
 
-            local fragsTxt = tostring(ply:Frags() or 0)
+            local fragsTxt = validPly and tostring(ply:Frags()) or "0"
             local fragLen = surface.GetTextSize(fragsTxt)
             surface.SetTextPos(w - fragLen - 15, h / 2 - lengthY / 2)
             surface.DrawText(fragsTxt)
         end
         function but:DoClick()
+            if not IsValid(ply) then return end
             if ply:IsBot() then chat.AddText(Color(255, 0, 0), "no, you can't") return end
             gui.OpenURL("https://steamcommunity.com/profiles/" .. ply:SteamID64())
         end

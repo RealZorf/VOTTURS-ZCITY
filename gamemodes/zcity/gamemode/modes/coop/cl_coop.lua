@@ -160,42 +160,47 @@ CreateEndMenu = function()
 		but:DockMargin( 8, 6, 8, -1 )
 		but:SetText("")
 		but.Paint = function(self,w,h)
-			if !IsValid(ply) then return end
-            local col1 = (ply:Alive() and colRed) or colGray
-            local col2 = (ply:Alive() and colRedUp) or colSpect1
+			local validPly = IsValid(ply)
+			local isAlive = validPly and ply:Alive()
+            local col1 = (isAlive and colRed) or colGray
+            local col2 = (isAlive and colRedUp) or colSpect1
 			surface.SetDrawColor(col1.r,col1.g,col1.b,col1.a)
 			surface.DrawRect(0,0,w,h)
 			surface.SetDrawColor(col2.r,col2.g,col2.b,col2.a)
 			surface.DrawRect(0,h/2,w,h/2)
 
-            local col = ply:GetPlayerColor():ToColor()
+            local plyColor = validPly and ply:GetPlayerColor():ToColor() or color_white
 			surface.SetFont( "ZB_InterfaceMediumLarge" )
-			local lengthX, lengthY = surface.GetTextSize( ply:GetPlayerName() or "He quited..." )
+			local displayName = validPly and (ply:GetPlayerName() or ply:Name()) or "He quited..."
+			local lengthX, lengthY = surface.GetTextSize(displayName)
 			
 			surface.SetTextColor(0,0,0,255)
 			surface.SetTextPos(w / 2 + 1,h/2 - lengthY/2 + 1)
-			surface.DrawText(ply:GetPlayerName() or "He quited...")
+			surface.DrawText(displayName)
 
-			surface.SetTextColor(col.r,col.g,col.b,col.a)
+			surface.SetTextColor(plyColor.r,plyColor.g,plyColor.b,plyColor.a)
 			surface.SetTextPos(w / 2,h/2 - lengthY/2)
-			surface.DrawText(ply:GetPlayerName() or "He quited...")
+			surface.DrawText(displayName)
 
             
 			local col = colSpect2
 			surface.SetFont( "ZB_InterfaceMediumLarge" )
 			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local lengthX, lengthY = surface.GetTextSize( ply:GetPlayerName() or "He quited..." )
+			local leftText = validPly and (ply:Name() .. (not isAlive and " - died" or "")) or "He quited..."
+			local lengthX, lengthY = surface.GetTextSize(leftText)
 			surface.SetTextPos(15,h/2 - lengthY/2)
-			surface.DrawText((ply:Name() .. (not ply:Alive() and " - died" or "")) or "He quited...")
+			surface.DrawText(leftText)
 
 			surface.SetFont( "ZB_InterfaceMediumLarge" )
 			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local lengthX, lengthY = surface.GetTextSize( ply:Frags() or "He quited..." )
+			local fragsText = validPly and tostring(ply:Frags()) or "0"
+			local lengthX, lengthY = surface.GetTextSize(fragsText)
 			surface.SetTextPos(w - lengthX -15,h/2 - lengthY/2)
-			surface.DrawText(ply:Frags() or "He quited...")
+			surface.DrawText(fragsText)
 		end
 
 		function but:DoClick()
+			if not IsValid(ply) then return end
 			if ply:IsBot() then chat.AddText(Color(255,0,0), "no, you can't") return end
 			gui.OpenURL("https://steamcommunity.com/profiles/"..ply:SteamID64())
 		end
