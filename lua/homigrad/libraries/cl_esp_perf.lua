@@ -4,9 +4,8 @@ zb.ESPPerf = zb.ESPPerf or {}
 local ESPPerf = zb.ESPPerf
 
 local esp_range_limit = ConVarExists("zb_esp_range_limit") and GetConVar("zb_esp_range_limit") or CreateClientConVar("zb_esp_range_limit", "0", true, false, "Maximum ESP range in meters (0 = unlimited)", 0, 1000)
-local esp_outline_limit = ConVarExists("zb_esp_outline_limit") and GetConVar("zb_esp_outline_limit") or CreateClientConVar("zb_esp_outline_limit", "0", true, false, "Maximum number of player outlines (0 = auto)", 0, 40)
+local esp_outline_limit = ConVarExists("zb_esp_outline_limit") and GetConVar("zb_esp_outline_limit") or CreateClientConVar("zb_esp_outline_limit", "0", true, false, "Maximum number of player outlines (0 = unlimited)", 0, 40)
 local esp_show_outlines = ConVarExists("zb_esp_show_outlines") and GetConVar("zb_esp_show_outlines") or CreateClientConVar("zb_esp_show_outlines", "1", true, false, "Enable or disable player outlines", 0, 1)
-local esp_auto_performance = ConVarExists("zb_esp_auto_performance") and GetConVar("zb_esp_auto_performance") or CreateClientConVar("zb_esp_auto_performance", "1", true, false, "Automatically reduce ESP workload when many players are active", 0, 1)
 
 local METERS_TO_UNITS = 52.49
 
@@ -16,18 +15,6 @@ local targetCache = {
 	origin = vector_origin,
 	targets = {},
 }
-
-local function CountAlivePlayers()
-	local count = 0
-
-	for _, ply in player.Iterator() do
-		if ply:Alive() and ply:Team() ~= TEAM_SPECTATOR then
-			count = count + 1
-		end
-	end
-
-	return count
-end
 
 function ESPPerf.GetMaxDistanceSqr()
 	local meters = esp_range_limit:GetFloat()
@@ -40,13 +27,6 @@ end
 function ESPPerf.GetMaxOutlineCount()
 	local configured = esp_outline_limit:GetInt()
 	if configured > 0 then return configured end
-	if not esp_auto_performance:GetBool() then return math.huge end
-
-	local alive = CountAlivePlayers()
-
-	if alive >= 36 then return 20 end
-	if alive >= 28 then return 28 end
-	if alive >= 20 then return 36 end
 
 	return math.huge
 end
