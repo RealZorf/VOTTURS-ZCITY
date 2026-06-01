@@ -723,8 +723,12 @@ function hgWreckBuildings(blaster, pos, power, range, ignoreVisChecks) -- taken 
 					end
 
 					if proceed then
-						if mass <= myDestroyThreshold then
-							SafeRemoveEntity(prop)
+                        if mass <= myDestroyThreshold then
+                            if prop:GetClass() == "prop_ragdoll" or prop:IsNPC() then
+                                physObj:EnableMotion(true)
+                            else
+                                SafeRemoveEntity(prop)
+                            end
 						elseif mass <= myLoosenThreshold then
 							physObj:EnableMotion(true)
 							constraint.RemoveAll(prop)
@@ -869,6 +873,7 @@ hook.Add( "OnEntityCreated", "VechicleChairs", function( ent )
 			
 			ent:SetModel("models/props_junk/PopCan01a.mdl")
 			ent:SetAngles(ent:LocalToWorldAngles(UwU and Angle(0, -1, 0) or Angle(0,90,0)))
+			ent:SetPos(ent:GetPos() + vector_up * 3 + ent:GetAngles():Forward() * 5)
 		end
 	end)
 	

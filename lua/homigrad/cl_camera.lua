@@ -672,6 +672,10 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 
 	wep = ply:GetActiveWeapon()
 	if IsValid(wep) and whitelist[wep:GetClass()] then return end
+	result = hook_Run("PostPostHGCalcView", ply, view)
+	if result then
+		return result
+	end
 
 	return view
 end

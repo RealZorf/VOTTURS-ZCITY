@@ -1132,8 +1132,9 @@ hook.Add("CanPlayerEnterVehicle","fake_enterveh",function(ply, veh)
 	
 	return true//not IsValid(ply.FakeRagdoll)// or IsValid(ply.wasveh)
 end)
-
+local hg_no_fake_in_cars = CreateConVar("hg_no_fake_in_cars","0",FCVAR_ARCHIVE + FCVAR_REPLICATED, "disables fake in cars", 0, 1)
 hook.Add("PlayerEnteredVehicle","allowweapons",function(ply,veh,role)
+	if hg_no_fake_in_cars:GetBool() then return end
 	ply:SetEyeAngles(angle_zero)
 	//local veh2 = veh:GetParent()
 

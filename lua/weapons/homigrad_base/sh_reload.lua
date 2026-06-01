@@ -9,6 +9,8 @@ SWEP.OpenBolt = false
 SWEP.Notified = false
 function SWEP:CanReload()
 	local ply = self:GetOwner()
+	local char = hg.GetCurrentCharacter(ply)
+	if IsValid(char) and char:IsRagdoll() and IsValid(char.ConsLH) then return end
 	if self:LastShootTime() + 0.1 > CurTime() then return end
 	if IsValid(ply:GetNetVar("carryent2")) then
 		if SERVER then

@@ -86,6 +86,7 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		return headBone ~= false and headBone or nil
 	end
 
+	local hg_no_camera_in_cars = CreateConVar("hg_no_camera_in_cars","0",FCVAR_ARCHIVE + FCVAR_REPLICATED, "disables camera in cars", 0, 1)
 	function DrawPlayerRagdoll(ent, ply) --// actually not only ragdoll render but player too
 		if ply.prevragdoll_index != nil and ply.prevragdoll_index != ply.ragdoll_index and ply.ragdoll_index == 0 then
 			//print(ply.ragdoll_index, ply.prevragdoll_index, Entity(ply.ragdoll_index))
@@ -156,19 +157,21 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		--if !current:IsEqualTol(wawanted, 0.01) then
 			--ent:ManipulateBoneScale(lkp, wawanted)
 			if fullPoseRender then
-				local mat = ent:GetBoneMatrix(lkp)
-				if mat then
-					if (!hg_thirdperson:GetBool() and !hg_gopro:GetBool() and (ent == ply or spectatorFirstPerson or (!hg_ragdollcombat:GetBool() or hg_firstperson_ragdoll:GetBool()))) or (hg_firstperson_death:GetBool() and follow == ent) then
-						mat:SetScale(wawanted)
-					end
-					--angfuck[3] = -GetViewPunchAngles2()[2] - GetViewPunchAngles3()[2]
+    			local mat = ent:GetBoneMatrix(lkp)
+    			if mat then
+            	-- glide vehicle camera exclusion gate
+            	local blockGlide = Glide and Glide.Camera and not Glide.Camera.isInFirstPerson and lply == ply and lply:InVehicle() and hg_no_camera_in_cars:GetBool()
 
-					--local _, ang = LocalToWorld(vector_origin, angfuck, vector_origin, mat:GetAngles())
-					--mat:SetAngles(ang)
+        		if not blockGlide then
+            		if ((!hg_thirdperson:GetBool() and !hg_gopro:GetBool() and (ent == ply or spectatorFirstPerson or (!hg_ragdollcombat:GetBool() or hg_firstperson_ragdoll:GetBool()))) or (hg_firstperson_death:GetBool() and follow == ent))
+					then
+                		mat:SetScale(wawanted)
+            		end
+        		end
 
-					hg.bone_apply_matrix(ent, lkp, mat)
-				end
-			end
+        		hg.bone_apply_matrix(ent, lkp, mat)
+    		end
+		end
 		--end
 
 		--hg.CoolGloves(ent, ply, wep)

@@ -503,6 +503,11 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 
 	hook.Run("PostHGCalcView", ply, view)
 
+	result = hook.Run("PostPostHGCalcView", ply, view)
+	if result then
+		return result
+	end
+
 	return view
 end
 
