@@ -1,3 +1,5 @@
+if engine.ActiveGamemode() != "zcity" then return end
+
 hg = hg or {}
 hg.Version = "Release 1.4.1"
 hg.GitHub_ReposOwner = "uzelezz123"

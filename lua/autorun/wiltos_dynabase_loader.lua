@@ -1,3 +1,4 @@
+if engine.ActiveGamemode() != "zcity" then return end
 
 --[[-------------------------------------------------------------------
 	Dynamic Base:

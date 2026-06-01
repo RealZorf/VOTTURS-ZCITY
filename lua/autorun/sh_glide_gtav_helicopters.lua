@@ -1,3 +1,5 @@
+if engine.ActiveGamemode() != "zcity" then return end
+
 if CLIENT then
     list.Set( "GlideCategories", "GTAV_Helicopters", {
         name = "GTA:V Helicopters",
