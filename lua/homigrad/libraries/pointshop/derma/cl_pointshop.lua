@@ -6,7 +6,7 @@ local function AltDonate()
         "We are sorry about that, but for now donation only through sadsalat",
         "Sorry...",
         "Discord",
-        function() gui.OpenURL("https://discord.gg/475EmEdTgH") end,
+        function() gui.OpenURL("https://discord.com/votturzcity") end,
         "Close"
     )
 end
