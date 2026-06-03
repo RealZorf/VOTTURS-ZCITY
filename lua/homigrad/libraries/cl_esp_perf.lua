@@ -9,108 +9,102 @@ local esp_show_outlines = ConVarExists("zb_esp_show_outlines") and GetConVar("zb
 
 local METERS_TO_UNITS = 52.49
 
-local targetCache = { frame = -1, localPly = NULL, targets = {}}
-
-local huge = math.huge
+local targetCache = {
+	frame = -1,
+	localPly = NULL,
+	origin = vector_origin,
+	targets = {},
+}
 
 function ESPPerf.GetMaxDistanceSqr()
-    local m = esp_range_limit:GetFloat()
-    if m <= 0 then return huge end
-    local u = m * METERS_TO_UNITS
-    return u*u
+	local meters = esp_range_limit:GetFloat()
+	if meters <= 0 then return math.huge end
+
+	local units = meters * METERS_TO_UNITS
+	return units * units
 end
 
 function ESPPerf.GetMaxOutlineCount()
-    local c = esp_outline_limit:GetInt()
-    if c <= 0 then return huge end
-    return c
+	local configured = esp_outline_limit:GetInt()
+	if configured > 0 then return configured end
+
+	return math.huge
 end
 
 function ESPPerf.ShouldDrawOutlines()
-    return esp_show_outlines:GetBool()
+	return esp_show_outlines:GetBool()
 end
 
-function ESPPerf.BuildTargets(localPly, shouldDrawFn, getEntityFn)
-    local frame = FrameNumber()
-
-    if targetCache.frame == frame and targetCache.localPly == localPly then
-        return targetCache.targets
-    end
-
-    local origin = EyePos()
-    local maxDist = ESPPerf.GetMaxDistanceSqr()
-    local outlineLimit = ESPPerf.GetMaxOutlineCount()
-
-    local targets = targetCache.targets
-
-    for i=1,#targets do
-        targets[i] = nil
-    end
-
-    local count = 0
-    for _, ply in player.Iterator() do
-        if not shouldDrawFn(localPly, ply) then
-            continue
-        end
-
-        local ent = getEntityFn(ply)
-        if not IsValid(ent) then continue end
-
-        local pos = ent:GetPos()
-        local dist = origin:DistToSqr(pos)
-        if dist > maxDist then continue end
-        count = count + 1
-
-        local t = targets[count]
-
-        if t then
-            t.ply = ply
-            t.ent = ent
-            t.dist = dist
-        else
-            targets[count] = {
-                ply=ply,
-                ent=ent,
-                dist=dist
-            }
-        end
-    end
-
-    if count > 1 then
-        table.sort(targets,function(a,b)
-            return a.dist < b.dist
-        end)
-    end
-
-    if outlineLimit < count then
-        for i=outlineLimit+1,count do
-            targets[i]=nil
-        end
-    end
-
-    targetCache.frame = frame
-    targetCache.localPly = localPly
-    return targets
+function ESPPerf.ShouldDrawHUDThisFrame()
+	return true
 end
 
-function ESPPerf.AddGroupedOutlines(outline_Add, targets, getColorFn,groupKeyFn)
-    if not ESPPerf.ShouldDrawOutlines() then return end
-    local grouped = {}
+function ESPPerf.GetDistanceMeters(origin, ent)
+	if not IsValid(ent) then return 0 end
+	return math.floor(origin:Distance(ent:WorldSpaceCenter()) / METERS_TO_UNITS)
+end
 
-    for i=1,#targets do
-        local t = targets[i]
-        local key = groupKeyFn and groupKeyFn(t.ply,t.ent) or getColorFn(t.ply)
-        local group = grouped[key]
+function ESPPerf.BuildTargets(localPly, shouldDrawFn, getEntityFn, origin)
+	if targetCache.frame == FrameNumber() and targetCache.localPly == localPly then
+		return targetCache.targets
+	end
 
-        if not group then
-            group = { color = getColorFn(t.ply), ents = {}}
-            grouped[key] = group
-        end
-        local ents = group.ents
-        ents[#ents+1] = t.ent
-    end
+	origin = origin or EyePos()
+	local maxDistSqr = ESPPerf.GetMaxDistanceSqr()
+	local targets = {}
 
-    for _,group in pairs(grouped) do
-        outline_Add(group.ents, group.color, OUTLINE_MODE_BOTH)
-    end
+	for _, target in player.Iterator() do
+		if not shouldDrawFn(localPly, target) then continue end
+
+		local ent = getEntityFn(target)
+		if not IsValid(ent) then continue end
+
+		local distSqr = origin:DistToSqr(ent:WorldSpaceCenter())
+		if distSqr > maxDistSqr then continue end
+
+		targets[#targets + 1] = {
+			ply = target,
+			ent = ent,
+			distSqr = distSqr,
+		}
+	end
+
+	table.sort(targets, function(a, b)
+		return a.distSqr < b.distSqr
+	end)
+
+	targetCache.frame = FrameNumber()
+	targetCache.localPly = localPly
+	targetCache.origin = origin
+	targetCache.targets = targets
+
+	return targets
+end
+
+function ESPPerf.AddGroupedOutlines(outline_Add, targets, getColorFn, groupKeyFn)
+	if not ESPPerf.ShouldDrawOutlines() then return end
+	if #targets == 0 then return end
+
+	local maxOutlines = ESPPerf.GetMaxOutlineCount()
+	local grouped = {}
+	local outlineTargets = 0
+
+	for i = 1, #targets do
+		if outlineTargets >= maxOutlines then break end
+
+		local entry = targets[i]
+		local groupKey = groupKeyFn and groupKeyFn(entry.ply, entry.ent) or getColorFn(entry.ply)
+
+		grouped[groupKey] = grouped[groupKey] or { ply = entry.ply, ents = {} }
+		grouped[groupKey].ply = entry.ply
+
+		local ents = grouped[groupKey].ents
+		ents[#ents + 1] = entry.ent
+		outlineTargets = outlineTargets + 1
+	end
+
+	for _, group in pairs(grouped) do
+		if #group.ents == 0 then continue end
+		outline_Add(group.ents, getColorFn(group.ply), OUTLINE_MODE_BOTH)
+	end
 end
