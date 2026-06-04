@@ -232,7 +232,7 @@ hook.Add("HG.InputMouseApply", "fakeCameraAngles2", function(tbl)
 		follow = follow or lply
 	end]]
 
-	if lply:InVehicle() and not IsValid(follow) then
+	if lply:InVehicle() and not IsValid(follow) and !(hg.NoCameraInCar(lply:GetVehicle()) or hg.NoFakeInCar(lply:GetVehicle())) then
 		tbl.override_angle = true
 		tbl.angle = angle_zero
 		return true

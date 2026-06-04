@@ -220,24 +220,31 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		local fountains = GetNetVar("fountains") or {}
 		local spectatorFirstPerson = !lply:Alive() and lply:GetNWEntity("spect") == ply and viewmode == 1
 		local wawanted = (GetViewEntity() != ply) and !fountains[ent] and (!spectatorFirstPerson and !(hg_firstperson_death:GetBool() and follow == ent)) and vector_full or vector_small
+
 		--print(ent, wawanted, GetViewEntity(), ply, (GetViewEntity() != ply), !fountains[ent], !(!lply:Alive() and lply:GetNWEntity("spect") == ply and viewmode == 1))
 		--if !current:IsEqualTol(wawanted, 0.01) then
-			--ent:ManipulateBoneScale(lkp, wawanted)
-			if fullPoseRender then
-    			local mat = ent:GetBoneMatrix(lkp)
-    			if mat then
-            	-- glide vehicle camera exclusion gate
-            	local blockGlide = Glide and Glide.Camera and not Glide.Camera.isInFirstPerson and lply == ply and lply:InVehicle() and hg_no_camera_in_cars:GetBool()
+		--ent:ManipulateBoneScale(lkp, wawanted)
 
-        		if not blockGlide then
-            		if ((!hg_thirdperson:GetBool() and !hg_gopro:GetBool() and (ent == ply or spectatorFirstPerson or (!hg_ragdollcombat:GetBool() or hg_firstperson_ragdoll:GetBool()))) or (hg_firstperson_death:GetBool() and follow == ent))
-					then
-                		mat:SetScale(wawanted)
-            		end
-        		end
+		if fullPoseRender then
+			local mat = ent:GetBoneMatrix(lkp)
+			if mat then
+				-- Don't shrink the head when using the Glide third-person vehicle camera.
+				local blockGlide = Glide and Glide.Camera and
+					not Glide.Camera.isInFirstPerson and
+					lply == ply and
+					lply:InVehicle() and
+					hg.NoCameraInCar(lply:GetVehicle())
 
-        		hg.bone_apply_matrix(ent, lkp, mat)
-    		end
+				if not blockGlide then
+					if ((!hg_thirdperson:GetBool() and !hg_gopro:GetBool() and
+						(ent == ply or spectatorFirstPerson or (!hg_ragdollcombat:GetBool() or hg_firstperson_ragdoll:GetBool())))
+						or (hg_firstperson_death:GetBool() and follow == ent)) then
+						mat:SetScale(wawanted)
+					end
+				end
+
+				hg.bone_apply_matrix(ent, lkp, mat)
+			end
 		end
 		--end
 

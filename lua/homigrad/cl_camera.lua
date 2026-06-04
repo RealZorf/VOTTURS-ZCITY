@@ -636,7 +636,10 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 
 	--view.fov = view.fov - 10 * fixVal
 	
-	result = hook_Run("Camera", ply, eyePos, angles, view, velLen * 200)
+	if !(ply:InVehicle() and hg.NoCameraInCar(ply:GetVehicle())) then
+		result = hook_Run("Camera", ply, eyePos, angles, view, velLen * 200)
+	end
+
 	--if not RENDERSCENE then
 	view.origin, view.angles = HGAddView(ply, view.origin, view.angles, velLen)
 	--end
