@@ -1689,16 +1689,20 @@ end
 MODE.TraitorKilledRoundEndDelay = MODE.TraitorKilledRoundEndDelay or 15
 
 function MODE:TraitorNeutralizedDelayActive()
-	local incapTraitorAlive = false
+	local aliveTraitorCount = 0
+	local incapTraitorCount = 0
 
 	for _, ply in player.Iterator() do
-		if ply.isTraitor and ply:Alive() and not zb:CanActivelyParticipate(ply) then
-			incapTraitorAlive = true
-			break
+		if ply.isTraitor and ply:Alive() then
+			aliveTraitorCount = aliveTraitorCount + 1
+
+			if not zb:CanActivelyParticipate(ply) then
+				incapTraitorCount = incapTraitorCount + 1
+			end
 		end
 	end
 
-	if not incapTraitorAlive then
+	if aliveTraitorCount == 0 or incapTraitorCount < aliveTraitorCount then
 		self.LastTraitorNeutralizedTime = nil
 		return false
 	end
