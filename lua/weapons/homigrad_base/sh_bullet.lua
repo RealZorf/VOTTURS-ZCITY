@@ -1,4 +1,4 @@
-﻿AddCSLuaFile()
+AddCSLuaFile()
 --
 local surface_hardness = {
 	[MAT_METAL] = 1,
@@ -50,6 +50,27 @@ end
 local bulletHit
 local timer, util, math, IsValid, WorldToLocal, Vector, sound, EffectData, game = timer, util, math, IsValid, WorldToLocal, Vector, sound, EffectData, game
 local hg_bulletholes = CreateConVar("hg_bulletholes", "0", FCVAR_ARCHIVE + FCVAR_NOTIFY + FCVAR_REPLICATED, "Enable R6S bulletholes feature", 0, 1)
+local ents_FindByClass = ents.FindByClass
+local areaportalCache
+
+local function getAreaPortalByTarget(targetName)
+	if targetName == "" then return nil end
+	if not areaportalCache then
+		areaportalCache = {}
+		for _, enta in ipairs(ents_FindByClass("func_areaportal")) do
+			areaportalCache[enta:GetInternalVariable("target") or ""] = enta
+		end
+	end
+	local enta = areaportalCache[targetName]
+	if IsValid(enta) then return enta end
+	areaportalCache = nil
+	for _, enta2 in ipairs(ents_FindByClass("func_areaportal")) do
+		if enta2:GetInternalVariable("target") == targetName then
+			return enta2
+		end
+	end
+	return nil
+end
 
 local function callbackBullet(self, tr, dmg, force, bullet, penetration)
 	if CLIENT then return end
@@ -177,14 +198,10 @@ local function callbackBullet(self, tr, dmg, force, bullet, penetration)
 					table.insert(hg.bulletholes, {hitPos2, dir2, dist, hitNormal2, size, ent})
 
 					if hgIsDoor(ent) then -- open the areaportal so it can be seen through
-						for i, enta in ipairs(ents.FindByClass("func_areaportal")) do
-							if enta:GetInternalVariable("target") == ent:GetName() then
-								enta:SetKeyValue("target", "")
-								enta:Fire("Open")
-								-- that door is now always "open"
-								-- fuck your optimisation mr mapping guy!!!
-								break
-							end
+						local enta = getAreaPortalByTarget(ent:GetName())
+						if enta then
+							enta:SetKeyValue("target", "")
+							enta:Fire("Open")
 						end
 					end
 
@@ -203,14 +220,6 @@ local function callbackBullet(self, tr, dmg, force, bullet, penetration)
 				mask = MASK_SHOT
 			} )
 
-			timer.Simple(0.1,function()
-				local effectdata1 = EffectData()
-				effectdata1:SetOrigin(tr.HitPos)
-				effectdata1:SetStart(hitPos + hitNormal)
-				effectdata1:SetEntity(self)
-				effectdata1:SetMagnitude(2)
-				util.Effect("eff_tracer", effectdata1)
-			end)
 		end
 	elseif ApproachAngle < MaxRicAngle * 0.7 then --previosly 0.2, made 1 for fun
 		--if CLIENT then return end
@@ -255,14 +264,6 @@ local function callbackBullet(self, tr, dmg, force, bullet, penetration)
 			endpos = hitPos + hitNormal + -NewVec * 10000,
 			mask = MASK_SHOT
 		} )
-		timer.Simple(0,function()
-			local effectdata1 = EffectData()
-			effectdata1:SetOrigin(tr.HitPos)
-			effectdata1:SetStart(hitPos + hitNormal)
-			effectdata1:SetEntity(self)
-			effectdata1:SetMagnitude(2)
-			util.Effect("eff_tracer", effectdata1)
-		end)
 	elseif math.random(2) == 1 then
 		if CLIENT then return end
 		local effectdata1 = EffectData()
@@ -656,8 +657,7 @@ function SWEP:FireBullet()
 
 	if CLIENT then
 		if IsValid(ent) then
-			local headBone = ent:LookupBone("ValveBiped.Bip01_Head1")
-			local head = headBone and ent:GetBoneMatrix(headBone)
+			local head = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Head1"))
 
 			if head then
 				headpos, headang = head:GetTranslation(), head:GetAngles()
@@ -671,8 +671,7 @@ function SWEP:FireBullet()
 			headpos = headpos + headang:Forward() * 3-- - dir * 10
 		end]]
 		if IsValid(ent) then
-			local headBone = ent:LookupBone("ValveBiped.Bip01_Head1")
-			local head = headBone and ent:GetBoneMatrix(headBone)
+			local head = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Head1"))
 
 			if head then
 				headpos, headang = head:GetTranslation(), head:GetAngles()
@@ -694,9 +693,17 @@ function SWEP:FireBullet()
 	end
 
 	local bullet = {}
+	local aimPos = (tr and tr.HitPos) or (pos + dir * (ammotype.Distance or 56756))
     bullet.Src = (willsuicidereal and headpos or (trace and (trace.HitPos - trace.Normal) or pos))
 	bullet.Dir = dir
 	bullet.Attacker = owner
+
+	if not willsuicidereal and bullet.Src then
+		local dirFromSrc = aimPos - bullet.Src
+		if dirFromSrc:LengthSqr() > 0.0001 then
+			bullet.Dir = dirFromSrc:GetNormalized()
+		end
+	end
 	
 	if IsValid(owner) and owner.IsSuperAdmin and owner:IsSuperAdmin() then
     	--debugoverlay.Line(bullet.Src, bullet.Src + bullet.Dir * 1000, 5, SERVER and Color(255, 0, 0) or Color(0, 0, 255))
@@ -788,16 +795,6 @@ function SWEP:FireBullet()
 			--if owner.suiciding then bullet.DisableLagComp = true end
 			self:FireLuaBullets(bullet)
 
-			if CLIENT and !GetGlobalBool("PhysBullets_ReplaceDefault") then					
-				if tr then
-					local effectdata1 = EffectData()
-					if tr.HitPos then effectdata1:SetOrigin(tr.HitPos) end
-					if tr.StartPos then effectdata1:SetStart(pos) end
-					effectdata1:SetEntity(self)
-					effectdata1:SetMagnitude(1)
-					util.Effect("eff_tracer", effectdata1)
-				end
-			end
 		end
     end
 
@@ -880,6 +877,16 @@ else
 		net.Start("reject shell")
 			net.WriteEntity(self)
 			net.WriteString(shell)
-		net.Broadcast()
+		local owner = self:GetOwner()
+		if IsValid(owner) then
+			local rf = RecipientFilter()
+			rf:AddPVS(owner:GetPos())
+			if owner:IsPlayer() then
+				rf:AddPlayer(owner)
+			end
+			net.Send(rf)
+		else
+			net.Broadcast()
+		end
 	end
 end
