@@ -272,3 +272,33 @@ function SWEP:DoImpactEffect( tr, nDamageType )
 	return false
 
 end
+
+if CLIENT then
+	concommand.Add("weapon_bones", function(ply)
+		if not IsValid(ply) then return end
+		
+		local wep = ply:GetActiveWeapon()
+		if not IsValid(wep) then return end
+		
+		local target = wep
+		if wep.GetWM then
+			local wm = wep:GetWM()
+			if IsValid(wm) then
+				target = wm
+			end
+		end
+		
+		print("Weapon Bones:")
+		for i = 0, target:GetBoneCount() - 1 do
+			print(i, target:GetBoneName(i))
+		end
+		
+		local vm = ply:GetViewModel()
+		if IsValid(vm) then
+			print("ViewModel Bones:")
+			for i = 0, vm:GetBoneCount() - 1 do
+				print(i, vm:GetBoneName(i))
+			end
+		end
+	end)
+end
