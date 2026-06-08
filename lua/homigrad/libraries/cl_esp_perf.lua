@@ -11,6 +11,7 @@ local METERS_TO_UNITS = 52.49
 
 local targetCache = {
 	frame = -1,
+	key = nil,
 	localPly = NULL,
 	origin = vector_origin,
 	targets = {},
@@ -44,8 +45,8 @@ function ESPPerf.GetDistanceMeters(origin, ent)
 	return math.floor(origin:Distance(ent:WorldSpaceCenter()) / METERS_TO_UNITS)
 end
 
-function ESPPerf.BuildTargets(localPly, shouldDrawFn, getEntityFn, origin)
-	if targetCache.frame == FrameNumber() and targetCache.localPly == localPly then
+function ESPPerf.BuildTargets(localPly, shouldDrawFn, getEntityFn, origin, cacheKey)
+	if targetCache.frame == FrameNumber() and targetCache.localPly == localPly and targetCache.key == cacheKey then
 		return targetCache.targets
 	end
 
@@ -74,6 +75,7 @@ function ESPPerf.BuildTargets(localPly, shouldDrawFn, getEntityFn, origin)
 	end)
 
 	targetCache.frame = FrameNumber()
+	targetCache.key = cacheKey
 	targetCache.localPly = localPly
 	targetCache.origin = origin
 	targetCache.targets = targets

@@ -178,7 +178,7 @@ function ESP:SetupHooks()
 
 		local ply = LocalPlayer()
 		local useRoleMode = IsAdminESPRoleMode()
-		local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity)
+		local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity, nil, "admin_outline")
 
 		zb.ESPPerf.AddGroupedOutlines(outline_Add, targets, function(targetPly)
 			return GetAdminESPColor(targetPly, useRoleMode)
@@ -194,7 +194,7 @@ function ESP:SetupHooks()
 
 		local ply = LocalPlayer()
 		local useRoleMode = IsAdminESPRoleMode()
-		local targets = zb.ESPPerf and zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity) or {}
+		local targets = zb.ESPPerf and zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity, nil, "admin_eye") or {}
 
 		if #targets == 0 then return end
 
@@ -218,7 +218,7 @@ function ESP:SetupHooks()
 		local ply = LocalPlayer()
 		local origin = EyePos()
 		local useRoleMode = IsAdminESPRoleMode()
-		local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity, origin)
+		local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity, origin, "admin_hud")
 
 		for i = 1, #targets do
 			local entry = targets[i]

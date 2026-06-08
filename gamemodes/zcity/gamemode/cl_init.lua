@@ -566,19 +566,30 @@ local spectatorESPEnabled = ConVarExists("zb_spectator_esp") and GetConVar("zb_s
 
 local spectatorESPTextColor = Color(235, 235, 235)
 local spectatorESPFallbackColor = zb.TeamESP and zb.TeamESP.DefaultColor or Color(35, 225, 110)
+local spectatorESPNextToggle = 0
+local spectatorESPWalkDown = false
+
+local function IsSpectatorESPState(ply)
+	if not IsValid(ply) then return false end
+	if ply:Alive() then return false end
+
+	local round = CurrentRound and CurrentRound()
+	if not round or round.name == "coop" then return false end
+
+	return true
+end
+
+local function SetSpectatorESPEnabled(enabled)
+	RunConsoleCommand("zb_spectator_esp", enabled and "1" or "0")
+end
 
 local function IsSpectatorESPAllowed()
 	if spectatorESPEnabled and not spectatorESPEnabled:GetBool() then return false end
 
 	local ply = LocalPlayer()
-	if not IsValid(ply) then return false end
+	if not IsSpectatorESPState(ply) then return false end
 
 	if ESP and ESP.Enabled then return false end
-
-	if ply:Alive() then return false end
-
-	local round = CurrentRound and CurrentRound()
-	if not round or round.name == "coop" then return false end
 
 	return true
 end
@@ -629,11 +640,33 @@ hook.Add("SetupOutlines", "ZB_SpectatorESP_Outlines", function(outline_Add)
 	if not zb.ESPPerf or not zb.ESPPerf.ShouldDrawOutlines() then return end
 
 	local ply = LocalPlayer()
-	local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawSpectatorESPFor, GetSpectatorESPEntity)
+	local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawSpectatorESPFor, GetSpectatorESPEntity, nil, "spectator_outline")
 
 	zb.ESPPerf.AddGroupedOutlines(outline_Add, targets, GetSpectatorESPColor)
 end)
 
+
+hook.Add("CreateMove", "ZB_SpectatorESP_WalkToggle", function(cmd)
+	if not cmd then return end
+
+	local ply = LocalPlayer()
+	if not IsSpectatorESPState(ply) then
+		spectatorESPWalkDown = false
+		return
+	end
+	if gui.IsGameUIVisible() or vgui.GetKeyboardFocus() then return end
+
+	local walkDown = cmd:KeyDown(IN_WALK)
+	if not walkDown then
+		spectatorESPWalkDown = false
+		return
+	end
+	if spectatorESPWalkDown or spectatorESPNextToggle > RealTime() then return end
+
+	spectatorESPWalkDown = true
+	spectatorESPNextToggle = RealTime() + 0.3
+	SetSpectatorESPEnabled(not spectatorESPEnabled:GetBool())
+end)
 
 hook.Add("HUDPaint", "ZB_SpectatorESP_HUD", function()
 	if not IsSpectatorESPAllowed() then return end
@@ -641,7 +674,7 @@ hook.Add("HUDPaint", "ZB_SpectatorESP_HUD", function()
 
 	local ply = LocalPlayer()
 	local origin = EyePos()
-	local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawSpectatorESPFor, GetSpectatorESPEntity, origin)
+	local targets = zb.ESPPerf.BuildTargets(ply, ShouldDrawSpectatorESPFor, GetSpectatorESPEntity, origin, "spectator_hud")
 
 	for i = 1, #targets do
 		local entry = targets[i]

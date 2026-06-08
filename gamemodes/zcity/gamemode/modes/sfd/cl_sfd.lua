@@ -123,9 +123,13 @@ function MODE:HUDPaint()
 				return
 			end
 
-			local vol = math.Clamp((CurTime() - (zb.ROUND_START + 7)),0.1, ply:Alive() and ply.organism.otrub and 0.1 or 1 + math.min((ply.organism.adrenaline or 0) * 25,2))
+			local organism = ply.organism
+			local lowVolume = ply:Alive() and organism and organism.otrub
+			local adrenaline = organism and organism.adrenaline or 0
+			local maxVolume = lowVolume and 0.1 or 1 + math.min(adrenaline * 25,2)
+			local vol = math.Clamp((CurTime() - (zb.ROUND_START + 7)),0.1,maxVolume)
 			if roundend then
-				vol = math.Clamp((roundend - CurTime() + 1) / 2,0.1, ply:Alive() and ply.organism.otrub and 0.1 or 1 + math.min((ply.organism.adrenaline or 0) * 25,2))
+				vol = math.Clamp((roundend - CurTime() + 1) / 2,0.1,maxVolume)
 			end
 			local musicVolume = GetConVar("snd_musicvolume"):GetFloat()
 			dmmusic:SetVolume(vol*musicVolume)
