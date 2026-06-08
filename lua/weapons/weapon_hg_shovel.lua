@@ -39,9 +39,9 @@ SWEP.weaponPos = Vector(0,1,-10)
 SWEP.weaponAng = Angle(180,90,-2)
 
 SWEP.DamageType = DMG_CLUB
-SWEP.DamagePrimary = 35
+SWEP.DamagePrimary = 18
 SWEP.NeckBreakChance = 0.01
-SWEP.DamageSecondary = 15
+SWEP.DamageSecondary = 10
 SWEP.BreakBoneMul = 0.65
 SWEP.PainMultiplier = 0.85
 
