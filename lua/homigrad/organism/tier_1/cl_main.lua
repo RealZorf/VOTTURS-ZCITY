@@ -78,10 +78,6 @@ local tabblood = {
 local k1, k2, k3
 
 local upDir = Vector(0, 0, 1)
-local CLIENT_BLOOD_NEAR_DIST_SQR = 450 * 450
-local CLIENT_BLOOD_MAX_DIST_SQR = 700 * 700
-local CLIENT_BLOOD_NEAR_INTERVAL = 0.035
-local CLIENT_BLOOD_FAR_INTERVAL = 0.12
 
 local function safeAddBloodPart(...)
 	if hg.addBloodPart then
@@ -731,15 +727,6 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 	local org = ent.organism
 
 	if !org then return end
-	local distToLocalSqr = ent:GetPos():DistToSqr(lply:GetPos())
-	local isLocalOrganism = ply == lply
-
-	if not isLocalOrganism and distToLocalSqr > CLIENT_BLOOD_MAX_DIST_SQR then return end
-	if not isLocalOrganism then
-		local thinkDelay = distToLocalSqr <= CLIENT_BLOOD_NEAR_DIST_SQR and CLIENT_BLOOD_NEAR_INTERVAL or CLIENT_BLOOD_FAR_INTERVAL
-		if (ent.ZCNextClientBloodThink or 0) > time then return end
-		ent.ZCNextClientBloodThink = time + thinkDelay
-	end
 
 	if org and org.pulse and org.o2 and org.o2[1] then
 		local pulse = org.heartbeat
@@ -751,7 +738,7 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 		--local chest = ent:LookupBone("ValveBiped.Bip01_Spine1")
 		
 		if torso then
-			if distToLocalSqr > CLIENT_BLOOD_NEAR_DIST_SQR then return end
+			if ent:GetPos():DistToSqr(lply:GetPos()) > 450 * 450 then return end
 			local sin = (math.sin(org.pulsethink) + 1) * 0.5
 			local amt = 0.05 * sin * math.max(org.pulse / 70, 0.5)
 			
@@ -834,7 +821,7 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 		local pulse = org.heartbeat or 0
 		local pain = org.pain or 0
 		
-		local dist = distToLocalSqr
+		local dist = owner:GetPos():DistToSqr(lply:GetPos())
 		local carryent = lply:GetNetVar("carryent")
 		local carrybone = lply:GetNetVar("carrybone")
 		local cantcheck = org.CantCheckPulse
@@ -905,11 +892,7 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 	
 	if org and org.blood and org.blood > 10 and wounds and #wounds > 0 then
 		if (owner:IsPlayer() and owner:Alive()) or not owner:IsPlayer() then
-			local woundBudget = distToLocalSqr <= 220 * 220 and 6 or 3
-			local woundEffects = 0
-
 			for i, wound in pairs(wounds) do
-				if woundEffects >= woundBudget then break end
 				local size = math.random(0, 1) * math.max(math.min(wound[1], 1), 0.5)
 				
 				if wound[5] + beatsPerSecond < time then
@@ -935,7 +918,6 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 							safeAddBloodPart(pos, VectorRand(-15, 15), nil, size, size, false, nil, ent)
 						end
 
-						woundEffects = woundEffects + 1
 						wound[5] = time + (water and 2 or (math.Rand(0, 1) * (!hg_old_blood:GetBool() and 0.5 or 1) / wound[1] * 15))
 					else
 						local pos = ent:GetPos()
@@ -947,7 +929,6 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 							safeAddBloodPart(pos, VectorRand(-15, 15), nil, size, size, false, nil, ent)
 						end
 
-						woundEffects = woundEffects + 1
 						wound[5] = time + (water and 2 or (math.Rand(0, 1) * (!hg_old_blood:GetBool() and 0.5 or 1) / wound[1] * 15))
 					end
 				end
@@ -956,11 +937,7 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 	end
 	
 	if org and org.blood and org.blood > 10 and arterialwounds and #arterialwounds > 0 then
-		local arterialBudget = distToLocalSqr <= 220 * 220 and 3 or 1
-		local arterialEffects = 0
-
 		for i, wound in pairs(arterialwounds) do
-			if arterialEffects >= arterialBudget then break end
 			local addtime = seen and 1 / math.Clamp(org.pulse or 70, 1,15) * 0.25 or 0.06
 			local woundBone = cachedClientThinkBone(ent, wound[4])
 			if wound[5] + addtime < time and woundBone then
@@ -993,7 +970,6 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 						safeAddBloodPart(pos, VectorRand(-1, 1) * (org.pulse or 70) / 70 + dir * 5 * (math.abs(math.sin(CurTime() * 2) + math.cos(CurTime() * (5 + i * 2)) + math.sin(CurTime() * (1 + i))) * 0.6 + math.sin(CurTime() * 2) + 4) * 0.1 + dir:Angle():Right() * 25 * math.sin(CurTime() * 2) * math.cos(CurTime() * 4) + ang:Up() * 25 * math.sin(CurTime() * 3) * math.cos(CurTime() * 1) + VectorRand(-1, 1) * (org.pulse or 70) / 70, nil, size, size, true, nil, ent)
 					end
 
-						arterialEffects = arterialEffects + 1
 						wound[5] = time + (water and 2 or (0.5 * 1 / hg_blood_fps:GetInt()))
 					else
 						local pos = ent:GetPos()
@@ -1001,11 +977,10 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 						local water = bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER
 						if water then
 						safeAddBloodPart2(pos, VectorRand(-5, 5), nil, nil, nil, nil, true, nil, ent)
-						else
+					else
 						safeAddBloodPart(pos, VectorRand(-15, 15), nil, size, size, true, nil, ent)
 					end
 
-						arterialEffects = arterialEffects + 1
 						wound[5] = time + (water and 2 or 0)
 					end
 				end

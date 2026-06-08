@@ -38,10 +38,6 @@ local TPIKBones = {
     "ValveBiped.Bip01_R_Finger02",
 }
 
-local TPIK_REMOTE_REBUILD_INTERVAL = 0.04
-local TPIK_REMOTE_FAR_REBUILD_INTERVAL = 0.08
-local TPIK_REMOTE_MAX_DIST_SQR = 1400 * 1400
-
 local TPIKBonesTranslate = {
     --["ValveBiped.Bip01_L_UpperArm"] = "ValveBiped.Bip01_L_UpperArm",
     --["ValveBiped.Bip01_L_Forearm"] = "ValveBiped.Bip01_L_Forearm",
@@ -1069,17 +1065,6 @@ local function ensureArmSegments( segments, upperarmMatrix, forearmMatrix, handM
 end
 
 function hg.DoTPIK(ply, ent)
-    local isLocalTPIK = hg.IsLocal and hg.IsLocal(ply)
-    if not isLocalTPIK then
-        local localPly = LocalPlayer()
-        if IsValid(localPly) then
-            local distSqr = ent:GetPos():DistToSqr(localPly:GetPos())
-            if distSqr > TPIK_REMOTE_MAX_DIST_SQR then return end
-        end
-
-        if ent.NotSeen or ent.shouldTransmit == false then return end
-    end
-
     local ply_spine_index = cachedLookupBone(ent, "ValveBiped.Bip01_Head1")
     if !ply_spine_index then return end
     local ply_spine_matrix = ent:GetBoneMatrix(ply_spine_index)
@@ -1166,18 +1151,7 @@ function hg.DoTPIK(ply, ent)
     
     local shouldrebuild = false
     if (ply.nextrebuild or 0) < CurTime() then
-        local rebuildDelay = 0
-
-        if not isLocalTPIK then
-            local localPly = LocalPlayer()
-            if IsValid(localPly) and ent:GetPos():DistToSqr(localPly:GetPos()) > 600 * 600 then
-                rebuildDelay = TPIK_REMOTE_FAR_REBUILD_INTERVAL
-            else
-                rebuildDelay = TPIK_REMOTE_REBUILD_INTERVAL
-            end
-        end
-
-        ply.nextrebuild = CurTime() + rebuildDelay
+        ply.nextrebuild = CurTime() + 0.0
 
         shouldrebuild = true
     end
