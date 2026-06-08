@@ -150,6 +150,17 @@ local keydownattack
 local keydownattack2
 local keydownreload
 local spectateRagdollCache = {}
+local spectateRagdollScanCache = {expires = 0, ragdolls = {}}
+
+local function GetSpectateRagdolls()
+	local now = CurTime()
+	if spectateRagdollScanCache.expires > now then return spectateRagdollScanCache.ragdolls end
+
+	spectateRagdollScanCache.expires = now + 1
+	spectateRagdollScanCache.ragdolls = ents.FindByClass("prop_ragdoll")
+
+	return spectateRagdollScanCache.ragdolls
+end
 
 local function FindLiveFakeRagdoll(ply)
 	if not IsValid(ply) then return end
@@ -202,7 +213,8 @@ local function FindSpectateRagdoll(ply)
 		return ragdoll
 	end
 
-	for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
+	local ragdolls = GetSpectateRagdolls()
+	for _, ent in ipairs(ragdolls) do
 		if ent.ply == ply or ent:GetNWEntity("ply") == ply then
 			spectateRagdollCache[ply] = {ragdoll = ent, expires = CurTime() + 0.5}
 			return ent
@@ -210,7 +222,7 @@ local function FindSpectateRagdoll(ply)
 	end
 
 	local plyName = ply.GetPlayerName and ply:GetPlayerName() or ply:Name()
-	for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
+	for _, ent in ipairs(ragdolls) do
 		local ragName = ent:GetNWString("PlayerName", "")
 		if ragName ~= "" and ragName == plyName then
 			spectateRagdollCache[ply] = {ragdoll = ent, expires = CurTime() + 0.5}
@@ -236,9 +248,27 @@ local function GetSpectateCharacter(ply)
 	return ent
 end
 
+local function CacheSpectateEye(ent, pos, ang, hasEye, preserveRoll)
+	if ent.IsRagdoll and ent:IsRagdoll() then
+		ent.ZCSpectateEyeFrame = FrameNumber()
+		ent.ZCSpectateEyePos = pos
+		ent.ZCSpectateEyeAng = ang
+		ent.ZCSpectateEyeHasEye = hasEye
+		ent.ZCSpectateEyePreserveRoll = preserveRoll
+	end
+
+	return pos, ang, hasEye, preserveRoll
+end
+
 local function GetSpectateEye(ent)
 	local isRagdoll = ent.IsRagdoll and ent:IsRagdoll()
-	if isRagdoll and ent.SetupBones then ent:SetupBones() end
+	if isRagdoll then
+		if ent.ZCSpectateEyeFrame == FrameNumber() then
+			return ent.ZCSpectateEyePos, ent.ZCSpectateEyeAng, ent.ZCSpectateEyeHasEye, ent.ZCSpectateEyePreserveRoll
+		end
+
+		if ent.SetupBones then ent:SetupBones() end
+	end
 
 	if ent.LookupBone and ent.GetBoneMatrix then
 		local headBone = ent:LookupBone("ValveBiped.Bip01_Head1") or ent:LookupBone("ValveBiped.Bip01_Spine1") or 1
@@ -246,7 +276,7 @@ local function GetSpectateEye(ent)
 			local attachmentID = ent.LookupAttachment and ent:LookupAttachment("eyes") or 0
 			if attachmentID and attachmentID > 0 then
 				local attachment = ent:GetAttachment(attachmentID)
-				if attachment then return attachment.Pos, attachment.Ang, true, true end
+				if attachment then return CacheSpectateEye(ent, attachment.Pos, attachment.Ang, true, true) end
 			end
 
 			local boneMatrix = headBone and ent:GetBoneMatrix(headBone)
@@ -255,10 +285,10 @@ local function GetSpectateEye(ent)
 			if ent.TranslateBoneToPhysBone and ent.GetPhysicsObjectNum then
 				local physBone = headBone and ent:TranslateBoneToPhysBone(headBone)
 				local phys = physBone and physBone >= 0 and ent:GetPhysicsObjectNum(physBone)
-				if IsValid(phys) then return phys:GetPos(), boneAng or phys:GetAngles(), true, true end
+				if IsValid(phys) then return CacheSpectateEye(ent, phys:GetPos(), boneAng or phys:GetAngles(), true, true) end
 			end
 
-			if boneMatrix then return boneMatrix:GetTranslation(), boneAng, true, true end
+			if boneMatrix then return CacheSpectateEye(ent, boneMatrix:GetTranslation(), boneAng, true, true) end
 		else
 			if ent:IsPlayer() then
 				local attachmentID = ent.LookupAttachment and ent:LookupAttachment("eyes") or 0
@@ -283,9 +313,9 @@ local function GetSpectateEye(ent)
 	end
 
 	local eyePos = ent.EyePos and ent:EyePos()
-	if eyePos and eyePos ~= vector_origin and ent.EyeAngles then return eyePos, ent:EyeAngles(), false end
+	if eyePos and eyePos ~= vector_origin and ent.EyeAngles then return CacheSpectateEye(ent, eyePos, ent:EyeAngles(), false) end
 
-	return ent:GetPos() + Vector(0, 0, 64), ent:GetAngles(), false
+	return CacheSpectateEye(ent, ent:GetPos() + Vector(0, 0, 64), ent:GetAngles(), false)
 end
 
 hook.Add("HUDPaint","FUCKINGSAMENAMEUSEDINHOOKFUCKME",function()
