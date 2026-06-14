@@ -8,7 +8,7 @@ SWEP.AdminOnly = false
 
 SWEP.WorldModel = "models/weapons/tfa_nmrih/w_me_machete.mdl"
 SWEP.WorldModelReal = "models/weapons/tfa_nmrih/v_me_machete.mdl"
---SWEP.WorldModelExchange = "models/weapons/tfa_nmrih/w_me_machete.mdl"
+SWEP.WorldModelExchange = "models/weapons/tfa_nmrih/w_me_machete.mdl"
 SWEP.ViewModel = ""
 
 SWEP.SuicidePos = Vector(20, 1, -27)
