@@ -47,8 +47,8 @@ SWEP.sprint_ang = Angle(15,0,0)
 
 SWEP.basebone = 94
 
-SWEP.weaponPos = Vector(0,0,0)
-SWEP.weaponAng = Angle(0,0,0)
+SWEP.weaponPos = Vector(10,0.5,0.5)
+SWEP.weaponAng = Angle(0,90,90)
 
 SWEP.DamageType = DMG_SLASH
 SWEP.DamagePrimary = 29
@@ -93,7 +93,6 @@ SWEP.Attack2Hit = "snd_jack_hmcd_knifehit.wav"
 SWEP.AttackHitFlesh = "weapons/knife/knife_hit1.wav"
 SWEP.Attack2HitFlesh = "physics/flesh/flesh_impact_hard1.wav"
 SWEP.DeploySnd = "physics/metal/metal_grenade_impact_soft2.wav"
-SWEP.SwingSound = "machete/macheteswing1.ogg"
 SWEP.HitFleshExtra = {
     "machete/machetehit1.ogg",
     "machete/machetehit2.ogg",
