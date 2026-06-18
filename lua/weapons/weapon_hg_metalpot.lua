@@ -73,7 +73,7 @@ end
 SWEP.setlh = true
 SWEP.setrh = true
 
-SWE.BlockTier = 2
+SWEP.BlockTier = 2
 SWEP.AttackHit = "Canister.ImpactHard"
 SWEP.Attack2Hit = "Canister.ImpactHard"
 SWEP.AttackHitFlesh = "Flesh.ImpactHard"
