@@ -56,7 +56,7 @@ SWEP.AnimList = {
 }
 
 SWEP.DamageType = DMG_SLASH
-SWEP.DamagePrimary = 38
+SWEP.DamagePrimary = 35
 SWEP.NeckBreakChance = 0.01
 SWEP.DamageSecondary = 14
 
@@ -68,10 +68,10 @@ SWEP.MaxPenLen = 10
 SWEP.PenetrationSizePrimary = 5.5
 SWEP.PenetrationSizeSecondary = 1.5
 
-SWEP.StaminaPrimary = 38
+SWEP.StaminaPrimary = 45
 SWEP.StaminaSecondary = 15
 
-SWEP.AttackLen1 = 55
+SWEP.AttackLen1 = 50
 SWEP.AttackLen2 = 40
 
 if CLIENT then
@@ -119,7 +119,7 @@ SWEP.Attack_Charge_Idle = "Attack_Charge_Idle"
 SWEP.Attack_Charge_End = "Attack_Charge_End"
 SWEP.CanHeavyAttack = true -- Set to true to enable
 
-SWEP.HeavyAttackDamageMul = 2.1 -- Max damage multiplier at full charge
+SWEP.HeavyAttackDamageMul = 2 -- Max damage multiplier at full charge
 SWEP.HeavyAttackWaitTime = 3 -- Time before you can attack again
 SWEP.HeavyAttackAnimTimeBegin = 1.0 -- Duration of the wind-up/start animation
 SWEP.HeavyAttackAnimTimeIdle = 1 -- Duration of the idle loop
