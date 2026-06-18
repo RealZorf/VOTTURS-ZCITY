@@ -110,6 +110,8 @@ MODE.LootTable = {
 		{8,"weapon_glock18c"},
 		{7,"weapon_mp5"},
 		{6,"weapon_xm1014"},
+		
+		{3,"weapon_hg_gravitygun"},
 
 		{6,"ent_armor_vest3"},
 		{5,"ent_armor_helmet1"},
