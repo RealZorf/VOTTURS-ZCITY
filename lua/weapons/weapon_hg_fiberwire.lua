@@ -344,6 +344,9 @@ local function StopStrangle(self)
     end
 
     self:SetStrangling(false)
+    if self.SetSawingHead then
+        self:SetSawingHead(false)
+    end
     self.StrangleRag = nil
     self.NoIdleLoop = nil -- allow idle again
 
@@ -491,6 +494,7 @@ function SWEP:SetupDataTables()
     end
     -- Use a free index beyond base weapon_melee’s netvars
     self:NetworkVar("Bool", 13, "Strangling")
+    self:NetworkVar("Bool", 14, "SawingHead")
 end
 
 -- Allow LMB to stop strangling cleanly
@@ -545,7 +549,18 @@ function SWEP:CustomThink()
         self.BaseClass.CustomThink(self)
     end
 
-    if CLIENT then return end
+    if CLIENT then
+        local owner = self:GetOwner()
+        if IsValid(owner) and owner:IsPlayer() and self.GetSawingHead and self:GetSawingHead() and hg and hg.DragHandsToPos then
+            local ang = owner:EyeAngles()
+            local phase = CurTime() * 15
+            local basePos = owner:GetShootPos() + ang:Forward() * 19 - ang:Up() * 9 + ang:Right() * (math.sin(phase) * 4.5)
+
+            hg.DragHandsToPos(owner, self, basePos, true, 5, ang:Right(), Angle(0, 0, 180), Angle(0, 0, 0))
+        end
+
+        return
+    end
     local owner = self:GetOwner()
     if not IsValid(owner) or not owner:IsPlayer() then return end
 
@@ -643,14 +658,34 @@ function SWEP:CustomThink()
     local fwd = owner:GetAimVector()
     local up = owner:GetAngles():Up()
 
+    local ragPly = hg.RagdollOwner and hg.RagdollOwner(rag) or nil
+    local sawData = owner.Ability_NeckBreak
+    local sawingHead = sawData and sawData.Action == "saw_head" and sawData.Victim == ragPly or false
+    if self.GetSawingHead and self.SetSawingHead and self:GetSawingHead() ~= sawingHead then
+        self:SetSawingHead(sawingHead)
+    end
+
+    local sawWave = sawingHead and math.sin(CurTime() * 15) or 0
+    local sawPush = sawingHead and math.cos(CurTime() * 15) or 0
+
     -- Place head slightly above and a bit farther in front of hands
     local left = owner:GetAngles():Right() * -1
     -- nudge victim a bit higher and further forward
     local targetPos = mid + up * 6 + fwd * 12 + left * 3
+
+    if sawingHead then
+        targetPos = targetPos + left * (sawWave * 4) + fwd * (sawPush * 1.5) + up * (math.abs(sawWave) * 0.75)
+    end
+
     -- make the head look straight where attacker looks
     local neckAng = owner:EyeAngles()
     neckAng:RotateAroundAxis(neckAng:Forward(), 90)
     neckAng:RotateAroundAxis(neckAng:Up(), 90)
+
+    if sawingHead then
+        neckAng:RotateAroundAxis(neckAng:Forward(), sawWave * 4)
+        neckAng:RotateAroundAxis(neckAng:Up(), sawPush * 2.5)
+    end
 
     -- Strong follow for head; high damping for stability
     -- slow down head pull; avoid jolting the victim into the player
@@ -659,15 +694,17 @@ function SWEP:CustomThink()
 
     -- Gentle pull for upper spine to reduce wobble
     local spinePos = targetPos - fwd * 8
+    if sawingHead then
+        spinePos = spinePos - left * (sawWave * 2)
+    end
     -- gentle spine follow; higher arrival time to reduce shove
     hg.ShadowControl(rag, 1, 0.2, nil, nil, nil, spinePos, 500, 120)
     hg.ShadowControl(rag, 2, 0.2, nil, nil, nil, spinePos, 500, 120)
 
     -- Make victim show struggle only while a living player is being choked.
-    local ragPly2 = hg.RagdollOwner and hg.RagdollOwner(rag) or nil
-    local ragOrg = ragPly2 and ragPly2.organism or nil
+    local ragOrg = ragPly and ragPly.organism or nil
     local knockedOut = ragOrg and ragOrg.otrub == true
-    local allowStruggle = IsValid(ragPly2) and ragPly2:IsPlayer() and ragPly2:Alive() and not knockedOut
+    local allowStruggle = IsValid(ragPly) and ragPly:IsPlayer() and ragPly:Alive() and not knockedOut
     if allowStruggle then
         local headPhys = rag:GetPhysicsObjectNum(hg.realPhysNum(rag, 10))
         local lhandPhys = rag:GetPhysicsObjectNum(hg.realPhysNum(rag, 5))
@@ -686,8 +723,6 @@ function SWEP:CustomThink()
     end
 
          -- FIX: Принудительно блокируем регенерацию кислорода, пока длится удушье
-    local ragPly = hg.RagdollOwner(rag)
-    
     --[[
     if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism and ragPly.organism.o2 then
         ragPly.organism.o2.curregen = 0   -- <-каждый параметр будет обнулен
@@ -695,7 +730,6 @@ function SWEP:CustomThink()
     ]]
 
     -- drain oxygen and stamina while choking (server-side)
-    local ragPly = hg.RagdollOwner(rag)
     if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism then
         local org = ragPly.organism
         local dt = FrameTime()

@@ -143,12 +143,28 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 	if(ply:Alive())then
 		if(ply.isTraitor)then
 			if(ply.SubRole == "traitor_infiltrator" or ply.SubRole == "traitor_infiltrator_soe")then
-				local text = "(HOLD)[ALT + E] Break Neck"
+				local action = MODE.GetNeckBreakAction and MODE.GetNeckBreakAction(ply) or "neck_break"
+				local text = action == "saw_head" and "(HOLD)[ALT + E] Saw Off Head" or "(HOLD)[ALT + E] Break Neck"
 				local tw, th = surface.GetTextSize(text)
-				local cx, cy = trace.HitPos:ToScreen().x, trace.HitPos:ToScreen().y
+				local text_pos = trace and trace.HitPos or (ply:GetShootPos() + ply:GetAimVector() * 60)
+				local screen_pos = text_pos:ToScreen()
+				local cx, cy = screen_pos.x, screen_pos.y
 				cy = cy + y_offset
 				
-				if((IsValid(aim_ent) and other_ply and MODE.CanPlayerBreakOtherNeck(ply, aim_ent)) or ply.Ability_NeckBreak)then
+				local saw_prompt_active = false
+				if(action == "saw_head")then
+					local wep = MODE.GetActiveFiberwire and MODE.GetActiveFiberwire(ply)
+					saw_prompt_active = IsValid(wep) and wep.GetStrangling and wep:GetStrangling()
+				end
+
+				local can_ability = false
+				if(action == "saw_head")then
+					can_ability = saw_prompt_active
+				elseif(IsValid(aim_ent) and other_ply)then
+					can_ability = MODE.CanPlayerBreakOtherNeck(ply, aim_ent)
+				end
+
+				if(can_ability or ply.Ability_NeckBreak)then
 					draw_shadow_text(text, cx, cy)
 					
 					if(ply.Ability_NeckBreak)then

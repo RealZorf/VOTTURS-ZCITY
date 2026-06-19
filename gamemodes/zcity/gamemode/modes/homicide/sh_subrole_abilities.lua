@@ -21,6 +21,7 @@ MODE.ShadowCamouflageColorModulation = {
 	0.84,
 	0.94
 }
+MODE.FiberwireHeadSawTime = 5
 MODE.StalkerMarkMax = 3
 MODE.StalkerMarkTime = 1.6
 MODE.StalkerMarkDistance = 2800
@@ -34,6 +35,38 @@ end
 
 function MODE.IsStalkerRole(subrole)
 	return subrole == "traitor_stalker" or subrole == "traitor_stalker_soe"
+end
+
+function MODE.GetActiveFiberwire(ply)
+	local wep = IsValid(ply) and ply:GetActiveWeapon() or nil
+	if not IsValid(wep) or wep:GetClass() ~= "weapon_hg_fiberwire" then return nil end
+
+	return wep
+end
+
+function MODE.IsPlayerUsingFiberwire(ply)
+	return IsValid(MODE.GetActiveFiberwire(ply))
+end
+
+function MODE.CanPlayerSawHeadWithFiberwire(ply, aim_ent, other_ply)
+	local wep = MODE.GetActiveFiberwire(ply)
+	if not IsValid(wep) or not wep.GetStrangling or not wep:GetStrangling() then return false end
+
+	local rag = wep.StrangleRag
+	if not IsValid(rag) or not rag:IsRagdoll() then return false end
+	if IsValid(aim_ent) and aim_ent ~= rag then return false end
+
+	local victim = hg.RagdollOwner and hg.RagdollOwner(rag) or nil
+	return IsValid(victim) and victim == other_ply and victim:Alive()
+end
+
+function MODE.GetNeckBreakAction(ply)
+	if ply.Ability_NeckBreak and ply.Ability_NeckBreak.Action then
+		return ply.Ability_NeckBreak.Action
+	end
+
+	local wep = MODE.GetActiveFiberwire(ply)
+	return (IsValid(wep) and wep.GetStrangling and wep:GetStrangling()) and "saw_head" or "neck_break"
 end
 
 --\\
@@ -148,10 +181,79 @@ function MODE.BreakOtherNeck(ply, other_ply, aim_ent)
 	end
 end
 
-function MODE.StartBreakingOtherNeck(ply, other_ply)
+function MODE.SawOffOtherHead(ply, other_ply, aim_ent)
+	local function resolveRagdoll(allow_fallback)
+		if IsValid(other_ply) then
+			local death_rag = other_ply:GetNWEntity("RagdollDeath")
+			if IsValid(death_rag) and death_rag:IsRagdoll() then return death_rag end
+
+			if IsValid(other_ply.RagdollDeath) and other_ply.RagdollDeath:IsRagdoll() then
+				return other_ply.RagdollDeath
+			end
+		end
+
+		if allow_fallback and IsValid(aim_ent) and aim_ent:IsRagdoll() then return aim_ent end
+	end
+
+	local function finishRagdoll(rag)
+		if not IsValid(rag) or not rag:IsRagdoll() then return end
+		if rag.FiberwireHeadSawDone then return end
+
+		local head = rag:LookupBone("ValveBiped.Bip01_Head1")
+		if not head then return end
+
+		local phys_bone = rag:TranslateBoneToPhysBone(head)
+		if not phys_bone or phys_bone < 0 then return end
+		local phys = rag:GetPhysicsObjectNum(phys_bone)
+		rag.FiberwireHeadSawDone = true
+
+		if IsValid(phys) then
+			phys:AddVelocity((ply:GetAimVector() + Vector(0, 0, 0.35)) * 90)
+		end
+
+		local force = IsValid(ply) and ((ply:GetAimVector() + Vector(0, 0, 0.25)) * 450) or vector_origin
+		if Gib_Input then
+			Gib_Input(rag, head, force)
+		elseif Gib_RemoveBone then
+			Gib_RemoveBone(rag, head, phys_bone)
+		else
+			rag:RemoveInternalConstraint(phys_bone)
+			rag:ManipulateBoneScale(head, vector_origin)
+		end
+
+		local pos = rag:GetBonePosition(head) or rag:WorldSpaceCenter()
+		if SpawnMeatGore and not Gib_Input then
+			SpawnMeatGore(rag, pos or rag:WorldSpaceCenter(), 6)
+		end
+
+		rag:EmitSound("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", 70, math.random(75, 90), 1)
+	end
+
+	if IsValid(aim_ent) and aim_ent.organism then
+		aim_ent.organism.spine3 = 1
+	end
+
+	if IsValid(other_ply) and other_ply:Alive() then
+		other_ply:Kill()
+	end
+
+	local timer_id = "HMCD_FiberwireHeadSaw_" .. tostring(IsValid(other_ply) and other_ply:EntIndex() or IsValid(aim_ent) and aim_ent:EntIndex() or 0)
+	local tries = 0
+	timer.Create(timer_id, 0.05, 24, function()
+		tries = tries + 1
+		local rag = resolveRagdoll(tries > 6)
+		if not IsValid(rag) then return end
+
+		finishRagdoll(rag)
+		timer.Remove(timer_id)
+	end)
+end
+
+function MODE.StartBreakingOtherNeck(ply, other_ply, action)
 	ply.Ability_NeckBreak = {
 		Victim = other_ply,
 		Progress = 0,
+		Action = action or "neck_break",
 	}
 	other_ply.BeingVictimOfNeckBreak = true
 	
@@ -166,6 +268,7 @@ function MODE.StartBreakingOtherNeck(ply, other_ply)
 			net.WriteBool(true)
 			net.WriteEntity(ply)
 			net.WriteEntity(other_ply)
+			net.WriteString(ply.Ability_NeckBreak.Action)
 		net.SendPVS(ply:GetShootPos())
 	end
 end
@@ -195,12 +298,31 @@ function MODE.ContinueBreakingOtherNeck(ply)
 	local aim_ent, other_ply, trace = MODE.GetPlayerTraceToOtherVictim(ply, victim)
 	
 	if(IsValid(aim_ent) and (aim_ent:IsPlayer() or aim_ent:IsRagdoll()))then
-		if(IsValid(victim) and victim:Alive() and MODE.CanPlayerBreakOtherNeck(ply, aim_ent) and other_ply == victim)then
-			break_data.Progress = break_data.Progress + FrameTime() * 300
+		local action = break_data.Action or "neck_break"
+		local using_fiberwire = action ~= "saw_head" or MODE.CanPlayerSawHeadWithFiberwire(ply, aim_ent, other_ply)
+		if(IsValid(victim) and victim:Alive() and using_fiberwire and MODE.CanPlayerBreakOtherNeck(ply, aim_ent) and other_ply == victim)then
+			local progress_speed = action == "saw_head" and (100 / MODE.FiberwireHeadSawTime) or 300
+			break_data.Progress = break_data.Progress + FrameTime() * progress_speed
+
+			if(SERVER and action == "saw_head" and (break_data.NextSawSound or 0) <= CurTime())then
+				break_data.NextSawSound = CurTime() + 0.75
+				aim_ent:EmitSound("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", 55, math.random(80, 95), 0.45)
+
+				if hg and hg.organism and hg.organism.AddWoundManual and aim_ent.organism then
+					local head = aim_ent:LookupBone("ValveBiped.Bip01_Head1")
+					if head then
+						hg.organism.AddWoundManual(aim_ent, 18, vector_origin, angle_zero, head, CurTime())
+					end
+				end
+			end
 			
 			if(break_data.Progress >= 100)then
 				if(SERVER)then
-					MODE.BreakOtherNeck(ply, break_data.Victim, aim_ent)
+					if(action == "saw_head")then
+						MODE.SawOffOtherHead(ply, break_data.Victim, aim_ent)
+					else
+						MODE.BreakOtherNeck(ply, break_data.Victim, aim_ent)
+					end
 				end
 				
 				

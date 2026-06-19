@@ -17,9 +17,10 @@ net.Receive("HMCD_BreakingOtherNeck", function(len, ply)
 	
 	if(status)then
 		local other_ply = net.ReadEntity()
+		local action = net.ReadString()
 		
 		if(IsValid(attacker_ply))then
-			MODE.StartBreakingOtherNeck(LocalPlayer(), other_ply)
+			MODE.StartBreakingOtherNeck(LocalPlayer(), other_ply, action ~= "" and action or nil)
 		end
 	else
 		if(IsValid(attacker_ply))then

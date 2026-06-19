@@ -581,8 +581,16 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 						local aim_ent, other_ply = MODE.GetPlayerTraceToOther(ply)
 						
 						if(IsValid(aim_ent))then
-							if(other_ply and MODE.CanPlayerBreakOtherNeck(ply, aim_ent))then
-								MODE.StartBreakingOtherNeck(ply, other_ply)
+							local action = MODE.GetNeckBreakAction(ply)
+							local can_start
+							if(action == "saw_head")then
+								can_start = MODE.CanPlayerSawHeadWithFiberwire(ply, aim_ent, other_ply)
+							else
+								can_start = MODE.CanPlayerBreakOtherNeck(ply, aim_ent)
+							end
+
+							if(other_ply and can_start)then
+								MODE.StartBreakingOtherNeck(ply, other_ply, action)
 							end
 						end
 					elseif(ply:KeyDown(IN_USE))then
