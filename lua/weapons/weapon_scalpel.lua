@@ -22,9 +22,10 @@ SWEP.SuicidePunchAng = Angle(5, -15, 0)
 
 SWEP.basebone = 39
 SWEP.weaponPos = Vector(-0.5,1.3,0)
-SWEP.weaponAng = Angle(0,280,180)
+SWEP.weaponAng = Angle(0,260,180)
 
 SWEP.HoldPos = Vector(-4,0,-2)
+SWEP.HoldAng = Angle(0,0,0)
 
 SWEP.BreakBoneMul = 0.20
 
