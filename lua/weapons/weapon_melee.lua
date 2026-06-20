@@ -283,7 +283,6 @@ if CLIENT then
         
         self.worldModel:SetModelScale(self.modelscale2)
         local ent = hg.GetCurrentCharacter(owner)
-        if not IsValid(ent) then return end
 
         local inuse = self:InUse()
 
