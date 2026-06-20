@@ -126,6 +126,52 @@ local function getTargetHeartbeat(target)
 	return math.Clamp((org and org.heartbeat) or 70, 45, 180)
 end
 
+local function getStalkerScreenPos(pos)
+	local scr = pos:ToScreen()
+	if scr.visible then
+		return scr.x, scr.y, true
+	end
+
+	local ply = LocalPlayer()
+	if IsValid(ply) then
+		local dir = pos - ply:EyePos()
+		if dir:LengthSqr() > 0 then
+			dir:Normalize()
+			if ply:EyeAngles():Forward():Dot(dir) < 0 then
+				scr.x = ScrW() - scr.x
+				scr.y = ScrH() - scr.y
+			end
+		end
+	end
+
+	local margin = ScreenScale(18)
+	return math.Clamp(scr.x, margin, ScrW() - margin), math.Clamp(scr.y, margin, ScrH() - margin), false
+end
+
+local function drawStalkerPulseAt(x, y, color, size, alpha, offscreen, preySense)
+	surface.SetMaterial(matStalkerGlow)
+	surface.SetDrawColor(color.r, color.g, color.b, alpha)
+	surface.DrawTexturedRect(x - size, y - size, size * 2, size * 2)
+
+	if preySense then
+		local core = size * 0.42
+		surface.SetDrawColor(255, 245, 225, math.min(alpha + 40, 235))
+		surface.DrawTexturedRect(x - core, y - core, core * 2, core * 2)
+	end
+
+	if offscreen then
+		local ring = size * 0.55
+		surface.SetDrawColor(color.r, color.g, color.b, math.min(alpha + 35, 220))
+		surface.DrawOutlinedRect(x - ring, y - ring, ring * 2, ring * 2, math.max(1, ScreenScale(1)))
+
+		if preySense then
+			local outer = size * 0.82
+			surface.SetDrawColor(255, 245, 225, math.min(alpha + 10, 190))
+			surface.DrawOutlinedRect(x - outer, y - outer, outer * 2, outer * 2, math.max(1, ScreenScale(1)))
+		end
+	end
+end
+
 net.Receive("HMCD_StalkerMarks", function()
 	stalkerMarks.List = {}
 	local count = net.ReadUInt(2)
@@ -133,7 +179,8 @@ net.Receive("HMCD_StalkerMarks", function()
 	for i = 1, count do
 		stalkerMarks.List[i] = {
 			Target = net.ReadEntity(),
-			StunReady = net.ReadBool()
+			StunReady = net.ReadBool(),
+			Isolated = net.ReadBool()
 		}
 	end
 end)
@@ -177,6 +224,10 @@ hook.Add("HUDPaint", "HMCD_StalkerSonar", function()
 
 		local state = getStalkerMarkState(target)
 		local heartbeat = getTargetHeartbeat(target)
+		if mark.Isolated then
+			heartbeat = math.Clamp(heartbeat + 24, 55, 190)
+		end
+
 		local interval = 60 / heartbeat
 
 		if state.nextBeat <= now then
@@ -189,21 +240,21 @@ hook.Add("HUDPaint", "HMCD_StalkerSonar", function()
 		local beatFrac = math.Clamp(elapsed / math.max(state.interval, 0.1), 0, 1)
 		local beat = math.exp(-beatFrac * 18)
 		beat = beat + math.exp(-math.pow(beatFrac - 0.18, 2) * 280) * 0.55
+		if mark.Isolated then
+			beat = beat + math.exp(-math.pow(beatFrac - 0.32, 2) * 360) * 0.32
+		end
 		if beat <= 0.04 then continue end
 
 		local pos = getStalkerTargetDrawPos(target)
 		if not pos then continue end
 
-		local scr = pos:ToScreen()
-		if not scr.visible then continue end
-
 		local color = getStalkerPulseColor(target, mark.StunReady)
-		local size = ScreenScale(mark.StunReady and 15 or 13) + ScreenScale(5) * beat
-		local alpha = color.a * math.Clamp(beat, 0, 1)
+		local x, y, onScreen = getStalkerScreenPos(pos)
+		local senseMul = mark.Isolated and 1.22 or 1
+		local size = (ScreenScale(mark.StunReady and 15 or 13) + ScreenScale(onScreen and 5 or 3) * beat) * senseMul
+		local alpha = math.min(color.a * math.Clamp(beat, 0, 1) * (onScreen and 1 or 0.72) * (mark.Isolated and 1.18 or 1), 245)
 
-		surface.SetMaterial(matStalkerGlow)
-		surface.SetDrawColor(color.r, color.g, color.b, alpha)
-		surface.DrawTexturedRect(scr.x - size, scr.y - size, size * 2, size * 2)
+		drawStalkerPulseAt(x, y, color, size, alpha, not onScreen, mark.Isolated)
 	end
 end)
 --//

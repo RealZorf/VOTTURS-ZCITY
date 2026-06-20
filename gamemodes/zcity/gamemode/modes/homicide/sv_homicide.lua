@@ -281,6 +281,108 @@ util.AddNetworkString("HMCD(EndPlayersRoleSelection)")
 util.AddNetworkString("HMCD(SetSubRole)")
 util.AddNetworkString("HMCD(SetProfession)")
 util.AddNetworkString("hmcd_announce_traitor_lose")
+util.AddNetworkString("HMCD_TraitorRoleStats")
+util.AddNetworkString("HMCD_RequestTraitorRoleStats")
+
+local HMCD_TRAITOR_ROLE_STATS_PATH = "zcity/hmcd_traitor_role_stats.json"
+local HMCD_TRAITOR_ROLE_STATS_BITS = 24
+local HMCD_TRAITOR_ROLE_STATS_MIN_PLAYERS = 15
+
+function MODE.LoadTraitorRoleStats()
+	if MODE.HMCDTraitorRoleStatsLoaded then return end
+	MODE.HMCDTraitorRoleStatsLoaded = true
+	MODE.HMCDTraitorRoleStats = {}
+
+	local raw = file.Read(HMCD_TRAITOR_ROLE_STATS_PATH, "DATA")
+	if not raw or raw == "" then return end
+
+	local decoded = util.JSONToTable(raw)
+	if not istable(decoded) then return end
+
+	for role, stats in pairs(decoded) do
+		local normalized_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(role) or role
+		if isstring(normalized_role) and MODE.SubRoles[normalized_role] and istable(stats) then
+			local wins = math.max(math.floor(tonumber(stats.wins or stats.Wins or 0) or 0), 0)
+			local games = math.max(math.floor(tonumber(stats.games or stats.Games or 0) or 0), wins)
+
+			MODE.HMCDTraitorRoleStats[normalized_role] = {
+				wins = wins,
+				games = games
+			}
+		end
+	end
+end
+
+function MODE.SaveTraitorRoleStats()
+	MODE.LoadTraitorRoleStats()
+	file.CreateDir("zcity")
+	file.Write(HMCD_TRAITOR_ROLE_STATS_PATH, util.TableToJSON(MODE.HMCDTraitorRoleStats or {}, true))
+end
+
+function MODE.SendTraitorRoleStats(ply)
+	if not IsValid(ply) then return end
+
+	MODE.LoadTraitorRoleStats()
+
+	local entries = {}
+	for role, stats in pairs(MODE.HMCDTraitorRoleStats or {}) do
+		if MODE.SubRoles[role] and istable(stats) then
+			entries[#entries + 1] = {
+				role = role,
+				wins = math.Clamp(math.floor(tonumber(stats.wins or 0) or 0), 0, 16777215),
+				games = math.Clamp(math.floor(tonumber(stats.games or 0) or 0), 0, 16777215)
+			}
+		end
+	end
+
+	table.sort(entries, function(a, b)
+		return a.role < b.role
+	end)
+
+	net.Start("HMCD_TraitorRoleStats")
+		net.WriteUInt(math.min(#entries, 255), 8)
+
+		for i = 1, math.min(#entries, 255) do
+			local entry = entries[i]
+			net.WriteString(entry.role)
+			net.WriteUInt(entry.wins, HMCD_TRAITOR_ROLE_STATS_BITS)
+			net.WriteUInt(entry.games, HMCD_TRAITOR_ROLE_STATS_BITS)
+		end
+	net.Send(ply)
+end
+
+function MODE.BroadcastTraitorRoleStats()
+	for _, ply in player.Iterator() do
+		MODE.SendTraitorRoleStats(ply)
+	end
+end
+
+function MODE.RecordTraitorRoleStats(role_results, traitors_won)
+	if MODE.HMCDTraitorRoleStatsRecorded then return end
+	MODE.HMCDTraitorRoleStatsRecorded = true
+
+	if player.GetCount() < HMCD_TRAITOR_ROLE_STATS_MIN_PLAYERS then return end
+	if not istable(role_results) or #role_results == 0 then return end
+
+	MODE.LoadTraitorRoleStats()
+
+	for _, result in ipairs(role_results) do
+		local role = result.role
+		if isstring(role) and MODE.SubRoles[role] then
+			local stats = MODE.HMCDTraitorRoleStats[role] or {wins = 0, games = 0}
+			stats.games = math.max(math.floor(tonumber(stats.games or 0) or 0), 0) + 1
+			stats.wins = math.max(math.floor(tonumber(stats.wins or 0) or 0), 0) + (traitors_won and 1 or 0)
+			MODE.HMCDTraitorRoleStats[role] = stats
+		end
+	end
+
+	MODE.SaveTraitorRoleStats()
+	MODE.BroadcastTraitorRoleStats()
+end
+
+net.Receive("HMCD_RequestTraitorRoleStats", function(_, ply)
+	MODE.SendTraitorRoleStats(ply)
+end)
 
 MODE.BaseProfessionHealth = 100
 MODE.BaseProfessionStamina = 60 * 3
@@ -1754,6 +1856,7 @@ function MODE:RoundStart()
 	local roles_choose = MODE.ShouldStartRoleRound()
 	MODE.StartRoundTime = CurTime()
 	MODE.RoleChooseRound = false
+	MODE.HMCDTraitorRoleStatsRecorded = false
 	
 
 	self.roundStartType = self.Type
@@ -1797,6 +1900,7 @@ function MODE:EndRound()
 	self.roundStartType = nil
 
 	local traitors, gunners = {}, {}
+	local traitor_role_results = {}
 	local players_alive = 0
 	local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 
@@ -1807,6 +1911,19 @@ function MODE:EndRound()
 	for i, ply in player.Iterator() do
 		if ply.isTraitor and ply:Team() ~= TEAM_SPECTATOR then
 			traitors[#traitors + 1] = ply
+
+			if ply.MainTraitor then
+				local sub_role = ply.SubRole
+				sub_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(sub_role) or sub_role
+
+				if isstring(sub_role) and sub_role ~= "" and MODE.SubRoles[sub_role] then
+					traitor_role_results[#traitor_role_results + 1] = {
+						ply = ply,
+						role = sub_role,
+						steam_id64 = ply:SteamID64() or ""
+					}
+				end
+			end
 		end
 		
 		if ply.isGunner and ply:Team() ~= TEAM_SPECTATOR then
@@ -1844,6 +1961,8 @@ function MODE:EndRound()
 		
 		return
 	end
+
+	MODE.RecordTraitorRoleStats(traitor_role_results, winner == 1)
 
 	if self.Type then
 		if(MODE.RoleChooseRound)then

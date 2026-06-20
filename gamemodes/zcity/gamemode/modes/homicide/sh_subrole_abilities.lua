@@ -21,13 +21,19 @@ MODE.ShadowCamouflageColorModulation = {
 	0.84,
 	0.94
 }
-MODE.FiberwireHeadSawTime = 5
+MODE.FiberwireHeadSawTime = 4
 MODE.StalkerMarkMax = 3
-MODE.StalkerMarkTime = 1.6
+MODE.StalkerMarkTime = 1.15
 MODE.StalkerMarkDistance = 2800
-MODE.StalkerMarkAngleCos = math.cos(math.rad(14))
-MODE.StalkerMarkAssistDistance = 56
-MODE.StalkerFirstHitStunTime = 1
+MODE.StalkerMarkAngleCos = math.cos(math.rad(18))
+MODE.StalkerMarkAssistDistance = 78
+MODE.StalkerFirstHitStunTime = 1.35
+MODE.StalkerIsolatedFirstHitStunTime = 2.35
+MODE.StalkerIsolatedRadius = 430
+MODE.StalkerFirstHitStaminaDrain = 45
+MODE.StalkerPursuitRadius = 1450
+MODE.StalkerPursuitStaminaRegen = 8
+MODE.StalkerPursuitFootstepVolume = 0.28
 
 function MODE.IsShadowRole(subrole)
 	return subrole == "traitor_shadow" or subrole == "traitor_shadow_soe"

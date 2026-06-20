@@ -118,6 +118,111 @@ local function stripSOESuffix(role)
 	return string.gsub(role or "", "_soe$", "")
 end
 
+MODE.HMCDTraitorRoleStats = MODE.HMCDTraitorRoleStats or {}
+
+local function getTraitorRoleStats(role)
+	if not role or role == "" then
+		return {wins = 0, games = 0}
+	end
+
+	local normalized_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(role) or role
+	local stats = MODE.HMCDTraitorRoleStats and MODE.HMCDTraitorRoleStats[normalized_role]
+	if not stats then
+		return {wins = 0, games = 0}
+	end
+
+	return {
+		wins = math.max(math.floor(tonumber(stats.wins or 0) or 0), 0),
+		games = math.max(math.floor(tonumber(stats.games or 0) or 0), 0)
+	}
+end
+
+local function combineTraitorRoleStats(...)
+	local combined = {wins = 0, games = 0}
+
+	for i = 1, select("#", ...) do
+		local role = select(i, ...)
+		local stats = getTraitorRoleStats(role)
+		combined.wins = combined.wins + stats.wins
+		combined.games = combined.games + stats.games
+	end
+
+	return combined
+end
+
+local function getTraitorWinratePercent(stats)
+	if not stats or (stats.games or 0) <= 0 then return nil end
+	return math.Clamp(math.Round((stats.wins / stats.games) * 100), 0, 100)
+end
+
+local function formatTraitorWinrateShort(stats)
+	local rate = getTraitorWinratePercent(stats)
+	if not rate then return "WR --" end
+
+	return string.format("WR %d%% / %dR", rate, stats.games)
+end
+
+local function formatTraitorWinrateLine(label, stats)
+	local rate = getTraitorWinratePercent(stats)
+	if not rate then
+		return label .. ": no server data yet"
+	end
+
+	return string.format("%s: %d%% over %d rounds (%dW/%dL)", label, rate, stats.games, stats.wins, math.max(stats.games - stats.wins, 0))
+end
+
+local function buildTraitorWinrateDetail(data)
+	if not data then return "" end
+
+	local combined = combineTraitorRoleStats(data.Standard, data.SOE)
+	if combined.games <= 0 then
+		return "No server data yet."
+	end
+
+	local lines = {
+		formatTraitorWinrateLine("Combined", combined),
+		formatTraitorWinrateLine("Standard", getTraitorRoleStats(data.Standard)),
+		formatTraitorWinrateLine("SOE", getTraitorRoleStats(data.SOE))
+	}
+
+	return table.concat(lines, "\n")
+end
+
+local function requestTraitorRoleStats(force)
+	local now = SysTime()
+	if not force and (MODE.HMCDTraitorRoleStatsNextRequest or 0) > now then return end
+
+	MODE.HMCDTraitorRoleStatsNextRequest = now + 5
+
+	net.Start("HMCD_RequestTraitorRoleStats")
+	net.SendToServer()
+end
+
+net.Receive("HMCD_TraitorRoleStats", function()
+	local count = net.ReadUInt(8)
+	local stats = {}
+
+	for _ = 1, count do
+		local role = net.ReadString()
+		local normalized_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(role) or role
+		local wins = net.ReadUInt(24)
+		local games = net.ReadUInt(24)
+
+		if normalized_role and normalized_role ~= "" then
+			stats[normalized_role] = {
+				wins = wins,
+				games = games
+			}
+		end
+	end
+
+	MODE.HMCDTraitorRoleStats = stats
+
+	if IsValid(VGUI_HMCD_TraitorTileMenu) and VGUI_HMCD_TraitorTileMenu.RefreshStats then
+		VGUI_HMCD_TraitorTileMenu:RefreshStats()
+	end
+end)
+
 local function getRoleDescription(info)
 	if not info then return "" end
 
@@ -155,16 +260,16 @@ local traitorLoadoutText = {
 	traitor_assassin_soe = "Katana with sling\nWalkie-talkie\nAdrenaline\nFiber wire\nHigher recoil control and stamina",
 	traitor_chemist = "SOG knife\nAdrenaline\nPoison 1, 2, 3 and 4\nPoison consumable, sleep canister\nFiber wire, flashlight",
 	traitor_chemist_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nPoison 1, 2, 3 and 4\nPoison consumable, sleep canister\nFiber wire, flashlight",
-	traitor_shadow = "Improved wall camouflage with short slip window\nTranquilizer gun with population-scaled ammo\nSOG knife, poison vial, traitor suit\nAdrenaline, handcuffs, smoke and decoy grenades\nFiber wire, flashlight",
-	traitor_shadow_soe = "Improved wall camouflage with short slip window\nTranquilizer gun with population-scaled ammo\nSOG knife, poison vial, traitor suit\nWalkie-talkie, adrenaline, handcuffs\nSmoke and decoy grenades\nFiber wire, flashlight",
+	traitor_shadow = "Reload-key wall camouflage with short slip window\nTranquilizer gun with population-scaled ammo\nSOG knife, poison vial, traitor suit\nAdrenaline, handcuffs, smoke and decoy grenades\nFiber wire, flashlight",
+	traitor_shadow_soe = "Reload-key wall camouflage with short slip window\nTranquilizer gun with population-scaled ammo\nSOG knife, poison vial, traitor suit\nWalkie-talkie, adrenaline, handcuffs\nSmoke and decoy grenades\nFiber wire, flashlight",
 	traitor_maniac = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health\nFury after first serious wound",
 	traitor_maniac_soe = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health, SOE recoil control\nFury after first serious wound",
 	traitor_terrorist = "Bomb vest\nMatches\nClaymore, grenade\nIED, Buck 200 knife\nFlashlight",
 	traitor_terrorist_soe = "Bomb vest\nMatches\nClaymore, grenade\nIED, SOG knife\nFlashlight",
 	traitor_lastmanstanding = "Kar98 + 20 rounds\nSling\nBrass knuckles\nFlashlight",
 	traitor_lastmanstanding_soe = "Kar98 + 20 rounds\nSling\nBrass knuckles\nFlashlight, SOE recoil control",
-	traitor_stalker = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nMark up to 3 victims by watching them\nHeartbeat sonar pulses through walls\nFirst hit against each mark lightly stuns",
-	traitor_stalker_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nMark up to 3 victims by watching them\nHeartbeat sonar pulses through walls\nFirst hit against each mark lightly stuns"
+	traitor_stalker = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nPrey Sense sharpens isolated marked victims\nSilent Pursuit quiets your steps near isolated prey\nFirst hit staggers marked prey; isolated prey are hit harder",
+	traitor_stalker_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nPrey Sense sharpens isolated marked victims\nSilent Pursuit quiets your steps near isolated prey\nFirst hit staggers marked prey; isolated prey are hit harder"
 }
 
 local function getLoadoutText(role)
@@ -377,6 +482,9 @@ function PANEL:SetRoleData(data)
 	local standardText = data.StandardLoadout ~= "" and data.StandardLoadout or "No Standard loadout configured."
 	local soeText = data.SOELoadout ~= "" and data.SOELoadout or "No SOE loadout configured."
 	local objective = data.StandardObjective ~= "" and data.StandardObjective or data.SOEObjective
+	local winrateText = buildTraitorWinrateDetail(data)
+
+	self:AddDetailSection("WINRATE", winrateText)
 
 	if objective and objective ~= "" then
 		self:AddDetailSection("OBJECTIVE", objective)
@@ -420,6 +528,7 @@ local PANEL = {}
 
 function PANEL:Init()
 	refreshTraitorTileFonts()
+	requestTraitorRoleStats(false)
 
 	if IsValid(VGUI_HMCD_TraitorTileMenu) then
 		VGUI_HMCD_TraitorTileMenu:Remove()
@@ -495,7 +604,20 @@ end
 
 function PANEL:SetDetailRole(data, pinned)
 	if not data or not IsValid(self.DetailPanel) then return end
+	self.CurrentDetailRole = data
 	self.DetailPanel:SetRoleData(data)
+end
+
+function PANEL:RefreshStats()
+	if IsValid(self.DetailPanel) and self.CurrentDetailRole then
+		self.DetailPanel:SetRoleData(self.CurrentDetailRole)
+	end
+
+	for _, tile in ipairs(self.Tiles or {}) do
+		if IsValid(tile) then
+			tile:InvalidateLayout(false)
+		end
+	end
 end
 
 function PANEL:PerformLayout(w, h)
@@ -644,7 +766,18 @@ function PANEL:SetupModeButton(button, label, mode, role)
 		drawCutOutline(0, 0, w, h, cut, border, selected and 2 or 1)
 
 		local text = enabled and btn.ModeLabel or (btn.ModeLabel .. " N/A")
-		draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, enabled and (selected and color_white or traitorTileText) or Color(105, 110, 105), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		local mainColor = enabled and (selected and color_white or traitorTileText) or Color(105, 110, 105)
+
+		if enabled then
+			local stats = getTraitorRoleStats(btn.Role)
+			local rate = getTraitorWinratePercent(stats)
+			local statText = rate and (rate .. "% / " .. stats.games .. "R") or "--"
+
+			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.36, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText(statText, "HMCD_TraitorTiles_Code", w * 0.5, h * 0.68, selected and Color(220, 255, 232, 230) or Color(135, 190, 154, 205), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		else
+			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		end
 
 		if selected then
 			drawGlowLine(traitor_ui(14), h - 3, w - traitor_ui(28), 1, Color(145, 255, 185, 220))
@@ -664,8 +797,8 @@ function PANEL:PerformLayout(w, h)
 	self.StdButton:SetSize(btnW, btnH)
 	self.SoeButton:SetPos(pad + btnW + btnGap, h - pad - btnH)
 	self.SoeButton:SetSize(btnW, btnH)
-	self.Description:SetPos(pad, traitor_ui(82))
-	self.Description:SetSize(w - pad * 2, h - traitor_ui(150))
+	self.Description:SetPos(pad, traitor_ui(96))
+	self.Description:SetSize(w - pad * 2, h - traitor_ui(164))
 end
 
 function PANEL:Think()
@@ -723,6 +856,12 @@ function PANEL:Paint(w, h)
 	drawGlowLine(traitor_ui(12), traitor_ui(21), 2, railH, selected and Color(35, 255, 110, 220) or Color(35, 255, 110, 95 + hover * 80))
 	draw.SimpleText(string.upper(data.Name or "UNKNOWN"), "HMCD_TraitorTiles_Role", traitor_ui(26), traitor_ui(16), traitorTileText, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
 	draw.SimpleText("NODE " .. string.format("%02d", self.TileIndex or 0) .. " / " .. string.upper(string.gsub(data.Base or "unknown", "traitor_", "")), "HMCD_TraitorTiles_Code", traitor_ui(27), traitor_ui(51), Color(35, 255, 110, 155), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+
+	local combinedStats = combineTraitorRoleStats(data.Standard, data.SOE)
+	local winrateText = formatTraitorWinrateShort(combinedStats)
+	local rate = getTraitorWinratePercent(combinedStats)
+	local winrateColor = rate and Color(100, 255, 165, 205) or Color(255, 190, 75, 150)
+	draw.SimpleText(winrateText, "HMCD_TraitorTiles_Code", traitor_ui(27), traitor_ui(69), winrateColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
 
 	local status = {}
 	if selectedStd then status[#status + 1] = "STD ACTIVE" end

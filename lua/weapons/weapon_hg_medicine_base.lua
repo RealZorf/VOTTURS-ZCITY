@@ -807,8 +807,24 @@ else
 	end)
 
 	--hook.Add("PostDrawPlayerRagdoll", "draw_tourniquets", function(ent,ply)
+	local function IsShadowCamouflaged(ent, ply)
+		if IsValid(ent) and ent.GetNWBool and ent:GetNWBool("HMCD_ShadowCamouflageActive", false) then return true end
+		if IsValid(ply) and ply.GetNWBool and ply:GetNWBool("HMCD_ShadowCamouflageActive", false) then return true end
+
+		local owner = IsValid(ent) and hg and hg.RagdollOwner and hg.RagdollOwner(ent) or nil
+		return IsValid(owner) and owner.GetNWBool and owner:GetNWBool("HMCD_ShadowCamouflageActive", false)
+	end
+
 	function hg.RenderTourniquets(ent, ply)
 		if !ply.tourniquets or !next(ply.tourniquets) then return end
+		if IsShadowCamouflaged(ent, ply) then
+			remove_tourniquets(ply)
+			if ent ~= ply then
+				remove_tourniquets(ent)
+			end
+			return
+		end
+
 		for i, wound in ipairs(ply.tourniquets) do
 			ply.tourniquetsM = ply.tourniquetsM or {}
 			ply.tourniquetsM[i] = IsValid(ply.tourniquetsM[i]) and ply.tourniquetsM[i] or ClientsideModel("models/tourniquet/tourniquet_put.mdl")
@@ -911,6 +927,14 @@ else
 		--PrintTable(ent.bandaged_limbs)
 		if not ent.bandaged_limbs then return end
 		if !next(ent.bandaged_limbs) then return end
+		if IsShadowCamouflaged(ent, ply) then
+			remove_bandages(ent)
+			if ent ~= ply then
+				remove_bandages(ply)
+			end
+			return
+		end
+
 		if not IsValid( ent.bandagesModel ) then
 			ent.bandagesModel = (ThatPlyIsFemale(ent) and ClientsideModel(BadagesModelFemale) or ClientsideModel(BadagesModelMale))
 			local model = ent.bandagesModel

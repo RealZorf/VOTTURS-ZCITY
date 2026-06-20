@@ -86,6 +86,9 @@ function MODE.SetShadowCamouflageActive(ply, state)
 		local tint = MODE.ShadowCamouflageTint or Color(255, 255, 255, MODE.ShadowCamouflageAlpha)
 		ply:SetColor(Color(255, 255, 255, tint.a))
 		ply:DrawShadow(false)
+		if ply.RemoveAllDecals then
+			ply:RemoveAllDecals()
+		end
 	else
 		local clr = ply.Ability_ShadowCamouflage_OriginalColor or color_white
 
@@ -190,12 +193,15 @@ function MODE.SyncStalkerMarks(stalker)
 	if not IsValid(stalker) then return end
 
 	local valid_marks = MODE.CleanupStalkerMarks(stalker)
+	local send_count = math.min(#valid_marks, MODE.StalkerMarkMax)
 
 	net.Start("HMCD_StalkerMarks")
-		net.WriteUInt(math.min(#valid_marks, MODE.StalkerMarkMax), 2)
-		for i = 1, math.min(#valid_marks, MODE.StalkerMarkMax) do
-			net.WriteEntity(valid_marks[i].Target)
-			net.WriteBool(not valid_marks[i].StunSpent)
+		net.WriteUInt(send_count, 2)
+		for i = 1, send_count do
+			local mark = valid_marks[i]
+			net.WriteEntity(mark.Target)
+			net.WriteBool(not mark.StunSpent)
+			net.WriteBool(MODE.IsStalkerVictimIsolated(stalker, mark.Target))
 		end
 	net.Send(stalker)
 end
@@ -206,9 +212,14 @@ function MODE.ResetStalkerTracking(stalker)
 	stalker.Ability_StalkerMarks = nil
 	stalker.Ability_StalkerGazeTarget = nil
 	stalker.Ability_StalkerGazeStartedAt = nil
+	stalker.Ability_StalkerPursuitTarget = nil
+	stalker.Ability_StalkerPursuitLastThink = nil
+	stalker.Ability_StalkerNextSenseSync = nil
 	stalker:SetNWEntity("HMCD_StalkerGazeTarget", NULL)
 	stalker:SetNWFloat("HMCD_StalkerGazeStartedAt", 0)
 	stalker:SetNWFloat("HMCD_StalkerGazeReadyAt", 0)
+	stalker:SetNWBool("HMCD_StalkerPursuitActive", false)
+	stalker:SetNWEntity("HMCD_StalkerPursuitTarget", NULL)
 
 	net.Start("HMCD_StalkerMarks")
 		net.WriteUInt(0, 2)
@@ -340,6 +351,86 @@ function MODE.UpdateStalkerTracking(stalker)
 	MODE.SyncStalkerMarks(stalker)
 end
 
+function MODE.IsStalkerVictimIsolated(stalker, victim)
+	if not IsValid(stalker) or not IsValid(victim) then return false end
+
+	local victim_pos = victim:GetPos()
+	local radius_sqr = (MODE.StalkerIsolatedRadius or 430) ^ 2
+
+	for _, ply in player.Iterator() do
+		if ply == victim or ply == stalker then continue end
+		if not IsValid(ply) or not ply:Alive() or ply:Team() == TEAM_SPECTATOR then continue end
+		if ply.isTraitor then continue end
+
+		if ply:GetPos():DistToSqr(victim_pos) <= radius_sqr then
+			return false
+		end
+	end
+
+	return true
+end
+
+function MODE.GetStalkerPursuitPrey(stalker)
+	if not IsValid(stalker) then return nil end
+
+	local marks = MODE.CleanupStalkerMarks(stalker)
+	local stalker_pos = stalker:GetPos()
+	local radius_sqr = (MODE.StalkerPursuitRadius or 1450) ^ 2
+	local best_target
+	local best_dist_sqr = radius_sqr
+
+	for i = 1, #marks do
+		local target = marks[i].Target
+		if not MODE.CanStalkerMarkTarget(stalker, target) then continue end
+		if not MODE.IsStalkerVictimIsolated(stalker, target) then continue end
+
+		local dist_sqr = target:GetPos():DistToSqr(stalker_pos)
+		if dist_sqr <= best_dist_sqr then
+			best_target = target
+			best_dist_sqr = dist_sqr
+		end
+	end
+
+	return best_target
+end
+
+function MODE.SetStalkerPursuitTarget(stalker, target)
+	if not IsValid(stalker) then return end
+
+	local active = IsValid(target)
+	if stalker.Ability_StalkerPursuitTarget == target and stalker:GetNWBool("HMCD_StalkerPursuitActive", false) == active then return end
+
+	stalker.Ability_StalkerPursuitTarget = active and target or nil
+	stalker:SetNWBool("HMCD_StalkerPursuitActive", active)
+	stalker:SetNWEntity("HMCD_StalkerPursuitTarget", active and target or NULL)
+end
+
+function MODE.UpdateStalkerPursuit(stalker)
+	if not isStalkerRoundActive() or not IsValid(stalker) or not stalker:Alive() then
+		MODE.SetStalkerPursuitTarget(stalker, nil)
+		return
+	end
+
+	local now = CurTime()
+	local last_think = stalker.Ability_StalkerPursuitLastThink or now
+	local delta = math.Clamp(now - last_think, 0, 0.25)
+	stalker.Ability_StalkerPursuitLastThink = now
+
+	local target = MODE.GetStalkerPursuitPrey(stalker)
+	MODE.SetStalkerPursuitTarget(stalker, target)
+
+	if not IsValid(target) or delta <= 0 then return end
+
+	local org = stalker.organism
+	local stamina = org and org.stamina
+	if not stamina then return end
+
+	local max_stamina = stamina.max or stamina.range or 0
+	if max_stamina <= 0 then return end
+
+	stamina[1] = math.min(max_stamina, (stamina[1] or max_stamina) + (MODE.StalkerPursuitStaminaRegen or 8) * delta)
+end
+
 function MODE.TryStalkerFirstHit(attacker, victim)
 	if not isStalkerRoundActive() then return end
 	if not IsValid(attacker) or not MODE.IsStalkerRole or not MODE.IsStalkerRole(attacker.SubRole) then return end
@@ -351,11 +442,30 @@ function MODE.TryStalkerFirstHit(attacker, victim)
 	if not marked or not mark or mark.StunSpent then return end
 
 	mark.StunSpent = true
+	local isolated = MODE.IsStalkerVictimIsolated(attacker, victim)
+	local stun_time = isolated and (MODE.StalkerIsolatedFirstHitStunTime or 2.35) or (MODE.StalkerFirstHitStunTime or 1.35)
+
 	if hg.LightStunPlayer then
-		hg.LightStunPlayer(victim, MODE.StalkerFirstHitStunTime)
+		hg.LightStunPlayer(victim, stun_time)
 	end
 
-	victim:ViewPunch(Angle(math.Rand(-4, -2), math.Rand(-2, 2), math.Rand(-2, 2)))
+	local org = victim.organism
+	local stamina = org and org.stamina
+	if stamina then
+		stamina[1] = math.max((stamina[1] or 0) - (MODE.StalkerFirstHitStaminaDrain or 45), 0)
+	end
+
+	victim:ViewPunch(Angle(math.Rand(-7, -3), math.Rand(-4, 4), math.Rand(-4, 4)))
+	victim:EmitSound("player/heartbeat1.wav", 55, isolated and 70 or 82, 0.35)
+
+	if isolated then
+		if isfunction(attacker.Notify) then
+			attacker:Notify("Isolated heartbeat staggered.", true, "stalker_isolated_hit", 2, nil, Color(80, 210, 255))
+		else
+			attacker:ChatPrint("Isolated heartbeat staggered.")
+		end
+	end
+
 	MODE.SyncStalkerMarks(attacker)
 end
 
@@ -528,8 +638,12 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 
 						ply:SetNWFloat("HMCD_ShadowCamouflageChargeStart", charge_start)
 						ply:SetNWFloat("HMCD_ShadowCamouflageReadyAt", charge_start + MODE.ShadowCamouflageChargeTime)
-					elseif(not ply.Ability_ShadowCamouflage_Active and charge_start + MODE.ShadowCamouflageChargeTime <= now)then
-						MODE.SetShadowCamouflageActive(ply, true)
+					elseif(ply:KeyPressed(IN_RELOAD))then
+						if(ply.Ability_ShadowCamouflage_Active)then
+							MODE.ResetShadowCamouflage(ply)
+						elseif(charge_start + MODE.ShadowCamouflageChargeTime <= now)then
+							MODE.SetShadowCamouflageActive(ply, true)
+						end
 					end
 				elseif(ply.Ability_ShadowCamouflage_ChargeStart or ply.Ability_ShadowCamouflage_Active)then
 					MODE.ResetShadowCamouflage(ply)
@@ -657,7 +771,13 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 
 			if(MODE.IsStalkerRole and MODE.IsStalkerRole(ply.SubRole))then
 				MODE.UpdateStalkerTracking(ply)
-			elseif(ply.Ability_StalkerMarks or IsValid(ply.Ability_StalkerGazeTarget))then
+				MODE.UpdateStalkerPursuit(ply)
+
+				if((ply.Ability_StalkerNextSenseSync or 0) <= CurTime())then
+					MODE.SyncStalkerMarks(ply)
+					ply.Ability_StalkerNextSenseSync = CurTime() + 1
+				end
+			elseif(ply.Ability_StalkerMarks or IsValid(ply.Ability_StalkerGazeTarget) or IsValid(ply.Ability_StalkerPursuitTarget) or ply:GetNWBool("HMCD_StalkerPursuitActive", false))then
 				MODE.ResetStalkerTracking(ply)
 			end
 		elseif(ply.Ability_ShadowCamouflage_ChargeStart or ply.Ability_ShadowCamouflage_Active)then
@@ -672,6 +792,15 @@ hook.Add("HomigradDamage", "HMCD_SubRoles_ManiacFuryTrigger", function(victim, d
 	ply = hg.RagdollOwner and (hg.RagdollOwner(ply) or ply) or ply
 
 	MODE.TryTriggerManiacFury(ply, dmgInfo, harm)
+end)
+
+hook.Add("HG_PlayerFootstep", "HMCD_SubRoles_StalkerSilentPursuit", function(ply, pos, foot, sound, volume, rf)
+	if not IsValid(ply) or not ply:GetNWBool("HMCD_StalkerPursuitActive", false) then return end
+	if not MODE.IsStalkerRole or not MODE.IsStalkerRole(ply.SubRole) then return end
+
+	EmitSound(sound, pos, ply:EntIndex(), CHAN_AUTO, (volume or 1) * (MODE.StalkerPursuitFootstepVolume or 0.28), 70, nil, math.random(92, 98))
+
+	return true
 end)
 
 hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(victim, dmgInfo)

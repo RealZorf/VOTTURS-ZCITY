@@ -113,10 +113,28 @@ local function applyShadowCamouflageRenderState(visuals)
 	render.SetColorModulation((modulation[1] or 0.78) * (tint.r / 255), (modulation[2] or 0.84) * (tint.g / 255), (modulation[3] or 0.94) * (tint.b / 255))
 end
 
+local function clearShadowCamouflageDecals(ply)
+	if not IsValid(ply) then return end
+
+	local now = CurTime()
+	if (ply.HMCD_ShadowCamouflageNextDecalClear or 0) > now then return end
+	ply.HMCD_ShadowCamouflageNextDecalClear = now + 0.2
+
+	if ply.RemoveAllDecals then
+		ply:RemoveAllDecals()
+	end
+
+	local char = hg and hg.GetCurrentCharacter and hg.GetCurrentCharacter(ply) or nil
+	if IsValid(char) and char ~= ply and char.RemoveAllDecals then
+		char:RemoveAllDecals()
+	end
+end
+
 hook.Add("PrePlayerDraw", "HMCD_ShadowCamouflage_PrePlayerDraw", function(ply)
 	if not MODE.IsShadowRole or not MODE.IsShadowRole(ply.SubRole) then return end
 	if not ply:GetNWBool("HMCD_ShadowCamouflageActive") then return end
 
+	clearShadowCamouflageDecals(ply)
 	applyShadowCamouflageRenderState(MODE.GetShadowCamouflageVisuals(ply))
 end)
 
@@ -257,7 +275,8 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 				local ready_at = ply:GetNWFloat("HMCD_ShadowCamouflageReadyAt", 0)
 
 				if(active or charge_start > 0)then
-					local text = active and "CAMOUFLAGED" or "Stand still by a wall to camouflage"
+					local ready = not active and ready_at > 0 and CurTime() >= ready_at
+					local text = active and "CAMOUFLAGED [R] Cancel" or (ready and "[R] Camouflage" or "Stand still by a wall to ready camouflage")
 					local tw, th = surface.GetTextSize(text)
 					local cx, cy = ScrW() * 0.5, ScrH() * 0.68 + y_offset
 

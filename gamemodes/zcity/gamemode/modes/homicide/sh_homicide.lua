@@ -343,7 +343,7 @@ Can detect presence and potency of chemical agents in the air.]],
 	["traitor_shadow"] = {
 		Name = "Shadow",
 		Description = [[A master of silent elimination.
-Can camouflage when standing still next to a wall for a few seconds while upright, with a short slip window after leaving cover.
+Stand still next to a wall for a few seconds while upright, then press reload to camouflage with a short slip window after leaving cover.
 Equipped with concealed weapons that won't be visible on your body.
 Uses tranquilizer gun, tetrodoxin, handcuffs and a disguise.
 Enhanced stealth capabilities with increased stamina. (+40 units)
@@ -378,7 +378,7 @@ For those who prefer to kill from the shadows.]],
 	["traitor_shadow_soe"] = {
 		Name = "Shadow",
 		Description = [[A master of silent elimination.
-Can camouflage when standing still next to a wall for a few seconds while upright, with a short slip window after leaving cover.
+Stand still next to a wall for a few seconds while upright, then press reload to camouflage with a short slip window after leaving cover.
 Equipped with concealed weapons that won't be visible on your body.
 Uses tranquilizer gun, tetrodoxin, handcuffs and a disguise.
 Enhanced stealth capabilities with increased stamina. (+40 units)
@@ -575,13 +575,20 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 		Description = [[A sonar hunter who reads the living by their pulse.
 Look at victims for a few seconds to mark up to 3 of them.
 Marked victims emit a subtle color pulse through walls in rhythm with their heartbeat.
-Your first hit against each marked victim causes a light stun.]],
-		Objective = "You are the Stalker. Mark victims, track their heartbeat through cover and strike when they split from the crowd.",
+Isolated marked victims become clearer prey and make your pursuit quieter.
+Your first hit against each marked victim staggers them and hits isolated prey much harder.
+You carry a hammer and nails to quietly seal routes around your prey.
+Once per round, you can leave behind a dead copy of yourself to fake your death.]],
+		Objective = "You are the Stalker. Mark victims, read isolated prey, move quietly while pursuing them and punish anyone who splits from the crowd.",
 		SpawnFunction = function(ply)
+			ply.HMCDStalkerDeathDecoyUsed = nil
 			ply:Give("weapon_sogknife")
 			ply:Give("weapon_adrenaline")
 			ply:Give("weapon_hg_fiberwire")
 			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_hg_stalker_decoy")
+			ply:Give("weapon_hammer")
+			ply:GiveAmmo(6, "Nails", true)
 
 			ply.organism.stamina.max = 260
 			local inv = ply:GetNetVar("Inventory", {})
@@ -595,14 +602,21 @@ Your first hit against each marked victim causes a light stun.]],
 		Description = [[A sonar hunter who reads the living by their pulse.
 Look at victims for a few seconds to mark up to 3 of them.
 Marked victims emit a subtle color pulse through walls in rhythm with their heartbeat.
-Your first hit against each marked victim causes a light stun.]],
-		Objective = "You are the Stalker. Mark victims, track their heartbeat through cover and strike when they split from the crowd.",
+Isolated marked victims become clearer prey and make your pursuit quieter.
+Your first hit against each marked victim staggers them and hits isolated prey much harder.
+You carry a hammer and nails to quietly seal routes around your prey.
+Once per round, you can leave behind a dead copy of yourself to fake your death.]],
+		Objective = "You are the Stalker. Mark victims, read isolated prey, move quietly while pursuing them and punish anyone who splits from the crowd.",
 		SpawnFunction = function(ply)
+			ply.HMCDStalkerDeathDecoyUsed = nil
 			ply:Give("weapon_sogknife")
 			ply:Give("weapon_walkie_talkie")
 			ply:Give("weapon_adrenaline")
 			ply:Give("weapon_hg_fiberwire")
 			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_hg_stalker_decoy")
+			ply:Give("weapon_hammer")
+			ply:GiveAmmo(6, "Nails", true)
 
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.max = 260
