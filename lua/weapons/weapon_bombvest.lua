@@ -80,8 +80,8 @@ SWEP.Secondary.Ammo         = "none"
 SWEP.CarryWeight=3500
 
 -- Explosion properties
-SWEP.BlastDis = 8
-SWEP.BlastDamage = 350
+SWEP.BlastDis = 16
+SWEP.BlastDamage = 150
 SWEP.KABOOM = false
 
 -- Explosion sounds
@@ -115,18 +115,17 @@ local function ExplodeBombVest(self, ent)
 
 	local EntPos = ent:GetPos() + ent:OBBCenter()
 	self.KABOOM = true
+
 	local BlastDamage = self.BlastDamage
 	local BlastDis = self.BlastDis
 	local owner = self:GetOwner()
-	
-	-- Nokia phone sound
+
 	ent:EmitSound("nokia.mp3", 55, 100, 1, CHAN_AUTO)
-	
+
 	timer.Simple(0.4, function()
 		if not IsValid(ent) then return end
-		
+
 		timer.Simple(0.1, function()
-			-- Explosion sound effects
 			net.Start("projectileFarSound")
 				net.WriteString(table.Random(self.Sound))
 				net.WriteString(table.Random(self.SoundFar))
@@ -136,7 +135,6 @@ local function ExplodeBombVest(self, ent)
 				net.WriteString(self.SoundWater)
 			net.Broadcast()
 
-			-- Visual effects
 			if ent:WaterLevel() == 0 then
 				ParticleEffect("pcf_jack_groundsplode_medium", ent:GetPos(), -vector_up:Angle())
 			else
@@ -146,16 +144,13 @@ local function ExplodeBombVest(self, ent)
 				effectdata:SetNormal(-ent:GetAngles():Forward())
 				util.Effect("eff_jack_genericboom", effectdata)
 			end
+
 			hg.ExplosionEffect(EntPos, BlastDis / 0.2, 80)
 
-			-- Shrapnel effect for metal objects
-			local mat = ent:GetMaterialType()
-			if mat == MAT_METAL then
-				local Poof = EffectData()
-				Poof:SetOrigin(EntPos)
-				Poof:SetScale(1)
-				util.Effect("eff_jack_hmcd_shrapnel", Poof, true, true)
-			end
+			local Poof = EffectData()
+			Poof:SetOrigin(EntPos)
+			Poof:SetScale(1)
+			util.Effect("eff_jack_hmcd_shrapnel", Poof, true, true)
 		end)
 
 		timer.Simple(0.2, function()
@@ -163,31 +158,40 @@ local function ExplodeBombVest(self, ent)
 				if IsValid(self) then self:Remove() end
 				return 
 			end
-			
-			-- Basic blast damage
-			util.BlastDamage(self, owner, EntPos, BlastDis / 0.01905, BlastDamage * 0.1)
-			
-			-- Advanced damage and force calculation
-			local dis = BlastDis / 0.01905
-			for _, enta in ipairs(ents.FindInSphere(EntPos, dis)) do
+
+			local radius = BlastDis / 0.01905
+			util.BlastDamage(self, owner, EntPos, radius, BlastDamage)
+
+			for _, enta in ipairs(ents.FindInSphere(EntPos, radius)) do
 				local tr = hg.ExplosionTrace(EntPos, enta:GetPos(), {ent})
 
 				local phys = enta:GetPhysicsObject()
-				local force = (enta:GetPos() - EntPos)
-				local len = force:Length()
-				force:Div(len)
-				local frac = math.Clamp((dis - len) / dis, 0.5, 1)
-				local forceadd = force * frac * 50000
 
-				-- Player disorientation
+				local dir = (enta:GetPos() - EntPos)
+				local len = dir:Length()
+				if len == 0 then continue end
+
+				dir:Div(len)
+
+				local frac = math.Clamp((radius - len) / radius, 0, 1)
+				frac = frac ^ 1.6
+
+				local proximityBoost = 1 + (1 - frac) * 1.8
+				local forceadd = dir * frac * proximityBoost * 50000
+
+				-- disorientation
 				if enta.organism then
 					local behindwall = tr.Entity != enta
 					if IsValid(enta.organism.owner) and enta.organism.owner:IsPlayer() then
-						hg.ExplosionDisorientation(enta, (behindwall and 3 or 5) * frac * 1.5, (behindwall and 4 or 6) * frac * 1.5)
+						hg.ExplosionDisorientation(
+							enta,
+							(behindwall and 3 or 5) * frac * 1.6,
+							(behindwall and 4 or 6) * frac * 1.6
+						)
 					end
 				end
-				
-				-- Apply force to entities behind walls
+
+				-- physics through walls
 				if tr.Entity != enta then 					
 					if IsValid(phys) then
 						phys:ApplyForceCenter((forceadd/20) + vector_up * math.random(500,550))
@@ -195,14 +199,14 @@ local function ExplodeBombVest(self, ent)
 					continue
 				end
 
-				-- Player ragdoll force
+				-- player impact
 				if enta:IsPlayer() then
-					hg.AddForceRag(enta, 0, forceadd * 0.5, 0.5)
-					hg.AddForceRag(enta, 1, forceadd * 0.5, 0.5)
+					hg.AddForceRag(enta, 0, forceadd * 0.6, 0.5)
+					hg.AddForceRag(enta, 1, forceadd * 0.6, 0.5)
 					hg.LightStunPlayer(enta)
 				end
 
-				-- Apply physics force
+				-- physics impact
 				if IsValid(phys) then
 					phys:ApplyForceCenter(forceadd)
 				end
@@ -211,7 +215,7 @@ local function ExplodeBombVest(self, ent)
 			-- Building and door destruction
 			hgWreckBuildings(ent, EntPos, BlastDamage / 400, BlastDis/8, false)
 			hgBlastDoors(ent, EntPos, BlastDamage / 400, BlastDis/8, false)
-			
+
 			-- Screen shake
 			util.ScreenShake(EntPos, 35, 35, 1, 5000)
 
