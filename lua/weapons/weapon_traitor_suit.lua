@@ -70,7 +70,7 @@ SWEP.AvailableCostumes = {
     {
         Name = "NAVS Operator",
         Model = "models/vpc_flk_whitecom_pms/pms/wcomexp/vp_flk_wcomexp.mdl",
-        Description = "Solves issues by increasing the number of issues",
+        Description = "Problem solver (legally disputed)",
         Color = Color(255, 255, 255),
         Attachments = {}
     },
