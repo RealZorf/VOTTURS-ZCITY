@@ -482,6 +482,10 @@ function SWEP:Shoot(override)
 	local owner = self:GetOwner()
 	if owner:IsNPC() then self.drawBullet = true end
 
+	if self.reload then
+		self:Step_Reload(CurTime())
+	end
+
 	if !override and !self:CanPrimaryAttack() then return false end
 	if !override and !self:CanUse() then return false end
 	if CLIENT and owner != LocalPlayer() and !override then return false end
@@ -596,6 +600,16 @@ SWEP.SightSlideOffset = 1
 function SWEP:PrimaryShootEmpty()
 	if CLIENT then return end
 	self:PlaySnd(self.Primary.SoundEmpty, true, CHAN_AUTO)
+end
+
+function SWEP:PlayShootFX()
+	if SERVER then return end
+
+	self:EmitShoot()
+	self.shooanim = self.ShootAnimMul
+	self.shot = math.min(3, (self.shot or 0) + (self.NumBullet or 1))
+	self.shot2 = math.min(1, (self.shot2 or 0) + 1)
+	self:SetLastShootTime(CurTime())
 end
 
 SWEP.DistSound = "m4a1/m4a1_dist.wav"
