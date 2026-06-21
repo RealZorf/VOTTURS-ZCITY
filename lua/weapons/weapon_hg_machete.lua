@@ -102,7 +102,7 @@ SWEP.HitFleshExtra = {
     "machete/machetehit6.ogg",
 }
 SWEP.HitFleshExtraPitch = 75
-SWEP.ArteryChance = 1
+SWEP.ArteryChance = 10
 SWEP.SwingSoundPitch = 85
 
 SWEP.BlockTier = 3

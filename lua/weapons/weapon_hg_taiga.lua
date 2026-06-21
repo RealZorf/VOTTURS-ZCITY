@@ -104,6 +104,7 @@ SWEP.Attack2HitFlesh = "physics/flesh/flesh_impact_hard1.wav"
 SWEP.DeploySnd = "physics/metal/metal_grenade_impact_soft2.wav"
 
 SWEP.AttackPos = Vector(0,0,0)
+SWEP.ArteryChance = 10
 SWEP.BlockTier = 3
 
 

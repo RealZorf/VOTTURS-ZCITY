@@ -62,7 +62,7 @@ SWEP.DamageType = DMG_SLASH
 SWEP.DamagePrimary = 15
 SWEP.DamageSecondary = 8
 
-SWEP.ArteryChance = 0.75
+SWEP.ArteryChance = 4
 SWEP.SwingSoundPitch = nil
 
 SWEP.PenetrationPrimary = 8

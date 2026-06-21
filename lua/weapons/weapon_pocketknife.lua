@@ -70,6 +70,8 @@ SWEP.StaminaSecondary = 12
 SWEP.AttackLen1 = 42
 SWEP.AttackLen2 = 35
 
+SWEP.ArteryChance = 2
+
 function SWEP:Reload()
     if SERVER then
         if self:GetOwner():KeyPressed(IN_ATTACK) then
