@@ -48,7 +48,7 @@ SWEP.sprint_ang = Angle(15,0,0)
 SWEP.basebone = 94
 
 SWEP.weaponPos = Vector(10,0.5,0.5)
-SWEP.weaponAng = Angle(0,90,90)
+SWEP.weaponAng = Angle(5,-90,-90)
 
 SWEP.DamageType = DMG_SLASH
 SWEP.DamagePrimary = 29
