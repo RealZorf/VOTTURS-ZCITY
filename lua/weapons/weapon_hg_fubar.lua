@@ -2,7 +2,7 @@ if SERVER then AddCSLuaFile() end
 
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Fubar"
-SWEP.Instructions = "A Heavy, Industrial fubar. Unless you are an construction worker i dont know how you will put use to this."
+SWEP.Instructions = "A Heavy, Industrial fubar. Unless you are an construction worker i dont know how you will put use to this.\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

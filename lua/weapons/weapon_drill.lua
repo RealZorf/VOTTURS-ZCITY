@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Drill"
-SWEP.Instructions = "A Drill is a tool that is used to dismantle/destroy certain objects, anything with a bolt. Can dismantle doors."
+SWEP.Instructions = "A Drill is a tool that is used to dismantle/destroy certain objects, anything with a bolt. Can dismantle doors.\n\nLMB to attack.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

@@ -1,7 +1,7 @@
 ﻿if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Cue Stick"
-SWEP.Instructions = "A cue stick is a long, sharp object used to hit a ball. The sticker on the bottom says \"Property of Zac90 Mansion\"."
+SWEP.Instructions = "A cue stick is a long, sharp object used to hit a ball. The sticker on the bottom says \"Property of Zac90 Mansion\".\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

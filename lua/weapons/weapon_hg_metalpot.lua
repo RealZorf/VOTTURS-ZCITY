@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Metal Pot"
-SWEP.Instructions = "A simple metal pot that can be used as a melee weapon."
+SWEP.Instructions = "A simple metal pot that can be used as a melee weapon.\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

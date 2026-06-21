@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Pickaxe"
-SWEP.Instructions = "Pickaxe, An old tool that is used to mine rocks and smash in skulls"
+SWEP.Instructions = "Pickaxe, An old tool that is used to mine rocks and smash in skulls.\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

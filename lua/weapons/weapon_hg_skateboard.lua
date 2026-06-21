@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Skateboard"
-SWEP.Instructions = "A Skateboard with BAKER design, quite slick and good for smashing heads in."
+SWEP.Instructions = "A Skateboard with BAKER design, quite slick and good for smashing heads in.\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

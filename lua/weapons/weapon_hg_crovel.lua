@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Crovel"
-SWEP.Instructions = "A multifunctional combat shovel based on modern military entrenching tools. Combines a sharpened shovel head, chopping edge, and pry functionality in one tool."
+SWEP.Instructions = "A multifunctional combat shovel based on modern military entrenching tools. Combines a sharpened shovel head, chopping edge, and pry functionality in one tool.\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

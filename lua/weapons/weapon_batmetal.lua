@@ -2,7 +2,7 @@ if SERVER then AddCSLuaFile() end
 
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Metal Bat"
-SWEP.Instructions = "An Alluminum bat, Usually stored as trophies but this one is an upgrade to the usual bat. "
+SWEP.Instructions = "An Alluminum bat, Usually stored as trophies but this one is an upgrade to the usual bat.\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

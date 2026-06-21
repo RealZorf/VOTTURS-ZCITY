@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Golf Club"
-SWEP.Instructions = "A golf club is a precision tool designed to drive balls across the green, combining balance, leverage, and a solid swing."
+SWEP.Instructions = "A golf club is a precision tool designed to drive balls across the green, combining balance, leverage, and a solid swing.\n\nLMB to attack.\nRMB to block.\nE+LMB to charge up a heavy attack."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
