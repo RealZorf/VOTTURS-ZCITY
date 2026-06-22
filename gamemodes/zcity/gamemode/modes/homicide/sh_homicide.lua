@@ -482,6 +482,68 @@ The first serious wound you take triggers permanent adrenaline and fentanyl-like
 			ply:SetNetVar("Inventory", inv)
 		end,
 	},
+	["traitor_cannibal"] = {
+		Name = "Cannibal",
+		Description = [[You're an expert in survival and close-quarters combat.
+Can consume dead bodies to regain health and blood.
+Each consumed body increases your stamina and melee strength for the rest of the round.
+Proficient in melee combat and equipped with adrenaline.
+For people who enjoy aggressive and high-risk gameplay.]],
+		Objective = "You are the Cannibal. Consume fallen victims to restore yourself and grow stronger for each one",
+		SpawnFunction = function(ply)
+			ply.Ability_CannibalConsumedBodies = nil
+			ply.Ability_CannibalBaseStaminaRange = nil
+			ply:SetNWInt("HMCD_CannibalStacks", 0)
+
+			local cleaver = ply:Give("weapon_hg_cleaver")
+			if IsValid(cleaver) then
+				cleaver.NoHolster = false
+			end
+			ply:Give("weapon_adrenaline")
+			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_hg_fiberwire")
+
+			ply.organism.stamina.range = 240
+			ply.organism.stamina.max = 240
+			local inv = ply:GetNetVar("Inventory", {})
+			inv["Weapons"] = inv["Weapons"] or {}
+			inv["Weapons"]["hg_flashlight"] = true
+
+			ply:SetNetVar("Inventory", inv)
+		end,
+	},
+	["traitor_cannibal_soe"] = {
+		Name = "Cannibal",
+		Description = [[You're an expert in survival and close-quarters combat.
+Can consume dead bodies to regain health and blood.
+Each consumed body increases your stamina and melee strength for the rest of the round.
+Proficient in melee combat and equipped with adrenaline.
+For people who enjoy aggressive and high-risk gameplay.]],
+		Objective = "You are the Cannibal. Consume fallen victims to restore yourself and grow stronger for each one",
+		SpawnFunction = function(ply)
+			ply.Ability_CannibalConsumedBodies = nil
+			ply.Ability_CannibalBaseStaminaRange = nil
+			ply:SetNWInt("HMCD_CannibalStacks", 0)
+
+			local cleaver = ply:Give("weapon_hg_cleaver")
+			if IsValid(cleaver) then
+				cleaver.NoHolster = false
+			end
+			ply:Give("weapon_walkie_talkie")
+			ply:Give("weapon_adrenaline")
+			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_hg_fiberwire")
+
+			ply.organism.recoilmul = 1
+			ply.organism.stamina.range = 240
+			ply.organism.stamina.max = 240
+			local inv = ply:GetNetVar("Inventory", {})
+			inv["Weapons"] = inv["Weapons"] or {}
+			inv["Weapons"]["hg_flashlight"] = true
+
+			ply:SetNetVar("Inventory", inv)
+		end,
+	},
 	["traitor_terrorist"] = {
 		Name = "Terrorist",
 		Description = [[A ruthless terrorist who wants everyone dead.
@@ -579,7 +641,7 @@ Isolated marked victims become clearer prey and make your pursuit quieter.
 Your first hit against each marked victim staggers them and hits isolated prey much harder.
 You carry a hammer and nails to quietly seal routes around your prey.
 Once per round, you can leave behind a dead copy of yourself to fake your death.]],
-		Objective = "You are the Stalker. Mark victims, read isolated prey, move quietly while pursuing them and punish anyone who splits from the crowd.",
+		Objective = "You are the Stalker. Mark victims, read isolated prey, kill the isolated.",
 		SpawnFunction = function(ply)
 			ply.HMCDStalkerDeathDecoyUsed = nil
 			ply:Give("weapon_sogknife")
@@ -606,7 +668,7 @@ Isolated marked victims become clearer prey and make your pursuit quieter.
 Your first hit against each marked victim staggers them and hits isolated prey much harder.
 You carry a hammer and nails to quietly seal routes around your prey.
 Once per round, you can leave behind a dead copy of yourself to fake your death.]],
-		Objective = "You are the Stalker. Mark victims, read isolated prey, move quietly while pursuing them and punish anyone who splits from the crowd.",
+		Objective = "You are the Stalker. Mark victims, read isolated prey, kill the isolated.",
 		SpawnFunction = function(ply)
 			ply.HMCDStalkerDeathDecoyUsed = nil
 			ply:Give("weapon_sogknife")
@@ -837,6 +899,7 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_shadow"] = true,
 			["traitor_assassin"] = true,
 			["traitor_maniac"] = true, 	-- maniac killer
+			["traitor_cannibal"] = true,
 			["traitor_terrorist"] = true,
 			["traitor_lastmanstanding"] = true,
 			["traitor_stalker"] = true,
@@ -911,6 +974,7 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_shadow_soe"] = true,
 			["traitor_assassin_soe"] = true,
 			["traitor_maniac_soe"] = true,
+			["traitor_cannibal_soe"] = true,
 			["traitor_terrorist_soe"] = true,
 			["traitor_lastmanstanding_soe"] = true,
 			["traitor_stalker_soe"] = true,

@@ -7,6 +7,17 @@ util.AddNetworkString("HMCD_DisarmingOther")
 util.AddNetworkString("HMCD_UpdateChemicalResistance")
 util.AddNetworkString("HMCD_StalkerMarks")
 
+local cannibal_body_gib_models = {
+	"models/gibs/hgibs.mdl",
+	"models/gibs/hgibs_spine.mdl",
+	"models/gibs/hgibs_rib.mdl",
+	"models/gibs/hgibs_scapula.mdl"
+}
+
+for _, model in ipairs(cannibal_body_gib_models) do
+	util.PrecacheModel(model)
+end
+
 MODE.ManiacFuryHarmThreshold = 5
 MODE.ManiacFuryAdrenaline = 0.65
 MODE.ManiacFuryAdrenalineMax = 0.8
@@ -24,6 +35,11 @@ MODE.ManiacFuryPhrases = MODE.ManiacFuryPhrases or {
 	"I CAN'T FEEL A THING",
 	"YOU SHOULD HAVE FINISHED ME"
 }
+MODE.CannibalWitnessFearRadius = 850
+MODE.CannibalWitnessFearCooldown = 3
+MODE.CannibalWitnessFearAdd = 0.55
+MODE.CannibalWitnessShockAdd = 5
+MODE.CannibalWitnessViewDot = math.cos(math.rad(62))
 
 local function canUseShadowCamouflageOnEntity(ent, tr)
 	if not tr.Hit or tr.HitSky then
@@ -597,6 +613,307 @@ function MODE.ApplyManiacFury(ply)
 	end
 end
 
+function MODE.GetCannibalStacks(ply)
+	if not IsValid(ply) then return 0 end
+
+	return math.Clamp(ply.Ability_CannibalConsumedBodies or 0, 0, MODE.CannibalMaxConsumedBodies or 6)
+end
+
+local function canWitnessCannibalFeast(witness, cannibal, corpse, victim, corpse_pos)
+	if not IsValid(witness) or witness == cannibal or witness == victim then return false end
+	if not witness:IsPlayer() or not witness:Alive() or not witness.organism or witness.organism.otrub then return false end
+	if witness:GetShootPos():DistToSqr(corpse_pos) > (MODE.CannibalWitnessFearRadius or 850) ^ 2 then return false end
+
+	local to_corpse = corpse_pos - witness:EyePos()
+	if to_corpse:IsZero() then return false end
+	if witness:EyeAngles():Forward():Dot(to_corpse:GetNormalized()) < (MODE.CannibalWitnessViewDot or 0.47) then return false end
+
+	local tr = util.TraceLine({
+		start = witness:EyePos(),
+		endpos = corpse_pos,
+		filter = {witness, cannibal},
+		mask = MASK_SHOT
+	})
+
+	return not tr.Hit or tr.Entity == corpse or tr.Fraction > 0.98
+end
+
+function MODE.PulseCannibalWitnessFear(cannibal, corpse, victim, force)
+	if not IsValid(cannibal) or not IsValid(corpse) then return end
+
+	local data = cannibal.Ability_CannibalConsume
+	if not force and data and (data.NextWitnessFear or 0) > CurTime() then return end
+	if data then
+		data.NextWitnessFear = CurTime() + (MODE.CannibalWitnessFearCooldown or 3)
+	end
+
+	local corpse_pos = corpse:WorldSpaceCenter()
+	for _, witness in player.Iterator() do
+		if not canWitnessCannibalFeast(witness, cannibal, corpse, victim, corpse_pos) then continue end
+
+		local org = witness.organism
+		org.fearadd = math.min((org.fearadd or 0) + (MODE.CannibalWitnessFearAdd or 0.55), 3)
+		org.shock = math.min((org.shock or 0) + (MODE.CannibalWitnessShockAdd or 5), 45)
+		witness:ViewPunch(Angle(math.Rand(-4, 4), math.Rand(-5, 5), math.Rand(-5, 5)))
+
+		if isfunction(witness.Notify) then
+			witness:Notify("What the hell am I watching?", 5, "cannibal_witness_fear", 0, nil, Color(170, 45, 45))
+		end
+	end
+end
+
+function MODE.ApplyCannibalStacks(ply)
+	if not IsValid(ply) or not ply.organism or not MODE.IsCannibalRole or not MODE.IsCannibalRole(ply.SubRole) then return end
+
+	local stamina = ply.organism.stamina
+	if not stamina then return end
+
+	local stacks = MODE.GetCannibalStacks(ply)
+	local base = ply.Ability_CannibalBaseStaminaRange or stamina.range or 180
+	ply.Ability_CannibalBaseStaminaRange = base
+
+	local new_range = base + stacks * (MODE.CannibalStaminaBonusPerBody or 22)
+	stamina.range = new_range
+	stamina.max = math.max(stamina.max or new_range, new_range)
+	stamina[1] = math.min(math.max(stamina[1] or new_range, 0), stamina.max)
+	ply:SetNWInt("HMCD_CannibalStacks", stacks)
+end
+
+function MODE.ResetCannibal(ply)
+	if not IsValid(ply) then return end
+
+	MODE.StopCannibalConsume(ply)
+	ply.Ability_CannibalConsumedBodies = nil
+	ply.Ability_CannibalBaseStaminaRange = nil
+	ply:SetNWInt("HMCD_CannibalStacks", 0)
+end
+
+function MODE.StartCannibalConsume(ply, corpse, victim)
+	if not IsValid(ply) or not MODE.IsCannibalRole or not MODE.IsCannibalRole(ply.SubRole) then return end
+	if ply.Ability_CannibalConsume then return end
+	if MODE.GetCannibalStacks(ply) >= (MODE.CannibalMaxConsumedBodies or 6) then
+		if isfunction(ply.Notify) then
+			ply:Notify("I can't stomach any more.", true, "cannibal_full", 2, nil, Color(170, 45, 45))
+		else
+			ply:ChatPrint("I can't stomach any more.")
+		end
+		return
+	end
+
+	if not IsValid(corpse) or not IsValid(victim) then return end
+	if corpse.HMCDCannibalConsumed or (corpse.GetNWBool and corpse:GetNWBool("HMCD_CannibalConsumed", false)) then return end
+	if victim == ply or not MODE.IsCannibalConsumableVictim or not MODE.IsCannibalConsumableVictim(victim, corpse) then return end
+
+	local now = CurTime()
+	ply.Ability_CannibalConsume = {
+		Corpse = corpse,
+		Victim = victim,
+		StartedAt = now,
+		ReadyAt = now + (MODE.GetCannibalConsumeTime and MODE.GetCannibalConsumeTime(ply) or MODE.CannibalConsumeTime or 4.5)
+	}
+
+	ply:SetNWEntity("HMCD_CannibalConsumeCorpse", corpse)
+	ply:SetNWFloat("HMCD_CannibalConsumeStart", now)
+	ply:SetNWFloat("HMCD_CannibalConsumeReadyAt", ply.Ability_CannibalConsume.ReadyAt)
+	ply:EmitSound("Flesh.ImpactSoft", 55, math.random(80, 95), 0.55)
+	MODE.PulseCannibalWitnessFear(ply, corpse, victim, true)
+end
+
+local function spawnCannibalBodyGibs(corpse, center, force)
+	if not IsValid(corpse) then return end
+
+	local base_velocity = corpse:GetVelocity()
+	for i, model in ipairs(cannibal_body_gib_models) do
+		local ent = ents.Create("prop_physics")
+		if not IsValid(ent) then continue end
+
+		local offset = VectorRand(-18, 18)
+		offset.z = math.Rand(4, 20)
+
+		ent:SetModel(model)
+		ent:SetPos(center + offset)
+		ent:SetAngles(AngleRand(-180, 180))
+		ent:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+		ent:DrawShadow(false)
+		ent.HMCDCannibalBodyGib = true
+		ent:Spawn()
+		ent:Activate()
+
+		local phys = ent:GetPhysicsObject()
+		if IsValid(phys) then
+			local side_force = VectorRand(-90, 90)
+			side_force.z = math.Rand(70, 180)
+			phys:SetVelocity(base_velocity + side_force + (force or vector_origin) / 12)
+			phys:AddAngleVelocity(VectorRand(-220, 220))
+		end
+	end
+end
+
+function MODE.SplatCannibalCorpse(ply, corpse, victim)
+	if not IsValid(corpse) or not corpse:IsRagdoll() then return end
+
+	corpse.HMCDCannibalConsumed = true
+	if corpse.SetNWBool then
+		corpse:SetNWBool("HMCD_CannibalConsumed", true)
+	end
+
+	local center = corpse:WorldSpaceCenter()
+	local force = VectorRand(-250, 250) + Vector(0, 0, 450)
+
+	sound.Play("physics/body/body_medium_break3.wav", center, 78, math.random(85, 100), 1)
+	for i = 1, 7 do
+		local offset = VectorRand(-22, 22)
+		util.Decal("Blood", center + offset + Vector(0, 0, 30), center + offset - Vector(0, 0, 70), corpse)
+	end
+
+	if util and util.Effect then
+		local effect = EffectData()
+		effect:SetOrigin(center)
+		effect:SetNormal(VectorRand():GetNormalized())
+		effect:SetScale(16)
+		util.Effect("BloodImpact", effect, true, true)
+	end
+
+	if SpawnMeatGore then
+		SpawnMeatGore(corpse, center + Vector(0, 0, 14), 14, force, 0.85)
+		SpawnMeatGore(corpse, center - Vector(0, 0, 8), 8, force * 0.65, 0.7)
+	end
+	spawnCannibalBodyGibs(corpse, center, force)
+
+	local gib_bones = {
+		"ValveBiped.Bip01_Head1",
+		"ValveBiped.Bip01_Spine2",
+		"ValveBiped.Bip01_L_UpperArm",
+		"ValveBiped.Bip01_R_UpperArm",
+		"ValveBiped.Bip01_L_Thigh",
+		"ValveBiped.Bip01_R_Thigh"
+	}
+
+	for _, bone_name in ipairs(gib_bones) do
+		local bone = corpse:LookupBone(bone_name)
+		if not bone then continue end
+
+		if Gib_Input and bone_name == "ValveBiped.Bip01_Head1" then
+			Gib_Input(corpse, bone, force)
+		elseif Gib_RemoveBone then
+			local phys_bone = corpse:TranslateBoneToPhysBone(bone)
+			if phys_bone and phys_bone >= 0 then
+				Gib_RemoveBone(corpse, bone, phys_bone)
+			else
+				corpse:ManipulateBoneScale(bone, vector_origin)
+			end
+		else
+			corpse:ManipulateBoneScale(bone, vector_origin)
+		end
+	end
+
+	corpse:SetNoDraw(true)
+	corpse:SetNotSolid(true)
+	corpse:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+	SafeRemoveEntityDelayed(corpse, 0.2)
+end
+
+function MODE.StopCannibalConsume(ply)
+	if not IsValid(ply) then return end
+
+	ply.Ability_CannibalConsume = nil
+	ply:SetNWEntity("HMCD_CannibalConsumeCorpse", NULL)
+	ply:SetNWFloat("HMCD_CannibalConsumeStart", 0)
+	ply:SetNWFloat("HMCD_CannibalConsumeReadyAt", 0)
+end
+
+function MODE.FinishCannibalConsume(ply, corpse, victim)
+	if not IsValid(ply) or not IsValid(corpse) or not IsValid(victim) then return end
+	if corpse.HMCDCannibalConsumed or (corpse.GetNWBool and corpse:GetNWBool("HMCD_CannibalConsumed", false)) then return end
+	if victim == ply or not MODE.IsCannibalConsumableVictim or not MODE.IsCannibalConsumableVictim(victim, corpse) then return end
+
+	corpse.HMCDCannibalConsumed = true
+	if corpse.SetNWBool then
+		corpse:SetNWBool("HMCD_CannibalConsumed", true)
+	end
+
+	local max_health = math.max(ply:GetMaxHealth(), 100)
+	ply:SetHealth(math.min(max_health, ply:Health() + (MODE.CannibalHealthRestore or 30)))
+
+	local org = ply.organism
+	if org then
+		org.blood = math.min(5000, (org.blood or 5000) + (MODE.CannibalBloodRestore or 900))
+		org.shock = math.max((org.shock or 0) - 15, 0)
+		org.avgpain = math.max((org.avgpain or 0) - 10, 0)
+		org.pain = math.max((org.pain or 0) - 10, 0)
+	end
+
+	ply.Ability_CannibalConsumedBodies = math.min(MODE.GetCannibalStacks(ply) + 1, MODE.CannibalMaxConsumedBodies or 6)
+	MODE.ApplyCannibalStacks(ply)
+
+	local pos = corpse:WorldSpaceCenter()
+	sound.Play("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", pos, 65, math.random(75, 90), 0.85)
+
+	if victim:Alive() then
+		victim.HMCD_CannibalConsumedBy = ply
+		victim:Kill()
+		timer.Simple(0.08, function()
+			if not IsValid(victim) then return end
+
+			local death_rag = victim:GetNWEntity("RagdollDeath", NULL)
+			if not IsValid(death_rag) then
+				death_rag = IsValid(victim.RagdollDeath) and victim.RagdollDeath or nil
+			end
+			if not IsValid(death_rag) then
+				death_rag = IsValid(corpse) and corpse or nil
+			end
+			if IsValid(death_rag) then
+				MODE.SplatCannibalCorpse(ply, death_rag, victim)
+			end
+		end)
+	else
+		MODE.SplatCannibalCorpse(ply, corpse, victim)
+	end
+
+	local stacks = MODE.GetCannibalStacks(ply)
+	local msg = "Consumed. Strength growing. (" .. stacks .. "/" .. (MODE.CannibalMaxConsumedBodies or 6) .. ")"
+	if isfunction(ply.Notify) then
+		ply:Notify(msg, 0, "cannibal_consume_" .. stacks, 0, nil, Color(170, 45, 45))
+	else
+		ply:ChatPrint(msg)
+	end
+end
+
+function MODE.ContinueCannibalConsume(ply)
+	local data = IsValid(ply) and ply.Ability_CannibalConsume or nil
+	if not data then return end
+
+	local corpse = data.Corpse
+	local victim = data.Victim
+	if not IsValid(corpse) or not IsValid(victim) or not MODE.IsCannibalConsumableVictim or not MODE.IsCannibalConsumableVictim(victim, corpse) then
+		MODE.StopCannibalConsume(ply)
+		return
+	end
+
+	if corpse.HMCDCannibalConsumed or (corpse.GetNWBool and corpse:GetNWBool("HMCD_CannibalConsumed", false)) then
+		MODE.StopCannibalConsume(ply)
+		return
+	end
+
+	if ply:GetShootPos():DistToSqr(corpse:WorldSpaceCenter()) > ((MODE.CannibalConsumeReach or 95) + 35) ^ 2 then
+		MODE.StopCannibalConsume(ply)
+		return
+	end
+
+	if CurTime() < (data.NextSound or 0) then
+		-- no-op
+	else
+		data.NextSound = CurTime() + 0.9
+		corpse:EmitSound("Flesh.ImpactSoft", 55, math.random(75, 95), 0.45)
+	end
+	MODE.PulseCannibalWitnessFear(ply, corpse, victim)
+
+	if CurTime() < (data.ReadyAt or 0) then return end
+
+	MODE.FinishCannibalConsume(ply, corpse, victim)
+	MODE.StopCannibalConsume(ply)
+end
+
 --\\Chemical resistance
 	function MODE.NetworkChemicalResistanceOfPlayer(ply)
 		ply.PassiveAbility_ChemicalAccumulation = ply.PassiveAbility_ChemicalAccumulation or {}
@@ -780,9 +1097,41 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 			elseif(ply.Ability_StalkerMarks or IsValid(ply.Ability_StalkerGazeTarget) or IsValid(ply.Ability_StalkerPursuitTarget) or ply:GetNWBool("HMCD_StalkerPursuitActive", false))then
 				MODE.ResetStalkerTracking(ply)
 			end
-		elseif(ply.Ability_ShadowCamouflage_ChargeStart or ply.Ability_ShadowCamouflage_Active)then
-			MODE.ResetShadowCamouflage(ply)
-			MODE.ResetStalkerTracking(ply)
+
+			if(MODE.IsCannibalRole and MODE.IsCannibalRole(ply.SubRole))then
+				MODE.ApplyCannibalStacks(ply)
+
+				if(ply:KeyDown(IN_WALK))then
+					if(ply:KeyPressed(IN_USE))then
+						local corpse, victim = MODE.GetCannibalConsumeTarget(ply)
+						if(IsValid(corpse) and IsValid(victim))then
+							MODE.StartCannibalConsume(ply, corpse, victim)
+						end
+					elseif(ply:KeyDown(IN_USE))then
+						MODE.ContinueCannibalConsume(ply)
+					end
+
+					if(ply:KeyReleased(IN_USE))then
+						MODE.StopCannibalConsume(ply)
+					end
+				else
+					MODE.StopCannibalConsume(ply)
+				end
+			elseif(ply.Ability_CannibalConsume or (ply:GetNWInt("HMCD_CannibalStacks", 0) > 0))then
+				MODE.ResetCannibal(ply)
+			end
+		else
+			if(ply.Ability_ShadowCamouflage_ChargeStart or ply.Ability_ShadowCamouflage_Active)then
+				MODE.ResetShadowCamouflage(ply)
+			end
+
+			if(ply.Ability_StalkerMarks or IsValid(ply.Ability_StalkerGazeTarget) or IsValid(ply.Ability_StalkerPursuitTarget) or ply:GetNWBool("HMCD_StalkerPursuitActive", false))then
+				MODE.ResetStalkerTracking(ply)
+			end
+
+			if(ply.Ability_CannibalConsume)then
+				MODE.StopCannibalConsume(ply)
+			end
 		end
 	end
 end)
@@ -812,18 +1161,35 @@ hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(vic
 	local attacker = dmgInfo and dmgInfo:GetAttacker()
 	attacker = normalizeStalkerAttacker(attacker)
 	MODE.TryStalkerFirstHit(attacker, victim)
+
+	if IsValid(attacker) and MODE.IsCannibalRole and MODE.IsCannibalRole(attacker.SubRole) then
+		local stacks = MODE.GetCannibalStacks(attacker)
+		if stacks > 0 then
+			local inflictor = dmgInfo:GetInflictor()
+			local damage_type = dmgInfo:GetDamageType()
+			local melee_damage = bit.band(damage_type, DMG_CLUB) ~= 0 or bit.band(damage_type, DMG_SLASH) ~= 0
+			local melee_weapon = IsValid(inflictor) and inflictor:IsWeapon() and (inflictor.Base == "weapon_melee" or inflictor:GetClass() == "weapon_hands_sh" or inflictor.DamagePrimary ~= nil)
+
+			if melee_damage and melee_weapon then
+				local bonus = 1 + math.min(stacks, MODE.CannibalMaxConsumedBodies or 6) * (MODE.CannibalMeleeDamageBonusPerBody or 0.08)
+				dmgInfo:SetDamage(dmgInfo:GetDamage() * bonus)
+			end
+		end
+	end
 end)
 
 hook.Add("PlayerSpawn", "HMCD_SubRoles_ShadowCamouflage", function(ply)
 	MODE.ResetShadowCamouflage(ply)
 	MODE.ResetManiacFury(ply)
 	MODE.ResetStalkerTracking(ply)
+	MODE.StopCannibalConsume(ply)
 end)
 
 hook.Add("PlayerDeath", "HMCD_SubRoles_ShadowCamouflage", function(ply)
 	MODE.ResetShadowCamouflage(ply)
 	MODE.ResetManiacFury(ply)
 	MODE.ResetStalkerTracking(ply)
+	MODE.StopCannibalConsume(ply)
 
 	for _, stalker in player.Iterator() do
 		if IsValid(stalker) and stalker.Ability_StalkerMarks then
