@@ -34,6 +34,14 @@ MODE.StalkerFirstHitStaminaDrain = 45
 MODE.StalkerPursuitRadius = 1450
 MODE.StalkerPursuitStaminaRegen = 8
 MODE.StalkerPursuitFootstepVolume = 0.28
+MODE.CannibalConsumeTime = 4.5
+MODE.CannibalCleaverConsumeTime = 3
+MODE.CannibalConsumeReach = 95
+MODE.CannibalHealthRestore = 30
+MODE.CannibalBloodRestore = 900
+MODE.CannibalStaminaBonusPerBody = 25
+MODE.CannibalMeleeDamageBonusPerBody = 0.10
+MODE.CannibalMaxConsumedBodies = 10
 
 function MODE.IsShadowRole(subrole)
 	return subrole == "traitor_shadow" or subrole == "traitor_shadow_soe"
@@ -41,6 +49,76 @@ end
 
 function MODE.IsStalkerRole(subrole)
 	return subrole == "traitor_stalker" or subrole == "traitor_stalker_soe"
+end
+
+function MODE.IsCannibalRole(subrole)
+	return subrole == "traitor_cannibal" or subrole == "traitor_cannibal_soe"
+end
+
+function MODE.IsCannibalCleaverEquipped(ply)
+	local wep = IsValid(ply) and ply:GetActiveWeapon() or nil
+	return IsValid(wep) and wep:GetClass() == "weapon_hg_cleaver"
+end
+
+function MODE.GetCannibalConsumeTime(ply)
+	if MODE.IsCannibalCleaverEquipped and MODE.IsCannibalCleaverEquipped(ply) then
+		return MODE.CannibalCleaverConsumeTime or 3
+	end
+
+	return MODE.CannibalConsumeTime or 4.5
+end
+
+function MODE.IsCannibalConsumableVictim(victim, corpse)
+	if not IsValid(victim) or not victim:IsPlayer() then return false end
+	if IsValid(corpse) and (corpse.HMCDCannibalConsumed or (corpse.GetNWBool and corpse:GetNWBool("HMCD_CannibalConsumed", false))) then return false end
+	if not victim:Alive() then return true end
+
+	local fake_ragdoll = IsValid(victim.FakeRagdoll) and victim.FakeRagdoll or (victim.GetNWEntity and victim:GetNWEntity("FakeRagdoll", NULL))
+	if not IsValid(fake_ragdoll) then return false end
+	if IsValid(corpse) and fake_ragdoll ~= corpse then return false end
+
+	local org = victim.organism
+	if SERVER then
+		return org and org.otrub == true
+	end
+
+	return not org or org.otrub == true
+end
+
+function MODE.GetCannibalConsumeTarget(ply)
+	if not IsValid(ply) then return nil end
+
+	local trace = hg and hg.eyeTrace and hg.eyeTrace(ply, MODE.CannibalConsumeReach or 95)
+	if not trace then return nil end
+
+	local corpse = trace.Entity
+	if not IsValid(corpse) then return nil end
+
+	local victim
+	if corpse:IsPlayer() then
+		victim = corpse
+		corpse = IsValid(victim.FakeRagdoll) and victim.FakeRagdoll or (victim.GetNWEntity and victim:GetNWEntity("FakeRagdoll", NULL))
+	elseif corpse:IsRagdoll() then
+		victim = (hg and hg.RagdollOwner and hg.RagdollOwner(corpse)) or corpse.ply
+	else
+		return nil
+	end
+
+	if not IsValid(corpse) or not corpse:IsRagdoll() then return nil end
+	if not IsValid(victim) or not victim:IsPlayer() or victim == ply then return nil end
+	if not MODE.IsCannibalConsumableVictim(victim, corpse) then return nil end
+
+	return corpse, victim, trace
+end
+
+function MODE.GetCannibalConsumeProgress(ply)
+	if not IsValid(ply) then return 0 end
+
+	local ready_at = ply:GetNWFloat("HMCD_CannibalConsumeReadyAt", 0)
+	local start_at = ply:GetNWFloat("HMCD_CannibalConsumeStart", 0)
+	if ready_at <= start_at or ready_at <= 0 then return 0 end
+
+	return math.Clamp(1 - ((ready_at - CurTime()) / (ready_at - start_at)), 0, 1)
 end
 
 function MODE.GetActiveFiberwire(ply)
@@ -371,6 +449,10 @@ end
 hook.Add("HG_MovementCalc_2", "HMCD_SubRole_Abilities", function(mul, ply, cmd)
 	if(ply.BeingVictimOfNeckBreak or ply.BeingVictimOfDisarmament)then
 		mul[1] = mul[1] * 0.3
+	end
+
+	if(ply.Ability_CannibalConsume)then
+		mul[1] = mul[1] * 0.25
 	end
 end)
 --//

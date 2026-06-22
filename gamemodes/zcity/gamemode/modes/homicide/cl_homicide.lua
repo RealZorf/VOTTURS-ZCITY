@@ -366,6 +366,17 @@ local hmcd_traitor_role_tips = {
 		"let them tank attention while you remove weapons from the edge.",
 		"grenade panic makes people drop formation; punish the split."
 	},
+	traitor_cannibal = {
+		"feed them corpses after fights so they can come back stronger.",
+		"cover the body while they consume it; each meal makes their next push worse.",
+		"their strength scales after dead victims, so early body control matters.",
+		"let them finish wounded targets, then protect the corpse long enough to feed.",
+		"their melee threat grows with every consumed body.",
+		"smoke a corpse pile and let them recover before the next fight.",
+		"deny medics the body while they turn it into health and blood.",
+		"they are strongest when kills happen close enough to harvest.",
+		"drag attention away from fallen victims while they feed."
+	},
 	traitor_terrorist = {
 		"keep distance while they use bomb vest, pipebombs and fire.",
 		"mark packed groups, then catch survivors after the blast.",
@@ -470,6 +481,15 @@ local hmcd_traitor_self_tip_openers = {
 		"Commit only when the gun threats are distracted;",
 		"Let your axe announce the collapse, not the plan;"
 	},
+	traitor_cannibal = {
+		"Consume bodies after close fights;",
+		"Use smoke to secure time over a corpse;",
+		"Feed only when exits are covered;",
+		"Every body makes your next melee push stronger;",
+		"Recover blood before re-entering a gunfight;",
+		"Turn fallen victims into stamina before chasing;",
+		"Kill near cover so you can harvest safely;"
+	},
 	traitor_terrorist = {
 		"Use explosives to move the crowd;",
 		"Set the blast path before anyone suspects;",
@@ -507,6 +527,7 @@ local hmcd_traitor_role_colors = {
 	traitor_chemist = Color(70, 255, 115),
 	traitor_shadow = Color(130, 90, 255),
 	traitor_maniac = Color(255, 70, 70),
+	traitor_cannibal = Color(175, 45, 45),
 	traitor_terrorist = Color(255, 120, 35),
 	traitor_lastmanstanding = Color(255, 220, 80),
 	traitor_stalker = Color(80, 210, 255)

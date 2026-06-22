@@ -208,6 +208,35 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 				end
 			end
 			
+			if(MODE.IsCannibalRole and MODE.IsCannibalRole(ply.SubRole))then
+				local active_corpse = ply:GetNWEntity("HMCD_CannibalConsumeCorpse")
+				local corpse, victim, consume_trace = MODE.GetCannibalConsumeTarget and MODE.GetCannibalConsumeTarget(ply)
+				local draw_corpse = IsValid(active_corpse) and active_corpse or corpse
+
+				if(IsValid(draw_corpse))then
+					local text = "(HOLD)[ALT + E] Consume Body"
+					local stacks = ply:GetNWInt("HMCD_CannibalStacks", 0)
+					if stacks > 0 then
+						text = text .. " [" .. stacks .. "/" .. (MODE.CannibalMaxConsumedBodies or 6) .. "]"
+					end
+
+					local tw, th = surface.GetTextSize(text)
+					local text_pos = consume_trace and consume_trace.HitPos or draw_corpse:WorldSpaceCenter()
+					local screen_pos = text_pos:ToScreen()
+					local cx, cy = screen_pos.x, screen_pos.y + y_offset
+
+					draw_shadow_text(text, cx, cy)
+
+					local frac = MODE.GetCannibalConsumeProgress and MODE.GetCannibalConsumeProgress(ply) or 0
+					if(frac > 0)then
+						surface.SetDrawColor(vgui_color_text_main)
+						surface.DrawRect(cx - tw / 2, cy + th, tw * frac, math.max(ScreenScale(1), 2))
+					end
+
+					y_offset = y_offset + th + after_text_offset
+				end
+			end
+
 			if((MODE.IsAssassinRole and MODE.IsAssassinRole(ply.SubRole)) or ply.PlayerClassName == "sc_infiltrator")then
 				local aim_ent, other_ply, trace = MODE.GetPlayerTraceToOther(ply, nil, MODE.DisarmReach)
 				local text = "(HOLD)[ALT + E] Disarm"
