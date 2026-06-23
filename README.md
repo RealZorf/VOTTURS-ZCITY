@@ -48,6 +48,6 @@ Discord: https://discord.com/invite/votturzcity
 ## Credits
 
 Original project:  
-https://github.com/uzelezz123/Z-City
+[https://github.com/uzelezz123/Z-City](https://github.com/RealZorf/Z-City/)
 
 This project is a continuation with modifications, improvements, and additional systems.
