@@ -144,10 +144,13 @@ local tblarmors = {
 }
 
 function MODE:CanLaunch()
+	return true
+	--[[
 	local points = zb.GetMapPoints( "HMCD_CRI_CT" )
 	local points2 = zb.GetMapPoints( "HMCD_CRI_T" )
 	local plramount = zb:CheckPlaying(true)
     return (#points > 3) and (#points2 > 0) and (#plramount > 5)
+	]]--
 end
 
 function MODE:GiveEquipment()
