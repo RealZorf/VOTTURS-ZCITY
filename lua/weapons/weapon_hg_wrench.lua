@@ -99,5 +99,3 @@ SWEP.AttackRads2 = 0
 
 SWEP.SwingAng = -90
 SWEP.SwingAng2 = 0
-
-SWEP.NoHolster = true
