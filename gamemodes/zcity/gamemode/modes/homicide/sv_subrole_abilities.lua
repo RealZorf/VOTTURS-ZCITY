@@ -7,6 +7,8 @@ util.AddNetworkString("HMCD_DisarmingOther")
 util.AddNetworkString("HMCD_UpdateChemicalResistance")
 util.AddNetworkString("HMCD_StalkerMarks")
 
+resource.AddFile("sound/cannibal_eating.mp3")
+
 local cannibal_body_gib_models = {
 	"models/gibs/hgibs.mdl",
 	"models/gibs/hgibs_spine.mdl",
@@ -16,6 +18,25 @@ local cannibal_body_gib_models = {
 
 for _, model in ipairs(cannibal_body_gib_models) do
 	util.PrecacheModel(model)
+end
+
+local cannibal_eating_sound = "cannibal_eating.mp3"
+local cannibal_eating_volume = 0.82
+local cannibal_eating_pitch_min = 118
+local cannibal_eating_pitch_max = 128
+
+local function stopCannibalEatingSound(ply, fade)
+	local data = IsValid(ply) and ply.Ability_CannibalConsume or nil
+	local snd = data and data.EatingSound
+	if not snd then return end
+
+	if fade then
+		snd:FadeOut(0.2)
+	else
+		snd:Stop()
+	end
+
+	data.EatingSound = nil
 end
 
 MODE.ManiacFuryHarmThreshold = 5
@@ -715,7 +736,13 @@ function MODE.StartCannibalConsume(ply, corpse, victim)
 	ply:SetNWEntity("HMCD_CannibalConsumeCorpse", corpse)
 	ply:SetNWFloat("HMCD_CannibalConsumeStart", now)
 	ply:SetNWFloat("HMCD_CannibalConsumeReadyAt", ply.Ability_CannibalConsume.ReadyAt)
-	ply:EmitSound("Flesh.ImpactSoft", 55, math.random(80, 95), 0.55)
+
+	local eating_sound = CreateSound(corpse, cannibal_eating_sound)
+	if eating_sound then
+		eating_sound:PlayEx(cannibal_eating_volume, math.random(cannibal_eating_pitch_min, cannibal_eating_pitch_max))
+		ply.Ability_CannibalConsume.EatingSound = eating_sound
+	end
+
 	MODE.PulseCannibalWitnessFear(ply, corpse, victim, true)
 end
 
@@ -816,6 +843,8 @@ end
 function MODE.StopCannibalConsume(ply)
 	if not IsValid(ply) then return end
 
+	stopCannibalEatingSound(ply, true)
+
 	ply.Ability_CannibalConsume = nil
 	ply:SetNWEntity("HMCD_CannibalConsumeCorpse", NULL)
 	ply:SetNWFloat("HMCD_CannibalConsumeStart", 0)
@@ -904,7 +933,13 @@ function MODE.ContinueCannibalConsume(ply)
 		-- no-op
 	else
 		data.NextSound = CurTime() + 0.9
-		corpse:EmitSound("Flesh.ImpactSoft", 55, math.random(75, 95), 0.45)
+		if not data.EatingSound then
+			local eating_sound = CreateSound(corpse, cannibal_eating_sound)
+			if eating_sound then
+				eating_sound:PlayEx(cannibal_eating_volume, math.random(cannibal_eating_pitch_min, cannibal_eating_pitch_max))
+				data.EatingSound = eating_sound
+			end
+		end
 	end
 	MODE.PulseCannibalWitnessFear(ply, corpse, victim)
 
@@ -912,6 +947,241 @@ function MODE.ContinueCannibalConsume(ply)
 
 	MODE.FinishCannibalConsume(ply, corpse, victim)
 	MODE.StopCannibalConsume(ply)
+end
+
+function MODE.UpdateJuggernautCarryState(ply)
+	local carried, victim = MODE.GetJuggernautCarryTarget(ply)
+	local old_carried = ply.Ability_JuggernautCarriedEnt
+
+	if IsValid(old_carried) and old_carried ~= carried then
+		old_carried.HMCD_JuggernautCarryExpire = CurTime() + 0.75
+	end
+
+	if IsValid(carried) and IsValid(victim) then
+		ply.Ability_JuggernautCarriedEnt = carried
+		carried.HMCD_JuggernautCarrier = ply
+		carried.HMCD_JuggernautCarryVictim = victim
+		carried.HMCD_JuggernautCarryExpire = CurTime() + 0.75
+	elseif not IsValid(carried) then
+		ply.Ability_JuggernautCarriedEnt = nil
+	end
+end
+
+function MODE.StartJuggernautStrangle(ply, carried, victim)
+	if not IsValid(ply) or not IsValid(carried) or not IsValid(victim) then return end
+
+	local now = CurTime()
+	local duration = MODE.JuggernautStrangleTime or 4.25
+	ply.Ability_JuggernautStrangle = {
+		CarryEnt = carried,
+		Victim = victim,
+		StartedAt = now,
+		ReadyAt = now + duration,
+		NextSound = now,
+	}
+
+	victim.BeingVictimOfNeckBreak = true
+	if victim.organism then
+		victim.organism.neckBrainOxygenPenalty = 1
+	end
+
+	ply:SetNWFloat("HMCD_JuggernautStrangleStart", now)
+	ply:SetNWFloat("HMCD_JuggernautStrangleReadyAt", now + duration)
+	ply:SetNWEntity("HMCD_JuggernautStrangleVictim", victim)
+
+	net.Start("HMCD_BeingVictimOfNeckBreak")
+		net.WriteBool(true)
+	net.Send(victim)
+
+	ply:EmitSound("Flesh.ImpactSoft", 55, math.random(82, 95), 0.55)
+end
+
+function MODE.StopJuggernautStrangle(ply)
+	if not IsValid(ply) then return end
+
+	local data = ply.Ability_JuggernautStrangle
+	if data and IsValid(data.Victim) then
+		data.Victim.BeingVictimOfNeckBreak = false
+		if data.Victim.organism then
+			data.Victim.organism.neckBrainOxygenPenalty = 0
+		end
+
+		net.Start("HMCD_BeingVictimOfNeckBreak")
+			net.WriteBool(false)
+		net.Send(data.Victim)
+	end
+
+	ply.Ability_JuggernautStrangle = nil
+	ply:SetNWFloat("HMCD_JuggernautStrangleStart", 0)
+	ply:SetNWFloat("HMCD_JuggernautStrangleReadyAt", 0)
+	ply:SetNWEntity("HMCD_JuggernautStrangleVictim", NULL)
+end
+
+function MODE.ResetJuggernaut(ply, force_clear_scale)
+	if not IsValid(ply) then return end
+
+	MODE.StopJuggernautStrangle(ply)
+	if IsValid(ply.Ability_JuggernautCarriedEnt) then
+		ply.Ability_JuggernautCarriedEnt.HMCD_JuggernautCarryExpire = CurTime() + 0.75
+	end
+	ply.Ability_JuggernautCarriedEnt = nil
+
+	if force_clear_scale or not MODE.IsJuggernautRole or not MODE.IsJuggernautRole(ply.SubRole) then
+		ply.HMCDTraitorRoleModelScale = nil
+		if ply.HMCDJuggernautStatsApplied then
+			ply.HMCDJuggernautStatsApplied = nil
+			ply.MeleeDamageMul = nil
+			ply.StaminaExhaustMul = nil
+			ply.JumpPowerMul = nil
+			if ply.organism then
+				ply.organism.legstrength = 1
+			end
+		end
+
+		if hg and hg.ApplyPlayerModelScale then
+			hg.ApplyPlayerModelScale(ply)
+		elseif ply.SetModelScale then
+			ply:SetModelScale(1, 0)
+		end
+	end
+end
+
+function MODE.FinishJuggernautStrangle(ply, victim, carried)
+	if not IsValid(ply) or not IsValid(victim) or not victim:Alive() then return end
+
+	if IsValid(carried) then
+		carried:EmitSound("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", 70, math.random(78, 92), 1)
+	end
+
+	local blackout_until = CurTime() + (MODE.JuggernautStrangleBlackoutTime or 12)
+	victim.HMCD_JuggernautBlackoutUntil = math.max(victim.HMCD_JuggernautBlackoutUntil or 0, blackout_until)
+
+	local org = victim.organism
+	if org then
+		org.neckBrainOxygenPenalty = 1
+		org.brainoxygen = math.min(org.brainoxygen or 1, MODE.JuggernautStrangleMinBrainOxygen or 0.12)
+		org.hypoxiaTime = math.max(org.hypoxiaTime or 0, 20)
+		org.severeHypoxiaTime = math.max(org.severeHypoxiaTime or 0, 8)
+		org.consciousness = math.min(org.consciousness or 1, 0.05)
+		org.needotrub = true
+		org.needfake = true
+		org.otrub = true
+		org.fake = true
+		org.stun = math.max(org.stun or 0, CurTime() + (MODE.JuggernautStrangleFinishStunTime or 7))
+	end
+
+	if hg and hg.Fake then
+		hg.Fake(victim, nil, true, true)
+	end
+end
+
+function MODE.ContinueJuggernautStrangle(ply)
+	local data = IsValid(ply) and ply.Ability_JuggernautStrangle or nil
+	if not data then return end
+
+	local can_continue, carried, victim = MODE.CanJuggernautStrangle(ply)
+	if not can_continue or victim ~= data.Victim or carried ~= data.CarryEnt then
+		MODE.StopJuggernautStrangle(ply)
+		return
+	end
+
+	local org = victim.organism
+	if org then
+		local progress = math.Clamp((CurTime() - (data.StartedAt or CurTime())) / math.max((data.ReadyAt or CurTime()) - (data.StartedAt or CurTime()), 0.1), 0, 1)
+		local brain_target = Lerp(progress, 0.55, MODE.JuggernautStrangleMinBrainOxygen or 0.12)
+		local consciousness_target = Lerp(progress, 0.8, MODE.JuggernautStrangleMinConsciousness or 0.2)
+
+		org.neckBrainOxygenPenalty = 1
+		org.brainoxygen = math.min(org.brainoxygen or 1, brain_target)
+		org.consciousness = math.min(org.consciousness or 1, consciousness_target)
+		org.hypoxiaTime = math.max(org.hypoxiaTime or 0, progress * 14)
+		org.severeHypoxiaTime = math.max(org.severeHypoxiaTime or 0, progress * 5)
+	end
+
+	if CurTime() >= (data.NextSound or 0) then
+		data.NextSound = CurTime() + 0.85
+		carried:EmitSound("player/pl_pain" .. math.random(5, 7) .. ".wav", 55, math.random(82, 96), 0.35)
+	end
+
+	if CurTime() < (data.ReadyAt or 0) then return end
+
+	MODE.FinishJuggernautStrangle(ply, victim, carried)
+	MODE.StopJuggernautStrangle(ply)
+end
+
+function MODE.FinishJuggernautStomp(ply, rag, victim)
+	if not IsValid(ply) or not IsValid(rag) or not IsValid(victim) or not victim:Alive() then return end
+	if not MODE.IsJuggernautRole or not MODE.IsJuggernautRole(ply.SubRole) then return end
+	if not victim.organism or victim.organism.otrub ~= true then return end
+	if ply:GetShootPos():DistToSqr(rag:WorldSpaceCenter()) > ((MODE.JuggernautStompReach or 105) + 45) ^ 2 then return end
+
+	local head = rag:LookupBone("ValveBiped.Bip01_Head1")
+	local head_pos = head and rag:GetBonePosition(head) or rag:WorldSpaceCenter()
+	local force = Vector(0, 0, -900) + ply:GetAimVector() * 180
+
+	local dmg = DamageInfo()
+	dmg:SetAttacker(ply)
+	dmg:SetInflictor(ply:GetActiveWeapon())
+	dmg:SetDamage(250)
+	dmg:SetDamageType(DMG_CLUB)
+	dmg:SetDamageForce(force)
+	dmg:SetDamagePosition(head_pos)
+	rag:TakeDamageInfo(dmg)
+
+	if victim.organism then
+		victim.organism.brain = 1
+		victim.organism.skull = 1
+		victim.organism.neck = 1
+	end
+
+	rag:EmitSound("physics/body/body_medium_break3.wav", 80, math.random(82, 95), 1)
+	rag:EmitSound("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", 78, math.random(75, 90), 1)
+
+	if util and util.Effect then
+		local effect = EffectData()
+		effect:SetOrigin(head_pos)
+		effect:SetNormal(Vector(0, 0, 1))
+		effect:SetScale(12)
+		util.Effect("BloodImpact", effect, true, true)
+	end
+
+	util.Decal("Blood", head_pos + Vector(0, 0, 12), head_pos - Vector(0, 0, 38), rag)
+
+	if head then
+		local phys_bone = rag:TranslateBoneToPhysBone(head)
+		if Gib_Input then
+			Gib_Input(rag, head, force)
+		elseif Gib_RemoveBone and phys_bone and phys_bone >= 0 then
+			Gib_RemoveBone(rag, head, phys_bone)
+		elseif phys_bone and phys_bone >= 0 then
+			rag:RemoveInternalConstraint(phys_bone)
+			rag:ManipulateBoneScale(head, vector_origin)
+		end
+	end
+
+	victim:Kill()
+end
+
+function MODE.StartJuggernautStomp(ply, rag, victim)
+	if not IsValid(ply) or not IsValid(rag) or not IsValid(victim) then return end
+	if (ply.Ability_JuggernautNextStomp or 0) > CurTime() then return end
+	if ply:GetNWFloat("InLegKick", 0) > CurTime() then return end
+	if not ply:IsOnGround() or ply:IsSprinting() then return end
+	local current_char = hg.GetCurrentCharacter and hg.GetCurrentCharacter(ply)
+	if IsValid(current_char) and current_char:IsRagdoll() then return end
+	if ply:EyeAngles()[1] < (MODE.JuggernautStompMinPitch or 58) then return end
+
+	ply.Ability_JuggernautNextStomp = CurTime() + (MODE.JuggernautStompCooldown or 1.35)
+	if ply.LegAttack then
+		ply:LegAttack()
+	else
+		ply:DoAnimationEvent(ACT_GMOD_GESTURE_MELEE_SHOVE_2HAND)
+	end
+
+	timer.Simple(0.33, function()
+		if not IsValid(ply) or not IsValid(rag) or not IsValid(victim) then return end
+		MODE.FinishJuggernautStomp(ply, rag, victim)
+	end)
 end
 
 --\\Chemical resistance
@@ -1120,6 +1390,30 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 			elseif(ply.Ability_CannibalConsume or (ply:GetNWInt("HMCD_CannibalStacks", 0) > 0))then
 				MODE.ResetCannibal(ply)
 			end
+
+			if(MODE.IsJuggernautRole and MODE.IsJuggernautRole(ply.SubRole))then
+				MODE.UpdateJuggernautCarryState(ply)
+
+				local can_strangle, carried, victim = MODE.CanJuggernautStrangle(ply)
+				if(can_strangle and ply:KeyDown(IN_WALK))then
+					if(not ply.Ability_JuggernautStrangle)then
+						MODE.StartJuggernautStrangle(ply, carried, victim)
+					end
+
+					MODE.ContinueJuggernautStrangle(ply)
+				else
+					MODE.StopJuggernautStrangle(ply)
+				end
+
+				if((not can_strangle) and ply:KeyDown(IN_WALK) and ply:KeyPressed(IN_USE))then
+					local rag, stomp_victim = MODE.GetJuggernautStompTarget(ply)
+					if(IsValid(rag) and IsValid(stomp_victim))then
+						MODE.StartJuggernautStomp(ply, rag, stomp_victim)
+					end
+				end
+			elseif(ply.Ability_JuggernautStrangle or IsValid(ply.Ability_JuggernautCarriedEnt))then
+				MODE.ResetJuggernaut(ply)
+			end
 		else
 			if(ply.Ability_ShadowCamouflage_ChargeStart or ply.Ability_ShadowCamouflage_Active)then
 				MODE.ResetShadowCamouflage(ply)
@@ -1132,8 +1426,49 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 			if(ply.Ability_CannibalConsume)then
 				MODE.StopCannibalConsume(ply)
 			end
+
+			if(ply.Ability_JuggernautStrangle)then
+				MODE.ResetJuggernaut(ply)
+			end
 		end
 	end
+end)
+
+hook.Add("Ragdoll Collide", "HMCD_SubRoles_JuggernautOverpowerImpact", function(rag, data)
+	if not IsValid(rag) or not data then return end
+	if (rag.HMCD_JuggernautCarryExpire or 0) < CurTime() then return end
+	if (rag.HMCD_JuggernautNextImpact or 0) > CurTime() then return end
+
+	local attacker = rag.HMCD_JuggernautCarrier
+	local victim = rag.HMCD_JuggernautCarryVictim or (hg and hg.RagdollOwner and hg.RagdollOwner(rag))
+	if not IsValid(attacker) or not MODE.IsJuggernautRole(attacker.SubRole) then return end
+	if not IsValid(victim) or not victim:IsPlayer() or not victim:Alive() then return end
+	if not MODE.IsJuggernautVictimSmallEnough(attacker, victim) then return end
+
+	local speed = math.max(data.Speed or 0, data.OurOldVelocity and data.OurOldVelocity:Length() or 0)
+	if speed < (MODE.JuggernautImpactMinSpeed or 340) then return end
+
+	local hit = data.HitEntity
+	if IsValid(hit) and hit:IsPlayer() then return end
+
+	rag.HMCD_JuggernautNextImpact = CurTime() + (MODE.JuggernautImpactCooldown or 1.25)
+
+	timer.Simple(0, function()
+		if not IsValid(attacker) or not IsValid(victim) or not victim:Alive() then return end
+
+		local dmg = DamageInfo()
+		dmg:SetAttacker(attacker)
+		dmg:SetInflictor(IsValid(rag) and rag or attacker)
+		dmg:SetDamage(MODE.JuggernautImpactDamage or 18)
+		dmg:SetDamageType(DMG_CLUB)
+		dmg:SetDamagePosition(data.HitPos or victim:WorldSpaceCenter())
+		dmg:SetDamageForce((data.OurOldVelocity or attacker:GetAimVector() * speed) * 0.65)
+		victim:TakeDamageInfo(dmg)
+
+		if hg and hg.LightStunPlayer then
+			hg.LightStunPlayer(victim, MODE.JuggernautImpactStunTime or 1.4)
+		end
+	end)
 end)
 
 hook.Add("HomigradDamage", "HMCD_SubRoles_ManiacFuryTrigger", function(victim, dmgInfo, hitgroup, ent, harm)
@@ -1179,17 +1514,21 @@ hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(vic
 end)
 
 hook.Add("PlayerSpawn", "HMCD_SubRoles_ShadowCamouflage", function(ply)
+	ply.HMCD_JuggernautBlackoutUntil = nil
 	MODE.ResetShadowCamouflage(ply)
 	MODE.ResetManiacFury(ply)
 	MODE.ResetStalkerTracking(ply)
 	MODE.StopCannibalConsume(ply)
+	MODE.ResetJuggernaut(ply)
 end)
 
 hook.Add("PlayerDeath", "HMCD_SubRoles_ShadowCamouflage", function(ply)
+	ply.HMCD_JuggernautBlackoutUntil = nil
 	MODE.ResetShadowCamouflage(ply)
 	MODE.ResetManiacFury(ply)
 	MODE.ResetStalkerTracking(ply)
 	MODE.StopCannibalConsume(ply)
+	MODE.ResetJuggernaut(ply, true)
 
 	for _, stalker in player.Iterator() do
 		if IsValid(stalker) and stalker.Ability_StalkerMarks then

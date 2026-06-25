@@ -5,6 +5,33 @@ local max, min, Round = math.max, math.min, math.Round
 hg.organism.module.blood = {}
 local module = hg.organism.module.blood
 
+resource.AddFile("sound/neck_slit_female1.wav")
+resource.AddFile("sound/neck_slit_female2.wav")
+resource.AddFile("sound/neck_slit_male1.wav")
+resource.AddFile("sound/neck_slit_male2.wav")
+util.PrecacheSound("neck_slit_female1.wav")
+util.PrecacheSound("neck_slit_female2.wav")
+util.PrecacheSound("neck_slit_male1.wav")
+util.PrecacheSound("neck_slit_male2.wav")
+
+local throat_cut_sounds = {
+	female = {
+		"neck_slit_female1.wav",
+		"neck_slit_female2.wav",
+	},
+	male = {
+		"neck_slit_male1.wav",
+		"neck_slit_male2.wav",
+	}
+}
+
+local function getThroatCutGurgleSound(owner)
+	local gender = (ThatPlyIsFemale and ThatPlyIsFemale(owner)) and "female" or "male"
+	local sounds = throat_cut_sounds[gender] or throat_cut_sounds.male
+
+	return sounds[math.random(#sounds)]
+end
+
 hg.organism.bloodtypes = {
 	["o-"] = {["o-"] = true,["o+"] = true,["a-"] = true,["a+"] = true,["b-"] = true,["b+"] = true,["ab-"] = true,["ab+"] = true},
 	["o+"] = {["o+"] = true,["a+"] = true,["b+"] = true,["ab+"] = true},
@@ -20,6 +47,9 @@ hg.organism.bloodtypes = {
 module[1] = function(org)
 	org.blood = 5000
 	org.bleed = 0
+	org.venousBleed = 0
+	org.arterialBleed = 0
+	org.internalBleedRate = 0
 	org.internalBleed = 0
 	org.internalBleedHeal = 0
 	org.arteria = 0
@@ -33,6 +63,12 @@ module[1] = function(org)
 	org.arterialwounds = {}
 	org.wantToVomit = 0
 	org.vomitInThroat = nil
+	org.throatcut = false
+	org.throatCutTime = 0
+	org.throatCutUntil = 0
+	org.throatCutSeverity = 0
+	org.throatCutPressureShock = 0
+	org.throatCutGurgleNext = 0
 
 	org.bloodtype = table.GetKeys(hg.organism.bloodtypes)[math.random(8)]
 	
@@ -148,7 +184,9 @@ module[2] = function(owner, org, mulTime)
 	local bleedoutspeed2 = 0
 	local next_arterypump = 1 / math.max(org.pulse, 10)
 	local ent = owner:IsPlayer() and IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
+	local hasCarotidWound = false
 	for i, wound in pairs(org.arterialwounds) do
+		if wound[7] == "arteria" then hasCarotidWound = true end
 		bleedoutspeed2 = bleedoutspeed2 + wound[1] * mulTime * 0.2 * math.max(org.pulse, 20) / 80
 
 		if wound[5] + next_arterypump * 2 < time then
@@ -172,6 +210,29 @@ module[2] = function(owner, org, mulTime)
 		end
 	end
 	bleedoutspeed2 = bleedoutspeed2 / next_arterypump
+
+	if org.throatcut then
+		local severity = math.Clamp(org.throatCutSeverity or 1, 0.35, 1.25)
+		if hasCarotidWound then
+			org.throatCutPressureShock = math.max(org.throatCutPressureShock or 0, severity)
+		else
+			org.throatCutPressureShock = math.Approach(org.throatCutPressureShock or 0, 0, mulTime / 8)
+		end
+
+		if org.o2 and org.o2[1] then
+			org.o2[1] = math.max(org.o2[1] - mulTime * 4.5 * severity, 0)
+		end
+
+		if (org.throatCutGurgleNext or 0) <= time and org.alive and not org.otrub and org.o2 and org.o2[1] > 0 then
+			org.throatCutGurgleNext = time + math.Rand(10, 13)
+			if hg.organism.EmitThroatCutGurgleSound then
+				hg.organism.EmitThroatCutGurgleSound(owner, 74, math.random(94, 104), 0.95)
+			else
+				owner:EmitSound(getThroatCutGurgleSound(owner), 72, math.random(92, 106), 1)
+			end
+			hook.Run("HG_ThroatCutGurgle", owner, org)
+		end
+	end
 
 	if org.blood < (2400 / (adrenaline / 3 + 1)) * ((math.cos(CurTime()/2) + 1) / 2 * 0.1 + 1) then org.needotrub = true end
 
@@ -202,6 +263,9 @@ module[2] = function(owner, org, mulTime)
 
 	org.bleed = (bleedoutspeed + bleedoutspeed2 + bleed)--в секунду
 	
+	org.venousBleed = bleedoutspeed
+	org.arterialBleed = bleedoutspeed2
+	org.internalBleedRate = bleed
 	local timetouncon = (org.blood - 2500) / org.bleed
 	
 	local bleeding_will_stop = (timetouncon ~= timetouncon) or ((coagulatespeed * timetouncon - org.bleed) > 0)

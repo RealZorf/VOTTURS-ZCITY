@@ -91,6 +91,20 @@ local function useClawHandsVisual(owner)
 	return isZombieHands(owner)
 end
 
+local function isJuggernautHands(owner)
+	return IsValid(owner) and (owner.SubRole == "traitor_juggernaut" or owner.SubRole == "traitor_juggernaut_soe")
+end
+
+local function canJuggernautOverpower(owner, target)
+	if not isJuggernautHands(owner) or not IsValid(target) or not target:IsPlayer() then return false end
+	if target == owner or not target:Alive() or target.Profession == "athlete" then return false end
+
+	local ownerScale = hg and hg.GetPlayerModelScale and hg.GetPlayerModelScale(owner) or owner:GetModelScale()
+	local targetScale = hg and hg.GetPlayerModelScale and hg.GetPlayerModelScale(target) or target:GetModelScale()
+
+	return (targetScale or 1) < (ownerScale or 1) - 0.04
+end
+
 local addHandsGestureSafe
 
 function SWEP:IsValidStandingHeadbutter(ply)
@@ -1025,6 +1039,57 @@ SWEP.Checking = 0
 SWEP.PulseCheckDuration = 10
 SWEP.PulseCheckTick = 0.02
 
+local function buildPerfusionDiagnosis(org, countedBPM)
+	if not org then return nil end
+
+	local messages = {}
+	local pulse = countedBPM or tonumber(org.pulse) or tonumber(org.heartbeat) or 0
+	local bloodpressure = math.Clamp(tonumber(org.bloodpressure) or 1, 0, 1)
+	local perfusion = math.Clamp(tonumber(org.perfusion) or bloodpressure, 0, 1)
+	local peripheral = math.Clamp(tonumber(org.peripheralperfusion) or perfusion, 0, 1)
+	local shock = tonumber(org.shock) or 0
+	local arterialBleed = tonumber(org.arterialBleed) or 0
+	local venousBleed = tonumber(org.venousBleed) or tonumber(org.bleed) or 0
+	local blood = tonumber(org.blood) or 5000
+
+	if pulse >= 105 and (bloodpressure < 0.55 or perfusion < 0.5 or shock > 20) then
+		messages[#messages + 1] = "Pulse is fast and weak."
+	elseif pulse > 0 and pulse <= 45 and bloodpressure < 0.6 then
+		messages[#messages + 1] = "Pulse is slow and weak."
+	elseif pulse > 0 and bloodpressure < 0.38 then
+		messages[#messages + 1] = "Pulse is weak."
+	end
+
+	if peripheral < 0.45 or blood < 3500 then
+		messages[#messages + 1] = "Skin is pale and cold."
+	end
+
+	if shock > 35 or perfusion < 0.35 or bloodpressure < 0.35 then
+		messages[#messages + 1] = "They are in shock."
+	end
+
+	if peripheral < 0.24 and bloodpressure > 0.11 and pulse > 18 then
+		messages[#messages + 1] = "No radial pulse, but carotid pulse is present."
+	end
+
+	if bloodpressure < 0.25 or perfusion < 0.22 or arterialBleed > 3 or venousBleed > 12 then
+		messages[#messages + 1] = "Blood pressure is crashing."
+	end
+
+	return messages
+end
+
+local function printPerfusionDiagnosis(ply, org, countedBPM)
+	if not IsValid(ply) then return end
+
+	local messages = buildPerfusionDiagnosis(org, countedBPM)
+	if not messages then return end
+
+	for i = 1, #messages do
+		ply:ChatPrint(messages[i])
+	end
+end
+
 function SWEP:StopPulseCheck(targetPly, skipNotify)
 	if not self.ActivePulseChecks then return end
 
@@ -1037,6 +1102,7 @@ function SWEP:StopPulseCheck(targetPly, skipNotify)
 			if not skipNotify and IsValid(ply) and data and data.completed and data.counted then
 				local bpm = data.counted * 6
 				ply:Notify(data.counted .. " x 6 = " .. bpm .. " BPM", 3)
+				printPerfusionDiagnosis(ply, data.org, bpm)
 			end
 
 			self.ActivePulseChecks[ply] = nil
@@ -1070,6 +1136,7 @@ function SWEP:StartPulseCheck(ply, org)
 		carryEnt = self:GetCarrying(),
 		nextBeat = now,
 		counted = 0,
+		org = org,
 		completed = false
 	}
 
@@ -1182,7 +1249,7 @@ function SWEP:SecondaryAttack()
 
 				owner:SetVelocity(owner:GetAimVector() * 20)
 				tr.Entity:SetVelocity((owner:KeyDown(IN_SPEED) and 1 or -1) * owner:GetAimVector() * 50)
-				if owner.organism.superfighter or owner.PlayerClassName == "sc_infiltrator" or (useClawHandsVisual(owner) and !(tr.Entity.PlayerClassName == "furry" or (tr.Entity.IsBerserk and tr.Entity:IsBerserk()))) or owner:IsBerserk() then
+				if owner.organism.superfighter or owner.PlayerClassName == "sc_infiltrator" or canJuggernautOverpower(owner, tr.Entity) or (useClawHandsVisual(owner) and !(tr.Entity.PlayerClassName == "furry" or (tr.Entity.IsBerserk and tr.Entity:IsBerserk()))) or owner:IsBerserk() then
 					hg.LightStunPlayer(tr.Entity, 3)
 					timer.Simple(0,function()
 						local rag = hg.GetCurrentCharacter(tr.Entity)
@@ -1257,6 +1324,15 @@ function SWEP:ApplyForce()
 			mul = mul * 5
 		end
 
+		local juggernautOverpowering = false
+		if isJuggernautHands(ply) and self.CarryEnt:IsRagdoll() then
+			local carriedOwner = RagdollOwner(self.CarryEnt)
+			if canJuggernautOverpower(ply, carriedOwner) then
+				juggernautOverpowering = true
+				mul = mul * 3.8
+			end
+		end
+
 		if (ply.organism and ply:IsBerserk()) then
 			mul = mul * (1 + ply.organism.berserk / 5)
 		end
@@ -1264,11 +1340,12 @@ function SWEP:ApplyForce()
 		local avec = vec * len * 8 - phys:GetVelocity()
 
 		local Force = avec * mul
-		local ForceMagnitude = math.min(Force:Length(), 3000) * (1 / math.max(phys:GetVelocity():Dot(vec) / 25, 1))
+		local forceCap = juggernautOverpowering and 9000 or 3000
+		local ForceMagnitude = math.min(Force:Length(), forceCap) * (1 / math.max(phys:GetVelocity():Dot(vec) / 25, 1))
 
 		Force = Force:GetNormalized() * ForceMagnitude
 
-		if len > 100 then
+		if len > (juggernautOverpowering and 145 or 100) then
 			self:SetCarrying()
 			return
 		end
@@ -1328,6 +1405,8 @@ function SWEP:ApplyForce()
 								ply:ChatPrint("The skin is pale.")
 							//end
 						end
+
+						printPerfusionDiagnosis(ply, org)
 
 						if org.bleed > 0 then
 							ply:ChatPrint("The body is bleeding "..((org.bleed > 10 and "profusely.") or (org.bleed > 5 and "moderately.") or "slightly."))
@@ -1400,7 +1479,14 @@ function SWEP:ApplyForce()
 				local trace = util.TraceLine(tr)
 				
 				if bone != "ValveBiped.Bip01_Spine2" or !trace.Hit then
-					phys:ApplyForceCenter(ply:GetAimVector() * math.min(5000, phys:GetMass() * 800))
+					local throwDir = ply:GetAimVector()
+					local throwForce = math.min(5000, phys:GetMass() * 800)
+					if juggernautOverpowering then
+						throwDir = (throwDir + vector_up * 0.22):GetNormalized()
+						throwForce = math.min(18000, phys:GetMass() * 2400)
+					end
+
+					phys:ApplyForceCenter(throwDir * throwForce)
 					self:SetCarrying()
 				end
 

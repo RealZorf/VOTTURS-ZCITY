@@ -73,6 +73,11 @@ SWEP.AnimList = {
     ["strangle_end"] = "strangle_end",
 }
 
+local fiberwire_blackout_hold_time = 5.5
+local fiberwire_blackout_time = 14
+local fiberwire_blackout_brainoxygen = 0.24
+local fiberwire_blackout_consciousness = 0.28
+
 -- idle: left hand IK off
 function SWEP:PlayAnim(anim, time, cycling, callback, reverse, sendtoclient)
     if CLIENT then
@@ -258,6 +263,7 @@ local function StartStrangle(self, victim)
     -- Mark strangling state
     self:SetStrangling(true)
     self.StrangleRag = rag
+    self.StrangleStartedAt = CurTime()
 
     -- === НОВОЕ: инициализация звуков ===
     self.nextBreathSound = CurTime() + math.Rand(3, 5)
@@ -272,11 +278,10 @@ local function StartStrangle(self, victim)
     rag._fiberwire_spawn_colgroup = nil
     rag:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
 
-    -- FIX: Сохраняем исходную регенерацию кислорода жертвы
+    -- Restrict carotid/neck brain oxygen without changing lung oxygen.
     local ragPly = hg.RagdollOwner(rag)
-    if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism and ragPly.organism.o2 then
-        ragPly._fiberwire_old_o2regen = ragPly.organism.o2.regen
-        ragPly.organism.o2.regen = 0
+    if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism then
+        ragPly.organism.neckBrainOxygenPenalty = 1
         ragPly:SetNetVar("fiberwireStrangled", true)
     -- === НОВОЕ: уведомление жертве ===
         ragPly:Notify("I feel something suddenly and forcefully pull around my neck from my back. I can't breathe...", true, "fiberwire_strangle_start", 3)
@@ -322,16 +327,17 @@ local function StopStrangle(self)
     local owner = self:GetOwner()
     if not IsValid(owner) then return end
 
-     -- FIX: Восстанавливаем регенерацию кислорода у жертвы
+     -- Clear fiberwire brain oxygen restriction.
     local rag = self.StrangleRag
     if IsValid(rag) then
-        -- FIX: Восстанавливаем регенерацию кислорода
+        -- Clear any active or legacy fiberwire oxygen state.
         local ragPly = hg.RagdollOwner(rag)
-        if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism and ragPly.organism.o2 then
-            if ragPly._fiberwire_old_o2regen ~= nil then
+        if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism then
+            if ragPly._fiberwire_old_o2regen ~= nil and ragPly.organism.o2 then
                 ragPly.organism.o2.regen = ragPly._fiberwire_old_o2regen
-                ragPly._fiberwire_old_o2regen = nil
             end
+            ragPly.organism.neckBrainOxygenPenalty = 0
+            ragPly._fiberwire_old_o2regen = nil
             ragPly:SetNetVar("fiberwireStrangled", false)
         end
 
@@ -348,6 +354,7 @@ local function StopStrangle(self)
         self:SetSawingHead(false)
     end
     self.StrangleRag = nil
+    self.StrangleStartedAt = nil
     self.NoIdleLoop = nil -- allow idle again
 
     -- === НОВОЕ: сброс звуковых переменных ===
@@ -729,14 +736,21 @@ function SWEP:CustomThink()
     end
     ]]
 
-    -- drain oxygen and stamina while choking (server-side)
+    -- Restrict blood flow to the brain while choking without draining lung oxygen.
     if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism then
         local org = ragPly.organism
         local dt = FrameTime()
-        org.choking = true
-        if org.o2 and org.o2[1] then
-            org.o2[1] = math.max(org.o2[1] - 1 * dt, 0)
+        local held_time = CurTime() - (self.StrangleStartedAt or CurTime())
+        org.neckBrainOxygenPenalty = 1
+        org.brainoxygen = math.min(org.brainoxygen or 1, Lerp(math.Clamp(held_time / fiberwire_blackout_hold_time, 0, 1), 0.65, fiberwire_blackout_brainoxygen))
+        org.consciousness = math.min(org.consciousness or 1, Lerp(math.Clamp(held_time / fiberwire_blackout_hold_time, 0, 1), 0.85, fiberwire_blackout_consciousness))
+        org.hypoxiaTime = math.max(org.hypoxiaTime or 0, math.Clamp(held_time, 0, 18))
+        org.severeHypoxiaTime = math.max(org.severeHypoxiaTime or 0, math.Clamp(held_time - 2, 0, 8))
+
+        if held_time >= fiberwire_blackout_hold_time or (org.brainoxygen or 1) <= fiberwire_blackout_brainoxygen or org.otrub then
+            ragPly.HMCD_FiberwireBlackoutUntil = math.max(ragPly.HMCD_FiberwireBlackoutUntil or 0, CurTime() + fiberwire_blackout_time)
         end
+
         if org.stamina and org.stamina.subadd ~= nil then
             org.stamina.subadd = org.stamina.subadd + 6 * dt
         end

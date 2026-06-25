@@ -9,6 +9,8 @@ MODE.TraitorExpectedAmtBits = 13
 --\\Sub Roles
 MODE.ConVarName_SubRole_Traitor_SOE = "hmcd_subrole_traitor_soe"
 MODE.ConVarName_SubRole_Traitor = "hmcd_subrole_traitor"
+MODE.SubRole_Traitor_Disabled = "traitor_disabled"
+MODE.SubRole_Traitor_Disabled_SOE = "traitor_disabled_soe"
 
 if(CLIENT)then
 	MODE.ConVar_SubRole_Traitor_SOE = CreateClientConVar(MODE.ConVarName_SubRole_Traitor_SOE, "traitor_default_soe", true, true, "Выбор роли трейтора в режиме SOE хомисайда")
@@ -47,6 +49,54 @@ end
 
 --; TODO
 --; Инженер - шахид бомба + иеды
+
+function MODE.ApplyJuggernautStats(ply)
+	if not IsValid(ply) or not ply.organism then return end
+
+	if(hg and hg.SetPlayerModelScale)then
+		hg.SetPlayerModelScale(ply, MODE.JuggernautModelScale or 1.15, "traitor_role")
+	else
+		ply:SetModelScale(MODE.JuggernautModelScale or 1.15, 0)
+	end
+
+	local stamina = ply.organism.stamina
+	if(stamina)then
+		local base_stamina = MODE.BaseProfessionStamina or 180
+		local old_range = math.max(stamina.range or base_stamina, 1)
+		local current_ratio = math.Clamp((stamina[1] or old_range) / old_range, 0, 1)
+		local stamina_max = math.max(1, math.Round(base_stamina * (MODE.JuggernautStaminaMultiplier or 2)))
+
+		stamina.range = stamina_max
+		stamina.max = stamina_max
+		stamina[1] = math.Clamp(math.Round(stamina_max * current_ratio), 0, stamina.max)
+	end
+
+	ply.HMCDJuggernautStatsApplied = true
+	ply.MeleeDamageMul = MODE.JuggernautMeleeDamageMultiplier or 1.5
+	ply.StaminaExhaustMul = MODE.JuggernautStaminaExhaustMultiplier or 0.7
+	ply.JumpPowerMul = MODE.JuggernautJumpPowerMultiplier or 1.15
+	ply.organism.legstrength = MODE.JuggernautLegStrengthMultiplier or 1.5
+end
+
+function MODE.GiveJuggernautCrowbar(ply)
+	if not IsValid(ply) then return end
+
+	local crowbar = ply:Give("weapon_hg_crowbar")
+	if IsValid(crowbar) then
+		crowbar.NoHolster = false
+		crowbar.DontEquipInstantly = true
+		crowbar.HMCDJuggernautCrowbar = true
+	end
+
+	timer.Simple(0, function()
+		if not IsValid(ply) or not ply:Alive() then return end
+		if ply:HasWeapon("weapon_hands_sh") then
+			ply:SelectWeapon("weapon_hands_sh")
+		end
+	end)
+
+	return crowbar
+end
 
 MODE.SubRoles = {
 	--=\\Traitor
@@ -482,6 +532,54 @@ The first serious wound you take triggers permanent adrenaline and fentanyl-like
 			ply:SetNetVar("Inventory", inv)
 		end,
 	},
+	["traitor_juggernaut"] = {
+		Name = "Juggernaut",
+		Description = [[A towering traitor built to overpower smaller victims.
+You share the Athlete's larger build, but use it for brutal close-quarters control.
+You have the same stamina, melee strength, leg strength and jump boost as an Athlete.
+Grab smaller non-Athlete victims and hold ALT while lifting them to strangle them.
+Slam carried victims into walls or props to deal bonus impact damage and briefly stun them.
+Press ALT + E over an unconscious victim's head to stomp their skull.]],
+		Objective = "You are the Juggernaut. Overpower smaller victims, strangle them while lifted.",
+		SpawnFunction = function(ply)
+			ply:Give("weapon_adrenaline")
+			ply:Give("weapon_hg_smokenade_tpik")
+			MODE.GiveJuggernautCrowbar(ply)
+
+			MODE.ApplyJuggernautStats(ply)
+
+			local inv = ply:GetNetVar("Inventory", {})
+			inv["Weapons"] = inv["Weapons"] or {}
+			inv["Weapons"]["hg_flashlight"] = true
+
+			ply:SetNetVar("Inventory", inv)
+		end,
+	},
+	["traitor_juggernaut_soe"] = {
+		Name = "Juggernaut",
+		Description = [[A towering traitor built to overpower smaller victims.
+You share the Athlete's larger build, but use it for brutal close-quarters control.
+You have the same stamina, melee strength, leg strength and jump boost as an Athlete.
+Grab smaller non-Athlete victims and hold ALT while lifting them to strangle them.
+Slam carried victims into walls or props to deal bonus impact damage and briefly stun them.
+Press ALT + E over an unconscious victim's head to stomp their skull.]],
+		Objective = "You are the Juggernaut. Overpower smaller victims, strangle them while lifted.",
+		SpawnFunction = function(ply)
+			ply:Give("weapon_walkie_talkie")
+			ply:Give("weapon_adrenaline")
+			ply:Give("weapon_hg_smokenade_tpik")
+			MODE.GiveJuggernautCrowbar(ply)
+
+			MODE.ApplyJuggernautStats(ply)
+
+			ply.organism.recoilmul = 1
+			local inv = ply:GetNetVar("Inventory", {})
+			inv["Weapons"] = inv["Weapons"] or {}
+			inv["Weapons"]["hg_flashlight"] = true
+
+			ply:SetNetVar("Inventory", inv)
+		end,
+	},
 	["traitor_cannibal"] = {
 		Name = "Cannibal",
 		Description = [[You're an expert in survival and close-quarters combat.
@@ -899,6 +997,7 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_shadow"] = true,
 			["traitor_assassin"] = true,
 			["traitor_maniac"] = true, 	-- maniac killer
+			["traitor_juggernaut"] = true,
 			["traitor_cannibal"] = true,
 			["traitor_terrorist"] = true,
 			["traitor_lastmanstanding"] = true,
@@ -974,6 +1073,7 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_shadow_soe"] = true,
 			["traitor_assassin_soe"] = true,
 			["traitor_maniac_soe"] = true,
+			["traitor_juggernaut_soe"] = true,
 			["traitor_cannibal_soe"] = true,
 			["traitor_terrorist_soe"] = true,
 			["traitor_lastmanstanding_soe"] = true,

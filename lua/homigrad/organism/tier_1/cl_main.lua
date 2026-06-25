@@ -138,6 +138,8 @@ local clr_black2 = Color( 0, 0, 0, 255)
 
 local mat1 = Material("vgui/gradient-u")
 local mat2 = Material("vgui/gradient-d")
+local mat3 = Material("vgui/gradient-l")
+local mat4 = Material("vgui/gradient-r")
 
 local ang1 = Angle()
 local ang2 = Angle()
@@ -182,12 +184,39 @@ local function remove_imgs()
 end
 
 local disorientationLerp = 0
+local perfusionVisualLerp = 0
+local hallucinations = {}
+local nextShockHallucination = 0
+
+local shockHallucinationFootsteps = {
+	"npc/footsteps/softshoe_generic6.wav",
+	"player/footsteps/snow1.wav",
+	"player/clothes_generic_foley_01.wav",
+	"player/clothes_generic_foley_02.wav"
+}
+
+local shockHallucinationGunshots = {
+	"Weapon_Pistol.Single",
+	"Weapon_357.Single",
+	"Weapon_SMG1.Single"
+}
+
+local function clearShockHallucinations()
+	for i = #hallucinations, 1, -1 do
+		local data = hallucinations[i]
+		if IsValid(data.model) then data.model:Remove() end
+		hallucinations[i] = nil
+	end
+end
 
 hook.Add("Player Spawn", "screenshot_game", function(ply)
 	if OverrideSpawn then return end
 
 	if ply == lply then
 		disorientationLerp = 0
+		perfusionVisualLerp = 0
+		nextShockHallucination = 0
+		clearShockHallucinations()
 
 		alivestart = CurTime()
 		lply.tried_fixing_limb = nil
@@ -208,6 +237,230 @@ end)
 
 hook.Add("Player Disconnected", "removeshits", function()
 	remove_imgs()
+end)
+
+hook.Add("ShutDown", "organism-shock-hallucinations-cleanup", function()
+	clearShockHallucinations()
+end)
+
+local function getHallucinationStress(org)
+	if not org then return 0 end
+
+	local blood = tonumber(org.blood) or 5000
+	local perfusion = math.Clamp(tonumber(org.perfusion) or math.Clamp(blood / 5000, 0, 1), 0, 1)
+	local brainoxygen = math.Clamp(tonumber(org.brainoxygen) or perfusion, 0, 1)
+	local shock = math.Clamp((tonumber(org.shock) or 0) / 100, 0, 1)
+	local bloodStress = math.Clamp((3300 - blood) / 1200, 0, 1)
+	local perfusionStress = math.Clamp((0.45 - perfusion) / 0.35, 0, 1)
+	local oxygenStress = math.Clamp((0.45 - brainoxygen) / 0.35, 0, 1)
+
+	return math.Clamp(math.max(bloodStress, perfusionStress, oxygenStress) + shock * 0.25, 0, 1)
+end
+
+local function randomHallucinationPos(ply, minDist, maxDist)
+	local eyePos = ply:EyePos()
+	local eyeAng = ply:EyeAngles()
+	local yaw = math.Rand(-70, 70)
+	local dir = (eyeAng:Forward() + eyeAng:Right() * math.sin(math.rad(yaw)) * 0.75):GetNormalized()
+	local dist = math.Rand(minDist or 220, maxDist or 680)
+	local hit = util.TraceLine({
+		start = eyePos,
+		endpos = eyePos + dir * dist,
+		filter = ply,
+		mask = MASK_SOLID
+	})
+
+	local pos = hit.Hit and (hit.HitPos - dir * 24) or (eyePos + dir * dist)
+	local floor = util.TraceLine({
+		start = pos + vector_up * 48,
+		endpos = pos - vector_up * 128,
+		filter = ply,
+		mask = MASK_SOLID
+	})
+
+	if floor.Hit then pos = floor.HitPos end
+
+	return pos, Angle(0, (eyePos - pos):Angle().y, 0)
+end
+
+local shockSilhouetteIdleSequences = {
+	"idle_all_01",
+	"idle_subtle",
+	"idle_angry",
+	"idle_unarmed",
+	"idle"
+}
+
+local function setShockSilhouettePose(mdl, ply)
+	if not IsValid(mdl) then return end
+
+	local seq = -1
+	if IsValid(ply) then
+		local plySeq = ply:GetSequence()
+		local plySeqName = plySeq and ply:GetSequenceName(plySeq)
+		if plySeqName and plySeqName ~= "" then
+			seq = mdl:LookupSequence(plySeqName)
+		end
+	end
+
+	if seq < 0 then
+		seq = mdl:SelectWeightedSequence(ACT_HL2MP_IDLE) or -1
+	end
+
+	if seq < 0 then
+		seq = mdl:SelectWeightedSequence(ACT_IDLE) or -1
+	end
+
+	if seq < 0 then
+		for i = 1, #shockSilhouetteIdleSequences do
+			seq = mdl:LookupSequence(shockSilhouetteIdleSequences[i]) or -1
+			if seq and seq >= 0 then break end
+		end
+	end
+
+	if seq and seq >= 0 then
+		mdl:ResetSequence(seq)
+		mdl:SetCycle(math.Rand(0.05, 0.9))
+		mdl:SetPlaybackRate(0)
+		mdl:FrameAdvance(0)
+	end
+end
+
+local function addShockSilhouette(ply, stress)
+	if #hallucinations >= 2 then return end
+
+	local modelPath = ply:GetModel()
+	if not modelPath or modelPath == "" then return end
+
+	local mdl = ClientsideModel(modelPath)
+	if not IsValid(mdl) then return end
+
+	local pos, ang = randomHallucinationPos(ply, 260, 620)
+	local life = math.Rand(0.65, 1.25) + stress * 0.45
+
+	mdl:SetNoDraw(true)
+	mdl:SetRenderMode(RENDERMODE_TRANSALPHA)
+	mdl:SetColor(Color(12, 18, 16, math.floor(24 + stress * 42)))
+	mdl:SetModelScale(ply:GetModelScale() or 1, 0)
+	mdl:SetPos(pos)
+	mdl:SetAngles(ang)
+	setShockSilhouettePose(mdl, ply)
+	mdl:SetupBones()
+
+	hallucinations[#hallucinations + 1] = {
+		model = mdl,
+		spawned = CurTime(),
+		die = CurTime() + life,
+		alpha = 24 + stress * 42
+	}
+end
+
+local function playShockSound(ply, snd, pos, level, pitch, volume, forceLocal)
+	EmitSound(snd, pos, 0, CHAN_AUTO, volume, level, 0, pitch)
+
+	if forceLocal and IsValid(ply) then
+		ply:EmitSound(snd, level, pitch, math.Clamp(volume * 1.35, 0, 1), CHAN_AUTO)
+	end
+end
+
+local function playShockCue(ply, stress, forceLocal, cueType)
+	local pos = randomHallucinationPos(ply, 160, 760)
+
+	if cueType == "footstep" or (cueType ~= "gunshot" and math.random() < 0.62) then
+		local snd = shockHallucinationFootsteps[math.random(#shockHallucinationFootsteps)]
+		playShockSound(ply, snd, pos, 60 + stress * 8, math.random(88, 104), 0.34 + stress * 0.18, forceLocal)
+	else
+		local snd = shockHallucinationGunshots[math.random(#shockHallucinationGunshots)]
+		playShockSound(ply, snd, pos, 74 + stress * 10, math.random(82, 96), 0.22 + stress * 0.16, forceLocal)
+	end
+end
+
+local function playShockDebugSound(ply, stress)
+	playShockCue(ply, stress, true, "footstep")
+
+	timer.Simple(0.12, function()
+		if not IsValid(ply) then return end
+		playShockCue(ply, stress, true, "gunshot")
+	end)
+end
+
+hook.Add("Think", "organism-shock-hallucinations", function()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() then
+		clearShockHallucinations()
+		return
+	end
+
+	local org = ply.organism
+	if not org or org.otrub then
+		clearShockHallucinations()
+		return
+	end
+
+	local time = CurTime()
+	if time < nextShockHallucination then return end
+
+	local stress = getHallucinationStress(org)
+	if stress < 0.62 then
+		nextShockHallucination = time + 3
+		return
+	end
+
+	nextShockHallucination = time + math.Rand(16, 30) / math.Clamp(stress, 0.62, 1)
+	if math.random() > math.Remap(stress, 0.62, 1, 0.28, 0.72) then return end
+
+	playShockCue(ply, stress)
+	if math.random() < math.Remap(stress, 0.62, 1, 0.18, 0.48) then
+		addShockSilhouette(ply, stress)
+	end
+end)
+
+hook.Add("PostDrawTranslucentRenderables", "organism-shock-hallucination-silhouettes", function()
+	if #hallucinations == 0 then return end
+
+	local time = CurTime()
+	for i = #hallucinations, 1, -1 do
+		local data = hallucinations[i]
+		local mdl = data.model
+		if not IsValid(mdl) or time >= data.die then
+			if IsValid(mdl) then mdl:Remove() end
+			table.remove(hallucinations, i)
+			continue
+		end
+
+		local fade = math.Clamp((data.die - time) / math.max(data.die - data.spawned, 0.01), 0, 1)
+		local pulse = 0.72 + math.sin(time * 16) * 0.12
+		mdl:SetColor(Color(8, 14, 12, math.floor(data.alpha * fade * pulse)))
+		mdl:FrameAdvance(0)
+		mdl:DrawModel()
+	end
+end)
+
+concommand.Add("hg_debug_hallucination", function(_, _, args)
+	local ply = LocalPlayer()
+	if not IsValid(ply) then return end
+
+	local mode = string.lower(args[1] or "both")
+	local stress = math.Clamp(tonumber(args[2]) or 1, 0.62, 1)
+
+	if mode == "clear" then
+		clearShockHallucinations()
+		return
+	end
+
+	if mode == "sound" then
+		playShockDebugSound(ply, stress)
+	elseif mode == "both" or mode == "all" then
+		playShockDebugSound(ply, stress)
+	elseif mode == "footstep" or mode == "steps" then
+		playShockCue(ply, stress, true, "footstep")
+	elseif mode == "gunshot" or mode == "gun" then
+		playShockCue(ply, stress, true, "gunshot")
+	end
+
+	if mode == "silhouette" or mode == "both" or mode == "all" then
+		addShockSilhouette(ply, stress)
+	end
 end)
 
 hook.Add("radialOptions", "DislocatedJoint", function()
@@ -383,6 +636,35 @@ local hg_potatopc
 local old = false
 local tinnitusSoundFactor
 local hg_gopro = ConVarExists("hg_gopro") and GetConVar("hg_gopro") or CreateClientConVar("hg_gopro", "0", true, false, "Toggle GoPro-like first-person camera view", 0, 1)
+
+local function drawPerfusionVisuals(perfusionStress, brainOxygenStress, pulse)
+	local target = math.Clamp(math.max(perfusionStress, brainOxygenStress * 0.9) - 0.12, 0, 1)
+	perfusionVisualLerp = Lerp(FrameTime() * (target > perfusionVisualLerp and 8 or 3), perfusionVisualLerp, target)
+	if perfusionVisualLerp <= 0.01 then return end
+
+	local w, h = ScrW(), ScrH()
+	local pulseRate = math.Clamp((pulse or 70) / 18, 2.4, 8)
+	local wave = (math.sin(CurTime() * pulseRate) + 1) * 0.5
+	local alpha = math.Clamp(perfusionVisualLerp ^ 1.35 * 190 + wave * perfusionVisualLerp * 35, 0, 225)
+	local edgeH = h * math.Clamp(0.2 + perfusionVisualLerp * 0.24, 0.2, 0.44)
+	local edgeW = w * math.Clamp(0.16 + perfusionVisualLerp * 0.18, 0.16, 0.34)
+
+	surface.SetDrawColor(0, 0, 0, alpha)
+	surface.SetMaterial(mat1)
+	surface.DrawTexturedRect(0, 0, w, edgeH)
+	surface.SetMaterial(mat2)
+	surface.DrawTexturedRect(0, h - edgeH, w, edgeH)
+	surface.SetMaterial(mat3)
+	surface.DrawTexturedRect(0, 0, edgeW, h)
+	surface.SetMaterial(mat4)
+	surface.DrawTexturedRect(w - edgeW, 0, edgeW, h)
+
+	if brainOxygenStress > 0.18 then
+		surface.SetDrawColor(8, 14, 24, math.Clamp((brainOxygenStress - 0.18) * 80, 0, 45))
+		surface.DrawRect(0, 0, w, h)
+	end
+end
+
 hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	local spect = IsValid(lply:GetNWEntity("spect")) and lply:GetNWEntity("spect")
 	local organism = lply:Alive() and lply.organism or (viewmode == 1 and IsValid(spect) and spect.organism) or {}
@@ -426,6 +708,10 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	local immobilization = org.immobilization or 0
 	local incapacitated = org.incapacitated or false
 	local critical = org.critical or false
+	local perfusion = math.Clamp(org.perfusion or math.Clamp((blood or 5000) / 5000, 0, 1), 0, 1)
+	local brainoxygen = math.Clamp(org.brainoxygen or perfusion, 0, 1)
+	local perfusionStress = 1 - perfusion
+	local brainOxygenStress = 1 - brainoxygen
 	tinnitusSoundFactor = Lerp(FrameTime()*2.5,tinnitusSoundFactor or 0, math.min(math.max( lply.tinnitus and (lply.tinnitus - CurTime()) or 0, 0)*7.5,120))
 	local tinnitusSoundFactor2 = tinnitusSoundFactor + (hook.Run("ModifyTinnitusFactor", tinnitusSoundFactor) or 0)
 
@@ -469,11 +755,11 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	end
 	
 	k1 = Lerp(FrameTime() * 15, k1 or 0, math.min(math.min(adrenaline / 1, 2),1.5))
-	k2 = (30 - (o2 or 30)) / 30 + (1 - (consciousnessLerp or 1)) * 1-- + brain * 2
-	k3 = ((5000 / math.max(blood, 1000)) - 1) * 1.5
+	k2 = (30 - (o2 or 30)) / 30 + (1 - (consciousnessLerp or 1)) * 1 + brainOxygenStress * 0.75-- + brain * 2
+	k3 = math.max(((5000 / math.max(blood, 1000)) - 1) * 1.5, perfusionStress * 1.15)
 
 	DrawSharpen(k1 * 2, k1 * 1)
-	local lowpulse = math.max((70 - pulse) / 70, 0) + math.max(3000 * ((math.cos(CurTime()/2) + 1) / 2 * 0.1 + 1) - (blood * adrenK - 300),0) / 400
+	local lowpulse = math.max((70 - pulse) / 70, 0) + math.max(3000 * ((math.cos(CurTime()/2) + 1) / 2 * 0.1 + 1) - (blood * adrenK - 300),0) / 400 + perfusionStress * 0.85
 
 	if (lply.PlayerClassName == "headcrabzombie" or lply:GetNetVar("headcrab")) and lply:Alive() then
 		disorientation = disorientation + 100
@@ -558,9 +844,10 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 
 	*/
 
-	tabblood["$pp_colour_colour"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_colour"], (blood / 5000) * (potato and (blood / 5000) or 1) + (math.max(org.analgesia - 1, 0) * math.sin(CurTime()) * 5))
+	local perfusionColour = math.min(blood / 5000, perfusion)
+	tabblood["$pp_colour_colour"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_colour"], perfusionColour * (potato and perfusionColour or 1) + (math.max(org.analgesia - 1, 0) * math.sin(CurTime()) * 5))
 	//tabblood["$pp_colour_contrast"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_contrast"], health < 80 and math.max(1.5 * ( 1 - math.min(health / 50, 1) ), 1 ) or 1)
-	tabblood["$pp_colour_brightness"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_brightness"], (potato and (blood / 5000 - 1) / 2 or 0) )
+	tabblood["$pp_colour_brightness"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_brightness"], (potato and (perfusionColour - 1) / 2 or 0) - perfusionStress * 0.06 )
 	tabblood["$pp_colour_addb"] = !org.otrub and ((potato and k2 / 5 or 0)) or 0
 	//tabblood["$pp_colour_addg"] = k2 / 15
 	//tabblood["$pp_colour_addr"] = k2 / 15
@@ -570,6 +857,7 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	//DrawColorModify(tab)
 	
 	DrawColorModify(tabblood)
+	drawPerfusionVisuals(perfusionStress, brainOxygenStress, pulse)
 
 	local ent = IsValid(lply.FakeRagdoll) and lply.FakeRagdoll or lply
 
@@ -731,6 +1019,44 @@ local function cachedClientThinkBone(ent, boneName)
 	end
 
 	return bone == false and nil or bone
+end
+
+local throatFlowDown = Vector(0, 0, -1)
+local function emitThroatBloodFlow(ply, ent, org, wound, pos, boneAng, time)
+	local throatActive = org.throatcut or (IsValid(ply) and ply:GetNWFloat("HG_ThroatCutUntil", 0) > time) or (IsValid(ent) and ent:GetNWFloat("HG_ThroatCutUntil", 0) > time)
+	if wound[7] ~= "arteria" or not throatActive then return end
+	if (wound.throatFlowNext or 0) > time then return end
+
+	local lply = LocalPlayer()
+	if IsValid(lply) and ent:GetPos():DistToSqr(lply:GetPos()) > 1300 * 1300 then
+		wound.throatFlowNext = time + 0.35
+		return
+	end
+
+	local pulseMul = math.Clamp((org.pulse or 70) / 70, 0.45, 1.4)
+	local flowMul = math.Clamp((org.throatCutSeverity or 1), 0.65, 1.25)
+	local flowCount = math.Clamp(math.floor(2 + flowMul * 2), 2, 4)
+	local baseVel = IsValid(ent) and ent:GetVelocity() * 0.2 or vector_origin
+	local forward = boneAng:Forward()
+	local right = boneAng:Right()
+	local spawnPos = pos + forward * math.Rand(0.5, 2.25) + right * math.Rand(-1.25, 1.25)
+
+	for _ = 1, flowCount do
+		local vel = baseVel
+			+ throatFlowDown * math.Rand(55, 115) * flowMul
+			+ forward * math.Rand(-10, 12)
+			+ right * math.Rand(-8, 8)
+			+ VectorRand(-3, 3) * pulseMul
+
+		local size = math.Rand(1.2, 2.8) * flowMul
+		safeAddBloodPart(spawnPos + VectorRand(-0.8, 0.8), vel, nil, size, size, true, nil, ent)
+	end
+
+	if math.random(2) == 1 then
+		safeAddBloodPart(spawnPos + throatFlowDown * 2, baseVel + throatFlowDown * math.Rand(25, 55) + VectorRand(-5, 5), nil, math.Rand(2.2, 3.4), math.Rand(2.2, 3.4), false, nil, ent)
+	end
+
+	wound.throatFlowNext = time + math.Clamp(0.12 / math.max(flowMul, 0.65), 1 / math.max(hg_blood_fps:GetInt(), 12), 0.22)
 end
 
 hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, ent, time)
@@ -991,6 +1317,7 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 						safeAddBloodPart2(pos, VectorRand(-5, 5), nil, nil, nil, nil, true, nil, ent)
 					else
 						safeAddBloodPart(pos, VectorRand(-1, 1) * (org.pulse or 70) / 70 + dir * 5 * (math.abs(math.sin(CurTime() * 2) + math.cos(CurTime() * (5 + i * 2)) + math.sin(CurTime() * (1 + i))) * 0.6 + math.sin(CurTime() * 2) + 4) * 0.1 + dir:Angle():Right() * 25 * math.sin(CurTime() * 2) * math.cos(CurTime() * 4) + ang:Up() * 25 * math.sin(CurTime() * 3) * math.cos(CurTime() * 1) + VectorRand(-1, 1) * (org.pulse or 70) / 70, nil, size, size, true, nil, ent)
+						emitThroatBloodFlow(ply, ent, org, wound, pos, boneAng, time)
 					end
 
 						wound[5] = time + (water and 2 or (0.5 * 1 / hg_blood_fps:GetInt()))

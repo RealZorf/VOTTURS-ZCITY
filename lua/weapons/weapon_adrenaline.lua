@@ -87,6 +87,7 @@ if SERVER then
 		local entOwner = IsValid(org.owner.FakeRagdoll) and org.owner.FakeRagdoll or org.owner
 		entOwner:EmitSound("snd_jack_hmcd_needleprick.wav", 60, math.random(95, 105))
 		org.adrenalineAdd = math.Approach(org.adrenalineAdd, 4, self.modeValues[1] * 4)
+		self:RefreshPerfusionTreatment(ent, 0.2)
 		self.modeValues[1] = 0
 
 		if self.poisoned2 then

@@ -174,6 +174,10 @@ if SERVER then
             return math.Clamp(ply.HMCDProfessionModelScale, ZC_MIN_MODEL_SCALE, ZC_MAX_MODEL_SCALE)
         end
 
+        if isnumber(ply.HMCDTraitorRoleModelScale) then
+            return math.Clamp(ply.HMCDTraitorRoleModelScale, ZC_MIN_MODEL_SCALE, ZC_MAX_MODEL_SCALE)
+        end
+
         return 1
     end
 
@@ -202,6 +206,8 @@ if SERVER then
 
         if scale_type == "profession" then
             ply.HMCDProfessionModelScale = scale ~= 1 and scale or nil
+        elseif scale_type == "traitor_role" then
+            ply.HMCDTraitorRoleModelScale = scale ~= 1 and scale or nil
         elseif scale_type == "manual" then
             ply.ZCManualModelScale = scale ~= 1 and scale or nil
         end

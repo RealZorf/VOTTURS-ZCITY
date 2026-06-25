@@ -237,6 +237,45 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 				end
 			end
 
+			if(MODE.IsJuggernautRole and MODE.IsJuggernautRole(ply.SubRole))then
+				local can_strangle, carried, victim = MODE.CanJuggernautStrangle and MODE.CanJuggernautStrangle(ply)
+				local active_victim = ply:GetNWEntity("HMCD_JuggernautStrangleVictim")
+
+				if(can_strangle or IsValid(active_victim))then
+					local draw_ent = IsValid(carried) and carried or active_victim
+					local text = "(HOLD)[ALT] Strangle"
+					local tw, th = surface.GetTextSize(text)
+					local text_pos = IsValid(draw_ent) and draw_ent:WorldSpaceCenter() or (ply:GetShootPos() + ply:GetAimVector() * 60)
+					local screen_pos = text_pos:ToScreen()
+					local cx, cy = screen_pos.x, screen_pos.y + y_offset
+
+					draw_shadow_text(text, cx, cy)
+
+					local frac = MODE.GetJuggernautStrangleProgress and MODE.GetJuggernautStrangleProgress(ply) or 0
+					if(frac > 0)then
+						surface.SetDrawColor(vgui_color_text_main)
+						surface.DrawRect(cx - tw / 2, cy + th, tw * frac, math.max(ScreenScale(1), 2))
+					end
+
+					y_offset = y_offset + th + after_text_offset
+				end
+
+				if(not can_strangle and MODE.GetJuggernautStompTarget)then
+					local rag, stomp_victim, stomp_trace = MODE.GetJuggernautStompTarget(ply)
+					if(IsValid(rag) and IsValid(stomp_victim))then
+						local text = "[ALT + E] Stomp Skull"
+						local tw, th = surface.GetTextSize(text)
+						local text_pos = stomp_trace and stomp_trace.HitPos or rag:WorldSpaceCenter()
+						local screen_pos = text_pos:ToScreen()
+						local cx, cy = screen_pos.x, screen_pos.y + y_offset
+
+						draw_shadow_text(text, cx, cy)
+
+						y_offset = y_offset + th + after_text_offset
+					end
+				end
+			end
+
 			if((MODE.IsAssassinRole and MODE.IsAssassinRole(ply.SubRole)) or ply.PlayerClassName == "sc_infiltrator")then
 				local aim_ent, other_ply, trace = MODE.GetPlayerTraceToOther(ply, nil, MODE.DisarmReach)
 				local text = "(HOLD)[ALT + E] Disarm"

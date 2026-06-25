@@ -387,6 +387,34 @@ end)
 MODE.BaseProfessionHealth = 100
 MODE.BaseProfessionStamina = 60 * 3
 
+local function HMCDResetTraitorFlashlight(ply)
+	if not IsValid(ply) or not ply.isTraitor then return end
+
+	ply:SetNetVar("flashlight", false)
+	if IsValid(ply.flashlight) then
+		ply.flashlight:Remove()
+	end
+
+	if ply:HasWeapon("weapon_hands_sh") then
+		ply:SelectWeapon("weapon_hands_sh")
+		local hands = ply:GetWeapon("weapon_hands_sh")
+		if IsValid(hands) then
+			ply:SetActiveWeapon(hands)
+		end
+	end
+end
+
+local function HMCDGetTraitorDisabledToken(round_type)
+	return round_type == "soe" and (MODE.SubRole_Traitor_Disabled_SOE or "traitor_disabled_soe") or (MODE.SubRole_Traitor_Disabled or "traitor_disabled")
+end
+
+local function HMCDPlayerDisabledTraitorMode(ply, round_type)
+	if not IsValid(ply) then return false end
+
+	local convar_name = round_type == "soe" and MODE.ConVarName_SubRole_Traitor_SOE or MODE.ConVarName_SubRole_Traitor
+	return ply:GetInfo(convar_name or "") == HMCDGetTraitorDisabledToken(round_type)
+end
+
 local function HMCDSanitizeProfessionToken(text)
 	return string.gsub(string.Trim(string.lower(text or "")), "[%s_%-]+", "")
 end
@@ -1273,6 +1301,13 @@ function MODE:Intermission()
 	local main_traitor = nil
 	local traitors = {}
 
+	local function CanPickTraitor(ply, allow_disabled)
+		if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then return false end
+		if not allow_disabled and HMCDPlayerDisabledTraitorMode(ply, self.Type) then return false end
+
+		return true
+	end
+
 	-- local players = {}
 	-- for i, ply in player.Iterator() do
 	-- 	if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
@@ -1283,7 +1318,7 @@ function MODE:Intermission()
 	-- -- potom
 	
 	for i, ply in RandomPairs(player.GetAll()) do
-		if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
+		if not CanPickTraitor(ply, false) then continue end
 		if math.random(100) > (ply.Karma or 100) then continue end
 
 		if traitors_needed > 0 then
@@ -1298,7 +1333,7 @@ function MODE:Intermission()
 
 	//MODE.NextRoundMainTraitors = MODE.NextRoundMainTraitors or {}
 	for i, ply in RandomPairs(player.GetAll()) do
-		if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
+		if not CanPickTraitor(ply, false) then continue end
 		//if not MODE.NextRoundMainTraitors[ply:SteamID()] then continue end
 
 		if traitors_needed > 0 then
@@ -1315,7 +1350,7 @@ function MODE:Intermission()
 
 	if traitors_needed > 0 then
 		for i, ply in RandomPairs(player.GetAll()) do
-			if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
+			if not CanPickTraitor(ply, true) then continue end
 
 			if traitors_needed > 0 then
 				ply.isTraitor = true
@@ -2374,6 +2409,9 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                 if(current_ply.isTraitor)then
                     local sub_role_id = MODE.Type == "soe" and (current_ply:GetInfo(MODE.ConVarName_SubRole_Traitor_SOE) or "traitor_default_soe") or (current_ply:GetInfo(MODE.ConVarName_SubRole_Traitor) or "traitor_default")
 					sub_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(sub_role_id) or sub_role_id
+					if sub_role == HMCDGetTraitorDisabledToken(MODE.Type) then
+						sub_role = MODE.RoleChooseRoundTypes[MODE.Type].TraitorDefaultRole or "traitor_default"
+					end
                 end
 
                 if(current_ply.isGunner)then
@@ -2431,12 +2469,26 @@ function MODE.SpawnPlayers(spawn_with_subroles)
 				MODE.ApplyProfessionLoadout(current_ply)
 			end
 
+			if(current_ply.MainTraitor and MODE.IsJuggernautRole and MODE.IsJuggernautRole(current_ply.SubRole) and MODE.ApplyJuggernautStats)then
+				MODE.ApplyJuggernautStats(current_ply)
+			end
+
 			if(IsValid(hands))then
 				current_ply:SetActiveWeapon(hands)
 			end
-            current_ply:SetNetVar("flashlight", false)
+            HMCDResetTraitorFlashlight(current_ply)
 
             local this_player = current_ply
+
+			if(current_ply.isTraitor)then
+				timer.Simple(0, function()
+					HMCDResetTraitorFlashlight(this_player)
+				end)
+
+				timer.Simple(0.25, function()
+					HMCDResetTraitorFlashlight(this_player)
+				end)
+			end
             
             timer.Simple(0.1, function() 
                 if IsValid(this_player) then

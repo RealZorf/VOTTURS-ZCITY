@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_bandage_sh"
 SWEP.PrintName = "Medkit"
-SWEP.Instructions = "A small bag containing medical supplies. Has bandages, painkillers, tourniquets and internal bleeding medicine. A necessary thing in hiking, military conditions and just a necessary thing in everyday life. RMB to apply on others, R to change use mode."
+SWEP.Instructions = "A small bag containing medical supplies. Has bandages, painkillers, tourniquets, internal bleeding medicine, decompression needle and naloxone. A necessary thing in hiking, military conditions and just a necessary thing in everyday life. RMB to apply on others, R to change use mode."
 SWEP.Category = "ZCity Medicine"
 SWEP.Spawnable = true
 SWEP.Primary.Wait = 1
@@ -22,13 +22,14 @@ SWEP.SlotPos = 1
 SWEP.WorkWithFake = true
 SWEP.offsetVec = Vector(4, -0.5, -3)
 SWEP.offsetAng = Angle(-30, 20, 90)
-SWEP.modes = 5
+SWEP.modes = 6
 SWEP.modeNames = {
 	[1] = "bandaging",
 	[2] = "painkiller",
 	[3] = "tranexamic acid",
 	[4] = "tourniquet",
 	[5] = "decompression needle",
+	[6] = "naloxone",
 }
 SWEP.ofsV = Vector(-2,-10,8)
 SWEP.ofsA = Angle(90,-90,90)
@@ -41,6 +42,7 @@ function SWEP:InitializeAdd()
 		[3] = 10,
 		[4] = 1,
 		[5] = 1,
+		[6] = 1,
 	}
 end
 
@@ -50,6 +52,7 @@ SWEP.modeValuesdef = {
 	[3] = {10,true},
 	[4] = {1,true},
 	[5] = {1,false},
+	[6] = {1,false},
 }
 SWEP.ShouldDeleteOnFullUse = true
 
@@ -137,6 +140,7 @@ if SERVER then
 				local healed = math.max(internalBleed - self.modeValues[3], 0)
 				self.modeValues[3] = self.modeValues[3] - (internalBleed - healed) * (owner.Profession == "doctor" and 0.5 or 1)
 				org.internalBleedHeal = org.internalBleedHeal + (internalBleed - healed)
+				self:RefreshPerfusionTreatment(ent, owner.Profession == "doctor" and 0.35 or 0.25)
 				entOwner:EmitSound("snds_jack_gmod/ez_medical/" .. math.random(16, 18) .. ".wav", 60, math.random(95, 105))
 			end
 		elseif self.mode == 1 then
@@ -163,11 +167,26 @@ if SERVER then
 				end
 
 				self.modeValues[5] = 0
+				self:RefreshPerfusionTreatment(ent, 0.2)
 				entOwner:EmitSound("snd_jack_hmcd_needleprick.wav", 60, math.random(95, 105))
 			//end
+		elseif self.mode == 6 then
+			local naloxoneDose = self.modeValues[6] or 0
+			if naloxoneDose <= 0 then return end
+
+			if self.poisoned2 then
+				org.poison4 = CurTime()
+
+				self.poisoned2 = nil
+			end
+
+			org.naloxoneadd = math.min((org.naloxoneadd or 0) + naloxoneDose, 1)
+			self.modeValues[6] = 0
+			self:RefreshPerfusionTreatment(ent, 0.18)
+			entOwner:EmitSound("snd_jack_hmcd_needleprick.wav", 60, math.random(95, 105))
 		end
 
-		if self.modeValues[1] == 0 and self.modeValues[2] == 0 and self.modeValues[3] == 0 and self.modeValues[4] == 0 and self.modeValues[5] == 0 and self.ShouldDeleteOnFullUse then
+		if self.modeValues[1] == 0 and self.modeValues[2] == 0 and self.modeValues[3] == 0 and self.modeValues[4] == 0 and self.modeValues[5] == 0 and (self.modeValues[6] or 0) == 0 and self.ShouldDeleteOnFullUse then
 			owner:SelectWeapon("weapon_hands_sh")
 			self:Remove()
 		end

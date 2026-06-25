@@ -5,7 +5,7 @@ local chemical_degrade_speeds = {
 	["KCN"] = 0.5,
 }
 
-MODE.DisarmReach = 90
+MODE.DisarmReach = 70
 MODE.NoDisarmWeapons = {
 	["weapon_hands_sh"] = true,
 }
@@ -42,6 +42,24 @@ MODE.CannibalBloodRestore = 900
 MODE.CannibalStaminaBonusPerBody = 25
 MODE.CannibalMeleeDamageBonusPerBody = 0.10
 MODE.CannibalMaxConsumedBodies = 10
+MODE.JuggernautModelScale = 1.15
+MODE.JuggernautStaminaMultiplier = 2
+MODE.JuggernautMeleeDamageMultiplier = 1.5
+MODE.JuggernautLegStrengthMultiplier = 1.5
+MODE.JuggernautJumpPowerMultiplier = 1.15
+MODE.JuggernautStaminaExhaustMultiplier = 0.7
+MODE.JuggernautStrangleTime = 3.25
+MODE.JuggernautStrangleMinBrainOxygen = 0.12
+MODE.JuggernautStrangleMinConsciousness = 0.2
+MODE.JuggernautStrangleFinishStunTime = 7
+MODE.JuggernautStrangleBlackoutTime = 12
+MODE.JuggernautImpactMinSpeed = 340
+MODE.JuggernautImpactCooldown = 1.25
+MODE.JuggernautImpactDamage = 18
+MODE.JuggernautImpactStunTime = 1.4
+MODE.JuggernautStompReach = 105
+MODE.JuggernautStompCooldown = 1.35
+MODE.JuggernautStompMinPitch = 58
 
 function MODE.IsShadowRole(subrole)
 	return subrole == "traitor_shadow" or subrole == "traitor_shadow_soe"
@@ -53,6 +71,97 @@ end
 
 function MODE.IsCannibalRole(subrole)
 	return subrole == "traitor_cannibal" or subrole == "traitor_cannibal_soe"
+end
+
+function MODE.IsJuggernautRole(subrole)
+	return subrole == "traitor_juggernaut" or subrole == "traitor_juggernaut_soe"
+end
+
+function MODE.GetPlayerScaleForJuggernaut(ply)
+	if not IsValid(ply) then return 1 end
+	if hg and hg.GetPlayerModelScale then return hg.GetPlayerModelScale(ply) or 1 end
+
+	return ply.GetModelScale and ply:GetModelScale() or 1
+end
+
+function MODE.IsJuggernautVictimSmallEnough(juggernaut, victim)
+	if not IsValid(juggernaut) or not IsValid(victim) then return false end
+	if victim.Profession == "athlete" then return false end
+
+	local juggernaut_scale = MODE.GetPlayerScaleForJuggernaut(juggernaut)
+	local victim_scale = MODE.GetPlayerScaleForJuggernaut(victim)
+
+	return victim_scale < juggernaut_scale - 0.04
+end
+
+function MODE.GetJuggernautCarryTarget(ply)
+	if not IsValid(ply) or not MODE.IsJuggernautRole(ply.SubRole) then return nil end
+
+	local wep = ply:GetActiveWeapon()
+	if not IsValid(wep) or wep:GetClass() ~= "weapon_hands_sh" or not wep.GetCarrying then return nil end
+
+	local carried = wep:GetCarrying()
+	if not IsValid(carried) then
+		carried = ply:GetNetVar("carryent")
+	end
+
+	if not IsValid(carried) then return nil end
+
+	local victim = carried:IsPlayer() and carried or ((hg and hg.RagdollOwner and hg.RagdollOwner(carried)) or carried.ply)
+	if not IsValid(victim) or not victim:IsPlayer() or victim == ply or not victim:Alive() then return nil end
+	if not MODE.IsJuggernautVictimSmallEnough(ply, victim) then return nil end
+
+	return carried, victim
+end
+
+function MODE.CanJuggernautStrangle(ply)
+	local carried, victim = MODE.GetJuggernautCarryTarget(ply)
+	return IsValid(carried) and IsValid(victim), carried, victim
+end
+
+function MODE.GetJuggernautStrangleProgress(ply)
+	if not IsValid(ply) then return 0 end
+
+	local ready_at = ply:GetNWFloat("HMCD_JuggernautStrangleReadyAt", 0)
+	local start_at = ply:GetNWFloat("HMCD_JuggernautStrangleStart", 0)
+	if ready_at <= start_at or ready_at <= 0 then return 0 end
+
+	return math.Clamp(1 - ((ready_at - CurTime()) / (ready_at - start_at)), 0, 1)
+end
+
+function MODE.GetJuggernautStompTarget(ply)
+	if not IsValid(ply) or not MODE.IsJuggernautRole(ply.SubRole) then return nil end
+	if ply:EyeAngles()[1] < (MODE.JuggernautStompMinPitch or 58) then return nil end
+
+	local trace = hg and hg.eyeTrace and hg.eyeTrace(ply, MODE.JuggernautStompReach or 105)
+	if not trace then return nil end
+
+	local ent = trace.Entity
+	if not IsValid(ent) then return nil end
+
+	local victim
+	local rag
+	if ent:IsPlayer() then
+		victim = ent
+		rag = IsValid(victim.FakeRagdoll) and victim.FakeRagdoll or (victim.GetNWEntity and victim:GetNWEntity("FakeRagdoll", NULL))
+	elseif ent:IsRagdoll() then
+		rag = ent
+		victim = (hg and hg.RagdollOwner and hg.RagdollOwner(ent)) or ent.ply
+	else
+		return nil
+	end
+
+	if not IsValid(victim) or not victim:IsPlayer() or victim == ply or not victim:Alive() then return nil end
+	if not IsValid(rag) or not rag:IsRagdoll() then return nil end
+	if not victim.organism or victim.organism.otrub ~= true then return nil end
+
+	local head = rag:LookupBone("ValveBiped.Bip01_Head1")
+	if head then
+		local head_pos = rag:GetBonePosition(head)
+		if head_pos and trace.HitPos:DistToSqr(head_pos) > 34 ^ 2 then return nil end
+	end
+
+	return rag, victim, trace, head
 end
 
 function MODE.IsCannibalCleaverEquipped(ply)
@@ -453,6 +562,10 @@ hook.Add("HG_MovementCalc_2", "HMCD_SubRole_Abilities", function(mul, ply, cmd)
 
 	if(ply.Ability_CannibalConsume)then
 		mul[1] = mul[1] * 0.25
+	end
+
+	if(ply.Ability_JuggernautStrangle)then
+		mul[1] = mul[1] * 0.45
 	end
 end)
 --//

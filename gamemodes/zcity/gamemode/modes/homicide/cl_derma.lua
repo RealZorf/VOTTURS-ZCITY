@@ -29,6 +29,68 @@ local function set_role(role, mode)
 	end
 end
 
+local function getDisabledRoleToken(mode)
+	return mode == "soe" and (MODE.SubRole_Traitor_Disabled_SOE or "traitor_disabled_soe") or (MODE.SubRole_Traitor_Disabled or "traitor_disabled")
+end
+
+local function isTraitorModeDisabled(mode)
+	local token = getDisabledRoleToken(mode)
+	if mode == "soe" then
+		return MODE.ConVar_SubRole_Traitor_SOE:GetString() == token
+	end
+
+	return MODE.ConVar_SubRole_Traitor:GetString() == token
+end
+
+local function getDefaultTraitorRole(mode)
+	local roundType = mode == "soe" and "soe" or "standard"
+	local role = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[roundType] and MODE.RoleChooseRoundTypes[roundType].TraitorDefaultRole
+	if role and role ~= "" then return role end
+
+	return mode == "soe" and "traitor_default_soe" or "traitor_default"
+end
+
+local function roleExistsForMode(role, mode)
+	if not role or role == "" or role == getDisabledRoleToken(mode) then return false end
+
+	local roundType = mode == "soe" and "soe" or "standard"
+	local roles = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[roundType] and MODE.RoleChooseRoundTypes[roundType].Traitor
+
+	return roles and roles[role] == true
+end
+
+local function getCurrentTraitorRole(mode)
+	return mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() or MODE.ConVar_SubRole_Traitor:GetString()
+end
+
+local lastTraitorRoleBeforeDisable = {}
+local function setTraitorRolePreference(role, mode)
+	if roleExistsForMode(role, mode) then
+		lastTraitorRoleBeforeDisable[mode] = role
+	end
+
+	set_role(role, mode)
+end
+
+local function toggleTraitorModeDisabled(mode)
+	if isTraitorModeDisabled(mode) then
+		local restoreRole = lastTraitorRoleBeforeDisable[mode]
+		if not roleExistsForMode(restoreRole, mode) then
+			restoreRole = getDefaultTraitorRole(mode)
+		end
+
+		setTraitorRolePreference(restoreRole, mode)
+		return
+	end
+
+	local currentRole = getCurrentTraitorRole(mode)
+	if roleExistsForMode(currentRole, mode) then
+		lastTraitorRoleBeforeDisable[mode] = currentRole
+	end
+
+	set_role(getDisabledRoleToken(mode), mode)
+end
+
 local function screen_scale_2(num)
 	return ScreenScale(num) / (ScrW() / ScrH())
 end
@@ -264,6 +326,8 @@ local traitorLoadoutText = {
 	traitor_shadow_soe = "Reload-key wall camouflage with short slip window\nTranquilizer gun with population-scaled ammo\nSOG knife, poison vial, traitor suit\nWalkie-talkie, adrenaline, handcuffs\nSmoke and decoy grenades\nFiber wire, flashlight",
 	traitor_maniac = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health\nFury after first serious wound",
 	traitor_maniac_soe = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health, SOE recoil control\nFury after first serious wound",
+	traitor_juggernaut = "Athlete physical stats\n1.15x size, 2x stamina, 1.5x melee and leg strength\n1.15x jump power, reduced stamina exhaustion\nCrowbar\nAdrenaline, smoke grenade, flashlight\nHold ALT while lifting smaller non-Athletes to strangle\nSlam carried victims into walls or props for bonus damage and stun\nALT + E over an unconscious head stomps the skull",
+	traitor_juggernaut_soe = "Athlete physical stats\n1.15x size, 2x stamina, 1.5x melee and leg strength\n1.15x jump power, reduced stamina exhaustion\nCrowbar\nWalkie-talkie, adrenaline, smoke grenade, flashlight\nHold ALT while lifting smaller non-Athletes to strangle\nSlam carried victims into walls or props for bonus damage and stun\nALT + E over an unconscious head stomps the skull",
 	traitor_cannibal = "Cleaver\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nConsume dead bodies to restore health and blood\nEach consumed body increases stamina and melee damage",
 	traitor_cannibal_soe = "Cleaver\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nConsume dead bodies to restore health and blood\nEach consumed body increases stamina and melee damage",
 	traitor_terrorist = "Bomb vest\nMatches\nClaymore, grenade\nIED, Buck 200 knife\nFlashlight",
@@ -571,6 +635,11 @@ function PANEL:Init()
 		draw.SimpleText("X", "HMCD_TraitorTiles_Button", w * 0.5, h * 0.48, Color(255, 140 + hover * 70, 145 + hover * 55), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
+	self.DisableStdButton = vgui.Create("DButton", self)
+	self.DisableSoeButton = vgui.Create("DButton", self)
+	self:SetupDisableButton(self.DisableStdButton, "DISABLE STD TRAITOR", "standard")
+	self:SetupDisableButton(self.DisableSoeButton, "DISABLE SOE TRAITOR", "soe")
+
 	self.Scroll = vgui.Create("DScrollPanel", self)
 	self.Scroll.Paint = function() end
 	self.DetailPanel = vgui.Create("HMCD_TraitorDetailPanel", self)
@@ -604,6 +673,33 @@ function PANEL:Init()
 	self:SetDetailRole(firstData, true)
 end
 
+function PANEL:SetupDisableButton(button, label, mode)
+	button:SetText("")
+	button.Mode = mode
+	button.ModeLabel = label
+	button.DoClick = function()
+		toggleTraitorModeDisabled(mode)
+		surface.PlaySound("buttons/button14.wav")
+	end
+	button.Paint = function(btn, w, h)
+		local disabled = isTraitorModeDisabled(btn.Mode)
+		local hover = btn:IsHovered() and 1 or 0
+		local cut = traitor_ui(9)
+		local bg = disabled and Color(155, 32, 45, 215) or Color(2 + hover * 8, 17 + hover * 18, 10 + hover * 8, 216)
+		local border = disabled and Color(255, 80, 95, 225) or Color(75, 135, 92, 180 + hover * 45)
+		local text = disabled and string.Replace(btn.ModeLabel, "DISABLE", "DISABLED") or btn.ModeLabel
+		local textColor = disabled and Color(255, 225, 225, 245) or Color(205, 238, 216, 220 + hover * 25)
+
+		drawCutPoly(0, 0, w, h, cut, bg)
+		drawCutOutline(0, 0, w, h, cut, border, disabled and 2 or 1)
+		draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+		if disabled or hover > 0 then
+			drawGlowLine(traitor_ui(14), h - 3, w - traitor_ui(28), 1, disabled and Color(255, 105, 120, 210) or Color(35, 255, 110, 130))
+		end
+	end
+end
+
 function PANEL:SetDetailRole(data, pinned)
 	if not data or not IsValid(self.DetailPanel) then return end
 	self.CurrentDetailRole = data
@@ -632,6 +728,16 @@ function PANEL:PerformLayout(w, h)
 
 	self.CloseButton:SetSize(traitor_ui(32), traitor_ui(32))
 	self.CloseButton:SetPos(w - margin - self.CloseButton:GetWide(), traitor_ui(30))
+
+	local disableW = traitor_ui(250)
+	local disableH = traitor_ui(32)
+	local disableGap = traitor_ui(12)
+	local disableX = traitor_ui(520)
+	local disableY = traitor_ui(31)
+	self.DisableStdButton:SetPos(disableX, disableY)
+	self.DisableStdButton:SetSize(disableW, disableH)
+	self.DisableSoeButton:SetPos(disableX + disableW + disableGap, disableY)
+	self.DisableSoeButton:SetSize(disableW, disableH)
 
 	local useSideDetail = w >= traitor_ui(1080)
 	local detailGap = traitor_ui(18)
@@ -752,23 +858,24 @@ function PANEL:SetupModeButton(button, label, mode, role)
 	button.DoClick = function(btn)
 		if not btn.Role then return end
 
-		set_role(btn.Role, btn.Mode)
+		setTraitorRolePreference(btn.Role, btn.Mode)
 		surface.PlaySound("buttons/button14.wav")
 	end
 	button.Paint = function(btn, w, h)
-		local selected = btn.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == btn.Role or MODE.ConVar_SubRole_Traitor:GetString() == btn.Role
+		local disabledMode = isTraitorModeDisabled(btn.Mode)
+		local selected = not disabledMode and (btn.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == btn.Role or MODE.ConVar_SubRole_Traitor:GetString() == btn.Role)
 		local enabled = btn.Role ~= nil
 		local hover = enabled and btn:IsHovered() and 1 or 0
 		local cut = traitor_ui(10)
 
-		local bg = selected and Color(15, 165, 82, 205) or Color(2 + hover * 8, 17 + hover * 28, 10 + hover * 14, enabled and 226 or 120)
+		local bg = selected and Color(15, 165, 82, 205) or (disabledMode and Color(22, 6, 8, enabled and 218 or 120) or Color(2 + hover * 8, 17 + hover * 28, 10 + hover * 14, enabled and 226 or 120))
 		drawCutPoly(0, 0, w, h, cut, bg)
 
-		local border = selected and traitorTileAccent or (enabled and Color(75, 135, 92, 180) or Color(65, 70, 65, 130))
+		local border = selected and traitorTileAccent or (disabledMode and Color(150, 54, 62, 155) or (enabled and Color(75, 135, 92, 180) or Color(65, 70, 65, 130)))
 		drawCutOutline(0, 0, w, h, cut, border, selected and 2 or 1)
 
 		local text = enabled and btn.ModeLabel or (btn.ModeLabel .. " N/A")
-		local mainColor = enabled and (selected and color_white or traitorTileText) or Color(105, 110, 105)
+		local mainColor = enabled and (selected and color_white or (disabledMode and Color(190, 112, 118, 210) or traitorTileText)) or Color(105, 110, 105)
 
 		if enabled then
 			local stats = getTraitorRoleStats(btn.Role)
@@ -776,7 +883,7 @@ function PANEL:SetupModeButton(button, label, mode, role)
 			local statText = rate and (rate .. "% / " .. stats.games .. "R") or "--"
 
 			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.36, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			draw.SimpleText(statText, "HMCD_TraitorTiles_Code", w * 0.5, h * 0.68, selected and Color(220, 255, 232, 230) or Color(135, 190, 154, 205), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText(disabledMode and "DISABLED" or statText, "HMCD_TraitorTiles_Code", w * 0.5, h * 0.68, selected and Color(220, 255, 232, 230) or (disabledMode and Color(210, 105, 112, 205) or Color(135, 190, 154, 205)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		else
 			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		end
@@ -831,6 +938,10 @@ function PANEL:Paint(w, h)
 	local hover = self.Hover or 0
 	local selectedStd = data.Standard and MODE.ConVar_SubRole_Traitor:GetString() == data.Standard
 	local selectedSoe = data.SOE and MODE.ConVar_SubRole_Traitor_SOE:GetString() == data.SOE
+	local stdDisabled = isTraitorModeDisabled("standard")
+	local soeDisabled = isTraitorModeDisabled("soe")
+	if stdDisabled then selectedStd = false end
+	if soeDisabled then selectedSoe = false end
 	local selected = selectedStd or selectedSoe
 	local cut = traitor_ui(18)
 	local t = SysTime() + (self.TileIndex or 1) * 0.37
@@ -868,11 +979,14 @@ function PANEL:Paint(w, h)
 	local status = {}
 	if selectedStd then status[#status + 1] = "STD ACTIVE" end
 	if selectedSoe then status[#status + 1] = "SOE ACTIVE" end
+	if stdDisabled then status[#status + 1] = "STD DISABLED" end
+	if soeDisabled then status[#status + 1] = "SOE DISABLED" end
 
 	local statusText = #status > 0 and table.concat(status, " / ") or "PENDING"
-	local statusColor = #status > 0 and traitorTileAccentHot or traitorTileAmber
-	local chipFill = #status > 0 and Color(35, 255, 110, 45) or Color(255, 190, 75, 18)
-	local chipBorder = #status > 0 and Color(35, 255, 110, 150) or Color(255, 190, 75, 85)
+	local disabledOnly = not selected and (stdDisabled or soeDisabled)
+	local statusColor = selected and traitorTileAccentHot or (disabledOnly and Color(255, 120, 130) or traitorTileAmber)
+	local chipFill = selected and Color(35, 255, 110, 45) or (disabledOnly and Color(155, 32, 45, 38) or Color(255, 190, 75, 18))
+	local chipBorder = selected and Color(35, 255, 110, 150) or (disabledOnly and Color(255, 80, 95, 100) or Color(255, 190, 75, 85))
 
 	surface.SetFont("HMCD_TraitorTiles_Code")
 	local tw, th = surface.GetTextSize(statusText)
@@ -908,7 +1022,7 @@ function PANEL:Construct()
 	label_name:SetHeight(label_name_height)
 	label_name:SetMouseInputEnabled(true)
 	label_name.Paint = function(sel, w, h)
-		if((self.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
+		if((self.Mode == "soe" and not isTraitorModeDisabled("soe") and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and not isTraitorModeDisabled("standard") and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
 			surface.SetDrawColor(vgui_color_main)
 			surface.DrawOutlinedRect(1, 1, w - 2, h - 2, 3)
 		end
@@ -923,7 +1037,7 @@ function PANEL:Construct()
 	end
 	
 	label_name.DoClick = function(sel)
-		set_role(self.Role, self.Mode or "soe")
+		setTraitorRolePreference(self.Role, self.Mode or "soe")
 	end
 	
 	local text_description = vgui.Create("RichText", self)
@@ -1124,7 +1238,7 @@ hook.Add("CreateMove", "HMCD_RolePanelClick", function(cmd)
 		local hovered_panel = vgui.GetHoveredPanel()
 		
 		if(IsValid(hovered_panel) and IsValid(hovered_panel.ZRolePanel))then
-			set_role(hovered_panel.ZRolePanel.Role, hovered_panel.ZRolePanel.Mode)
+			setTraitorRolePreference(hovered_panel.ZRolePanel.Role, hovered_panel.ZRolePanel.Mode)
 		end
 	end
 end)

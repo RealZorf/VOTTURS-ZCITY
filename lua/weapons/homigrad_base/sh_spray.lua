@@ -21,11 +21,20 @@ SWEP.addSprayMul = 1
 SWEP.RecoilMul = 0.8
 
 local cos, sin, math_max, math_min = math.cos, math.sin, math.max, math.min
+
+local function GetPerfusionGripRecoilMul(org)
+	if not org then return 1 end
+
+	local grip = math.Clamp(org.perfusionGripMul or 1, 0.35, 1)
+	return math.Remap(grip, 0.35, 1, 1.18, 1)
+end
+
 function SWEP:GetPrimaryMul()
 	local owner = self:GetOwner()
 	local mul = ((0.5) + math_max(self.Primary.Force / 110 - 1, 0)) * (owner.Crouching and owner:Crouching() and self.CrouchMul or 1) * (self.attachments and self.attachments.barrel and self.attachments.barrel[1] ~= "empty" and 0.75 or 1)
 	self:ApplyForce(mul)
-	mul = (mul or 0) * (self.Supressor and 0.75 or 1) * (owner.organism and owner.organism.recoilmul or 1)
+	local org = owner.organism
+	mul = (mul or 0) * (self.Supressor and 0.75 or 1) * (org and org.recoilmul or 1) * GetPerfusionGripRecoilMul(org)
 	return mul
 end
 
@@ -60,6 +69,7 @@ function SWEP:PrimarySpread()
 
 	if CLIENT and (owner == LocalPlayer() or (not LocalPlayer():Alive() and owner == LocalPlayer():GetNWEntity("spect"))) and !self.norecoil then
 		local organism = owner.organism or {}
+		local gripRecoilMul = GetPerfusionGripRecoilMul(organism)
 		
 		local force = self.Primary.Damage / 100 * self.addSprayMul * (self.NumBullet or 1) * math.min(sprayI / 30,0.6)--(self.Primary.Automatic and math.min(sprayI / 30,1) or 1)
 		mul = mul * (((organism.larm or 0) + (organism.rarm or 0) + 2) / 1 + ((organism.larmamputated and 5 or 0) + (organism.rarmamputated and 5 or 0)))
@@ -124,7 +134,7 @@ function SWEP:PrimarySpread()
 		sprayAng:RotateAroundAxis(angle_zero:Forward(), eyeang.roll)
 		sprayAng.roll = 0
 
-		owner:SetEyeAngles(eyeang + sprayAng * 3 * (organism.recoilmul or 1) * (owner.posture == 1 and not self:IsZoom() and 0.1 or 1) * 0.25)
+		owner:SetEyeAngles(eyeang + sprayAng * 3 * (organism.recoilmul or 1) * gripRecoilMul * (owner.posture == 1 and not self:IsZoom() and 0.1 or 1) * 0.25)
 		
 		local rnd1, rnd2 = math.Rand(1,2), math.Rand(-1,1)
 		ViewPunch2(Angle(2 * rnd1,2 * rnd2,0) * mul * 0.5)

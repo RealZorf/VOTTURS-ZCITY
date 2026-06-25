@@ -357,6 +357,52 @@ hook.Add("HomigradDamage", "ZCity_BluntFaceNosebleed", function(ent, dmgInfo, hi
 	applyNosebleed(ent, harm)
 end)
 
+local THROAT_CUT_MIN_DAMAGE = 4
+local THROAT_CUT_NECK_DIST_SQR = 25 * 25
+
+local function isSharpMeleeInflictor(dmgInfo)
+	local inflictor = dmgInfo and dmgInfo.GetInflictor and dmgInfo:GetInflictor() or nil
+	if not IsValid(inflictor) or not inflictor:IsWeapon() then return false end
+
+	if inflictor.ThroatCutCapable == false then return false end
+	if inflictor.DamageType == DMG_SLASH then return true end
+
+	local stored = weapons.GetStored(inflictor:GetClass())
+	return stored and stored.DamageType == DMG_SLASH
+end
+
+local function isNeckSlash(ent, dmgInfo, hitgroup)
+	if hitgroup ~= HITGROUP_HEAD and hitgroup ~= HITGROUP_GENERIC and hitgroup ~= 0 then return false end
+	if not dmgInfo or not dmgInfo.IsDamageType or not dmgInfo:IsDamageType(DMG_SLASH) then return false end
+	if dmgInfo:GetDamage() < THROAT_CUT_MIN_DAMAGE then return false end
+	if not isSharpMeleeInflictor(dmgInfo) then return false end
+
+	local owner = hg.RagdollOwner and hg.RagdollOwner(ent) or ent
+	if not IsValid(owner) or not owner.organism or owner.organism.throatcut then return false end
+
+	local character = hg.GetCurrentCharacter and hg.GetCurrentCharacter(owner) or ent
+	if not IsValid(character) then character = ent end
+	if not IsValid(character) or not character.LookupBone then return false end
+
+	local neckBone = character:LookupBone("ValveBiped.Bip01_Neck1")
+	if not neckBone then return false end
+
+	local neckPos = character:GetBonePosition(neckBone)
+	local hitPos = dmgInfo:GetDamagePosition()
+	if not isvector(neckPos) or not isvector(hitPos) then return false end
+
+	return hitPos:DistToSqr(neckPos) <= THROAT_CUT_NECK_DIST_SQR
+end
+
+hook.Add("HomigradDamage", "ZCity_SlashThroatCut", function(ent, dmgInfo, hitgroup, attackerEnt, harm)
+	if not isNeckSlash(ent, dmgInfo, hitgroup) then return end
+
+	local force = dmgInfo:GetDamageForce()
+	local dir = isvector(force) and force:LengthSqr() > 1 and force:GetNormalized() or nil
+	local severity = math.Clamp((dmgInfo:GetDamage() + (tonumber(harm) or 0) * 0.18) / 18, 0.6, 1.15)
+	hg.organism.CutThroat(ent, dmgInfo, dmgInfo:GetDamagePosition(), dir, severity)
+end)
+
 concommand.Add("zc_debug_nosebleed", function(ply)
 	if IsValid(ply) and not ply:IsAdmin() then return end
 

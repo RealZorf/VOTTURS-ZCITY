@@ -24,6 +24,26 @@ hg.ConVars = hg.ConVars or {}
 
 --\\ Debug useful commands
 	if CLIENT then
+		local throatCutSoundWhitelist = {
+			["neck_slit_female1.wav"] = true,
+			["neck_slit_female2.wav"] = true,
+			["neck_slit_male1.wav"] = true,
+			["neck_slit_male2.wav"] = true,
+		}
+
+		net.Receive("HG_ThroatCutSound", function()
+			local snd = net.ReadString()
+			local pos = net.ReadVector()
+			local level = net.ReadUInt(8)
+			local pitch = net.ReadUInt(8)
+			local volume = net.ReadFloat()
+
+			if not throatCutSoundWhitelist[snd] then return end
+			if not isvector(pos) then return end
+
+			sound.Play(snd, pos, math.Clamp(level, 1, 255), math.Clamp(pitch, 1, 255), math.Clamp(volume, 0, 1))
+		end)
+
 		function PrintPosParameters(ent)
 			for i = 0, ent:GetNumPoseParameters() - 1 do
 				local min, max = ent:GetPoseParameterRange( i )
@@ -694,6 +714,47 @@ players : 1 humans, 0 bots (20 max)
 
 		hg.playerInfo = hg.playerInfo or {}
 
+		local throatVoiceSounds = {
+			female = {
+				"neck_slit_female1.wav",
+				"neck_slit_female2.wav",
+			},
+			male = {
+				"neck_slit_male1.wav",
+				"neck_slit_male2.wav",
+			}
+		}
+
+		local function getThroatVoiceSound(talker)
+			local gender = (ThatPlyIsFemale and ThatPlyIsFemale(talker)) and "female" or "male"
+			local sounds = throatVoiceSounds[gender] or throatVoiceSounds.male
+
+			return sounds[math.random(#sounds)]
+		end
+
+		local function throatCutVoiceMul(talker)
+			if not IsValid(talker) then return 1 end
+
+			local time = CurTime()
+			local org = talker.organism
+			local active = (org and org.throatcut and not org.otrub) or talker:GetNWFloat("HG_ThroatCutUntil", 0) > time
+			if not active then return 1 end
+
+			local voice = math.Clamp(talker:VoiceVolume(), 0, 1)
+			local choke = 0.38 + math.abs(math.sin(time * 13 + talker:EntIndex())) * 0.18
+
+			if voice > 0.04 and (talker.NextThroatVoiceGurgle or 0) < time then
+				talker.NextThroatVoiceGurgle = time + math.Rand(0.65, 1.2)
+				talker:EmitSound(getThroatVoiceSound(talker), 52, math.random(86, 104), math.Clamp(0.22 + voice * 0.22, 0.22, 0.42))
+			end
+
+			return choke
+		end
+
+		local function playerVoiceBaseVolume(ply)
+			return hg.playerInfo[ply:SteamID()] and hg.playerInfo[ply:SteamID()][2] or 1
+		end
+
 		local function UpdateVoiceDSP(listener, talker)
 			if not talker:IsSpeaking() then return end
 			if not IsValid(listener) or not IsValid(talker) or listener == talker then return end
@@ -705,14 +766,15 @@ players : 1 humans, 0 bots (20 max)
 			})
 
 			local volume = (talker:WaterLevel() == 3) and 0.25 or (trace.Hit and 0.5 or 1)
+			volume = volume * throatCutVoiceMul(talker)
 
-			talker:SetVoiceVolumeScale(!hg.muteall and math.min(hg.playerInfo[talker:SteamID()] and hg.playerInfo[talker:SteamID()][2] or 1, volume) or 0)
+			talker:SetVoiceVolumeScale(!hg.muteall and math.min(playerVoiceBaseVolume(talker), volume) or 0)
 		end
 
 		local cachedLerp = Lerp
 
 		local function mouthmove(ply)
-			ply:SetVoiceVolumeScale(!hg.muteall and (!hg.mutespect or ply:Alive()) and (hg.playerInfo[ply:SteamID()] and hg.playerInfo[ply:SteamID()][2] or 1) or 0)
+			ply:SetVoiceVolumeScale(!hg.muteall and (!hg.mutespect or ply:Alive()) and playerVoiceBaseVolume(ply) * throatCutVoiceMul(ply) or 0)
 
 			if not ply:Alive() then return end
 			local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply

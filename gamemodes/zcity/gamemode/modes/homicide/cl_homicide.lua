@@ -366,6 +366,17 @@ local hmcd_traitor_role_tips = {
 		"let them tank attention while you remove weapons from the edge.",
 		"grenade panic makes people drop formation; punish the split."
 	},
+	traitor_juggernaut = {
+		"feed them smaller targets they can lift and strangle.",
+		"let them throw bodies into walls while you cover the noise.",
+		"they cannot overpower Athletes; call softer targets first.",
+		"their size draws attention, so use their push as your opening.",
+		"force victims into tight rooms where wall impacts are unavoidable.",
+		"let them control the front while you cut off escapes.",
+		"their carried victim becomes a weapon; stay out of the slam path.",
+		"smoke lets them close distance before the grab.",
+		"unconscious victims are vulnerable to a skull stomp."
+	},
 	traitor_cannibal = {
 		"feed them corpses after fights so they can come back stronger.",
 		"cover the body while they consume it; each meal makes their next push worse.",
@@ -481,6 +492,15 @@ local hmcd_traitor_self_tip_openers = {
 		"Commit only when the gun threats are distracted;",
 		"Let your axe announce the collapse, not the plan;"
 	},
+	traitor_juggernaut = {
+		"Grab smaller non-Athletes and lift them;",
+		"Hold ALT while carrying a victim;",
+		"Slam carried victims into walls or props;",
+		"Press ALT + E over an unconscious head;",
+		"Use your larger body to block exits;",
+		"Smoke before closing the grab distance;",
+		"Avoid Athletes; they are too large to overpower;"
+	},
 	traitor_cannibal = {
 		"Consume bodies after close fights;",
 		"Use smoke to secure time over a corpse;",
@@ -527,6 +547,7 @@ local hmcd_traitor_role_colors = {
 	traitor_chemist = Color(70, 255, 115),
 	traitor_shadow = Color(130, 90, 255),
 	traitor_maniac = Color(255, 70, 70),
+	traitor_juggernaut = Color(210, 95, 55),
 	traitor_cannibal = Color(175, 45, 45),
 	traitor_terrorist = Color(255, 120, 35),
 	traitor_lastmanstanding = Color(255, 220, 80),

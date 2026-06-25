@@ -162,6 +162,11 @@ if SERVER then
 							owner:EmitSound("zcity/healing/bloodbag_loop_".. math.random(8) ..".wav")
 							self.sndcd = CurTime() + 0.7
 						end
+
+						if old ~= self.modeValues[1] and (self.nextPerfusionRefresh or 0) < CurTime() then
+							self.nextPerfusionRefresh = CurTime() + 0.25
+							self:RefreshPerfusionTreatment(ent, 0.18)
+						end
 					end
 				end
 			end
@@ -197,6 +202,11 @@ if SERVER then
 						if self.sndcd < CurTime() and old ~= ent.organism.blood  then
 							owner:EmitSound("zcity/healing/bloodbag_loop_".. math.random(8) ..".wav")
 							self.sndcd = CurTime() + 0.7
+						end
+
+						if old ~= ent.organism.blood and (self.nextPerfusionRefresh or 0) < CurTime() then
+							self.nextPerfusionRefresh = CurTime() + 0.25
+							self:RefreshPerfusionTreatment(ent, good_type and 0.3 or 0.12)
 						end
 					end
 				end

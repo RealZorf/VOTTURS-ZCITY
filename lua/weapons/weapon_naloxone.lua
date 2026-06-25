@@ -111,6 +111,7 @@ if SERVER then
 		entOwner:EmitSound("snd_jack_hmcd_needleprick.wav", 60, math.random(95, 105))
 
 		org.naloxoneadd = math.min(org.naloxoneadd + self.modeValues[1], 1)
+		self:RefreshPerfusionTreatment(ent, 0.18)
 
 		self.modeValues[1] = 0
 		

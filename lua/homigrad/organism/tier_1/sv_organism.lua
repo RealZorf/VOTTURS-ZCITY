@@ -71,6 +71,21 @@ hook.Add("Org Clear", "Main", function(org)
 	org.fearadd = 0
 	--//
 
+	org.bloodpressure = 1
+	org.perfusion = 1
+	org.brainoxygen = 1
+	org.peripheralperfusion = 1
+	org.hypoxiaTime = 0
+	org.severeHypoxiaTime = 0
+	org.perfusionMoveMul = 1
+	org.perfusionGripMul = 1
+	org.throatcut = false
+	org.throatCutTime = 0
+	org.throatCutUntil = 0
+	org.throatCutSeverity = 0
+	org.throatCutPressureShock = 0
+	org.neckBrainOxygenPenalty = 0
+
 	org.assimilated = 0
 	org.berserk = 0
 	org.noradrenaline = 0
@@ -127,6 +142,90 @@ local function organism_recipient_filter(owner)
 	return rf
 end
 
+local function approachVitals(current, target, timeValue)
+	current = tonumber(current) or target
+
+	local rate = target < current and 4.5 or 1.35
+	return math.Approach(current, target, (timeValue or engine.TickInterval()) * rate)
+end
+
+function hg.organism.UpdatePerfusion(owner, org, timeValue)
+	if not org then return end
+
+	local blood = math.max(org.blood or 0, 0)
+	local bloodFrac = math.Clamp((blood - 1800) / 2700, 0, 1)
+	local heartFunc = math.Clamp(1 - (org.heart or 0), 0, 1)
+	local pulse = org.heartstop and 0 or (org.pulse or 70)
+	local pulseFunc = math.Clamp((pulse - 8) / 62, 0, 1)
+	local oxygen = org.o2 and math.Clamp((org.o2[1] or 0) / math.max(org.o2.range or 30, 1), 0, 1) or 1
+	local arterialBleed = math.max(org.arterialBleed or 0, 0)
+	local venousBleed = math.max(org.venousBleed or math.max((org.bleed or 0) - arterialBleed, 0), 0)
+	local internalBleed = math.max(org.internalBleedRate or 0, 0)
+	local arterialPressurePenalty = math.Clamp(arterialBleed / 18, 0, 0.5)
+	local venousPressurePenalty = math.Clamp(venousBleed / 65, 0, 0.18)
+	local internalPressurePenalty = math.Clamp(internalBleed / 45, 0, 0.22)
+	local bleedPenalty = arterialPressurePenalty + venousPressurePenalty + internalPressurePenalty
+	local shockPenalty = math.Clamp((org.shock or 0) / 100, 0, 0.35)
+	local throatCutPenalty = math.Clamp(org.throatCutPressureShock or 0, 0, 1)
+	local neckBrainOxygenPenalty = math.Clamp(org.neckBrainOxygenPenalty or 0, 0, 1)
+
+	local pressureTarget = math.Clamp(bloodFrac * heartFunc * pulseFunc - bleedPenalty - shockPenalty * 0.45 - throatCutPenalty * 0.22, 0, 1)
+	local perfusionTarget = math.Clamp(pressureTarget * Lerp(oxygen, 0.55, 1), 0, 1)
+	local brainTarget = math.Clamp(perfusionTarget * Lerp(oxygen, 0.35, 1) * Lerp(throatCutPenalty, 1, 0.45) * Lerp(neckBrainOxygenPenalty, 1, 0.05), 0, 1)
+	local peripheralTarget = math.Clamp(perfusionTarget - shockPenalty * 0.35 - arterialPressurePenalty * 0.35 - venousPressurePenalty * 0.15 - throatCutPenalty * 0.2, 0, 1)
+
+	org.bloodpressure = approachVitals(org.bloodpressure, pressureTarget, timeValue)
+	org.perfusion = approachVitals(org.perfusion, perfusionTarget, timeValue)
+	org.brainoxygen = approachVitals(org.brainoxygen, brainTarget, timeValue)
+	org.peripheralperfusion = approachVitals(org.peripheralperfusion, peripheralTarget, timeValue)
+	org.neckBrainOxygenPenalty = math.Approach(neckBrainOxygenPenalty, 0, (timeValue or engine.TickInterval()) * 1.5)
+
+	org.perfusionMoveMul = math.Clamp(math.Remap(org.peripheralperfusion, 0.22, 0.75, 0.25, 1), 0.25, 1)
+	org.perfusionGripMul = math.Clamp(math.Remap(org.peripheralperfusion, 0.18, 0.7, 0.35, 1), 0.35, 1)
+
+	local dt = timeValue or engine.TickInterval()
+	local badHypoxia = org.brainoxygen < 0.45 or org.perfusion < 0.35
+	local severeHypoxia = org.brainoxygen < 0.22 or org.perfusion < 0.16
+
+	if badHypoxia then
+		org.hypoxiaTime = math.min((org.hypoxiaTime or 0) + dt * (severeHypoxia and 2.25 or 1), 120)
+	else
+		org.hypoxiaTime = math.Approach(org.hypoxiaTime or 0, 0, dt * 2)
+	end
+
+	if severeHypoxia then
+		org.severeHypoxiaTime = math.min((org.severeHypoxiaTime or 0) + dt, 120)
+	else
+		org.severeHypoxiaTime = math.Approach(org.severeHypoxiaTime or 0, 0, dt * 1.5)
+	end
+
+	if owner and owner.IsBerserk and owner:IsBerserk() then return end
+
+	local hypoxiaTime = org.hypoxiaTime or 0
+	local severeTime = org.severeHypoxiaTime or 0
+
+	if org.brainoxygen < 0.55 and (hypoxiaTime > 8 or severeTime > 3) then
+		org.consciousness = math.min(org.consciousness or 1, math.Clamp(math.Remap(org.brainoxygen, 0.18, 0.55, 0.05, 1), 0.05, 1))
+	end
+
+	if org.perfusion < 0.4 and (hypoxiaTime > 10 or severeTime > 4) then
+		local timerMul = math.Clamp(hypoxiaTime / 20, 0.4, 1.4)
+		org.disorientation = math.max(org.disorientation or 0, math.Remap(org.perfusion, 0.4, 0, 1.5, 6) * timerMul)
+	end
+
+	if org.peripheralperfusion < 0.32 then
+		org.immobilization = math.max(org.immobilization or 0, math.Remap(org.peripheralperfusion, 0.32, 0, 1.5, 7))
+	end
+
+	if (org.perfusion < 0.32 or org.brainoxygen < 0.35) and (hypoxiaTime > 16 or severeTime > 6) then
+		org.needfake = true
+	end
+
+	if (org.perfusion < 0.18 or org.brainoxygen < 0.2) and (hypoxiaTime > 26 or severeTime > 10) then
+		org.needotrub = true
+	end
+end
+
 local function send_organism(org, ply)
 	if not IsValid(org.owner) then return end
 	local sendtable = {}
@@ -151,6 +250,18 @@ local function send_organism(org, ply)
 	sendtable.blood = org.blood
 	sendtable.bloodtype = org.bloodtype
 	sendtable.bleed = org.bleed
+	sendtable.venousBleed = org.venousBleed
+	sendtable.arterialBleed = org.arterialBleed
+	sendtable.internalBleedRate = org.internalBleedRate
+	sendtable.bloodpressure = org.bloodpressure
+	sendtable.perfusion = org.perfusion
+	sendtable.brainoxygen = org.brainoxygen
+	sendtable.peripheralperfusion = org.peripheralperfusion
+	sendtable.perfusionMoveMul = org.perfusionMoveMul
+	sendtable.perfusionGripMul = org.perfusionGripMul
+	sendtable.throatcut = org.throatcut
+	sendtable.throatCutUntil = org.throatCutUntil
+	sendtable.throatCutSeverity = org.throatCutSeverity
 	sendtable.hurt = org.hurt
 	sendtable.pain = org.pain
 	sendtable.shock = org.shock
@@ -218,6 +329,16 @@ local function send_bareinfo(org)
 	sendtable.pulse = org.pulse
 	sendtable.blood = org.blood
 	sendtable.heartbeat = org.heartbeat
+	sendtable.venousBleed = org.venousBleed
+	sendtable.arterialBleed = org.arterialBleed
+	sendtable.internalBleedRate = org.internalBleedRate
+	sendtable.bloodpressure = org.bloodpressure
+	sendtable.perfusion = org.perfusion
+	sendtable.brainoxygen = org.brainoxygen
+	sendtable.peripheralperfusion = org.peripheralperfusion
+	sendtable.throatcut = org.throatcut
+	sendtable.throatCutUntil = org.throatCutUntil
+	sendtable.throatCutSeverity = org.throatCutSeverity
 	sendtable.analgesia = org.analgesia
 	sendtable.o2 = org.o2
 	sendtable.timeValue = org.timeValue
@@ -382,6 +503,7 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		module.random_events[2](owner, org, timeValue)
 	end
 	module.pulse[2](owner, org, timeValue)
+	hg.organism.UpdatePerfusion(owner, org, timeValue)
 
 	if org.owner.PlayerClassName == "furry" then
 		org.assimilated = 0
@@ -469,6 +591,28 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		org.uncon_timer = org.uncon_timer + timeValue
 	else
 		org.uncon_timer = 0
+	end
+
+	if isPly then
+		local juggernautBlackoutUntil = owner.HMCD_JuggernautBlackoutUntil or 0
+		local fiberwireBlackoutUntil = owner.HMCD_FiberwireBlackoutUntil or 0
+		local neckBlackoutUntil = math.max(juggernautBlackoutUntil, fiberwireBlackoutUntil)
+		if neckBlackoutUntil > CurTime() then
+			org.needotrub = true
+			org.needfake = true
+			org.consciousness = math.min(org.consciousness or 1, 0.08)
+			org.brainoxygen = math.min(org.brainoxygen or 1, 0.18)
+			org.hypoxiaTime = math.max(org.hypoxiaTime or 0, 18)
+			org.severeHypoxiaTime = math.max(org.severeHypoxiaTime or 0, 6)
+			org.stun = math.max(org.stun or 0, neckBlackoutUntil)
+		else
+			if juggernautBlackoutUntil > 0 then
+				owner.HMCD_JuggernautBlackoutUntil = nil
+			end
+			if fiberwireBlackoutUntil > 0 then
+				owner.HMCD_FiberwireBlackoutUntil = nil
+			end
+		end
 	end
 
 	local just_went_uncon = not org.otrub and org.needotrub
@@ -746,6 +890,11 @@ end)
 
 hook.Add("PlayerDeath","next-respawn-full",function(ply)
 	ply.fullsend = true
+	ply.HMCD_FiberwireBlackoutUntil = nil
+end)
+
+hook.Add("PlayerSpawn", "fiberwire-blackout-clear", function(ply)
+	ply.HMCD_FiberwireBlackoutUntil = nil
 end)
 
 hook.Add("HG_OnWakeOtrub", "afterOtrub", function( owner )

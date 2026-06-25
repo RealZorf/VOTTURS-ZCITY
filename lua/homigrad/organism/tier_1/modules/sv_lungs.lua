@@ -326,13 +326,16 @@ module[2] = function(owner, org, timeValue)
 
 	local k = halfValue2(o2[1], o2.range, o2.k)
 
-	if o2[1] < 10 then
+	local hypoxiaTime = org.hypoxiaTime or 0
+	local severeHypoxiaTime = org.severeHypoxiaTime or 0
+
+	if o2[1] < 10 and (hypoxiaTime > 8 or severeHypoxiaTime > 3) then
 		if org.isPly then
 			hg.StunPlayer(owner, 3)
 		end
 	end
 
-	if o2[1] < 12 then
+	if o2[1] < 12 and (hypoxiaTime > 12 or severeHypoxiaTime > 5) then
 		org.needfake = true
 
 		if org.isPly then
@@ -340,7 +343,7 @@ module[2] = function(owner, org, timeValue)
 		end
 	end
 
-	if o2[1] < 4 then
+	if o2[1] < 4 and (hypoxiaTime > 24 or severeHypoxiaTime > 9) then
 		org.needotrub = true
 	end
 
@@ -358,6 +361,15 @@ module[2] = function(owner, org, timeValue)
 
 	if org.skull >= 0.6 then k = 0 end
 	if org.brain >= 0.6 then k = 0 end
+	local perfusionBrainFactor = org.brainoxygen or org.perfusion or 1
+	if hypoxiaTime < 30 and severeHypoxiaTime < 12 then
+		perfusionBrainFactor = 1
+	else
+		local delayScale = severeHypoxiaTime >= 12 and math.Clamp((severeHypoxiaTime - 12) / 18, 0.35, 1) or math.Clamp((hypoxiaTime - 30) / 30, 0.15, 1)
+		perfusionBrainFactor = Lerp(delayScale, 1, perfusionBrainFactor)
+	end
+
+	k = math.min(k, perfusionBrainFactor)
 
 	if org.skull < 1 and org.skull >= 0.5 and org.bandagedskull then
 		org.skull = math.Approach(org.skull, 0, timeValue / 600)
@@ -398,7 +410,7 @@ module[2] = function(owner, org, timeValue)
 	org.brain = max(org.brain - timeValue / 400 * ((org.mannitol > 0 and org.brain < 0.6) and 1 or (org.brain > 0.1 and 0.1 or 0)), 0)
 	org.mannitol = math.Approach(org.mannitol, 0, timeValue / 200)
 	
-	if k < 0.25 then
+	if k < 0.25 and (hypoxiaTime >= 30 or severeHypoxiaTime >= 12 or org.skull > 0) then
 		if not org.alive and owner:IsPlayer() and death_from_braindamage and org.o2[1] == 0 then
 			hg.achievements.AddPlayerAchievement(owner,"brain",1)
 			if org.analgesia > 1 then

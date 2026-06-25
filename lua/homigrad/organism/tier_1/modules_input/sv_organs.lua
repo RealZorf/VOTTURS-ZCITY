@@ -160,10 +160,12 @@ local arteryMessages ={
 	"I'm bleeding out of my neck!"
 }
 
+local applyThroatCutEffects
+
 local function hitArtery(artery, org, dmg, dmgInfo, boneindex, dir, hit)
 	if isCrush(dmgInfo) then return 1 end
 	if dmgInfo:IsDamageType(DMG_BLAST) then return 1 end
-	if dmgInfo:IsDamageType(DMG_SLASH) and (math.random(5) != 1) and dmg < 2 then return end
+	if artery ~= "arteria" and dmgInfo:IsDamageType(DMG_SLASH) and (math.random(5) != 1) and dmg < 2 then return end
 	org.painadd = org.painadd + dmg * 1
 	if org[artery] == 1 then return 0 end
 	if org[string.Replace(artery, "artery", "").."amputated"] then return end
@@ -185,6 +187,9 @@ local function hitArtery(artery, org, dmg, dmgInfo, boneindex, dir, hit)
 	local localPos, localAng, dir2 = getlocalshit(owner, bonea, dmgInfo, dir, hit)
 	table.insert(org.arterialwounds, {arterySize[artery], localPos, localAng, boneindex, CurTime(), dir2 * 100, artery})
 	owner:SetNetVar("arterialwounds", org.arterialwounds)
+	if artery == "arteria" and dmgInfo:IsDamageType(DMG_SLASH) and applyThroatCutEffects then
+		applyThroatCutEffects(owner, org, dmgInfo, math.Clamp(dmg / 4, 0.65, 1.15))
+	end
 	--if IsValid(owner:GetNWEntity("RagdollDeath")) then owner:GetNWEntity("RagdollDeath"):SetNetVar("wounds",org.arterialwounds) end
 	return 0
 end
@@ -242,4 +247,188 @@ input_list.trachea = function(org, bone, dmg, dmgInfo)
 	//org.internalBleed = org.internalBleed + dmg * 2
 
 	return result
+end
+
+local throatCutMessages = {
+	"My throat is open...",
+	"I can't breathe... my neck...",
+	"Blood is pouring from my throat..."
+}
+
+hg.organism.ThroatCutGurgleSounds = {
+	female = {
+		"neck_slit_female1.wav",
+		"neck_slit_female2.wav",
+	},
+	male = {
+		"neck_slit_male1.wav",
+		"neck_slit_male2.wav",
+	}
+}
+
+function hg.organism.GetThroatCutGurgleSound(owner)
+	local gender = (ThatPlyIsFemale and ThatPlyIsFemale(owner)) and "female" or "male"
+	local sounds = hg.organism.ThroatCutGurgleSounds[gender] or hg.organism.ThroatCutGurgleSounds.male
+
+	return sounds[math.random(#sounds)]
+end
+
+local function getThroatCutSoundEmitter(owner)
+	if not IsValid(owner) then return nil end
+
+	local ent = hg.GetCurrentCharacter and hg.GetCurrentCharacter(owner) or nil
+	if IsValid(ent) then return ent end
+	if IsValid(owner.FakeRagdoll) then return owner.FakeRagdoll end
+
+	return owner
+end
+
+local function sendThroatCutSoundToClients(snd, pos, level, pitch, volume, target)
+	if not SERVER or not snd or not isvector(pos) then return end
+
+	net.Start("HG_ThroatCutSound")
+		net.WriteString(snd)
+		net.WriteVector(pos)
+		net.WriteUInt(math.Clamp(math.floor(level or 74), 1, 255), 8)
+		net.WriteUInt(math.Clamp(math.floor(pitch or 100), 1, 255), 8)
+		net.WriteFloat(math.Clamp(volume or 1, 0, 1))
+
+	if IsValid(target) then
+		net.Send(target)
+	else
+		net.SendPVS(pos)
+	end
+end
+
+function hg.organism.EmitThroatCutGurgleSound(owner, level, pitch, volume, target)
+	local snd = hg.organism.GetThroatCutGurgleSound(owner)
+	local emitter = getThroatCutSoundEmitter(owner)
+	local pos = IsValid(emitter) and emitter:WorldSpaceCenter() or (IsValid(owner) and owner:WorldSpaceCenter()) or nil
+
+	if IsValid(emitter) then
+		emitter:EmitSound(snd, level or 74, pitch or 100, volume or 1, CHAN_AUTO)
+	end
+	sendThroatCutSoundToClients(snd, pos, level or 74, pitch or 100, volume or 1, target)
+	return snd
+end
+
+if SERVER then
+	util.AddNetworkString("HG_ThroatCutSound")
+
+	for _, sounds in pairs(hg.organism.ThroatCutGurgleSounds) do
+		for _, snd in ipairs(sounds) do
+			resource.AddFile("sound/" .. snd)
+			util.PrecacheSound(snd)
+		end
+	end
+
+	concommand.Add("hg_debug_throat_sound", function(ply, cmd, args)
+		if IsValid(ply) and not ply:IsAdmin() then return end
+
+		local target = IsValid(ply) and ply or nil
+		local gender = string.lower(args[1] or "male")
+		if gender ~= "female" then gender = "male" end
+
+		local sounds = hg.organism.ThroatCutGurgleSounds[gender] or hg.organism.ThroatCutGurgleSounds.male
+		local idx = math.Clamp(tonumber(args[2]) or math.random(#sounds), 1, #sounds)
+		local snd = sounds[idx]
+		local pos = IsValid(target) and target:WorldSpaceCenter() or vector_origin
+
+		if IsValid(target) then
+			target:EmitSound(snd, 76, 100, 1, CHAN_AUTO)
+			sendThroatCutSoundToClients(snd, pos, 76, 100, 1, target)
+			target:ChatPrint("Testing throat sound: " .. snd)
+		else
+			sound.Play(snd, pos, 76, 100, 1)
+			print("Testing throat sound: " .. snd)
+		end
+	end)
+end
+
+applyThroatCutEffects = function(owner, org, dmgInfo, severity)
+	if not IsValid(owner) or not org or not org.alive or org.superfighter then return false end
+
+	local firstCut = not org.throatcut
+	local time = CurTime()
+	severity = math.Clamp(tonumber(severity) or 1, 0.35, 1.25)
+
+	local boostedArtery = false
+	for _, wound in pairs(org.arterialwounds) do
+		if wound[7] == "arteria" then
+			wound[1] = math.max(wound[1] or 0, 24 * severity)
+			wound[5] = math.min(wound[5] or time, time - 1)
+			boostedArtery = true
+		end
+	end
+
+	if boostedArtery then
+		owner:SetNetVar("arterialwounds", org.arterialwounds)
+	end
+
+	local oldTrachea = org.trachea or 0
+	org.trachea = math.min(math.max(oldTrachea, 0.72 * severity), 1)
+	hg.AddHarmToAttacker(dmgInfo, math.max(org.trachea - oldTrachea, 0) * 12, "Throat cut trachea harm")
+
+	org.throatcut = true
+	org.throatCutTime = org.throatCutTime and org.throatCutTime > 0 and org.throatCutTime or time
+	org.throatCutUntil = time + 24
+	org.throatCutSeverity = math.max(org.throatCutSeverity or 0, severity)
+	org.throatCutPressureShock = math.max(org.throatCutPressureShock or 0, severity)
+	org.shock = math.min(math.max(org.shock or 0, 40 * severity), 90)
+	org.fearadd = (org.fearadd or 0) + 1.5 * severity
+	org.bloodpressure = math.min(org.bloodpressure or 1, 0.45)
+	org.brainoxygen = math.min(org.brainoxygen or 1, 0.55)
+
+	if org.o2 and org.o2[1] then
+		org.o2[1] = math.max(org.o2[1] - 6 * severity, 0)
+	end
+
+	if firstCut then
+		for i = 1, 3 do
+			hg.organism.AddWoundManual(owner, 45 * severity, VectorRand(-1.5, 1.5), Angle(90, 0, 0), "ValveBiped.Bip01_Neck1", time + math.Rand(0, 0.25))
+		end
+
+		if org.isPly and not org.otrub and owner.Notify then
+			owner:Notify(table.Random(throatCutMessages), true, "throatcut", 0)
+		end
+
+		hg.organism.EmitThroatCutGurgleSound(owner, 76, math.random(96, 102), 1)
+		org.throatCutGurgleNext = time + math.Rand(10, 13)
+	end
+
+	owner:SetNWFloat("HG_ThroatCutUntil", org.throatCutUntil)
+	hook.Run("HG_ThroatCut", owner, org, dmgInfo, severity)
+
+	return true
+end
+
+function hg.organism.CutThroat(ent, dmgInfo, hitPos, dir, severity)
+	local owner = hg.RagdollOwner and hg.RagdollOwner(ent) or ent
+	if not IsValid(owner) or not owner.organism then return false end
+
+	local org = owner.organism
+	if not org.alive or org.superfighter then return false end
+
+	local character = hg.GetCurrentCharacter and hg.GetCurrentCharacter(owner) or owner
+	if not IsValid(character) then character = owner end
+	if not character.LookupBone then return false end
+
+	local neckBone = character:LookupBone("ValveBiped.Bip01_Neck1") or character:LookupBone("ValveBiped.Bip01_Head1")
+	if not neckBone then return false end
+
+	local bonePos, boneAng = character:GetBonePosition(neckBone)
+	if not bonePos then return false end
+
+	severity = math.Clamp(tonumber(severity) or 1, 0.35, 1.25)
+	local time = CurTime()
+	local cutPos = isvector(hitPos) and hitPos or (bonePos + boneAng:Forward() * 2 - boneAng:Right() * 1)
+	local cutDir = isvector(dir) and dir:GetNormalized() or -boneAng:Forward()
+
+	dmgInfo = dmgInfo or DamageInfo()
+	dmgInfo:SetDamageType(DMG_SLASH)
+
+	input_list.arteria(org, 0, 6 * severity, dmgInfo, "ValveBiped.Bip01_Neck1", cutDir, cutPos)
+	if org.throatcut then return true end
+
+	return applyThroatCutEffects(owner, org, dmgInfo, severity)
 end
