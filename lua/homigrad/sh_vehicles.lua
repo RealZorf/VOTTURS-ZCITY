@@ -33,6 +33,8 @@ function hg.NoCameraInCar(veh)
     for i, veh2 in pairs(veh:GetChildren()) do
         if hg.vehiclecamblacklist[veh2:GetClass()] then return true end
     end
+
+    return false
 end
 
 if SERVER then

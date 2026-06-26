@@ -218,7 +218,7 @@ function SWEP:ApplyForce()
 		end
 
 		if self.CarryEnt:GetClass() == "prop_ragdoll" then
-			local ply2 = RagdollOwner(self.CarryEnt) or self.CarryEnt
+			local ply2 = hg.RagdollOwner(self.CarryEnt) or self.CarryEnt
 			local bone = self.CarryEnt:GetBoneName(self.CarryEnt:TranslatePhysBoneToBone(self.CarryBone))
 
 			if ply:KeyPressed(IN_RELOAD) then
