@@ -269,8 +269,23 @@ hg.organism.ThroatCutGurgleSounds = {
 function hg.organism.GetThroatCutGurgleSound(owner)
 	local gender = (ThatPlyIsFemale and ThatPlyIsFemale(owner)) and "female" or "male"
 	local sounds = hg.organism.ThroatCutGurgleSounds[gender] or hg.organism.ThroatCutGurgleSounds.male
+	local last = IsValid(owner) and owner.HG_LastThroatCutGurgleSound or nil
+	local snd = sounds[math.random(#sounds)]
 
-	return sounds[math.random(#sounds)]
+	if #sounds > 1 and snd == last then
+		for _, candidate in ipairs(sounds) do
+			if candidate ~= last then
+				snd = candidate
+				break
+			end
+		end
+	end
+
+	if IsValid(owner) then
+		owner.HG_LastThroatCutGurgleSound = snd
+	end
+
+	return snd
 end
 
 local function getThroatCutSoundEmitter(owner)

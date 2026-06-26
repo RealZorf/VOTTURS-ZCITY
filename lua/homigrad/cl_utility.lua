@@ -728,8 +728,23 @@ players : 1 humans, 0 bots (20 max)
 		local function getThroatVoiceSound(talker)
 			local gender = (ThatPlyIsFemale and ThatPlyIsFemale(talker)) and "female" or "male"
 			local sounds = throatVoiceSounds[gender] or throatVoiceSounds.male
+			local last = IsValid(talker) and talker.HG_LastThroatVoiceSound or nil
+			local snd = sounds[math.random(#sounds)]
 
-			return sounds[math.random(#sounds)]
+			if #sounds > 1 and snd == last then
+				for _, candidate in ipairs(sounds) do
+					if candidate ~= last then
+						snd = candidate
+						break
+					end
+				end
+			end
+
+			if IsValid(talker) then
+				talker.HG_LastThroatVoiceSound = snd
+			end
+
+			return snd
 		end
 
 		local function throatCutVoiceMul(talker)
