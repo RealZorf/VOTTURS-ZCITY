@@ -25,7 +25,7 @@ SWEP.basebone = 39
 SWEP.weaponPos = Vector(0,0,0)
 SWEP.weaponAng = Angle(0,0,180)
 
-SWEP.BreakBoneMul = 0.35
+SWEP.BreakBoneMul = 0.25
 
 SWEP.AnimList = {
     ["idle"] = "idle",
@@ -53,15 +53,15 @@ SWEP.Attack2Hit = "snd_jack_hmcd_knifehit.wav"
 
 SWEP.AttackPos = Vector(0,0,0)
 SWEP.DamageType = DMG_SLASH
-SWEP.DamagePrimary = 16
+SWEP.DamagePrimary = 10
 
-SWEP.PenetrationPrimary = 4
-SWEP.PenetrationSecondary = 3
-SWEP.BleedMultiplier = 0.8
+SWEP.PenetrationPrimary = 3
+SWEP.PenetrationSecondary = 2
+SWEP.BleedMultiplier = 0.7
 
-SWEP.MaxPenLen = 3
+SWEP.MaxPenLen = 2
 
-SWEP.PainMultiplier = 1.1
+SWEP.PainMultiplier = 0.9
 
 SWEP.PenetrationSizePrimary = 1.5
 SWEP.PenetrationSizeSecondary = 1
@@ -69,8 +69,8 @@ SWEP.PenetrationSizeSecondary = 1
 SWEP.StaminaPrimary = 10
 SWEP.StaminaSecondary = 10
 
-SWEP.AttackLen1 = 42
-SWEP.AttackLen2 = 35
+SWEP.AttackLen1 = 35
+SWEP.AttackLen2 = 32
 
 
 
