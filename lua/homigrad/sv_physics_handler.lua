@@ -1,31 +1,31 @@
-local server_is_crashed = false
+-- local server_is_crashed = false
 
 local physenv, RunConsoleCommand, game = physenv, RunConsoleCommand, game
 local physenv_GetPhysicsPaused = physenv.GetPhysicsPaused
 local ents_FindByClass = ents.FindByClass
 local CurTime = CurTime
 
-local func = function()
-	local should_simulate = physenv_GetPhysicsPaused()
+-- local func = function()
+-- 	local should_simulate = physenv_GetPhysicsPaused()
 
-	if server_is_crashed
-		or not should_simulate then
-		return
-	end
+-- 	if server_is_crashed
+-- 		or not should_simulate then
+-- 		return
+-- 	end
 
-	server_is_crashed = true
+-- 	server_is_crashed = true
 
-	PrintMessage(HUD_PRINTTALK, "Physics are crashed, restart schedule created")
+-- 	PrintMessage(HUD_PRINTTALK, "Physics are crashed, restart schedule created")
 
-	timer.Create("PhysicsCrashedSchedule", 10, 1, function()
-		engine.CloseServer()
-		timer.Simple(0, function()
-			RunConsoleCommand("changelevel", game.GetMap())
-		end)
-	end)
-end
+-- 	timer.Create("PhysicsCrashedSchedule", 10, 1, function()
+-- 		engine.CloseServer()
+-- 		timer.Simple(0, function()
+-- 			RunConsoleCommand("changelevel", game.GetMap())
+-- 		end)
+-- 	end)
+-- end
 
-hook.Add("Tick", "vphysics_cathcer", func)
+-- hook.Add("Tick", "vphysics_cathcer", func)
 
 local CrazyPhysPerSec = 0
 local CrazyPhysTime = 0
