@@ -5,13 +5,13 @@ zb.MaxKarma = 120
 zb.KarmaBanBaseMinutes = 45
 
 zb.KarmaRewards = {
-	Bandage = 0.75,
-	TraitorKill = 5,
-	RoundSurvival = 4,
-	PassiveBelowCap = 1.5,
-	PassiveAboveCap = 0.25,
-	PassiveInterval = 120,
-	CleanRoundGainStep = 0.5,
-	CleanRoundGainMin = 1.5,
-	CleanRoundGainMax = 3,
+	Bandage = 0.25,
+	TraitorKill = 2,
+	RoundSurvival = 2,
+	PassiveBelowCap = 1.0,
+	PassiveAboveCap = 0.1,
+	PassiveInterval = 180,
+	CleanRoundGainStep = 0.25,
+	CleanRoundGainMin = 0.75,
+	CleanRoundGainMax = 1.5,
 }
