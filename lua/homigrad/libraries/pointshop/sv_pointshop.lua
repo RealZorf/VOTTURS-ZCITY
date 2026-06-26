@@ -5,26 +5,44 @@ local PLUGIN = hg.Pointshop
 PLUGIN.PlayerInstances = PLUGIN.PlayerInstances or {}
 
 hook.Add("DatabaseConnected", "PointshopCreateData", function()
-	local query
-
-	query = mysql:Create("hg_pointshop")
-		query:Create("steamid", "VARCHAR(20) NOT NULL")
-		query:Create("steam_name", "VARCHAR(32) NOT NULL")
-		query:Create("donpoints", "FLOAT NOT NULL")
-		query:Create("points", "FLOAT NOT NULL")
-        query:Create("items", "TEXT NOT NULL")
-		query:PrimaryKey("steamid")
-	query:Execute()
-
-    --hook.Run("ZPointshopLoaded")
-
-    PLUGIN.Active = true
+    PLUGIN.Active = hg.PlayerDB and hg.PlayerDB.IsMySQL() or false
 end)
 
---local query = mysql:Drop("zb_experience")
---query:Execute()
+local function SavePointshop(ply, partial)
+    if not IsValid(ply) then return end
+
+    local steamID64 = ply:SteamID64()
+    partial.steam_name = ply:Name()
+
+    if hg.PlayerDB then
+        hg.PlayerDB.Set("pointshop", steamID64, partial)
+        PLUGIN.PlayerInstances[steamID64] = PLUGIN.PlayerInstances[steamID64] or {}
+        for key, value in pairs(partial) do
+            if key ~= "steam_name" then
+                PLUGIN.PlayerInstances[steamID64][key] = value
+            end
+        end
+        return
+    end
+
+    if not PLUGIN.Active then return end
+
+    local updateQuery = mysql:Update("hg_pointshop")
+    for key, value in pairs(partial) do
+        if key == "items" then
+            updateQuery:Update(key, util.TableToJSON(value))
+        elseif key ~= "steam_name" then
+            updateQuery:Update(key, value)
+        end
+    end
+    updateQuery:Update("steam_name", ply:Name())
+    updateQuery:Where("steamid", steamID64)
+    updateQuery:Execute()
+end
 
 hook.Add( "PlayerInitialSpawn","Pointshop_OnInitSpawn", function( ply )
+    if hg.PlayerDB then return end
+
     local name = ply:Name()
 	local steamID64 = ply:SteamID64()
 
@@ -81,6 +99,16 @@ local plyMeta = FindMetaTable("Player")
 
 function plyMeta:GetPointshopVars()
     local steamID64 = self:SteamID64()
+
+    if hg.PlayerDB then
+        PLUGIN.PlayerInstances[steamID64] = PLUGIN.PlayerInstances[steamID64] or {
+            donpoints = 0,
+            points = 0,
+            items = {},
+        }
+        return PLUGIN.PlayerInstances[steamID64]
+    end
+
     if not util.IsBinaryModuleInstalled("mysqloo")  then
         PLUGIN.PlayerInstances[steamID64] = {}
 
@@ -110,15 +138,10 @@ function plyMeta:PS_AddPoints( ammout )
 end
 
 function plyMeta:PS_SetPoints( value )
-    if not util.IsBinaryModuleInstalled("mysqloo") then return end
 	local steamID64 = self:SteamID64()
     local pointshopVars = self:GetPointshopVars()
 
-    local updateQuery = mysql:Update("hg_pointshop")
-		updateQuery:Update("points", value)
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
-
+    SavePointshop(self, { points = value })
     pointshopVars.points = value
 end
 
@@ -157,15 +180,10 @@ function plyMeta:PS_AddDPoints( ammout )
 end
 
 function plyMeta:PS_SetDPoints( value )
-    if not util.IsBinaryModuleInstalled("mysqloo") then return end
 	local steamID64 = self:SteamID64()
     local pointshopVars = self:GetPointshopVars()
 
-    local updateQuery = mysql:Update("hg_pointshop")
-		updateQuery:Update("donpoints", value)
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
-
+    SavePointshop(self, { donpoints = value })
     pointshopVars.donpoints = value
 end
 
@@ -188,14 +206,9 @@ end
 -- Items functions
 
 function plyMeta:PS_SetItems( tItems )
-    local steamID64 = self:SteamID64()
     local pointshopVars = self:GetPointshopVars()
 
-    local updateQuery = mysql:Update("hg_pointshop")
-		updateQuery:Update("items", util.TableToJSON(tItems))
-		updateQuery:Where("steamid", steamID64)
-	updateQuery:Execute()
-
+    SavePointshop(self, { items = tItems })
     pointshopVars.items = tItems
 end
 

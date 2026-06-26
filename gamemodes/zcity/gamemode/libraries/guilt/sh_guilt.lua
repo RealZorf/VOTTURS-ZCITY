@@ -2,6 +2,8 @@ zb = zb or {}
 zb.MaximumHarm = 10
 zb.MaxKarma = 120
 
+zb.KarmaBanBaseMinutes = 45
+
 zb.KarmaRewards = {
 	Bandage = 0.75,
 	TraitorKill = 5,

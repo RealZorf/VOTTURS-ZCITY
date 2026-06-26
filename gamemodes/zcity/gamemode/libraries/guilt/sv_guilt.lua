@@ -76,6 +76,23 @@ local function IsBanImmune(ply)
     return table.HasValue(IMMUNE_GROUPS, grp)
 end
 
+local function ApplyGuiltEscalatingBan(target, name, reasonKey)
+    local steamID = isstring(target) and target or target:SteamID()
+
+    if zb.KarmaBan and zb.KarmaBan.ApplyBan then
+        zb.KarmaBan.ApplyBan(steamID, name, reasonKey)
+        return
+    end
+
+    local fallbackReasons = {
+        low_karma = "Kicked and banned for having too low karma.",
+        team_damage = "Kicked and banned for dealing too much team damage.",
+        --karma_exploit = "Kicked and banned for trying to exploit karma system.",
+    }
+
+    ULib.addBan(steamID, zb.KarmaBanBaseMinutes or 45, fallbackReasons[reasonKey] or fallbackReasons.low_karma, name, "System")
+end
+
 local function IsRefundableWrongKill(attacker, victim, rnd)
     if not IsValid(attacker) or not attacker:IsPlayer() then return false end
     if not IsValid(victim) or not victim:IsPlayer() then return false end
@@ -109,26 +126,33 @@ local function ResetRoundRefundState(ply)
 end
 
 hook.Add("DatabaseConnected", "GuiltCreateData", function()
-	local query
+    zb.GuiltSQL.Active = hg.PlayerDB and hg.PlayerDB.IsMySQL() or false
+end)
 
-	query = mysql:Create("zb_guilt")
-		query:Create("steamid", "VARCHAR(20) NOT NULL")
-		query:Create("steam_name", "VARCHAR(32) NOT NULL")
-		query:Create("value", "FLOAT NOT NULL")
-		query:PrimaryKey("steamid")
-	query:Execute()
+hook.Add("HG_PlayerDBLoaded", "ZB_Guilt_OnLoad", function(ply, storeId, data)
+    if storeId ~= "guilt" or not IsValid(ply) then return end
 
-    zb.GuiltSQL.Active = true
+    if (tonumber(data.value) or 100) < 0 then
+        ply:guilt_SetValue(10)
+        ply.Karma = 10
+        ply:SetNetVar("Karma", ply.Karma)
+
+        timer.Simple(0, function()
+            if not IsValid(ply) then return end
+            if IsBanImmune(ply) then return end
+            if ply.GuiltAutoBanSent then return end
+            ply.GuiltAutoBanSent = true
+
+            ApplyGuiltEscalatingBan(ply, ply:Name(), "low_karma")
+        end)
+    end
 end)
 
 hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
+    if hg.PlayerDB then return end
+
     local name = ply:Name()
 	local steamID64 = ply:SteamID64()
-
-    --if not zb.GuiltSQL.Active then
-    --    zb.GuiltSQL.PlayerInstances[steamID64] = {}
-    --    return
-    --end 
 
 	local query = mysql:Select("zb_guilt")
 		query:Select("value")
@@ -157,9 +181,10 @@ hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
                         if not IsValid(ply) then return end
 
                         if IsBanImmune(ply) then return end
+                        if ply.GuiltAutoBanSent then return end
+                        ply.GuiltAutoBanSent = true
 
-                        ply:Ban(5, false)
-                        ply:Kick("Your karma is too low: " .. math.Round(ply.Karma, 0) .. ". Try again in 5 minutes.")
+                        ApplyGuiltEscalatingBan(ply, ply:Name(), "low_karma")
                     end)
                 end
 			else
@@ -184,19 +209,23 @@ end)
 local plyMeta = FindMetaTable("Player")
 
 function plyMeta:guilt_GetValue()
+    if hg.PlayerDB then
+        return hg.PlayerDB.GetKarma(self:SteamID64())
+    end
 
     return zb.GuiltSQL.PlayerInstances[self:SteamID64()] and zb.GuiltSQL.PlayerInstances[self:SteamID64()].value or 100
-
 end
 
-function plyMeta:guilt_SetValue( zb_guilt )
-
+function plyMeta:guilt_SetValue(zb_guilt)
     local steamID64 = self:SteamID64()
-	
-	zb.GuiltSQL.PlayerInstances[self:SteamID64()] = zb.GuiltSQL.PlayerInstances[self:SteamID64()] or {}
-	zb.GuiltSQL.PlayerInstances[self:SteamID64()].value = zb.GuiltSQL.PlayerInstances[self:SteamID64()].value or 100
-	
-    zb.GuiltSQL.PlayerInstances[self:SteamID64()].value = zb_guilt
+
+    zb.GuiltSQL.PlayerInstances[steamID64] = zb.GuiltSQL.PlayerInstances[steamID64] or {}
+    zb.GuiltSQL.PlayerInstances[steamID64].value = zb_guilt
+
+    if hg.PlayerDB then
+        hg.PlayerDB.SetKarma(steamID64, zb_guilt, self:Name())
+        return
+    end
 
 	local updateQuery = mysql:Update("zb_guilt")
 		updateQuery:Update("value", zb_guilt)
@@ -228,7 +257,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     --[[if !IsValid(Attacker) and dmgInfo:GetInflictor().steamid then
         local steamid = dmgInfo:GetInflictor().steamid
         
-        ULib.addBan( steamid, 60, "Kicked and banned for trying to exploit karma system.", steamid, "System" )
+        ApplyGuiltEscalatingBan(steamid, steamid, "karma_exploit")
     end--]]
 
     if not IsValid(Attacker) or not Attacker:IsPlayer() then return end
@@ -337,16 +366,11 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     zb.HarmDoneKarma[Victim][Attacker] = zb.HarmDoneKarma[Victim][Attacker] + add
 
     if shouldBanGuilt and Attacker.Guilt >= 100 then
-        if Attacker.GuiltBanSent then return end 
-        Attacker.GuiltBanSent = true
+        if Attacker.GuiltAutoBanSent then return end
+        if IsBanImmune(Attacker) then return end
+        Attacker.GuiltAutoBanSent = true
 
-        if not IsBanImmune(Attacker) then
-            ULib.addBan(Attacker:SteamID(), 30, "Kicked and banned for dealing too much team damage.", Attacker:Name(), "System")
-
-            PrintMessage(HUD_PRINTTALK,
-                "Player " .. Attacker:Name() .. " has been banned for 30 minutes for RDMing in a team based gamemode."
-            )
-        end
+        ApplyGuiltEscalatingBan(Attacker, Attacker:Name(), "team_damage")
     end
 
     Attacker:SetNetVar("Karma", Attacker.Karma)
@@ -356,24 +380,17 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     if Attacker.Karma <= 0 then
         local steamID = Attacker:SteamID()
         local name = Attacker:Name()
-        local karma = Attacker.Karma
 
         Attacker:guilt_SetValue( 10 )
 
         -- we wait one tick to make them pay for all the murders they've done
         -- also makes sure the message is displayed only once
         timer.Create("simplewaitforkarmadrop"..Attacker:EntIndex(), 0, 1, function()
-            if IsValid(Attacker) then -- if the player haven't left in that exact tick then we do him dirty
-                karma = Attacker.Karma
-            end
+            if IsBanImmune(Attacker) then return end
+            if Attacker.GuiltAutoBanSent then return end
+            Attacker.GuiltAutoBanSent = true
 
-            local time = math.Round(60 - karma * 4, 0)
-
-			if not IsBanImmune(Attacker) then
-                ULib.addBan(steamID, 60, "Kicked and banned for having too low karma.", name, "System")
-
-                PrintMessage(HUD_PRINTTALK, "Player " .. name .. " has been banned for " .. time .. " minutes for having too low karma.")
-            end
+            ApplyGuiltEscalatingBan(steamID, name, "low_karma")
         end)
     end
 end)
