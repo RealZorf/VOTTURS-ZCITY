@@ -4,8 +4,6 @@ hg.achievements.achievements_data.player_achievements = hg.achievements.achievem
 hg.achievements.achievements_data.created_achevements = {}
 
 local function updatePlayer(ply)
-	if hg.PlayerDB then return end
-
     local name = ply:Name()
 	local steamID64 = ply:SteamID64()
 
@@ -43,10 +41,18 @@ local function updatePlayer(ply)
 end
 
 hook.Add("DatabaseConnected", "AchievementsCreateData", function()
-    hg.achievements.SqlActive = hg.PlayerDB and hg.PlayerDB.IsMySQL() or false
-    print("Achievements SQL database connected.")
+	local query
 
-    if hg.PlayerDB then return end
+	query = mysql:Create("hg_achievements")
+		query:Create("steamid", "VARCHAR(20) NOT NULL")
+		query:Create("steam_name", "VARCHAR(32) NOT NULL")
+        query:Create("achievements", "TEXT NOT NULL")
+		query:PrimaryKey("steamid")
+	query:Execute()
+
+    hg.achievements.SqlActive = true
+
+    print("Achievements SQL database connected.")
 
     for i, ply in player.Iterator() do
         updatePlayer(ply)
@@ -61,24 +67,13 @@ hook.Add("PlayerDisconnected", "savevalues", function(ply)
 end)
 
 function hg.achievements.SaveToSQL(ply, data)
-    if not IsValid(ply) then return end
-
-    local steamID64 = ply:SteamID64()
-    local payload = data or hg.achievements.GetPlayerAchievements(ply) or {}
-
-    if hg.PlayerDB then
-        hg.PlayerDB.Set("achievements", steamID64, {
-            achievements = payload,
-            steam_name = ply:Name(),
-        })
-        return
-    end
-
     if not hg.achievements.SqlActive then return end
 
+    local name = ply:Name()
+	local steamID64 = ply:SteamID64()
     local updateQuery = mysql:Update("hg_achievements")
-        updateQuery:Update("achievements", util.TableToJSON(payload))
-        updateQuery:Update("steam_name", ply:Name())
+        updateQuery:Update("achievements", util.TableToJSON(data or hg.achievements.GetPlayerAchievements(ply) or {}) )
+        updateQuery:Update("steam_name", name)
         updateQuery:Where("steamid", steamID64)
     updateQuery:Execute()
 end
@@ -154,10 +149,6 @@ function hg.achievements.SetPlayerAchievement(ply, key, val)
     end
 
     playerAchievements[key].value = val
-
-    if hg.PlayerDB or hg.achievements.SqlActive then
-        hg.achievements.SaveToSQL(ply)
-    end
 end
 
 function hg.achievements.AddPlayerAchievement(ply, key, val)
