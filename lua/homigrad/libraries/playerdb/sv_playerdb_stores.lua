@@ -304,7 +304,11 @@ hook.Add("HG_PlayerDBLoaded", "HG_PlayerDB_LegacyCacheMirror", function(ply, sto
 		zb.GuiltSQL.PlayerInstances[steamID64] = { value = tonumber(data.value) or 100 }
 
 		ply.Karma = tonumber(data.value) or 100
-		ply:SetNetVar("Karma", ply.Karma)
+		if zb.SyncPublicKarma then
+			zb.SyncPublicKarma(ply)
+		else
+			ply:SetNetVar("Karma", ply.Karma)
+		end
 	elseif storeId == "experience" then
 		zb.Experience = zb.Experience or {}
 		zb.Experience.PlayerInstances = zb.Experience.PlayerInstances or {}
