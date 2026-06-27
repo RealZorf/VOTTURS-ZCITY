@@ -93,14 +93,6 @@ local function ApplyGuiltEscalatingBan(target, name, reasonKey)
     ULib.addBan(steamID, zb.KarmaBanBaseMinutes or 45, fallbackReasons[reasonKey] or fallbackReasons.low_karma, name, "System")
 end
 
-local function ResetKarmaAfterLowKarmaBan(ply)
-    if not IsValid(ply) then return end
-
-    ply:guilt_SetValue(10)
-    ply.Karma = 10
-    ply:SetNetVar("Karma", ply.Karma)
-end
-
 local function IsRefundableWrongKill(attacker, victim, rnd)
     if not IsValid(attacker) or not attacker:IsPlayer() then return false end
     if not IsValid(victim) or not victim:IsPlayer() then return false end
@@ -141,7 +133,9 @@ hook.Add("HG_PlayerDBLoaded", "ZB_Guilt_OnLoad", function(ply, storeId, data)
     if storeId ~= "guilt" or not IsValid(ply) then return end
 
     if (tonumber(data.value) or 100) < 0 then
-        ResetKarmaAfterLowKarmaBan(ply)
+        ply:guilt_SetValue(10)
+        ply.Karma = 10
+        ply:SetNetVar("Karma", ply.Karma)
 
         timer.Simple(0, function()
             if not IsValid(ply) then return end
@@ -178,7 +172,10 @@ hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
                 ply:SetNetVar("Karma", ply.Karma)
 
                 if zb.GuiltSQL.PlayerInstances[steamID64].value < 0 then
-                    ResetKarmaAfterLowKarmaBan(ply)
+                    ply:guilt_SetValue(10)
+
+                    ply.Karma = 10
+                    ply:SetNetVar("Karma", ply.Karma)
 
                     timer.Simple(0, function()
                         if not IsValid(ply) then return end
@@ -384,7 +381,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
         local steamID = Attacker:SteamID()
         local name = Attacker:Name()
 
-        ResetKarmaAfterLowKarmaBan(Attacker)
+        Attacker:guilt_SetValue( 10 )
 
         -- we wait one tick to make them pay for all the murders they've done
         -- also makes sure the message is displayed only once
@@ -415,16 +412,7 @@ function zb.ForcesAttackedInnocent(self, Victim)
 end
 
 hook.Add("PlayerDisconnected","GuiltSaveOnDisconect",function(ply)
-    local karma = ply.Karma or 100
-
-    if karma <= 0 then
-        local stored = ply:guilt_GetValue()
-        if stored and stored > karma then
-            karma = stored
-        end
-    end
-
-    ply:guilt_SetValue(karma)
+    ply:guilt_SetValue( ply.Karma or 100 )
 end)
 
 hook.Add("Player Spawn","SlowlyRestoreKarma",function(ply)
