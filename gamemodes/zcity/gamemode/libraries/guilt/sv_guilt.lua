@@ -30,24 +30,6 @@ local function IsHomicideRound(rnd)
     return rnd and (rnd.name == "hmcd" or rnd.name == "fear" or rnd.base == "hmcd")
 end
 
-local function GetKarmaRewards()
-    return zb.KarmaRewards or {}
-end
-
-function zb.GiveRoundSurvivalKarma()
-    local reward = GetKarmaRewards().RoundSurvival or 0
-    if reward <= 0 then return end
-
-    for _, ply in player.Iterator() do
-        if ply:Team() == TEAM_SPECTATOR then continue end
-        if ply.isTraitor or ply.isGunner or ply.isPolice then continue end
-        if not ply:Alive() or not ply.organism or ply.organism.incapacitated then continue end
-
-        ply:guilt_AddKarma(reward)
-        ply:ChatPrint("You earned " .. math.Round(reward, 2) .. " karma for surviving the round.")
-    end
-end
-
 local function GetPlayerKarmaCap(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return zb.MaxKarma end
 
@@ -202,13 +184,6 @@ function plyMeta:guilt_SetValue( zb_guilt )
 		updateQuery:Update("value", zb_guilt)
 		updateQuery:Where("steamid", steamID64)
 	updateQuery:Execute()
-end
-
-function plyMeta:guilt_AddKarma(amount)
-    if not amount or amount <= 0 then return end
-
-    self.Karma = math.Clamp((self.Karma or 100) + amount, 0, GetPlayerKarmaCap(self))
-    self:SetNetVar("Karma", self.Karma)
 end
 
 local function IsLookingAt(ply, targetVec)
@@ -411,14 +386,11 @@ hook.Add("Player Spawn","SlowlyRestoreKarma",function(ply)
 end)
 
 hook.Add("Player Think", "karmagain", function(ply)
-    local rewards = GetKarmaRewards()
-
     if (ply.KarmaGainThink or 0) > CurTime() then return end
-    ply.KarmaGainThink = CurTime() + (rewards.PassiveInterval or 120)
+    ply.KarmaGainThink = CurTime() + 120
 
-    local gain = ply.Karma > 100 and (rewards.PassiveAboveCap or 0.25) or (ply.KarmaGain or rewards.PassiveBelowCap or 1.5)
-    ply.Karma = math.Clamp(ply.Karma + gain, 0, GetPlayerKarmaCap(ply))
-
+    ply.Karma = math.Clamp(ply.Karma + (ply.Karma > 100 and 0.1 or (ply.KarmaGain or 0.75)), 0, GetPlayerKarmaCap(ply))// * (1 + ply:HasPurchase("zpremium")), 0, zb.MaxKarma)
+    
     ply:SetNetVar("Karma", ply.Karma)
     //ply:guilt_SetValue( ply.Karma or 100 )
 end)
@@ -487,16 +459,11 @@ end)
 hook.Add("ZB_StartRound","NO_HARM",function()
     zb.GuiltRoundId = (zb.GuiltRoundId or 0) + 1
 
-    local rewards = GetKarmaRewards()
-    local cleanRoundGainMin = rewards.CleanRoundGainMin or 1.5
-    local cleanRoundGainMax = rewards.CleanRoundGainMax or 3
-    local cleanRoundGainStep = rewards.CleanRoundGainStep or 0.5
-
     for i,ply in player.Iterator() do
         if (ply.Guilt or 0) < 1 then
-            ply.KarmaGain = math.Clamp((ply.KarmaGain or cleanRoundGainMin) + cleanRoundGainStep, cleanRoundGainMin, cleanRoundGainMax)
+            ply.KarmaGain = math.Clamp((ply.KarmaGain or 0.75) + 0.25, 0.75, 1.5)
         else
-            ply.KarmaGain = cleanRoundGainMin
+            ply.KarmaGain = 0.75
         end
 
         ResetRoundRefundState(ply)
@@ -629,33 +596,6 @@ hook.Add("Player Spawn", "GuiltKnown",function(ply)
         ply.GuiltKnownRoundStamp = roundStamp
         ply:ChatPrint("Your current karma is "..tostring(math.Round(ply.Karma)).."")
     end
-end)
-
-hook.Add("Player_Death", "GuiltTraitorKillReward", function(victim)
-    if not IsValid(victim) or not victim:IsPlayer() then return end
-
-    local rnd = CurrentRound()
-    if not IsHomicideRound(rnd) then return end
-
-    timer.Simple(0.15, function()
-        if not IsValid(victim) or not victim.isTraitor then return end
-
-        local mostHarm, biggestAttacker = 0, nil
-
-        for attacker, attackerHarm in pairs(zb.HarmDone[victim] or {}) do
-            if IsValid(attacker) and mostHarm < attackerHarm then
-                mostHarm = attackerHarm
-                biggestAttacker = attacker
-            end
-        end
-
-        if not IsValid(biggestAttacker) or biggestAttacker == victim or biggestAttacker.isTraitor then return end
-
-        local reward = GetKarmaRewards().TraitorKill or 0
-        if reward <= 0 then return end
-
-        biggestAttacker:guilt_AddKarma(reward)
-    end)
 end)
 
 hook.Add("Player Spawn", "GuiltRefundReminder", function(ply)

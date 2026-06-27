@@ -263,10 +263,6 @@ function MODE:EndRound()
 	local players_alive = 0
 	local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 
-	if winner == 0 and zb.GiveRoundSurvivalKarma then
-		zb.GiveRoundSurvivalKarma()
-	end
-
 	for i, ply in player.Iterator() do
 		if ply.isTraitor and ply:Team() ~= TEAM_SPECTATOR then
 			traitors[#traitors + 1] = ply

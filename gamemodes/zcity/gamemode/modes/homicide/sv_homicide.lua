@@ -1935,10 +1935,6 @@ function MODE:EndRound()
 	local players_alive = 0
 	local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 
-	if winner == 0 and zb.GiveRoundSurvivalKarma then
-		zb.GiveRoundSurvivalKarma()
-	end
-
 	-- for _, ply in player.Iterator() do	--; Extreme optimization
 		-- ply.SubRole = nil
 	-- end

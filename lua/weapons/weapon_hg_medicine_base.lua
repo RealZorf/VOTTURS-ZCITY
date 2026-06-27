@@ -331,6 +331,10 @@ if SERVER then
 						bandaged = true
 					end
 
+					local owner = self:GetOwner()
+					if owner.Karma then
+						--owner.Karma = math.Clamp(owner.Karma + 0.25,0,zb.MaxKarma)
+					end
 					ent.bandaged_limbs = ent.bandaged_limbs or {}
 					local bone_name = org.wounds[1][4]
 					if not ent.bandaged_limbs[bone_name] then
@@ -435,10 +439,6 @@ if SERVER then
 
 		if done then
 			owner:EmitSound("snd_jack_hmcd_bandage.wav", 60, math.random(95, 105))
-
-			if bandaged and owner.Karma and owner.guilt_AddKarma then
-				owner:guilt_AddKarma((zb.KarmaRewards or {}).Bandage or 0)
-			end
 
 			if self.poisoned2 then
 				org.poison4 = CurTime()
