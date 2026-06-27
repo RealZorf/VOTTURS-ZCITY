@@ -136,49 +136,6 @@ function KarmaBan.ShouldSkipEscalation(steamID, steamID64)
 	return false
 end
 
-function KarmaBan.EnsureKarmaStoredAfterBan(steamID64, name, reasonKey)
-	if reasonKey ~= "low_karma" then return end
-
-	zb.GuiltSQL = zb.GuiltSQL or {}
-	zb.GuiltSQL.PlayerInstances = zb.GuiltSQL.PlayerInstances or {}
-	zb.GuiltSQL.PlayerInstances[steamID64] = zb.GuiltSQL.PlayerInstances[steamID64] or {}
-	zb.GuiltSQL.PlayerInstances[steamID64].value = 10
-
-	if hg.PlayerDB then
-		hg.PlayerDB.SetKarma(steamID64, 10, name or "")
-		return
-	end
-
-	if KarmaBan.MySQLActive and mysql and mysql.module == "mysqloo" then
-		local updateQuery = mysql:Update("zb_guilt")
-			updateQuery:Update("value", 10)
-			if isstring(name) and name ~= "" then
-				updateQuery:Update("steam_name", name)
-			end
-			updateQuery:Where("steamid", steamID64)
-		updateQuery:Execute()
-	end
-end
-
-function KarmaBan.ShouldJoinBanForLowKarma(steamID64, steamID, callback)
-	KarmaBan.LoadPlayer(steamID64, function(cached)
-		if KarmaBan.HasActiveSyncedBan(steamID) then
-			callback(false, "active_ban")
-			return
-		end
-
-		local banLevel = tonumber(cached and cached.ban_level) or 0
-		local lastBanTime = tonumber(cached and cached.last_ban_time) or 0
-
-		if banLevel > 0 and lastBanTime > 0 then
-			callback(false, "already_punished")
-			return
-		end
-
-		callback(true)
-	end)
-end
-
 hook.Add("ULibPlayerBanned", "ZB_KarmaBanSyncGuard", function(steamID, banData)
 	if not banData or not KarmaBan.ReasonHasTag(banData.reason) then return end
 
@@ -496,7 +453,6 @@ function KarmaBan.ApplyBan(steamID, name, opts, callback)
 			row.stored = row.stored ~= false
 
 			SavePlayerRow(steamID64, row, function()
-				KarmaBan.EnsureKarmaStoredAfterBan(steamID64, name, reasonKey)
 				KarmaBan.MarkOrigin(token)
 				ULib.addBan(steamID, minutes, reasonText, name, "System")
 
