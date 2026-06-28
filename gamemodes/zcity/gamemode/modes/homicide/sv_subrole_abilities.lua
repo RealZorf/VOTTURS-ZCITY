@@ -1175,6 +1175,23 @@ function MODE.FinishJuggernautStomp(ply, rag, victim)
 		local harm = math.max(tonumber(zb.MaximumHarm) or 100, 100)
 		zb.HarmDone[victim] = zb.HarmDone[victim] or {}
 		zb.HarmDone[victim][ply] = math.max(zb.HarmDone[victim][ply] or 0, harm)
+		zb.HarmDoneKarma = zb.HarmDoneKarma or {}
+		zb.HarmDoneKarma[victim] = zb.HarmDoneKarma[victim] or {}
+		zb.HarmDoneKarma[victim][ply] = 0
+		zb.HarmDoneDetailed = zb.HarmDoneDetailed or {}
+		local victim_id = victim:SteamID()
+		local attacker_id = ply:SteamID()
+		zb.HarmDoneDetailed[victim_id] = zb.HarmDoneDetailed[victim_id] or {}
+		zb.HarmDoneDetailed[victim_id][attacker_id] = {
+			harm = harm,
+			amt = 1,
+			teamVictim = victim:Team(),
+			teamAttacker = ply:Team(),
+			lasthitgroup = HITGROUP_HEAD,
+			lastdmgtype = DMG_CRUSH,
+			lastsource = "juggernaut_stomp",
+			lastattacked = CurTime(),
+		}
 		zb.HarmAttacked[ply] = (zb.HarmAttacked[ply] or 0) + harm
 		hook.Run("HarmDone", ply, victim, harm)
 	end

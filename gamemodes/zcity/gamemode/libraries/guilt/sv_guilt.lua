@@ -470,8 +470,8 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     
     Attacker.LastAttacked = CurTime()
 
-    if Victim.isTraitor and !Attacker.isTraitor and rnd.name == "hmcd" and !zb.IsForce(Attacker) then return end
-    if Attacker.isTraitor and !Victim.isTraitor and rnd.name == "hmcd" then return end
+    if Victim.isTraitor and !Attacker.isTraitor and IsHomicideRound(rnd) and !zb.IsForce(Attacker) then return end
+    if Attacker.isTraitor and !Victim.isTraitor and IsHomicideRound(rnd) then return end
     
     if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and attackerTeam ~= Victim:Team()) then return end
     if zb.ROUND_STATE != 1 and (rnd.name != "cstrike" or !zb.RoundsLeft) then return end
@@ -824,8 +824,8 @@ hook.Add("ZC_SomeoneGetFallBy","IdiotsMustBeKilled",function(Attacker,Victim)
    
     if Attacker == Victim then return end
 
-    if Victim.isTraitor and !Attacker.isTraitor and rnd.name == "hmcd" and !zb.IsForce(Attacker) then return end
-    if Attacker.isTraitor and !Victim.isTraitor and rnd.name == "hmcd" then return end
+    if Victim.isTraitor and !Attacker.isTraitor and IsHomicideRound(rnd) and !zb.IsForce(Attacker) then return end
+    if Attacker.isTraitor and !Victim.isTraitor and IsHomicideRound(rnd) then return end
     if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and Attacker:Team() ~= Victim:Team()) then return end
     if zb.ROUND_STATE != 1 and (rnd.name != "cstrike" or !zb.RoundsLeft) then return end
     if Victim.Guilt and Victim.Guilt > 1 then return end

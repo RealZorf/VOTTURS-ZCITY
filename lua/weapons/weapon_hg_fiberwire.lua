@@ -73,10 +73,11 @@ SWEP.AnimList = {
     ["strangle_end"] = "strangle_end",
 }
 
-local fiberwire_blackout_hold_time = 5.5
-local fiberwire_blackout_time = 14
-local fiberwire_blackout_brainoxygen = 0.24
-local fiberwire_blackout_consciousness = 0.28
+local fiberwire_blackout_hold_time = 9
+local fiberwire_blackout_time = 12
+local fiberwire_choke_grace_time = 1.5
+local fiberwire_blackout_brainoxygen = 0.2
+local fiberwire_blackout_consciousness = 0.25
 
 -- idle: left hand IK off
 function SWEP:PlayAnim(anim, time, cycling, callback, reverse, sendtoclient)
@@ -281,7 +282,7 @@ local function StartStrangle(self, victim)
     -- Restrict carotid/neck brain oxygen without changing lung oxygen.
     local ragPly = hg.RagdollOwner(rag)
     if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism then
-        ragPly.organism.neckBrainOxygenPenalty = 1
+        ragPly.organism.neckBrainOxygenPenalty = math.max(ragPly.organism.neckBrainOxygenPenalty or 0, 0.08)
         ragPly:SetNetVar("fiberwireStrangled", true)
     -- === НОВОЕ: уведомление жертве ===
         ragPly:Notify("I feel something suddenly and forcefully pull around my neck from my back. I can't breathe...", true, "fiberwire_strangle_start", 3)
@@ -741,11 +742,18 @@ function SWEP:CustomThink()
         local org = ragPly.organism
         local dt = FrameTime()
         local held_time = CurTime() - (self.StrangleStartedAt or CurTime())
-        org.neckBrainOxygenPenalty = 1
-        org.brainoxygen = math.min(org.brainoxygen or 1, Lerp(math.Clamp(held_time / fiberwire_blackout_hold_time, 0, 1), 0.65, fiberwire_blackout_brainoxygen))
-        org.consciousness = math.min(org.consciousness or 1, Lerp(math.Clamp(held_time / fiberwire_blackout_hold_time, 0, 1), 0.85, fiberwire_blackout_consciousness))
-        org.hypoxiaTime = math.max(org.hypoxiaTime or 0, math.Clamp(held_time, 0, 18))
-        org.severeHypoxiaTime = math.max(org.severeHypoxiaTime or 0, math.Clamp(held_time - 2, 0, 8))
+        local choke_progress = math.Clamp((held_time - fiberwire_choke_grace_time) / math.max(fiberwire_blackout_hold_time - fiberwire_choke_grace_time, 0.1), 0, 1)
+        local physiological_progress = choke_progress ^ 1.2
+        local brain_target = Lerp(physiological_progress, 0.92, fiberwire_blackout_brainoxygen)
+        local consciousness_target = Lerp(physiological_progress, 0.98, fiberwire_blackout_consciousness)
+
+        org.neckBrainOxygenPenalty = math.max(org.neckBrainOxygenPenalty or 0, math.Clamp(choke_progress * 0.95, 0.08, 0.95))
+        org.brainoxygen = math.min(org.brainoxygen or 1, brain_target)
+        org.consciousness = math.min(org.consciousness or 1, consciousness_target)
+
+        if held_time > fiberwire_choke_grace_time then
+            org.disorientation = math.max(org.disorientation or 0, choke_progress * 4.5)
+        end
 
         if held_time >= fiberwire_blackout_hold_time or (org.brainoxygen or 1) <= fiberwire_blackout_brainoxygen or org.otrub then
             ragPly.HMCD_FiberwireBlackoutUntil = math.max(ragPly.HMCD_FiberwireBlackoutUntil or 0, CurTime() + fiberwire_blackout_time)
