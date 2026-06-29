@@ -457,10 +457,6 @@ end)
 hook.Add("PlayerBindPress", "PlayerBindPressExample2huy", function(ply, bind, pressed)
 	if string.find(bind, "+menu", 1, true) then
 
-		if hg.LeanActive and hg.LeanActive() then
-			return true
-		end
-
 		if lply.organism and lply.organism.otrub then
 			return (bind == "+menu") or nil
 		end
@@ -487,14 +483,6 @@ hook.Add("Think", "hg-radial-menu", function()
 			menuPanel:Close()
 		end
 
-		return
-	end
-
-	if hg.LeanActive and hg.LeanActive() then
-		if IsValid(menuPanel) then
-			hook_Run("RadialMenuPressed")
-			menuPanel:Close()
-		end
 		return
 	end
 	
