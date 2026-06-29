@@ -517,7 +517,7 @@ end
 function SWEP:PrimaryAttack(broadcast)
 	if CLIENT and not IsFirstTimePredicted() then return end
 	if CLIENT and not self:IsClient() then return end
-	if self:KeyDown(IN_USE) and !IsValid(self:GetOwner().FakeRagdoll) then return false end
+	if self:KeyDown(IN_USE) and !IsValid(self:GetOwner().FakeRagdoll) and not hg.IsLeaning(self:GetOwner()) then return false end
 	
 	local huy = self:Shoot() ~= false
 	
