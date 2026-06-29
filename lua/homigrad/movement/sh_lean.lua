@@ -15,10 +15,6 @@ if SERVER then
 	end)
 end
 
-function hg.IsLeaning(ply)
-	return IsValid(ply) and ply.hglean ~= nil
-end
-
 if CLIENT then
 	local active = false
 	local target = 0
