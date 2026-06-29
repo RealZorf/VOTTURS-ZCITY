@@ -483,7 +483,15 @@ function mysql:Alter(tableName)
 	return QUERY_CLASS:New(tableName, "ALTER")
 end
 
-local UTF8MB4 = "ALTER DATABASE `%s` CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci"
+local function QuoteIdentifier(identifier)
+	if not isstring(identifier) or identifier == "" then
+		return "``"
+	end
+
+	return "`" .. string.gsub(identifier, "`", "``") .. "`"
+end
+
+local UTF8MB4 = "ALTER DATABASE %s CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci"
 
 -- A function to connect to the MySQL database.
 function mysql:Connect(host, username, password, database, port, socket, flags)
@@ -515,7 +523,7 @@ function mysql:Connect(host, username, password, database, port, socket, flags)
 					ErrorNoHalt("Failed to set MySQL encoding!\n")
 					ErrorNoHalt(error_message .. "\n")
 				else
-					self:RawQuery(string.format(UTF8MB4, database))
+					self:RawQuery(string.format(UTF8MB4, QuoteIdentifier(database)))
 		        end
 
 				mysql:OnConnected()

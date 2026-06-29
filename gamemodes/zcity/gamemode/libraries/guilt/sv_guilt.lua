@@ -168,8 +168,18 @@ hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
 
                         if IsBanImmune(ply) then return end
 
-                        ply:Ban(5, false)
-                        ply:Kick("Your karma is too low: " .. math.Round(ply.Karma, 0) .. ". Try again in 5 minutes.")
+                        local karmaText = math.Round(ply.Karma, 0)
+                        local duration, strikes = zb.BanEscalation and zb.BanEscalation.ApplyAutoBan(
+                            ply,
+                            "Your karma is too low: " .. karmaText .. "."
+                        )
+
+                        if duration then
+                            ply:Kick("Your karma is too low: " .. karmaText .. ". Banned for " .. duration .. " minutes. Strikes: " .. strikes .. ".")
+                        else
+                            ply:Ban(5, false)
+                            ply:Kick("Your karma is too low: " .. karmaText .. ". Try again in 5 minutes.")
+                        end
                     end)
                 end
 			else
@@ -516,11 +526,24 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
         Attacker.GuiltBanSent = true
 
         if not IsBanImmune(Attacker) then
-            ULib.addBan(Attacker:SteamID(), 30, "Kicked and banned for dealing too much team damage.", Attacker:Name(), "System")
+            Attacker.BanEscalationSent = true
 
-            PrintMessage(HUD_PRINTTALK,
-                "Player " .. Attacker:Name() .. " has been banned for 30 minutes for RDMing in a team based gamemode."
+            local duration, strikes = zb.BanEscalation and zb.BanEscalation.ApplyAutoBan(
+                Attacker,
+                "Kicked and banned for dealing too much team damage."
             )
+
+            if duration then
+                PrintMessage(HUD_PRINTTALK,
+                    "Player " .. Attacker:Name() .. " has been banned for " .. duration .. " minutes for RDMing in a team based gamemode. Strikes: " .. strikes .. "."
+                )
+            else
+                ULib.addBan(Attacker:SteamID(), 30, "Kicked and banned for dealing too much team damage.", Attacker:Name(), "System")
+
+                PrintMessage(HUD_PRINTTALK,
+                    "Player " .. Attacker:Name() .. " has been banned for 30 minutes for RDMing in a team based gamemode."
+                )
+            end
         end
     end
 
@@ -528,7 +551,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     
     zb.GuiltTable[Attacker][Victim] = math.Clamp((zb.GuiltTable[Attacker][Victim] or 0) + guiltadd, 0, 200)
 
-    if Attacker.Karma <= 0 then
+    if Attacker.Karma <= 0 and not Attacker.BanEscalationSent then
         local steamID = Attacker:SteamID()
         local name = Attacker:Name()
         local karma = Attacker.Karma
@@ -542,12 +565,32 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
                 karma = Attacker.Karma
             end
 
-            local time = math.Round(60 - karma * 4, 0)
-
 			if not IsBanImmune(Attacker) then
-                ULib.addBan(steamID, 60, "Kicked and banned for having too low karma.", name, "System")
+                Attacker.BanEscalationSent = true
 
-                PrintMessage(HUD_PRINTTALK, "Player " .. name .. " has been banned for " .. time .. " minutes for having too low karma.")
+                local duration, strikes
+
+                if zb.BanEscalation and IsValid(Attacker) then
+                    duration, strikes = zb.BanEscalation.ApplyAutoBan(
+                        Attacker,
+                        "Kicked and banned for having too low karma."
+                    )
+                elseif zb.BanEscalation then
+                    duration, strikes = zb.BanEscalation.ApplyAutoBanBySteam(
+                        steamID,
+                        name,
+                        "Kicked and banned for having too low karma."
+                    )
+                end
+
+                if duration then
+                    PrintMessage(HUD_PRINTTALK, "Player " .. name .. " has been banned for " .. duration .. " minutes for having too low karma. Strikes: " .. strikes .. ".")
+                else
+                    local time = math.Round(60 - karma * 4, 0)
+                    ULib.addBan(steamID, 60, "Kicked and banned for having too low karma.", name, "System")
+
+                    PrintMessage(HUD_PRINTTALK, "Player " .. name .. " has been banned for " .. time .. " minutes for having too low karma.")
+                end
             end
         end)
     end
