@@ -404,11 +404,49 @@ local function HMCDGetTraitorDisabledToken(round_type)
 	return round_type == "soe" and (MODE.SubRole_Traitor_Disabled_SOE or "traitor_disabled_soe") or (MODE.SubRole_Traitor_Disabled or "traitor_disabled")
 end
 
+local function HMCDGetTraitorRandomToken(round_type)
+	return round_type == "soe" and (MODE.SubRole_Traitor_Random_SOE or "traitor_random_soe") or (MODE.SubRole_Traitor_Random or "traitor_random")
+end
+
 local function HMCDPlayerDisabledTraitorMode(ply, round_type)
 	if not IsValid(ply) then return false end
 
 	local convar_name = round_type == "soe" and MODE.ConVarName_SubRole_Traitor_SOE or MODE.ConVarName_SubRole_Traitor
 	return ply:GetInfo(convar_name or "") == HMCDGetTraitorDisabledToken(round_type)
+end
+
+local function HMCDChooseRandomTraitorSubRole(round_type)
+	local round_config = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[round_type]
+	if not round_config or not istable(round_config.Traitor) then return nil end
+
+	local choices = {}
+	for role, enabled in pairs(round_config.Traitor) do
+		if enabled and isstring(role) and MODE.SubRoles and MODE.SubRoles[role] then
+			choices[#choices + 1] = role
+		end
+	end
+
+	if #choices <= 0 then return round_config.TraitorDefaultRole end
+
+	return choices[math.random(#choices)]
+end
+
+local function HMCDResolvePlayerTraitorSubRole(ply, round_type)
+	local round_config = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[round_type]
+	local default_role = round_config and round_config.TraitorDefaultRole or "traitor_default"
+	local convar_name = round_type == "soe" and MODE.ConVarName_SubRole_Traitor_SOE or MODE.ConVarName_SubRole_Traitor
+	local sub_role_id = IsValid(ply) and ply:GetInfo(convar_name or "") or default_role
+	local sub_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(sub_role_id) or sub_role_id
+
+	if sub_role == HMCDGetTraitorDisabledToken(round_type) then
+		return default_role
+	end
+
+	if sub_role == HMCDGetTraitorRandomToken(round_type) then
+		return HMCDChooseRandomTraitorSubRole(round_type) or default_role
+	end
+
+	return sub_role
 end
 
 local function HMCDSanitizeProfessionToken(text)
@@ -2403,11 +2441,7 @@ function MODE.SpawnPlayers(spawn_with_subroles)
             local sub_role = nil
             if(spawn_with_subroles and MODE.RoleChooseRoundTypes[MODE.Type])then
                 if(current_ply.isTraitor)then
-                    local sub_role_id = MODE.Type == "soe" and (current_ply:GetInfo(MODE.ConVarName_SubRole_Traitor_SOE) or "traitor_default_soe") or (current_ply:GetInfo(MODE.ConVarName_SubRole_Traitor) or "traitor_default")
-					sub_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(sub_role_id) or sub_role_id
-					if sub_role == HMCDGetTraitorDisabledToken(MODE.Type) then
-						sub_role = MODE.RoleChooseRoundTypes[MODE.Type].TraitorDefaultRole or "traitor_default"
-					end
+					sub_role = HMCDResolvePlayerTraitorSubRole(current_ply, MODE.Type)
                 end
 
                 if(current_ply.isGunner)then

@@ -9,96 +9,12 @@ include("shared.lua")
 AddCSLuaFile("loader.lua")
 include("loader.lua")
 
-local zb_voicechat_panel_groups = ConVarExists("zb_voicechat_panel_groups") and GetConVar("zb_voicechat_panel_groups") or CreateConVar(
-	"zb_voicechat_panel_groups",
-	"superadmin,owner,servermanager,headdeveloper,headadmin,developer,admin,moderator",
-	bit.bor(FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY),
-	"Comma-separated ULX/ULib groups allowed to always see alive voice panels."
-)
-
-local function groupCanSeeVoicePanels(groupName)
-	groupName = string.lower(string.Trim(groupName or ""))
-	if groupName == "" then return false end
-
-	local allowList = string.Trim((zb_voicechat_panel_groups and zb_voicechat_panel_groups:GetString()) or "")
-	if allowList == "" then return false end
-
-	for _, rawGroup in ipairs(string.Explode(",", allowList, false)) do
-		local wantedGroup = string.lower(string.Trim(rawGroup or ""))
-		if wantedGroup ~= "" and wantedGroup == groupName then
-			return true
-		end
-	end
-
-	return false
-end
-
-local function playerCanSeeVoicePanels(ply)
-	if not IsValid(ply) then return false end
-
-	local userGroup = (ply.GetUserGroup and ply:GetUserGroup()) or ""
-	return groupCanSeeVoicePanels(userGroup)
-end
-
 local PLAYER = FindMetaTable("Player")
 function PLAYER:CanSpawn()
 	return ( CurrentRound and CurrentRound() and CurrentRound().CanSpawn and CurrentRound():CanSpawn(self)) or (zb.ROUND_STATE == 0)
 end
 
 util.AddNetworkString("ZB_SpectatePlayer")
-util.AddNetworkString("ZB_AdminVoicePanelState")
-
-local adminVoicePanelState = {}
-
-local function sendAdminVoicePanelState(talker, isSpeaking, targets)
-	if not IsValid(talker) then return end
-
-	targets = targets or {}
-	if #targets == 0 then
-		for _, ply in ipairs(player.GetHumans()) do
-			if playerCanSeeVoicePanels(ply) then
-				targets[#targets + 1] = ply
-			end
-		end
-	end
-
-	if #targets == 0 then return end
-
-	net.Start("ZB_AdminVoicePanelState")
-		net.WriteEntity(talker)
-		net.WriteBool(isSpeaking and true or false)
-	net.Send(targets)
-end
-
-timer.Create("ZB_AdminVoicePanelStateSync", 0.15, 0, function()
-	for _, talker in ipairs(player.GetHumans()) do
-		local isSpeaking = talker:IsSpeaking()
-
-		if adminVoicePanelState[talker] ~= isSpeaking then
-			adminVoicePanelState[talker] = isSpeaking
-			sendAdminVoicePanelState(talker, isSpeaking)
-		end
-	end
-
-	for talker in pairs(adminVoicePanelState) do
-		if not IsValid(talker) then
-			adminVoicePanelState[talker] = nil
-		end
-	end
-end)
-
-hook.Add("PlayerInitialSpawn", "ZB_AdminVoicePanelStateSnapshot", function(ply)
-	timer.Simple(3, function()
-		if not IsValid(ply) or not playerCanSeeVoicePanels(ply) then return end
-
-		local snapshot = { ply }
-		for talker, isSpeaking in pairs(adminVoicePanelState) do
-			if IsValid(talker) and isSpeaking then
-				sendAdminVoicePanelState(talker, true, snapshot)
-			end
-		end
-	end)
-end)
 
 function PLAYER:GiveEquipment(team_)
 end

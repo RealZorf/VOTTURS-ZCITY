@@ -11,6 +11,8 @@ MODE.ConVarName_SubRole_Traitor_SOE = "hmcd_subrole_traitor_soe"
 MODE.ConVarName_SubRole_Traitor = "hmcd_subrole_traitor"
 MODE.SubRole_Traitor_Disabled = "traitor_disabled"
 MODE.SubRole_Traitor_Disabled_SOE = "traitor_disabled_soe"
+MODE.SubRole_Traitor_Random = "traitor_random"
+MODE.SubRole_Traitor_Random_SOE = "traitor_random_soe"
 
 if(CLIENT)then
 	MODE.ConVar_SubRole_Traitor_SOE = CreateClientConVar(MODE.ConVarName_SubRole_Traitor_SOE, "traitor_default_soe", true, true, "Выбор роли трейтора в режиме SOE хомисайда")
@@ -737,10 +739,10 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 	["traitor_stalker"] = {
 		Name = "Stalker",
 		Description = [[A sonar hunter who reads the living by their pulse.
-Look at victims for a few seconds to mark up to 3 of them.
+Look at victims briefly to mark up to 3 of them.
 Marked victims emit a subtle color pulse through walls in rhythm with their heartbeat.
-Isolated marked victims become clearer prey and make your pursuit quieter.
-Your first hit against each marked victim staggers them and hits isolated prey much harder.
+Isolated marked victims become clearer prey and make your pursuit much quieter.
+Your first hit against each marked victim staggers, drains stamina and deals extra damage; isolated prey are punished harder.
 You carry a hammer and nails to quietly seal routes around your prey.
 Once per round, you can leave behind a dead copy of yourself to fake your death.]],
 		Objective = "You are the Stalker. Mark victims, read isolated prey, kill the isolated.",
@@ -764,10 +766,10 @@ Once per round, you can leave behind a dead copy of yourself to fake your death.
 	["traitor_stalker_soe"] = {
 		Name = "Stalker",
 		Description = [[A sonar hunter who reads the living by their pulse.
-Look at victims for a few seconds to mark up to 3 of them.
+Look at victims briefly to mark up to 3 of them.
 Marked victims emit a subtle color pulse through walls in rhythm with their heartbeat.
-Isolated marked victims become clearer prey and make your pursuit quieter.
-Your first hit against each marked victim staggers them and hits isolated prey much harder.
+Isolated marked victims become clearer prey and make your pursuit much quieter.
+Your first hit against each marked victim staggers, drains stamina and deals extra damage; isolated prey are punished harder.
 You carry a hammer and nails to quietly seal routes around your prey.
 Once per round, you can leave behind a dead copy of yourself to fake your death.]],
 		Objective = "You are the Stalker. Mark victims, read isolated prey, kill the isolated.",

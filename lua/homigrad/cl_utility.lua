@@ -712,6 +712,25 @@ players : 1 humans, 0 bots (20 max)
 			ply.IsSpeak = false
 		end)
 
+		local nextVoiceStaleCheck = 0
+		hook.Add("Think", "huy_CheckVoiceStale", function()
+			local time = CurTime()
+			if nextVoiceStaleCheck > time then return end
+			nextVoiceStaleCheck = time + 0.25
+
+			for _, ply in ipairs(player.GetHumans()) do
+				if not IsValid(ply) or not ply.IsSpeak then continue end
+				if hg.IsAdminVoicePanelActive and hg.IsAdminVoicePanelActive(ply) then continue end
+				if ply:IsSpeaking() then continue end
+
+				ply.IsSpeak = false
+
+				if GAMEMODE and GAMEMODE.PlayerEndVoice then
+					GAMEMODE:PlayerEndVoice(ply)
+				end
+			end
+		end)
+
 		hg.playerInfo = hg.playerInfo or {}
 
 		local throatVoiceSounds = {
