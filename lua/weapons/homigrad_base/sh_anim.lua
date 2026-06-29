@@ -353,13 +353,12 @@ hook.Add("Bones", "homigrad-lean-bone", function(ply, dtime)
 	local isragdoll = IsValid(ply.FakeRagdoll) and !IsValid(ply:GetNWEntity("FakeRagdollOld"))
 	local left = ((isragdoll and !ragdollcombat and hg.KeyDown(ply, IN_MOVERIGHT)) or hg.KeyDown(ply, IN_ALT2)) and not hg.KeyDown(ply, IN_ALT1)
 	local right = ((isragdoll and !ragdollcombat and hg.KeyDown(ply, IN_MOVELEFT)) or hg.KeyDown(ply, IN_ALT1)) and not hg.KeyDown(ply, IN_ALT2)
-	local hgLean = ply.hglean
-	local hgLeanActive = hgLean ~= nil
+	local leaning = ply.hglean
 
 	ply.lean = Lerp(
-		hg.lerpFrameTime( ( left or right or hgLeanActive ) and 0.045 * ply:GetNetVar("leanSpeedMul",1) or 0.075, dtime * game.GetTimeScale()), 
+		hg.lerpFrameTime( ( left or right or leaning ) and 0.045 * ply:GetNetVar("leanSpeedMul",1) or 0.075, dtime * game.GetTimeScale()), 
 		ply.lean or 0,
-		hg.IsLocal(ply) and ( hgLeanActive and hgLean or (left and right and 0) or (left and 1.3) or (right and -1.3) or 0) or ply:GetNWFloat("PlayerLean", 0)
+		hg.IsLocal(ply) and ( leaning or (left and right and 0) or (left and 1.3) or (right and -1.3) or 0) or ply:GetNWFloat("PlayerLean", 0)
 	)
 
 	if SERVER and !IsValid(ply.FakeRagdoll) then
@@ -403,7 +402,7 @@ hook.Add("Bones", "homigrad-lean-bone", function(ply, dtime)
 	end
 
 	if CLIENT then
-		local leaning = right or left or (hgLeanActive and math.abs(hgLean) > 0.01)
+		local leaning = right or left or (leaning and math.abs(leaning) > 0.01)
 		if leaning and not ply.leanHolding then
 			if not ply.leanHolding then
 				if ply.armors["torso"] ~= nil then
