@@ -604,8 +604,6 @@ hook.Add("Player Think", "loot-fellows",function(ply)
     local use = IsValid(ply.FakeRagdoll) and (ply:KeyDown(IN_WALK) and ply:KeyDown(IN_SPEED) and not ply:KeyDown(IN_ATTACK) and not ply:KeyDown(IN_ATTACK2)) or (not IsValid(ply.FakeRagdoll) and (ply:KeyDown(IN_ATTACK2) and ply:KeyDown(IN_USE)))
     
     if use then
-        if hg.IsLeaning(ply) then return end
-
         local trace = hg.eyeTrace(ply, 60)
     
         if not trace then return end
