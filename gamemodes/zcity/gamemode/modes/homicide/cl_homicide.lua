@@ -413,14 +413,14 @@ local hmcd_traitor_role_tips = {
 		"they are strongest when you feed them clean sightlines."
 	},
 	traitor_stalker = {
-		"let them watch groups early so they can mark runners.",
+		"let them watch groups early; they can mark runners quickly now.",
 		"call wounded targets; their heartbeat pulse makes hiding harder.",
-		"their first hit on each mark buys a short stun window.",
+		"their first hit on each mark now staggers, drains stamina and bites harder.",
 		"split the crowd after they mark three victims.",
 		"their sonar is strongest after panic scatters people.",
 		"give them quiet sightlines before the first body drops.",
 		"marked targets are easier to chase through rooms and smoke.",
-		"let them open on a marked gun threat to interrupt the response.",
+		"let them open on a marked gun threat to interrupt and weaken the response.",
 		"their pulse readout tells you who is still alive and moving.",
 		"they are best at finishing isolated survivors, not starting a massacre."
 	}
@@ -529,12 +529,12 @@ local hmcd_traitor_self_tip_openers = {
 		"Stay posted until the crowd breaks formation;"
 	},
 	traitor_stalker = {
-		"Mark victims before the room starts moving;",
+		"Mark victims quickly before the room starts moving;",
 		"Watch pulses to track people through walls;",
-		"Save your first hit stun for a real opening;",
+		"Save your first-hit stagger and damage boost for a real opening;",
 		"Mark the armed witness before you reveal yourself;",
 		"Use heartbeat rhythm to follow wounded runners;",
-		"Stay patient until you have two or three marks;",
+		"Use isolated prey to refill stamina and move quietly;",
 		"Call marked targets when they split from the crowd;"
 	}
 }

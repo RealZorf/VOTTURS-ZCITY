@@ -33,8 +33,21 @@ local function getDisabledRoleToken(mode)
 	return mode == "soe" and (MODE.SubRole_Traitor_Disabled_SOE or "traitor_disabled_soe") or (MODE.SubRole_Traitor_Disabled or "traitor_disabled")
 end
 
+local function getRandomRoleToken(mode)
+	return mode == "soe" and (MODE.SubRole_Traitor_Random_SOE or "traitor_random_soe") or (MODE.SubRole_Traitor_Random or "traitor_random")
+end
+
 local function isTraitorModeDisabled(mode)
 	local token = getDisabledRoleToken(mode)
+	if mode == "soe" then
+		return MODE.ConVar_SubRole_Traitor_SOE:GetString() == token
+	end
+
+	return MODE.ConVar_SubRole_Traitor:GetString() == token
+end
+
+local function isTraitorModeRandom(mode)
+	local token = getRandomRoleToken(mode)
 	if mode == "soe" then
 		return MODE.ConVar_SubRole_Traitor_SOE:GetString() == token
 	end
@@ -51,7 +64,7 @@ local function getDefaultTraitorRole(mode)
 end
 
 local function roleExistsForMode(role, mode)
-	if not role or role == "" or role == getDisabledRoleToken(mode) then return false end
+	if not role or role == "" or role == getDisabledRoleToken(mode) or role == getRandomRoleToken(mode) then return false end
 
 	local roundType = mode == "soe" and "soe" or "standard"
 	local roles = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[roundType] and MODE.RoleChooseRoundTypes[roundType].Traitor
@@ -89,6 +102,25 @@ local function toggleTraitorModeDisabled(mode)
 	end
 
 	set_role(getDisabledRoleToken(mode), mode)
+end
+
+local function toggleTraitorModeRandom(mode)
+	if isTraitorModeRandom(mode) then
+		local restoreRole = lastTraitorRoleBeforeDisable[mode]
+		if not roleExistsForMode(restoreRole, mode) then
+			restoreRole = getDefaultTraitorRole(mode)
+		end
+
+		setTraitorRolePreference(restoreRole, mode)
+		return
+	end
+
+	local currentRole = getCurrentTraitorRole(mode)
+	if roleExistsForMode(currentRole, mode) then
+		lastTraitorRoleBeforeDisable[mode] = currentRole
+	end
+
+	set_role(getRandomRoleToken(mode), mode)
 end
 
 local function screen_scale_2(num)
@@ -334,8 +366,8 @@ local traitorLoadoutText = {
 	traitor_terrorist_soe = "Bomb vest\nMatches\nClaymore, grenade\nIED, SOG knife\nFlashlight",
 	traitor_lastmanstanding = "Kar98 + 20 rounds\nSling\nBrass knuckles\nFlashlight",
 	traitor_lastmanstanding_soe = "Kar98 + 20 rounds\nSling\nBrass knuckles\nFlashlight, SOE recoil control",
-	traitor_stalker = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nPrey Sense sharpens isolated marked victims\nSilent Pursuit quiets your steps near isolated prey\nFirst hit staggers marked prey; isolated prey are hit harder",
-	traitor_stalker_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nPrey Sense sharpens isolated marked victims\nSilent Pursuit quiets your steps near isolated prey\nFirst hit staggers marked prey; isolated prey are hit harder"
+	traitor_stalker = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nFaster sonar marking with wider aim assist\nPrey Sense sharpens isolated marked victims\nSilent Pursuit makes your steps very quiet near isolated prey\nFirst hit staggers, drains stamina and deals bonus damage",
+	traitor_stalker_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nFaster sonar marking with wider aim assist\nPrey Sense sharpens isolated marked victims\nSilent Pursuit makes your steps very quiet near isolated prey\nFirst hit staggers, drains stamina and deals bonus damage"
 }
 
 local function getLoadoutText(role)
@@ -637,8 +669,12 @@ function PANEL:Init()
 
 	self.DisableStdButton = vgui.Create("DButton", self)
 	self.DisableSoeButton = vgui.Create("DButton", self)
+	self.RandomStdButton = vgui.Create("DButton", self)
+	self.RandomSoeButton = vgui.Create("DButton", self)
 	self:SetupDisableButton(self.DisableStdButton, "DISABLE STD TRAITOR", "standard")
 	self:SetupDisableButton(self.DisableSoeButton, "DISABLE SOE TRAITOR", "soe")
+	self:SetupRandomButton(self.RandomStdButton, "RANDOM STD", "standard")
+	self:SetupRandomButton(self.RandomSoeButton, "RANDOM SOE", "soe")
 
 	self.Scroll = vgui.Create("DScrollPanel", self)
 	self.Scroll.Paint = function() end
@@ -700,6 +736,32 @@ function PANEL:SetupDisableButton(button, label, mode)
 	end
 end
 
+function PANEL:SetupRandomButton(button, label, mode)
+	button:SetText("")
+	button.Mode = mode
+	button.ModeLabel = label
+	button.DoClick = function()
+		toggleTraitorModeRandom(mode)
+		surface.PlaySound("buttons/button14.wav")
+	end
+	button.Paint = function(btn, w, h)
+		local random = isTraitorModeRandom(btn.Mode)
+		local hover = btn:IsHovered() and 1 or 0
+		local cut = traitor_ui(9)
+		local bg = random and Color(172, 96, 18, 218) or Color(2 + hover * 8, 17 + hover * 18, 10 + hover * 8, 216)
+		local border = random and Color(255, 190, 75, 230) or Color(75, 135, 92, 180 + hover * 45)
+		local textColor = random and Color(255, 238, 205, 245) or Color(205, 238, 216, 220 + hover * 25)
+
+		drawCutPoly(0, 0, w, h, cut, bg)
+		drawCutOutline(0, 0, w, h, cut, border, random and 2 or 1)
+		draw.SimpleText(btn.ModeLabel, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+		if random or hover > 0 then
+			drawGlowLine(traitor_ui(14), h - 3, w - traitor_ui(28), 1, random and Color(255, 190, 75, 210) or Color(35, 255, 110, 130))
+		end
+	end
+end
+
 function PANEL:SetDetailRole(data, pinned)
 	if not data or not IsValid(self.DetailPanel) then return end
 	self.CurrentDetailRole = data
@@ -729,15 +791,30 @@ function PANEL:PerformLayout(w, h)
 	self.CloseButton:SetSize(traitor_ui(32), traitor_ui(32))
 	self.CloseButton:SetPos(w - margin - self.CloseButton:GetWide(), traitor_ui(30))
 
-	local disableW = traitor_ui(250)
+	local controlsRight = w - margin - self.CloseButton:GetWide() - traitor_ui(18)
 	local disableH = traitor_ui(32)
 	local disableGap = traitor_ui(12)
 	local disableX = traitor_ui(520)
 	local disableY = traitor_ui(31)
+	local randomW = traitor_ui(140)
+	local disableW = traitor_ui(250)
+	local availableControlsW = controlsRight - disableX
+	if availableControlsW > 0 then
+		local preferredW = disableW * 2 + randomW * 2 + disableGap * 3
+		if preferredW > availableControlsW then
+			local scale = availableControlsW / preferredW
+			disableW = math.max(traitor_ui(172), math.floor(disableW * scale))
+			randomW = math.max(traitor_ui(112), math.floor(randomW * scale))
+		end
+	end
 	self.DisableStdButton:SetPos(disableX, disableY)
 	self.DisableStdButton:SetSize(disableW, disableH)
 	self.DisableSoeButton:SetPos(disableX + disableW + disableGap, disableY)
 	self.DisableSoeButton:SetSize(disableW, disableH)
+	self.RandomStdButton:SetPos(disableX + disableW * 2 + disableGap * 2, disableY)
+	self.RandomStdButton:SetSize(randomW, disableH)
+	self.RandomSoeButton:SetPos(disableX + disableW * 2 + randomW + disableGap * 3, disableY)
+	self.RandomSoeButton:SetSize(randomW, disableH)
 
 	local useSideDetail = w >= traitor_ui(1080)
 	local detailGap = traitor_ui(18)
@@ -863,19 +940,20 @@ function PANEL:SetupModeButton(button, label, mode, role)
 	end
 	button.Paint = function(btn, w, h)
 		local disabledMode = isTraitorModeDisabled(btn.Mode)
-		local selected = not disabledMode and (btn.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == btn.Role or MODE.ConVar_SubRole_Traitor:GetString() == btn.Role)
+		local randomMode = isTraitorModeRandom(btn.Mode)
+		local selected = not disabledMode and not randomMode and (btn.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == btn.Role or MODE.ConVar_SubRole_Traitor:GetString() == btn.Role)
 		local enabled = btn.Role ~= nil
 		local hover = enabled and btn:IsHovered() and 1 or 0
 		local cut = traitor_ui(10)
 
-		local bg = selected and Color(15, 165, 82, 205) or (disabledMode and Color(22, 6, 8, enabled and 218 or 120) or Color(2 + hover * 8, 17 + hover * 28, 10 + hover * 14, enabled and 226 or 120))
+		local bg = selected and Color(15, 165, 82, 205) or (disabledMode and Color(22, 6, 8, enabled and 218 or 120) or (randomMode and Color(35, 25, 7, enabled and 218 or 120) or Color(2 + hover * 8, 17 + hover * 28, 10 + hover * 14, enabled and 226 or 120)))
 		drawCutPoly(0, 0, w, h, cut, bg)
 
-		local border = selected and traitorTileAccent or (disabledMode and Color(150, 54, 62, 155) or (enabled and Color(75, 135, 92, 180) or Color(65, 70, 65, 130)))
+		local border = selected and traitorTileAccent or (disabledMode and Color(150, 54, 62, 155) or (randomMode and Color(190, 124, 45, 155) or (enabled and Color(75, 135, 92, 180) or Color(65, 70, 65, 130))))
 		drawCutOutline(0, 0, w, h, cut, border, selected and 2 or 1)
 
 		local text = enabled and btn.ModeLabel or (btn.ModeLabel .. " N/A")
-		local mainColor = enabled and (selected and color_white or (disabledMode and Color(190, 112, 118, 210) or traitorTileText)) or Color(105, 110, 105)
+		local mainColor = enabled and (selected and color_white or (disabledMode and Color(190, 112, 118, 210) or (randomMode and Color(230, 185, 105, 220) or traitorTileText))) or Color(105, 110, 105)
 
 		if enabled then
 			local stats = getTraitorRoleStats(btn.Role)
@@ -883,7 +961,7 @@ function PANEL:SetupModeButton(button, label, mode, role)
 			local statText = rate and (rate .. "% / " .. stats.games .. "R") or "--"
 
 			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.36, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			draw.SimpleText(disabledMode and "DISABLED" or statText, "HMCD_TraitorTiles_Code", w * 0.5, h * 0.68, selected and Color(220, 255, 232, 230) or (disabledMode and Color(210, 105, 112, 205) or Color(135, 190, 154, 205)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText(disabledMode and "DISABLED" or (randomMode and "RANDOM" or statText), "HMCD_TraitorTiles_Code", w * 0.5, h * 0.68, selected and Color(220, 255, 232, 230) or (disabledMode and Color(210, 105, 112, 205) or (randomMode and Color(230, 185, 105, 210) or Color(135, 190, 154, 205))), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		else
 			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		end
@@ -940,8 +1018,12 @@ function PANEL:Paint(w, h)
 	local selectedSoe = data.SOE and MODE.ConVar_SubRole_Traitor_SOE:GetString() == data.SOE
 	local stdDisabled = isTraitorModeDisabled("standard")
 	local soeDisabled = isTraitorModeDisabled("soe")
+	local stdRandom = isTraitorModeRandom("standard")
+	local soeRandom = isTraitorModeRandom("soe")
 	if stdDisabled then selectedStd = false end
 	if soeDisabled then selectedSoe = false end
+	if stdRandom then selectedStd = false end
+	if soeRandom then selectedSoe = false end
 	local selected = selectedStd or selectedSoe
 	local cut = traitor_ui(18)
 	local t = SysTime() + (self.TileIndex or 1) * 0.37
@@ -981,12 +1063,15 @@ function PANEL:Paint(w, h)
 	if selectedSoe then status[#status + 1] = "SOE ACTIVE" end
 	if stdDisabled then status[#status + 1] = "STD DISABLED" end
 	if soeDisabled then status[#status + 1] = "SOE DISABLED" end
+	if stdRandom then status[#status + 1] = "STD RANDOM" end
+	if soeRandom then status[#status + 1] = "SOE RANDOM" end
 
 	local statusText = #status > 0 and table.concat(status, " / ") or "PENDING"
 	local disabledOnly = not selected and (stdDisabled or soeDisabled)
-	local statusColor = selected and traitorTileAccentHot or (disabledOnly and Color(255, 120, 130) or traitorTileAmber)
-	local chipFill = selected and Color(35, 255, 110, 45) or (disabledOnly and Color(155, 32, 45, 38) or Color(255, 190, 75, 18))
-	local chipBorder = selected and Color(35, 255, 110, 150) or (disabledOnly and Color(255, 80, 95, 100) or Color(255, 190, 75, 85))
+	local randomOnly = not selected and not disabledOnly and (stdRandom or soeRandom)
+	local statusColor = selected and traitorTileAccentHot or (disabledOnly and Color(255, 120, 130) or (randomOnly and Color(255, 190, 75) or traitorTileAmber))
+	local chipFill = selected and Color(35, 255, 110, 45) or (disabledOnly and Color(155, 32, 45, 38) or (randomOnly and Color(255, 150, 40, 24) or Color(255, 190, 75, 18)))
+	local chipBorder = selected and Color(35, 255, 110, 150) or (disabledOnly and Color(255, 80, 95, 100) or (randomOnly and Color(255, 190, 75, 110) or Color(255, 190, 75, 85)))
 
 	surface.SetFont("HMCD_TraitorTiles_Code")
 	local tw, th = surface.GetTextSize(statusText)
@@ -1022,7 +1107,7 @@ function PANEL:Construct()
 	label_name:SetHeight(label_name_height)
 	label_name:SetMouseInputEnabled(true)
 	label_name.Paint = function(sel, w, h)
-		if((self.Mode == "soe" and not isTraitorModeDisabled("soe") and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and not isTraitorModeDisabled("standard") and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
+		if((self.Mode == "soe" and not isTraitorModeDisabled("soe") and not isTraitorModeRandom("soe") and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and not isTraitorModeDisabled("standard") and not isTraitorModeRandom("standard") and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
 			surface.SetDrawColor(vgui_color_main)
 			surface.DrawOutlinedRect(1, 1, w - 2, h - 2, 3)
 		end

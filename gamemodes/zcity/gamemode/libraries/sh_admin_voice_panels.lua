@@ -39,6 +39,7 @@ if SERVER then
 	util.AddNetworkString("ZB_AdminVoicePanelSetDistance")
 
 	local adminVoicePanelState = {}
+	local adminVoicePanelRefresh = {}
 	local zb_admin_show_voicechat_distance_value = ConVarExists("zb_admin_show_voicechat_distance_value") and GetConVar("zb_admin_show_voicechat_distance_value") or CreateConVar(
 		"zb_admin_show_voicechat_distance_value",
 		"20",
@@ -117,14 +118,17 @@ if SERVER then
 	timer.Create("ZB_AdminVoicePanelStateSync", 0.15, 0, function()
 		local humans = player.GetHumans()
 		local activeListeners = {}
+		local now = CurTime()
 
 		for _, listener in ipairs(humans) do
 			if playerCanSeeVoicePanels(listener) then
 				activeListeners[listener] = true
 
 				local states = adminVoicePanelState[listener] or {}
+				local refresh = adminVoicePanelRefresh[listener] or {}
 				local validTalkers = {}
 				adminVoicePanelState[listener] = states
+				adminVoicePanelRefresh[listener] = refresh
 
 				for _, talker in ipairs(humans) do
 					if listener == talker then continue end
@@ -134,7 +138,11 @@ if SERVER then
 					local shouldShow = canAdminSeeVoicePanel(listener, talker)
 					if states[talker] ~= shouldShow then
 						states[talker] = shouldShow
+						refresh[talker] = shouldShow and (now + 0.75) or nil
 						sendAdminVoicePanelState(listener, talker, shouldShow)
+					elseif shouldShow and (refresh[talker] or 0) <= now then
+						refresh[talker] = now + 0.75
+						sendAdminVoicePanelState(listener, talker, true)
 					end
 				end
 
@@ -145,6 +153,7 @@ if SERVER then
 						end
 
 						states[talker] = nil
+						refresh[talker] = nil
 					end
 				end
 			elseif adminVoicePanelState[listener] then
@@ -155,12 +164,14 @@ if SERVER then
 				end
 
 				adminVoicePanelState[listener] = nil
+				adminVoicePanelRefresh[listener] = nil
 			end
 		end
 
 		for listener in pairs(adminVoicePanelState) do
 			if not IsValid(listener) or not activeListeners[listener] then
 				adminVoicePanelState[listener] = nil
+				adminVoicePanelRefresh[listener] = nil
 			end
 		end
 	end)
@@ -208,13 +219,15 @@ end
 
 local AdminShowVoiceChat = CreateClientConVar(
 	"zb_admin_show_voicechat",
-	"0",
+	"1",
 	true,
 	false,
 	"Enable admin voice panels for allowed groups. Persists until changed.",
 	0,
 	1
 )
+
+local adminVoicePanelSpeakers = {}
 
 local function canSeeVoicePanelsInRound(lply)
 	if not IsValid(lply) then return false end
@@ -237,6 +250,8 @@ end
 local function clearAdminVoicePanels()
 	local lply = LocalPlayer()
 
+	table.Empty(adminVoicePanelSpeakers)
+
 	for _, ply in ipairs(player.GetHumans()) do
 		if IsValid(ply) and ply ~= lply then
 			ply.IsSpeak = false
@@ -257,6 +272,7 @@ net.Receive("ZB_AdminVoicePanelState", function()
 	if not canSeeVoicePanelsInRound(lply) then return end
 
 	ply.IsSpeak = isSpeaking
+	adminVoicePanelSpeakers[ply] = isSpeaking and (CurTime() + 1.75) or nil
 
 	if isSpeaking then
 		if GAMEMODE and GAMEMODE.PlayerStartVoice then
@@ -265,6 +281,43 @@ net.Receive("ZB_AdminVoicePanelState", function()
 	else
 		if GAMEMODE and GAMEMODE.PlayerEndVoice then
 			GAMEMODE:PlayerEndVoice(ply)
+		end
+	end
+end)
+
+function hg.IsAdminVoicePanelActive(ply)
+	return IsValid(ply) and adminVoicePanelSpeakers[ply] ~= nil
+end
+
+local function endVoicePanel(ply)
+	if IsValid(ply) then
+		ply.IsSpeak = false
+	end
+
+	adminVoicePanelSpeakers[ply] = nil
+
+	if GAMEMODE and GAMEMODE.PlayerEndVoice then
+		GAMEMODE:PlayerEndVoice(ply)
+	end
+end
+
+hook.Add("Think", "ZB_AdminVoicePanelClientWatchdog", function()
+	local lply = LocalPlayer()
+	if not IsValid(lply) then return end
+
+	local now = CurTime()
+
+	if not canSeeVoicePanelsInRound(lply) then
+		if next(adminVoicePanelSpeakers) then
+			clearAdminVoicePanels()
+		end
+
+		return
+	end
+
+	for ply, expireTime in pairs(adminVoicePanelSpeakers) do
+		if not IsValid(ply) or expireTime <= now then
+			endVoicePanel(ply)
 		end
 	end
 end)

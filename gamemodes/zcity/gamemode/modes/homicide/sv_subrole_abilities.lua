@@ -468,7 +468,7 @@ function MODE.UpdateStalkerPursuit(stalker)
 	stamina[1] = math.min(max_stamina, (stamina[1] or max_stamina) + (MODE.StalkerPursuitStaminaRegen or 8) * delta)
 end
 
-function MODE.TryStalkerFirstHit(attacker, victim)
+function MODE.TryStalkerFirstHit(attacker, victim, dmg_info)
 	if not isStalkerRoundActive() then return end
 	if not IsValid(attacker) or not MODE.IsStalkerRole or not MODE.IsStalkerRole(attacker.SubRole) then return end
 
@@ -481,6 +481,11 @@ function MODE.TryStalkerFirstHit(attacker, victim)
 	mark.StunSpent = true
 	local isolated = MODE.IsStalkerVictimIsolated(attacker, victim)
 	local stun_time = isolated and (MODE.StalkerIsolatedFirstHitStunTime or 2.35) or (MODE.StalkerFirstHitStunTime or 1.35)
+	local damage_mul = isolated and (MODE.StalkerIsolatedFirstHitDamageMultiplier or 1.4) or (MODE.StalkerFirstHitDamageMultiplier or 1.15)
+
+	if dmg_info and damage_mul > 1 then
+		dmg_info:SetDamage((dmg_info:GetDamage() or 0) * damage_mul)
+	end
 
 	if hg.LightStunPlayer then
 		hg.LightStunPlayer(victim, stun_time)
@@ -1532,7 +1537,7 @@ hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(vic
 
 	local attacker = dmgInfo and dmgInfo:GetAttacker()
 	attacker = normalizeStalkerAttacker(attacker)
-	MODE.TryStalkerFirstHit(attacker, victim)
+	MODE.TryStalkerFirstHit(attacker, victim, dmgInfo)
 
 	if IsValid(attacker) and MODE.IsCannibalRole and MODE.IsCannibalRole(attacker.SubRole) then
 		local stacks = MODE.GetCannibalStacks(attacker)
