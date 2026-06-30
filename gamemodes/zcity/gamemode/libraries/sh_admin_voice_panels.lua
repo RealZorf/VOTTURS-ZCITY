@@ -42,11 +42,19 @@ if SERVER then
 	local adminVoicePanelRefresh = {}
 	local zb_admin_show_voicechat_distance_value = ConVarExists("zb_admin_show_voicechat_distance_value") and GetConVar("zb_admin_show_voicechat_distance_value") or CreateConVar(
 		"zb_admin_show_voicechat_distance_value",
-		"20",
+		"500",
 		bit.bor(FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY),
 		"Admin voice panel distance in meters.",
 		1,
 		500
+	)
+	local zb_admin_show_voicechat_require_pvs = ConVarExists("zb_admin_show_voicechat_require_pvs") and GetConVar("zb_admin_show_voicechat_require_pvs") or CreateConVar(
+		"zb_admin_show_voicechat_require_pvs",
+		"0",
+		bit.bor(FCVAR_REPLICATED, FCVAR_ARCHIVE, FCVAR_NOTIFY),
+		"Require admin voice panel listeners to have the speaker in PVS.",
+		0,
+		1
 	)
 
 	local function playerCanSeeVoicePanels(ply)
@@ -100,8 +108,8 @@ if SERVER then
 	local function canAdminSeeVoicePanel(listener, talker)
 		if not IsValid(listener) or not IsValid(talker) or listener == talker then return false end
 		if not talker:IsSpeaking() then return false end
-		if listener:GetPos():DistToSqr(talker:GetPos()) > getAdminVoicePanelDistanceSqr() then return false end
-		if not listener:TestPVS(talker) then return false end
+		if listener:EyePos():DistToSqr(talker:EyePos()) > getAdminVoicePanelDistanceSqr() then return false end
+		if zb_admin_show_voicechat_require_pvs:GetBool() and not listener:TestPVS(talker) then return false end
 
 		return true
 	end
