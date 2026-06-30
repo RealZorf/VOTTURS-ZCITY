@@ -35,11 +35,14 @@ end
 
 if SERVER then
 	util.AddNetworkString("ZB_AdminVoicePanelState")
+	util.AddNetworkString("ZB_AdminVoicePanelAccess")
 	util.AddNetworkString("ZB_AdminVoicePanelSnapshotRequest")
 	util.AddNetworkString("ZB_AdminVoicePanelSetDistance")
 
 	local adminVoicePanelState = {}
 	local adminVoicePanelRefresh = {}
+	local adminVoicePanelAccess = {}
+	local adminVoicePanelAccessRefresh = {}
 	local zb_admin_show_voicechat_distance_value = ConVarExists("zb_admin_show_voicechat_distance_value") and GetConVar("zb_admin_show_voicechat_distance_value") or CreateConVar(
 		"zb_admin_show_voicechat_distance_value",
 		"500",
@@ -71,6 +74,15 @@ if SERVER then
 	local function getAdminVoicePanelDistanceSqr()
 		local units = metersToSourceUnits(getAdminVoicePanelDistanceMeters())
 		return units * units
+	end
+
+	local function isAdminVoicePanelSpectating(listener)
+		if not IsValid(listener) then return false end
+		if not listener:Alive() then return true end
+		if IsValid(listener:GetNWEntity("spect", NULL)) then return true end
+		if IsValid(listener:GetObserverTarget()) then return true end
+
+		return false
 	end
 
 	local function printAdminVoiceDistance(target, value)
@@ -108,10 +120,18 @@ if SERVER then
 	local function canAdminSeeVoicePanel(listener, talker)
 		if not IsValid(listener) or not IsValid(talker) or listener == talker then return false end
 		if not talker:IsSpeaking() then return false end
-		if listener:EyePos():DistToSqr(talker:EyePos()) > getAdminVoicePanelDistanceSqr() then return false end
+		if not isAdminVoicePanelSpectating(listener) and listener:EyePos():DistToSqr(talker:EyePos()) > getAdminVoicePanelDistanceSqr() then return false end
 		if zb_admin_show_voicechat_require_pvs:GetBool() and not listener:TestPVS(talker) then return false end
 
 		return true
+	end
+
+	local function sendAdminVoicePanelAccess(listener, allowed)
+		if not IsValid(listener) then return end
+
+		net.Start("ZB_AdminVoicePanelAccess")
+			net.WriteBool(allowed and true or false)
+		net.Send(listener)
 	end
 
 	local function sendAdminVoicePanelState(listener, talker, isSpeaking)
@@ -129,7 +149,14 @@ if SERVER then
 		local now = CurTime()
 
 		for _, listener in ipairs(humans) do
-			if playerCanSeeVoicePanels(listener) then
+			local allowed = playerCanSeeVoicePanels(listener)
+			if adminVoicePanelAccess[listener] ~= allowed or (adminVoicePanelAccessRefresh[listener] or 0) <= now then
+				adminVoicePanelAccess[listener] = allowed
+				adminVoicePanelAccessRefresh[listener] = now + 5
+				sendAdminVoicePanelAccess(listener, allowed)
+			end
+
+			if allowed then
 				activeListeners[listener] = true
 
 				local states = adminVoicePanelState[listener] or {}
@@ -180,6 +207,13 @@ if SERVER then
 			if not IsValid(listener) or not activeListeners[listener] then
 				adminVoicePanelState[listener] = nil
 				adminVoicePanelRefresh[listener] = nil
+			end
+		end
+
+		for listener in pairs(adminVoicePanelAccess) do
+			if not IsValid(listener) then
+				adminVoicePanelAccess[listener] = nil
+				adminVoicePanelAccessRefresh[listener] = nil
 			end
 		end
 	end)
@@ -236,20 +270,20 @@ local AdminShowVoiceChat = CreateClientConVar(
 )
 
 local adminVoicePanelSpeakers = {}
+local serverAllowsAdminVoicePanels = false
 
 local function canSeeVoicePanelsInRound(lply)
 	if not IsValid(lply) then return false end
 	if not AdminShowVoiceChat:GetBool() then return false end
 
-	local userGroup = (lply.GetUserGroup and lply:GetUserGroup()) or ""
-	return groupCanSeeVoicePanels(userGroup)
+	return serverAllowsAdminVoicePanels
 end
 
 hg.CanSeeVoicePanelsInRound = canSeeVoicePanelsInRound
 
 local function requestAdminVoicePanelSnapshot()
 	local lply = LocalPlayer()
-	if not canSeeVoicePanelsInRound(lply) then return end
+	if not IsValid(lply) or not AdminShowVoiceChat:GetBool() then return end
 
 	net.Start("ZB_AdminVoicePanelSnapshotRequest")
 	net.SendToServer()
@@ -277,7 +311,7 @@ net.Receive("ZB_AdminVoicePanelState", function()
 	local lply = LocalPlayer()
 
 	if not IsValid(ply) or not IsValid(lply) or ply == lply then return end
-	if not canSeeVoicePanelsInRound(lply) then return end
+	if not AdminShowVoiceChat:GetBool() then return end
 
 	ply.IsSpeak = isSpeaking
 	adminVoicePanelSpeakers[ply] = isSpeaking and (CurTime() + 1.75) or nil
@@ -290,6 +324,16 @@ net.Receive("ZB_AdminVoicePanelState", function()
 		if GAMEMODE and GAMEMODE.PlayerEndVoice then
 			GAMEMODE:PlayerEndVoice(ply)
 		end
+	end
+end)
+
+net.Receive("ZB_AdminVoicePanelAccess", function()
+	serverAllowsAdminVoicePanels = net.ReadBool()
+
+	if serverAllowsAdminVoicePanels then
+		requestAdminVoicePanelSnapshot()
+	else
+		clearAdminVoicePanels()
 	end
 end)
 
