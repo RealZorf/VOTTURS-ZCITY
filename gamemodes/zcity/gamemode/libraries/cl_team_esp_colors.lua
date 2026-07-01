@@ -102,10 +102,6 @@ TeamESP.ColorsByMode = {
 		[0] = Color(180, 150, 110),
 		[1] = Color(110, 170, 120),
 	},
-	theboys = {
-		[0] = Color(255, 215, 0),
-		[1] = Color(0, 120, 190)
-	},
 }
 
 function TeamESP.GetCurrentRound()
