@@ -164,6 +164,10 @@ hook.Add("PlayerCanHearPlayersVoice", "RealisticVoice", function(listener,speake
 	local result,is3D = ChatLogic(speaker,listener,false,false)
 	local speak = speaker:IsSpeaking()
 	speaker.IsSpeak = speak
+
+	if speak and hg.AdminVoicePanelMarkSpeaking then
+		hg.AdminVoicePanelMarkSpeaking(speaker)
+	end
 	
 	if speaker.IsOldSpeak ~= speaker.IsSpeak then
 		speaker.IsOldSpeak = speak
