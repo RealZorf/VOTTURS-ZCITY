@@ -93,6 +93,19 @@ function SWEP:OwnerChanged()
 end
 
 if SERVER then
+	local function ApplyMedkitPainkiller(org, dose)
+		dose = math.max(tonumber(dose) or 0, 0)
+		if dose <= 0 then return false end
+
+		org.analgesiaAdd = math.min((org.analgesiaAdd or 0) + dose * 0.45, 4)
+		org.painadd = math.max((org.painadd or 0) - 18 * dose, 0)
+		org.avgpain = math.max((org.avgpain or 0) - 12 * dose, 0)
+		org.pain = math.max((org.pain or 0) - 12 * dose, 0)
+		org.shock = math.max((org.shock or 0) - 8 * dose, 0)
+
+		return true
+	end
+
 	function SWEP:Heal(ent, mode)
 		if ent:IsNPC() then
 			self:SpawnGarbage()
@@ -111,13 +124,15 @@ if SERVER then
 
 		local entOwner = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
 		if self.mode == 2 then
-			if self.modeValues[2] == 0 then return end
+			if (self.modeValues[2] or 0) <= 0 then return end
 			if ent ~= owner and not org.otrub then return end
-			//org.painkiller = math.min(org.painkiller + self.modeValues[2], 3)
-			//self.modeValues[2] = 0
-			org.analgesiaAdd = math.min(org.analgesiaAdd + self.modeValues[2] * 0.3, 4)
+
+			if not ApplyMedkitPainkiller(org, self.modeValues[2]) then return end
+
 			self.modeValues[2] = 0
-			entOwner:EmitSound("snds_jack_gmod/ez_medical/15.wav", 60, math.random(95, 105))
+			entOwner:EmitSound("snd_jack_hmcd_pillsuse.wav", 60, math.random(95, 105))
+
+			return true
 		elseif self.mode == 3 then
 			if self.modeValues[3] == 0 then return end
 			/*local val = org.lungsL[1]
