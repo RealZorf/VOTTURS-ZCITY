@@ -50,8 +50,8 @@ end)
 
 local min = math.min
 local pain_mat = Material("sprites/mat_jack_hmcd_narrow")
-local maniacFuryBreathFullDuration = 22
-local maniacFuryBreathFadeDuration = 8
+local maniacFurySelfBreathMultiplier = 0.18
+local maniacFuryOtherBreathMultiplier = 0.025
 
 local function getManiacFuryBreathVolumeMultiplier(ply)
 	if not IsValid(ply) then return 1 end
@@ -60,13 +60,7 @@ local function getManiacFuryBreathVolumeMultiplier(ply)
 		return 1
 	end
 
-	local started_at = ply:GetNWFloat("HMCD_ManiacFuryStartedAt", 0)
-	if started_at <= 0 then return 1 end
-
-	local elapsed = CurTime() - started_at
-	if elapsed <= maniacFuryBreathFullDuration then return 1 end
-
-	return math.Clamp(1 - (elapsed - maniacFuryBreathFullDuration) / maniacFuryBreathFadeDuration, 0, 1)
+	return ply == LocalPlayer() and maniacFurySelfBreathMultiplier or maniacFuryOtherBreathMultiplier
 end
 
 local tab = {

@@ -49,6 +49,15 @@ MODE.ManiacFuryPainCap = MODE.ManiacFuryPainCap or 30
 MODE.ManiacFurySecondWindStaminaFraction = 0.65
 MODE.ManiacFurySecondWindOxygen = 30
 MODE.ManiacFurySecondWindPainCap = 12
+MODE.ManiacFuryNoFlinchDuration = 5
+MODE.ManiacBloodFrenzyDuration = 4
+MODE.ManiacBloodFrenzyMaxStacks = 3
+MODE.ManiacBloodFrenzyStaminaRegenPerStack = 12
+MODE.ManiacBloodFrenzyImmediateStamina = 9
+MODE.ManiacBloodFrenzyImmobilizationRelief = 4
+MODE.ManiacPainConversionStaminaPerHarm = 1.3
+MODE.ManiacPainConversionShockRelief = 0.55
+MODE.ManiacPainConversionPainRelief = 0.65
 MODE.ManiacFuryPhrases = MODE.ManiacFuryPhrases or {
 	"NOW IT'S MY TURN",
 	"TIME TO GO CRAZY",
@@ -534,6 +543,9 @@ function MODE.ResetManiacFury(ply)
 	ply.Ability_ManiacFury_Active = nil
 	ply.Ability_ManiacFury_Triggered = nil
 	ply.Ability_ManiacFury_LastThink = nil
+	ply.Ability_ManiacFury_NoFlinchUntil = nil
+	ply.Ability_ManiacBloodFrenzyUntil = nil
+	ply.Ability_ManiacBloodFrenzyStacks = nil
 	ply:SetNWBool("HMCD_ManiacFuryActive", false)
 	ply:SetNWFloat("HMCD_ManiacFuryStartedAt", 0)
 end
@@ -545,6 +557,7 @@ function MODE.ActivateManiacFury(ply)
 	ply.Ability_ManiacFury_Triggered = true
 	ply.Ability_ManiacFury_Active = true
 	ply.Ability_ManiacFury_LastThink = now
+	ply.Ability_ManiacFury_NoFlinchUntil = now + (MODE.ManiacFuryNoFlinchDuration or 5)
 	ply:SetNWBool("HMCD_ManiacFuryActive", true)
 	ply:SetNWFloat("HMCD_ManiacFuryStartedAt", now)
 	MODE.ApplyManiacSecondWind(ply)
@@ -557,7 +570,84 @@ function MODE.ActivateManiacFury(ply)
 		ply:ChatPrint(phrase)
 	end
 
-	ply:EmitSound("player/breathe1.wav", 75, 75, 0.8)
+	-- Keep fury feedback personal; a world-audible gasp makes the passive an audio beacon.
+end
+
+function MODE.GetManiacBloodFrenzyStacks(ply)
+	if not IsValid(ply) or not ply.Ability_ManiacBloodFrenzyUntil or ply.Ability_ManiacBloodFrenzyUntil <= CurTime() then
+		return 0
+	end
+
+	return math.Clamp(ply.Ability_ManiacBloodFrenzyStacks or 0, 0, MODE.ManiacBloodFrenzyMaxStacks or 3)
+end
+
+function MODE.AddManiacBloodFrenzy(ply, harm)
+	if not IsValid(ply) or not ply.Ability_ManiacFury_Active then return end
+
+	local org = ply.organism
+	if not org then return end
+
+	local now = CurTime()
+	local old_stacks = MODE.GetManiacBloodFrenzyStacks(ply)
+	local gain = (harm or 0) >= 12 and 2 or 1
+	local stacks = math.Clamp(old_stacks + gain, 1, MODE.ManiacBloodFrenzyMaxStacks or 3)
+
+	ply.Ability_ManiacBloodFrenzyStacks = stacks
+	ply.Ability_ManiacBloodFrenzyUntil = now + (MODE.ManiacBloodFrenzyDuration or 4)
+
+	local stamina = org.stamina
+	if stamina then
+		local max_stamina = stamina.max or stamina.range or 0
+		if max_stamina > 0 then
+			stamina[1] = math.min(max_stamina, (stamina[1] or 0) + (MODE.ManiacBloodFrenzyImmediateStamina or 9) * stacks)
+		end
+	end
+
+	org.immobilization = math.max((org.immobilization or 0) - (MODE.ManiacBloodFrenzyImmobilizationRelief or 4) * stacks, 0)
+end
+
+function MODE.ApplyManiacPainConversion(ply, harm)
+	if not IsValid(ply) or not ply.Ability_ManiacFury_Active then return end
+
+	local org = ply.organism
+	if not org then return end
+
+	local amount = math.Clamp(tonumber(harm) or 0, 0, 30)
+	if amount <= 0 then return end
+
+	local shock_relief = amount * (MODE.ManiacPainConversionShockRelief or 0.55)
+	local pain_relief = amount * (MODE.ManiacPainConversionPainRelief or 0.65)
+	org.shock = math.max((org.shock or 0) - shock_relief, 0)
+	org.painadd = math.max((org.painadd or 0) - pain_relief, 0)
+	org.avgpain = math.max((org.avgpain or 0) - pain_relief * 0.5, 0)
+	org.pain = math.max((org.pain or 0) - pain_relief * 0.5, 0)
+
+	local stamina = org.stamina
+	if stamina then
+		local max_stamina = stamina.max or stamina.range or 0
+		if max_stamina > 0 then
+			stamina[1] = math.min(max_stamina, (stamina[1] or 0) + amount * (MODE.ManiacPainConversionStaminaPerHarm or 1.3))
+		end
+	end
+end
+
+function MODE.SuppressManiacFlinch(ply)
+	if not IsValid(ply) or not ply.Ability_ManiacFury_NoFlinchUntil or ply.Ability_ManiacFury_NoFlinchUntil <= CurTime() then return end
+
+	local org = ply.organism
+	if not org then return end
+
+	local now = CurTime()
+	if (org.stun or 0) > now then
+		org.stun = now
+	end
+
+	if (org.lightstun or 0) > now then
+		org.lightstun = now
+		ply:SetLocalVar("stun", now)
+	end
+
+	org.needfake = false
 end
 
 function MODE.ApplyManiacSecondWind(ply)
@@ -621,6 +711,7 @@ function MODE.ApplyManiacFury(ply)
 	org.pain = math.min(org.pain or 0, MODE.ManiacFuryPainCap)
 	org.painadd = math.min(org.painadd or 0, MODE.ManiacFuryPainCap)
 	org.shock = math.min(org.shock or 0, MODE.ManiacFuryPainCap)
+	MODE.SuppressManiacFlinch(ply)
 
 	local o2 = org.o2 and org.o2[1] or 30
 	local can_override_blackout = (org.brain or 0) < 0.4 and (org.blood or 5000) >= 2700 and o2 > 5
@@ -634,7 +725,9 @@ function MODE.ApplyManiacFury(ply)
 	if stamina then
 		local max_stamina = stamina.max or stamina.range or 0
 		if max_stamina > 0 then
-			stamina[1] = math.min(max_stamina, (stamina[1] or max_stamina) + MODE.ManiacFuryStaminaRegenPerSecond * delta)
+			local frenzy_stacks = MODE.GetManiacBloodFrenzyStacks(ply)
+			local frenzy_regen = frenzy_stacks * (MODE.ManiacBloodFrenzyStaminaRegenPerStack or 12)
+			stamina[1] = math.min(max_stamina, (stamina[1] or max_stamina) + (MODE.ManiacFuryStaminaRegenPerSecond + frenzy_regen) * delta)
 		end
 	end
 end
@@ -1518,6 +1611,25 @@ hook.Add("HomigradDamage", "HMCD_SubRoles_ManiacFuryTrigger", function(victim, d
 	ply = hg.RagdollOwner and (hg.RagdollOwner(ply) or ply) or ply
 
 	MODE.TryTriggerManiacFury(ply, dmgInfo, harm)
+	MODE.ApplyManiacPainConversion(ply, harm)
+	MODE.SuppressManiacFlinch(ply)
+	if IsValid(ply) and ply.Ability_ManiacFury_NoFlinchUntil and ply.Ability_ManiacFury_NoFlinchUntil > CurTime() then
+		timer.Simple(0, function()
+			if IsValid(ply) then
+				MODE.SuppressManiacFlinch(ply)
+			end
+		end)
+	end
+
+	local attacker = dmgInfo and dmgInfo:GetAttacker()
+	attacker = normalizeStalkerAttacker(attacker)
+	if not IsValid(attacker) or attacker == ply or not MODE.IsManiacRole(attacker.SubRole) or not attacker.Ability_ManiacFury_Active then return end
+	if not dmgInfo or not dmgInfo.IsDamageType then return end
+
+	local melee_damage = dmgInfo:IsDamageType(DMG_CLUB) or dmgInfo:IsDamageType(DMG_SLASH)
+	if not melee_damage then return end
+
+	MODE.AddManiacBloodFrenzy(attacker, harm)
 end)
 
 hook.Add("HG_PlayerFootstep", "HMCD_SubRoles_StalkerSilentPursuit", function(ply, pos, foot, sound, volume, rf)
@@ -1534,6 +1646,13 @@ hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(vic
 	ply = hg.RagdollOwner and (hg.RagdollOwner(ply) or ply) or ply
 
 	MODE.TryTriggerManiacFury(ply, dmgInfo)
+	if IsValid(ply) and ply.Ability_ManiacFury_Active and dmgInfo then
+		if dmgInfo:IsDamageType(DMG_FALL + DMG_CRUSH) then
+			MODE.ApplyManiacPainConversion(ply, dmgInfo:GetDamage())
+		end
+
+		MODE.SuppressManiacFlinch(ply)
+	end
 
 	local attacker = dmgInfo and dmgInfo:GetAttacker()
 	attacker = normalizeStalkerAttacker(attacker)
