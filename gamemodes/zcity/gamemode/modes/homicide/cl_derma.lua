@@ -754,7 +754,8 @@ function PANEL:SetupRandomButton(button, label, mode)
 
 		drawCutPoly(0, 0, w, h, cut, bg)
 		drawCutOutline(0, 0, w, h, cut, border, random and 2 or 1)
-		draw.SimpleText(btn.ModeLabel, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText(btn.ModeLabel, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.36, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("+50 HP / +50 STAM", "HMCD_TraitorTiles_Code", w * 0.5, h * 0.72, random and Color(255, 225, 160, 225) or Color(145, 190, 150, 190), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 		if random or hover > 0 then
 			drawGlowLine(traitor_ui(14), h - 3, w - traitor_ui(28), 1, random and Color(255, 190, 75, 210) or Color(35, 255, 110, 130))

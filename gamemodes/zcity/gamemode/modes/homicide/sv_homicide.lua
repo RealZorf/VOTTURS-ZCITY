@@ -382,6 +382,8 @@ end)
 
 MODE.BaseProfessionHealth = 100
 MODE.BaseProfessionStamina = 60 * 3
+MODE.RandomTraitorRoleHealthBonus = MODE.RandomTraitorRoleHealthBonus or 50
+MODE.RandomTraitorRoleStaminaBonus = MODE.RandomTraitorRoleStaminaBonus or 50
 
 local function HMCDResetTraitorFlashlight(ply)
 	if not IsValid(ply) or not ply.isTraitor then return end
@@ -439,14 +441,43 @@ local function HMCDResolvePlayerTraitorSubRole(ply, round_type)
 	local sub_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(sub_role_id) or sub_role_id
 
 	if sub_role == HMCDGetTraitorDisabledToken(round_type) then
-		return default_role
+		return default_role, false
 	end
 
 	if sub_role == HMCDGetTraitorRandomToken(round_type) then
-		return HMCDChooseRandomTraitorSubRole(round_type) or default_role
+		return HMCDChooseRandomTraitorSubRole(round_type) or default_role, true
 	end
 
-	return sub_role
+	return sub_role, false
+end
+
+local function HMCDApplyRandomTraitorRoleBonus(ply)
+	if not IsValid(ply) or not ply.MainTraitor or not ply.HMCD_RandomTraitorRoleBonus then return end
+
+	ply.HMCD_RandomTraitorRoleBonus = nil
+
+	local health_bonus = math.max(tonumber(MODE.RandomTraitorRoleHealthBonus) or 0, 0)
+	local stamina_bonus = math.max(tonumber(MODE.RandomTraitorRoleStaminaBonus) or 0, 0)
+
+	if health_bonus > 0 then
+		local old_max_health = math.max(ply:GetMaxHealth() or 100, 1)
+		local new_max_health = old_max_health + health_bonus
+
+		ply:SetMaxHealth(new_max_health)
+		ply:SetHealth(math.Clamp((ply:Health() or old_max_health) + health_bonus, 1, new_max_health))
+	end
+
+	local org = ply.organism
+	local stamina = org and org.stamina
+	if stamina and stamina_bonus > 0 then
+		local old_stamina_max = math.max(stamina.max or stamina.range or MODE.BaseProfessionStamina or 180, 1)
+		local old_stamina_range = math.max(stamina.range or old_stamina_max, 1)
+		local new_stamina_max = math.max(old_stamina_max, old_stamina_range) + stamina_bonus
+
+		stamina.range = new_stamina_max
+		stamina.max = new_stamina_max
+		stamina[1] = math.Clamp((stamina[1] or old_stamina_max) + stamina_bonus, 0, new_stamina_max)
+	end
 end
 
 local function HMCDSanitizeProfessionToken(text)
@@ -2439,9 +2470,12 @@ function MODE.SpawnPlayers(spawn_with_subroles)
             end
 
             local sub_role = nil
+			current_ply.HMCD_RandomTraitorRoleBonus = nil
             if(spawn_with_subroles and MODE.RoleChooseRoundTypes[MODE.Type])then
                 if(current_ply.isTraitor)then
-					sub_role = HMCDResolvePlayerTraitorSubRole(current_ply, MODE.Type)
+					local random_traitor_role
+					sub_role, random_traitor_role = HMCDResolvePlayerTraitorSubRole(current_ply, MODE.Type)
+					current_ply.HMCD_RandomTraitorRoleBonus = random_traitor_role and true or nil
                 end
 
                 if(current_ply.isGunner)then
@@ -2502,6 +2536,8 @@ function MODE.SpawnPlayers(spawn_with_subroles)
 			if(current_ply.MainTraitor and MODE.IsJuggernautRole and MODE.IsJuggernautRole(current_ply.SubRole) and MODE.ApplyJuggernautStats)then
 				MODE.ApplyJuggernautStats(current_ply)
 			end
+
+			HMCDApplyRandomTraitorRoleBonus(current_ply)
 
 			if(IsValid(hands))then
 				current_ply:SetActiveWeapon(hands)
