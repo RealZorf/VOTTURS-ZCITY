@@ -559,7 +559,7 @@ hook.Add("Think", "Fake", function()
 				angl:RotateAroundAxis(angl:Up(), 90)
 				angl:RotateAroundAxis(angl:Forward(), ishgweapon(wep) and not wep:IsPistolHoldType() and 120 or 180)
 				angl:RotateAroundAxis(angl:Up(), ishgweapon(wep) and wep:IsResting() and 50 - ply:EyeAngles().p or 0)
-				shadowControl(ragdoll, 1, 0.1, angl, (ply:KeyDown(IN_ATTACK) or ply:KeyDown(IN_ATTACK2)) and 20 or 80, 20)
+				shadowControl(ragdoll, 1, 0.1, angl, 80, 20)
 			end
 
 			if org.canmovehead then
@@ -639,8 +639,8 @@ hook.Add("Think", "Fake", function()
 						shadowControl(ragdoll, 3, 0.002, ang2, forceArm * force, forceArm_dump)
 						shadowControl(ragdoll, 4, 0.002, ang2, forceArm * force, forceArm_dump)
 						ang2:RotateAroundAxis(ang2:Forward(), 135)
-						ang2:RotateAroundAxis(ang2:Up(), 60)
-						shadowControl(ragdoll, 5, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,5)):GetPos() + ang2:Forward() * 5 + angles:Right() * 10 + angles:Up() * 15, 50, 10)
+						ang2:RotateAroundAxis(ang2:Up(), 20)
+						shadowControl(ragdoll, 5, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,5)):GetPos() + ang2:Forward() * 15 + ((vellen > 150 and ragdoll:GetPhysicsObject():GetVelocity() / 224) or vector_zero), 500, 50)
 						if ply:WaterLevel() == 1 then shadowControl(ragdoll, 1, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,5)):GetPos(), 5, 0) end
 					/*else
 						ang2:Set(angles)
@@ -756,9 +756,9 @@ hook.Add("Think", "Fake", function()
 						--end
 
 						ang2:RotateAroundAxis(ang2:Forward(), 135)
-						ang2:RotateAroundAxis(ang2:Up(), ishgweapon(wep) and 1 or 60)
+						ang2:RotateAroundAxis(ang2:Up(), ishgweapon(wep) and 1 or 20)
 						ang2:RotateAroundAxis(ang2:Forward(), ishgweapon(wep) and 120 or 0)
-						shadowControl(ragdoll, 7, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + ang2:Forward() * 5 + angles:Right() * -10 + angles:Up() * 15, ishgweapon(wep) and 50 or 50, ishgweapon(wep) and 10 or 10)
+						shadowControl(ragdoll, 7, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + ang2:Forward() * 15 + ((vellen > 150 and ragdoll:GetPhysicsObject():GetVelocity() / 224) or vector_zero), ishgweapon(wep) and 500 or 500, ishgweapon(wep) and 50 or 50)
 						if ply:WaterLevel() == 1 then shadowControl(ragdoll, 1, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(7):GetPos(), 5, 0) end
 					/*else
 						ang2:Set(angles)
@@ -975,7 +975,7 @@ hook.Add("Think", "Fake", function()
 		else
 			if ply:KeyDown(IN_ATTACK2) and org.canmove then
 				if wep.RagdollFunc then
-					wep:RagdollFunc(ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + angles:Forward() * 15, angles, ragdoll)
+					wep:RagdollFunc(ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + angles:Forward() * 15 + ((vellen > 150 and ragdoll:GetPhysicsObject():GetVelocity() / 224) or vector_zero), angles, ragdoll)
 				end
 			end
 		end
