@@ -637,6 +637,7 @@ if SERVER then
 		if done then
 			self:RefreshPerfusionTreatment(ent, bandaged and 0.25 or 0.12)
 			owner:EmitSound("snd_jack_hmcd_bandage.wav", 60, math.random(95, 105))
+			hook.Run("ZB_PlayerBandaged", owner, ent, self, bone, bandaged)
 
 			if self.poisoned2 then
 				org.poison4 = CurTime()

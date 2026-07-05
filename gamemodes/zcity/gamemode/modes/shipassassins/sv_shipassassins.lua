@@ -5,9 +5,14 @@ util.AddNetworkString("ShipAssassins_RoundStart")
 util.AddNetworkString("ShipAssassins_RoundEnd")
 util.AddNetworkString("ShipAssassins_Buy")
 util.AddNetworkString("ShipAssassins_CashHint")
+util.AddNetworkString("ShipAssassins_TimerSync")
+util.AddNetworkString("ShipAssassins_ObjectiveSync")
+util.AddNetworkString("ShipAssassins_ObjectiveComplete")
+util.AddNetworkString("ShipAssassins_ShopSync")
 
 local nextDisplaySyncThink = 0
 local nextAssignmentEnsureThink = 0
+local nextTimerSyncThink = 0
 
 local function isActiveAssassin(ply)
 	return IsValid(ply)
@@ -25,10 +30,44 @@ local contractWarningLines = {
 	"[Assassin's Greed] Personally killing your target pays $250. Press F3 to open the buy menu."
 }
 
-local shopItemMap = {}
-for _, item in ipairs(MODE.ShopItems or {}) do
-	shopItemMap[item.id] = item
+local sideObjectivePool = {
+	{
+		id = "search_containers",
+		label = "Search 3 containers",
+		goal = 3,
+		reward = 150
+	},
+	{
+		id = "search_dead_body",
+		label = "Search a dead body",
+		goal = 1,
+		reward = 175
+	},
+	{
+		id = "witness_death",
+		label = "Witness someone die",
+		goal = 1,
+		reward = 125
+	},
+	{
+		id = "bandage_someone",
+		label = "Bandage someone",
+		goal = 1,
+		reward = 175
+	}
+}
+
+local function buildShopItemMap()
+	local map = {}
+
+	for _, item in ipairs(MODE:GetAllShopItems()) do
+		map[item.id] = item
+	end
+
+	return map
 end
+
+local shopItemMap = buildShopItemMap()
 
 local function shufflePlayers(players)
 	for i = #players, 2, -1 do
@@ -87,6 +126,12 @@ function MODE:GetContractStateTable()
 	return self.saved.ContractState
 end
 
+function MODE:GetSideObjectiveTable()
+	self.saved.SideObjectives = self.saved.SideObjectives or {}
+
+	return self.saved.SideObjectives
+end
+
 function MODE:GetMoney(ply)
 	if not IsValid(ply) then return 0 end
 
@@ -119,6 +164,199 @@ function MODE:AddMoney(ply, amount)
 	return newAmount
 end
 
+function MODE:RollShopItems()
+	self.saved.ShopItems = {}
+
+	for _, category in ipairs(self.ShopCategories or {}) do
+		local pool = self.ShopItemPools and self.ShopItemPools[category.id]
+		if not istable(pool) or #pool == 0 then continue end
+
+		local item = table.Copy(pool[math.random(#pool)])
+		item.category = category.id
+		item.categoryName = category.label
+		self.saved.ShopItems[#self.saved.ShopItems + 1] = item
+	end
+end
+
+function MODE:GetRolledShopItems()
+	if not istable(self.saved.ShopItems) or #self.saved.ShopItems == 0 then
+		self:RollShopItems()
+	end
+
+	return self.saved.ShopItems
+end
+
+function MODE:GetRolledShopItem(itemId)
+	for _, item in ipairs(self:GetRolledShopItems()) do
+		if item.id == itemId then
+			return item
+		end
+	end
+end
+
+function MODE:SendShopItems(ply)
+	if not IsValid(ply) then return end
+
+	local items = self:GetRolledShopItems()
+	net.Start("ShipAssassins_ShopSync")
+		net.WriteUInt(math.Clamp(#items, 0, 255), 8)
+		for _, item in ipairs(items) do
+			net.WriteString(item.category or "")
+			net.WriteString(item.categoryName or self:GetShopCategoryLabel(item.category))
+			net.WriteString(item.id or "")
+			net.WriteString(item.name or "")
+			net.WriteUInt(math.Clamp(item.price or 0, 0, 65535), 16)
+			net.WriteString(item.description or "")
+		end
+	net.Send(ply)
+end
+
+function MODE:SyncAllShopItems()
+	for _, ply in player.Iterator() do
+		self:SendShopItems(ply)
+	end
+end
+
+function MODE:GetSideObjectiveState(ply)
+	if not IsValid(ply) then return nil end
+
+	return self:GetSideObjectiveTable()[ply]
+end
+
+function MODE:SendSideObjective(ply)
+	if not IsValid(ply) then return end
+
+	local objective = self:GetSideObjectiveState(ply)
+
+	net.Start("ShipAssassins_ObjectiveSync")
+		net.WriteBool(istable(objective))
+		if istable(objective) then
+			net.WriteString(objective.id or "")
+			net.WriteString(objective.label or "")
+			net.WriteUInt(math.Clamp(objective.progress or 0, 0, 255), 8)
+			net.WriteUInt(math.Clamp(objective.goal or 1, 1, 255), 8)
+			net.WriteUInt(math.Clamp(objective.reward or 0, 0, 65535), 16)
+		end
+	net.Send(ply)
+end
+
+function MODE:SyncAllSideObjectives()
+	for _, ply in player.Iterator() do
+		self:SendSideObjective(ply)
+	end
+end
+
+function MODE:AssignSideObjective(ply, notify)
+	if not isActiveAssassin(ply) then return end
+
+	local objective = table.Copy(sideObjectivePool[math.random(#sideObjectivePool)])
+	if ply.ShipAssassinsLastObjective and #sideObjectivePool > 1 then
+		for _ = 1, 4 do
+			if objective.id ~= ply.ShipAssassinsLastObjective then break end
+			objective = table.Copy(sideObjectivePool[math.random(#sideObjectivePool)])
+		end
+	end
+
+	objective.progress = 0
+	objective.unique = {}
+	ply.ShipAssassinsLastObjective = objective.id
+	self:GetSideObjectiveTable()[ply] = objective
+	self:SendSideObjective(ply)
+
+	if notify then
+		ply:ChatPrint("New side objective: " .. objective.label .. " | Reward: $" .. tostring(objective.reward or 0))
+	end
+end
+
+function MODE:ClearSideObjective(ply)
+	if IsValid(ply) then
+		self:GetSideObjectiveTable()[ply] = nil
+		self:SendSideObjective(ply)
+		return
+	end
+
+	self.saved.SideObjectives = {}
+end
+
+function MODE:AdvanceSideObjective(ply, objectiveId, amount, uniqueKey)
+	if not isActiveAssassin(ply) then return false end
+
+	local objective = self:GetSideObjectiveState(ply)
+	if not objective or objective.id ~= objectiveId then return false end
+
+	if uniqueKey then
+		objective.unique = objective.unique or {}
+		if objective.unique[uniqueKey] then return false end
+		objective.unique[uniqueKey] = true
+	end
+
+	objective.progress = math.Clamp((objective.progress or 0) + math.max(amount or 1, 1), 0, objective.goal or 1)
+
+	if objective.progress < (objective.goal or 1) then
+		self:SendSideObjective(ply)
+		return true
+	end
+
+	local reward = math.max(math.floor(objective.reward or 0), 0)
+	local label = objective.label or "Side objective"
+	local newBalance = self:AddMoney(ply, reward)
+
+	net.Start("ShipAssassins_ObjectiveComplete")
+		net.WriteString(label)
+		net.WriteUInt(math.Clamp(reward, 0, 65535), 16)
+		net.WriteUInt(math.Clamp(newBalance, 0, 65535), 16)
+	net.Send(ply)
+
+	ply:ChatPrint("Side objective complete: " .. label .. " | Reward: $" .. tostring(reward) .. " | Balance: $" .. tostring(newBalance))
+	self:AssignSideObjective(ply, true)
+	return true
+end
+
+function MODE:IsLootContainer(ent)
+	if not IsValid(ent) or ent:IsPlayer() or ent:IsRagdoll() then return false end
+	if ent:GetClass() == "zbox_lootbox" then return true end
+	if hg and hg.GetLootBoxData and hg.GetLootBoxData(ent) then return true end
+
+	local inv = ent:GetNetVar("Inventory")
+	if not istable(inv) then return false end
+
+	local model = string.lower(ent:GetModel() or "")
+	return string.find(model, "box", 1, true) ~= nil
+		or string.find(model, "crate", 1, true) ~= nil
+		or string.find(model, "locker", 1, true) ~= nil
+end
+
+function MODE:IsDeadBodyInventory(ent)
+	if not IsValid(ent) then return false end
+	if ent:IsPlayer() then return not ent:Alive() end
+	if not ent:IsRagdoll() then return false end
+
+	local owner = hg and hg.RagdollOwner and hg.RagdollOwner(ent) or ent:GetNWEntity("ply", NULL)
+	if IsValid(owner) and owner:IsPlayer() then
+		return not owner:Alive() or owner:GetNWEntity("RagdollDeath", NULL) == ent
+	end
+
+	return ent:GetNetVar("Inventory") ~= nil
+end
+
+function MODE:PlayerWitnessedDeath(witness, victim)
+	if not isActiveAssassin(witness) or witness == victim then return false end
+	if not IsValid(victim) then return false end
+
+	local victimPos = victim:GetPos() + Vector(0, 0, 36)
+	local eyePos = witness:EyePos()
+	if eyePos:DistToSqr(victimPos) > 1200 * 1200 then return false end
+
+	local trace = util.TraceLine({
+		start = eyePos,
+		endpos = victimPos,
+		filter = {witness, victim},
+		mask = MASK_VISIBLE
+	})
+
+	return not trace.Hit or trace.Fraction > 0.96
+end
+
 function MODE:CanUseShop(ply)
 	return IsValid(ply)
 		and ply:IsPlayer()
@@ -138,10 +376,11 @@ function MODE:GivePurchasedWeapon(ply, item)
 		return false, "Item could not be given."
 	end
 
-	if item.class == "weapon_makarov" then
-		local ammoType = wep:GetPrimaryAmmoType()
-		if ammoType and ammoType >= 0 and wep.Primary and wep.Primary.DefaultClip then
-			ply:GiveAmmo(math.max(wep.Primary.DefaultClip, 0), ammoType, true)
+	local ammoType = wep:GetPrimaryAmmoType()
+	if ammoType and ammoType >= 0 and wep.Primary then
+		local defaultClip = wep.Primary.DefaultClip or wep.Primary.ClipSize or 0
+		if defaultClip > 0 then
+			ply:GiveAmmo(math.max(defaultClip, 0), ammoType, true)
 		end
 	end
 
@@ -501,6 +740,7 @@ function MODE:SyncPlayerState(ply)
 	local subject = self:GetDisplaySubject(ply)
 	local target = self:GetVisibleTarget(subject)
 	local dossier = self:BuildTargetDossier(target)
+	local hunter = IsValid(subject) and subject.ShipHunter or nil
 	local subjectName = IsValid(subject) and subject:Name() or ""
 	local spectatingOther = IsValid(subject) and subject ~= ply
 	local contractRemaining = math.ceil(self:GetContractRemaining(subject))
@@ -508,7 +748,7 @@ function MODE:SyncPlayerState(ply)
 
 	net.Start("ShipAssassins_Sync")
 		net.WriteEntity(target or NULL)
-		net.WriteEntity(IsValid(ply.ShipHunter) and ply.ShipHunter or NULL)
+		net.WriteEntity(IsValid(hunter) and hunter or NULL)
 		net.WriteBool(dossier ~= nil)
 		if dossier then
 			net.WriteTable(dossier)
@@ -522,9 +762,28 @@ function MODE:SyncPlayerState(ply)
 	net.Send(ply)
 end
 
+function MODE:SyncPlayerTimers(ply)
+	if not IsValid(ply) then return end
+
+	local subject = self:GetDisplaySubject(ply)
+	local contractRemaining = math.ceil(self:GetContractRemaining(subject))
+	local graceRemaining = math.ceil(self:GetGraceRemaining(subject))
+
+	net.Start("ShipAssassins_TimerSync")
+		net.WriteUInt(math.Clamp(contractRemaining, 0, 65535), 16)
+		net.WriteUInt(math.Clamp(graceRemaining, 0, 65535), 16)
+	net.Send(ply)
+end
+
 function MODE:SyncAllPlayers()
 	for _, ply in player.Iterator() do
 		self:SyncPlayerState(ply)
+	end
+end
+
+function MODE:SyncAllPlayerTimers()
+	for _, ply in player.Iterator() do
+		self:SyncPlayerTimers(ply)
 	end
 end
 
@@ -551,10 +810,13 @@ function MODE:AssignTargets()
 
 	for _, ply in ipairs(self:GetOrder()) do
 		self:ActivateContractForPlayer(ply, false)
+		self:AssignSideObjective(ply, false)
 	end
 
 	self:SendRoundStartInfo()
+	self:SyncAllShopItems()
 	self:SyncAllPlayers()
+	self:SyncAllSideObjectives()
 end
 
 function MODE:RemoveFromOrder(victim)
@@ -637,6 +899,7 @@ function MODE:OnAssassinRemoved(victim, attacker)
 	self:RemoveFromOrder(victim)
 	self:ClearTargetState(victim)
 	self:ClearContractState(victim)
+	self:ClearSideObjective(victim)
 
 	self:BuildAssignmentsFromOrder()
 	self:SyncAllPlayers()
@@ -695,6 +958,7 @@ function MODE:Intermission()
 	self.saved.Kills = {}
 	self.saved.IllegalHarm = {}
 	self.saved.ContractState = {}
+	self.saved.SideObjectives = {}
 	self.saved.Winner = nil
 
 	for _, ply in player.Iterator() do
@@ -710,6 +974,7 @@ function MODE:Intermission()
 		self:RestoreRealIdentity(ply)
 		ply.ShipIllegalSlayQueued = nil
 		self:ClearTargetState(ply)
+		self:ClearSideObjective(ply)
 	end
 end
 
@@ -720,6 +985,10 @@ function MODE:RoundStart()
 	self.saved.IllegalHarm = {}
 	self.saved.ContractState = {}
 	self.saved.DisplaySync = {}
+	self.saved.TimerSync = {}
+	self.saved.SideObjectives = {}
+	self.saved.ShopItems = {}
+	self:RollShopItems()
 
 	self:SpawnPlayers()
 end
@@ -767,6 +1036,7 @@ function MODE:EndRound()
 		self:SetMoney(ply, self.StartMoney or 0)
 		self:ClearTargetState(ply)
 		self:ClearContractState(ply)
+		self:ClearSideObjective(ply)
 	end
 end
 
@@ -775,9 +1045,17 @@ function MODE:PlayerDeath(victim, inflictor, attacker)
 	if not IsValid(victim) or victim:Team() == TEAM_SPECTATOR then return end
 
 	self:RewardTargetDeath(victim, attacker, inflictor)
+
+	for _, witness in player.Iterator() do
+		if self:PlayerWitnessedDeath(witness, victim) then
+			self:AdvanceSideObjective(witness, "witness_death")
+		end
+	end
+
 	self:RestoreRealIdentity(victim)
 	self:ResetIllegalHarm(victim)
 	self:ClearContractState(victim)
+	self:ClearSideObjective(victim)
 	victim.ShipIllegalSlayQueued = nil
 
 	timer.Simple(0, function()
@@ -793,6 +1071,7 @@ function MODE:PlayerDisconnected(ply)
 	self:RestoreRealIdentity(ply)
 	self:ResetIllegalHarm(ply)
 	self:ClearContractState(ply)
+	self:ClearSideObjective(ply)
 
 	self:OnAssassinRemoved(ply, NULL)
 end
@@ -874,8 +1153,7 @@ hook.Add("Think", "ShipAssassins_DisplaySync", function()
 			IsValid(observedTarget) and observedTarget:EntIndex() or 0,
 			ply:Alive() and 1 or 0,
 			#round:GetOrder(),
-			math.ceil(round:GetContractRemaining(subject)),
-			math.ceil(round:GetGraceRemaining(subject))
+			IsValid(subject) and subject:Name() or ""
 		}, ":")
 
 		if round.saved.DisplaySync[ply] ~= signature then
@@ -883,6 +1161,54 @@ hook.Add("Think", "ShipAssassins_DisplaySync", function()
 			round:SyncPlayerState(ply)
 		end
 	end
+end)
+
+hook.Add("Think", "ShipAssassins_TimerSync", function()
+	local round = CurrentRound and CurrentRound()
+	if round ~= MODE or zb.ROUND_STATE ~= 1 then return end
+	if nextTimerSyncThink > CurTime() then return end
+
+	nextTimerSyncThink = CurTime() + 1
+	round.saved.TimerSync = round.saved.TimerSync or {}
+
+	for _, ply in player.Iterator() do
+		local subject = round:GetDisplaySubject(ply)
+		local contractRemaining = math.ceil(round:GetContractRemaining(subject))
+		local graceRemaining = math.ceil(round:GetGraceRemaining(subject))
+		local signature = table.concat({
+			IsValid(subject) and subject:EntIndex() or 0,
+			contractRemaining,
+			graceRemaining
+		}, ":")
+
+		if round.saved.TimerSync[ply] ~= signature then
+			round.saved.TimerSync[ply] = signature
+			round:SyncPlayerTimers(ply)
+		end
+	end
+end)
+
+hook.Add("ZB_InventoryOpened", "ShipAssassins_SideObjectives_Inventory", function(ply, ent)
+	local round = CurrentRound and CurrentRound()
+	if round ~= MODE or zb.ROUND_STATE ~= 1 then return end
+	if not isActiveAssassin(ply) or not IsValid(ent) then return end
+
+	if round:IsLootContainer(ent) then
+		round:AdvanceSideObjective(ply, "search_containers", 1, "container:" .. ent:EntIndex())
+	elseif round:IsDeadBodyInventory(ent) then
+		round:AdvanceSideObjective(ply, "search_dead_body", 1, "body:" .. ent:EntIndex())
+	end
+end)
+
+hook.Add("ZB_PlayerBandaged", "ShipAssassins_SideObjectives_Bandage", function(healer, patient)
+	local round = CurrentRound and CurrentRound()
+	if round ~= MODE or zb.ROUND_STATE ~= 1 then return end
+	if not isActiveAssassin(healer) then return end
+
+	patient = hg and hg.RagdollOwner and hg.RagdollOwner(patient) or patient
+	if not IsValid(patient) or patient == healer then return end
+
+	round:AdvanceSideObjective(healer, "bandage_someone")
 end)
 
 hook.Add("HomigradDamage", "ShipAssassins_IllegalDamageRaw", function(victim, dmgInfo, hitgroup, ent, harm)
@@ -905,8 +1231,11 @@ net.Receive("ShipAssassins_Buy", function(_, ply)
 	if not round:CanUseShop(ply) then return end
 
 	local itemId = net.ReadString()
-	local item = shopItemMap[itemId]
-	if not item then return end
+	local item = round:GetRolledShopItem(itemId)
+	if not item or not shopItemMap[itemId] then
+		ply:ChatPrint("That black market item is not available this round.")
+		return
+	end
 
 	local currentMoney = round:GetMoney(ply)
 	if currentMoney < item.price then
