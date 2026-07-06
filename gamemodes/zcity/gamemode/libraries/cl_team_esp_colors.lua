@@ -93,10 +93,10 @@ TeamESP.ColorsByMode = {
 		[1] = Color(0, 200, 220),
 		[2] = Color(110, 220, 120),
 	},
-	activeshooter = {
+	overstimulated = {
 		[0] = Color(68, 10, 255),
-		[1] = Color(0, 190, 190),
-		[2] = Color(255, 0, 0),
+		[1] = Color(255, 255, 255),
+		[2] = Color(228, 49, 49),
 	},
 	ww2 = {
 		[0] = Color(180, 150, 110),

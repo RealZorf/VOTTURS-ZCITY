@@ -1,6 +1,14 @@
 local MODE = MODE
 MODE.name = "overstimulated"
 
+surface.CreateFont("ZCity_Veteran", {
+	font = "Veteran Typewriter",
+	size = ScreenScaleH(18),
+	weight = 500,
+	antialias = true,
+	extended = true
+})
+
 local roles = {
 	[0] = {
 		objective = "Hold your line and neutralize the threat.",

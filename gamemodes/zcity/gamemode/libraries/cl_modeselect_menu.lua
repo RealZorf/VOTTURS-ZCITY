@@ -292,7 +292,7 @@ if CLIENT then
         end
         
         local allowedModes = {
-            ["activeshooter"] = true,
+            ["overstimulated"] = true,
             ["assassinsgreed"] = true,
             ["coop"] = true,
             ["criresp"] = true,
