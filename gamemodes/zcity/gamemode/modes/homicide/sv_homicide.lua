@@ -1903,34 +1903,37 @@ end
 MODE.TraitorKilledRoundEndDelay = MODE.TraitorKilledRoundEndDelay or 15
 MODE.TraitorNeutralizationStart = MODE.TraitorNeutralizationStart or nil
 
-local function HMCDTraitorIsNeutralized(ply)
-	if not ply:Alive() then return true end
-	if ply:GetNetVar("handcuffed", false) then return true end
-	return not zb:CanActivelyParticipate(ply)
+local function HMCDTraitorAliveNeutralized(ply)
+	return ply:Alive()
+		and (ply:GetNetVar("handcuffed", false) or not zb:CanActivelyParticipate(ply))
 end
 
 function MODE:TraitorNeutralizedDelayActive()
-	local totalTraitorCount = 0
-	local neutralizedTraitorCount = 0
+	local latest = nil
 
 	for _, ply in player.Iterator() do
 		if not ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
 
-		totalTraitorCount = totalTraitorCount + 1
+		if ply:Alive() and not ply:GetNetVar("handcuffed", false) and zb:CanActivelyParticipate(ply) then
+			self.TraitorNeutralizationStart = nil
+			return false
+		end
 
-		if HMCDTraitorIsNeutralized(ply) then
-			neutralizedTraitorCount = neutralizedTraitorCount + 1
+		if HMCDTraitorAliveNeutralized(ply) then
+			ply.HMCD_TraitorNeutralizedAt = ply.HMCD_TraitorNeutralizedAt or CurTime()
+			latest = math.max(latest or 0, ply.HMCD_TraitorNeutralizedAt)
+		else
+			ply.HMCD_TraitorNeutralizedAt = nil
 		end
 	end
 
-	if totalTraitorCount == 0 or neutralizedTraitorCount < totalTraitorCount then
-		MODE.TraitorNeutralizationStart = nil
+	if not latest then
+		self.TraitorNeutralizationStart = nil
 		return false
 	end
 
-	MODE.TraitorNeutralizationStart = MODE.TraitorNeutralizationStart or CurTime()
-
-	return (CurTime() - MODE.TraitorNeutralizationStart) < self.TraitorKilledRoundEndDelay
+	self.TraitorNeutralizationStart = latest
+	return (CurTime() - latest) < self.TraitorKilledRoundEndDelay
 end
 
 function MODE:ShouldRoundEnd()
@@ -1967,7 +1970,11 @@ function MODE:RoundStart()
 	
 
 	self.roundStartType = self.Type
-	self.LastTraitorNeutralizedTime = nil
+	MODE.TraitorNeutralizationStart = nil
+
+	for _, ply in player.Iterator() do
+		ply.HMCD_TraitorNeutralizedAt = nil
+	end
 	
 
 	self.deadPoliceCount = 0
