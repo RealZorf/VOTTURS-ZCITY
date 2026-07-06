@@ -9,6 +9,13 @@ surface.CreateFont("ZCity_Veteran", {
 	extended = true
 })
 
+surface.CreateFont("ZC_MM_Title", {
+    font = "JMH Typewriter",
+    size = ScreenScaleH(40),
+    weight = 800,
+    antialias = true
+})
+
 local roles = {
 	[0] = {
 		objective = "Hold your line and neutralize the threat.",
