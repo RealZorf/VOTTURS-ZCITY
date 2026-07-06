@@ -232,17 +232,13 @@ function MODE:Intermission()
 end
 
 function MODE:ShouldRoundEnd()
-	local aliveActiveCount = #zb:CheckAlive(true)
+	local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 
-	if aliveActiveCount ~= 0 then
-		return
-	end
-
-	if MODE:TraitorNeutralizedDelayActive() then
+	if endround and winner == 0 and self:RoundHasTraitors() and self:TraitorNeutralizedDelayActive() then
 		return false
 	end
 
-	return true
+	return endround
 end
 
 function MODE:EndRound()

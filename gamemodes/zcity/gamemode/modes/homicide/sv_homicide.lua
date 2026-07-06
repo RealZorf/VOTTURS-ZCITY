@@ -1903,18 +1903,45 @@ end
 MODE.TraitorKilledRoundEndDelay = MODE.TraitorKilledRoundEndDelay or 15
 MODE.TraitorNeutralizationStart = MODE.TraitorNeutralizationStart or nil
 
+local function HMCDTraitorIsDeadForRound(ply)
+	if not ply:Alive() then return true end
+
+	local org = ply.organism
+	if org and org.alive == false then return true end
+
+	return false
+end
+
 local function HMCDTraitorAliveNeutralized(ply)
-	return ply:Alive()
-		and (ply:GetNetVar("handcuffed", false) or not zb:CanActivelyParticipate(ply))
+	if HMCDTraitorIsDeadForRound(ply) then return false end
+
+	return ply:GetNetVar("handcuffed", false) or not zb:CanActivelyParticipate(ply)
+end
+
+function MODE:RoundHasTraitors()
+	for _, ply in player.Iterator() do
+		if ply.isTraitor and ply:Team() ~= TEAM_SPECTATOR then
+			return true
+		end
+	end
+
+	return false
 end
 
 function MODE:TraitorNeutralizedDelayActive()
+	if not self:RoundHasTraitors() then
+		self.TraitorNeutralizationStart = nil
+		return false
+	end
+
 	local latest = nil
 
 	for _, ply in player.Iterator() do
 		if not ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
 
-		if ply:Alive() and not ply:GetNetVar("handcuffed", false) and zb:CanActivelyParticipate(ply) then
+		if not HMCDTraitorIsDeadForRound(ply)
+			and not ply:GetNetVar("handcuffed", false)
+			and zb:CanActivelyParticipate(ply) then
 			self.TraitorNeutralizationStart = nil
 			return false
 		end
@@ -1950,7 +1977,7 @@ function MODE:ShouldRoundEnd()
 	else
 		local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 
-		if endround and winner == 0 and self:TraitorNeutralizedDelayActive() then
+		if endround and winner == 0 and self:RoundHasTraitors() and self:TraitorNeutralizedDelayActive() then
 			return false
 		end
 
