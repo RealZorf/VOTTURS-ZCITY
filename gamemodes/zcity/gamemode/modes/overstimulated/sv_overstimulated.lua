@@ -5,7 +5,7 @@ MODE.PrintName = "Overstimulated"
 MODE.ForBigMaps = false
 MODE.ROUND_TIME = 900
 MODE.LootSpawn = true
-MODE.Chance = 0
+MODE.Chance = 0.1
 
 local START_SCREEN_DELAY = 10
 local SHOOTER_COUNTDOWN_DELAY = 60
