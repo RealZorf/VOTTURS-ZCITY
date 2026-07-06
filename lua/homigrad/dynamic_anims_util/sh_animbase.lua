@@ -193,6 +193,33 @@ hook.Add("DoAnimationEvent", "DoAnimationEvent_ix", function(client, event, data
 	return ACT_INVALID
 end)
 
+hook.Add("EntityRemoved", "EntityRemoved_ix", function(entity)
+	if entity:IsWeapon() then
+		local owner = entity:GetOwner()
+		if isPlayerAnim(owner) then return end
+		if IsValid(owner) and owner:IsPlayer() then
+			hook.Run("PlayerWeaponChanged", owner, owner:GetActiveWeapon())
+		end
+	end
+end)
+
+local function UpdateAnimationTable(client, vehicle)
+	if isPlayerAnim(client) then return end
+	local baseTable = hg.IXAnims[client.ixAnimModelClass] or {}
+	if IsValid(client) and IsValid(vehicle) then
+		local vehicleClass = vehicle:IsChair() and "chair" or vehicle:GetClass()
+		if baseTable.vehicle and baseTable.vehicle[vehicleClass] then
+			client.ixAnimTable = baseTable.vehicle[vehicleClass]
+		else
+			client.ixAnimTable = baseTable.normal[ACT_MP_CROUCH_IDLE]
+		end
+	else
+		client.ixAnimTable = baseTable[client.ixAnimHoldType]
+	end
+
+	client.ixAnimGlide = baseTable["glide"]
+end
+
 hook.Add("PlayerSwitchWeapon", "PlayerSwitchWeapon_ix", function(client, oldWeapon, weapon)
 	if IsValid(client) and not isPlayerAnim(client) then
 		client.ixAnimModelClass = hg.IXAnims.GetModelClass(client:GetModel())
@@ -225,20 +252,16 @@ do
 		client:SetPoseParameter("move_yaw", normalizeAngle(vectorAngle(velocity)[2] - client:EyeAngles()[2]))
 		local sequenceOverride = clientInfo.CalcSeqOverride
 		clientInfo.CalcSeqOverride = -1
-		if hg.KeyDown(client, IN_DUCK) and client:OnGround() and client:WaterLevel() < 2 and client:GetMoveType() == MOVETYPE_WALK and client.OldCrouched == client.NowCrouched then
-			clientInfo.CalcIdeal = ACT_MP_CROUCH_IDLE
-			if velocity:Length2DSqr() > 0.25 then
-				clientInfo.CalcIdeal = ACT_MP_CROUCHWALK
-			end
+		clientInfo.CalcIdeal = ACT_MP_STAND_IDLE
+		if not GAMEMODE then return end
+		local BaseClass = GAMEMODE.BaseClass
+		if BaseClass:HandlePlayerNoClipping(client, velocity) or BaseClass:HandlePlayerDriving(client) or BaseClass:HandlePlayerVaulting(client, velocity) or BaseClass:HandlePlayerJumping(client, velocity) or BaseClass:HandlePlayerSwimming(client, velocity) or BaseClass:HandlePlayerDucking(client, velocity) then
 		else
-			clientInfo.CalcIdeal = ACT_MP_STAND_IDLE
-			if client:OnGround() then
-				local length = velocity:Length2DSqr()
-				if length > 22500 then
-					clientInfo.CalcIdeal = ACT_MP_RUN
-				elseif length > 0.25 then
-					clientInfo.CalcIdeal = ACT_MP_WALK
-				end
+			local length = velocity:Length2DSqr()
+			if length > 22500 then
+				clientInfo.CalcIdeal = ACT_MP_RUN
+			elseif length > 0.25 then
+				clientInfo.CalcIdeal = ACT_MP_WALK
 			end
 		end
 
@@ -643,9 +666,6 @@ function hg.IXAnims.GetModelClass(model)
 	local class = translations[model]
 	if not class and string.find(model, "/player") then return "player" end
 	class = class or "citizen_male"
-	if class == "citizen_male" and (string.find(model, "female") or string.find(model, "alyx") or string.find(model, "mossman")) then
-		class = "citizen_female"
-	end
-
+	if class == "citizen_male" and (string.find(model, "female") or string.find(model, "alyx") or string.find(model, "mossman")) then class = "citizen_female" end
 	return class
 end

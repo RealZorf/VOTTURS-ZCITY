@@ -38,6 +38,9 @@ local IsValid = IsValid
 local hg_fov = ConVarExists("hg_fov") and GetConVar("hg_fov") or CreateClientConVar("hg_fov", "70", true, false, "Change first-person field of view", 75, 100)
 local hg_realismcam = ConVarExists("hg_realismcam") and GetConVar("hg_realismcam") or CreateClientConVar("hg_realismcam", "0", true, false, "Toggle realism first-person camera view", 0, 1)
 local hg_gopro = ConVarExists("hg_gopro") and GetConVar("hg_gopro") or CreateClientConVar("hg_gopro", "0", true, false, "Toggle GoPro-like first-person camera view", 0, 1)
+local hg_gopro_x = CreateClientConVar("hg_gopro_x", "0", true, false, "GoPro camera X setting", -10, 10)
+local hg_gopro_y = CreateClientConVar("hg_gopro_y", "0", true, false, "GoPro camera Y setting", -10, 10)
+local hg_gopro_z = CreateClientConVar("hg_gopro_z", "0", true, false, "GoPro camera Z setting", -10, 10)
 
 local function SetLocalFirstPersonHeadHidden(ply, hidden)
 	if not IsValid(ply) or ply ~= LocalPlayer() or not ply.LookupBone then return end
@@ -407,14 +410,25 @@ hook.Add("HUDPaint", "HUDPaint_DrawABox", function() --this code is older than y
 	end
 end)
 
-function SpecCam(ply, vec, ang, fov, znear, zfar)
+local hg_allow_gopro = GetConVar("hg_allow_gopro")
+local hg_allow_gopro_pos = GetConVar("hg_allow_gopro_pos")
+function GoProCam(ply, vec, ang, fov, znear, zfar)
 	if !ply:Alive() then return end
+	if not hg_allow_gopro:GetBool() then return end
+
 	--local hand = ply:GetAttachment(ply:LookupAttachment("anim_attachment_rh"))
 	local eye = getPreferredEyeAttachment(ply)
 	if not eye then return end
 	--local org = eye.Pos
 	local ang1 = eye.Ang + Angle(5, 2, 0)
-	local org1 = eye.Pos + eye.Ang:Up() * 6 + eye.Ang:Forward() * -3 + eye.Ang:Right() * 6.5
+
+	local x = hg_gopro_x:GetFloat()
+	local y = hg_gopro_y:GetFloat()
+	local z = hg_gopro_z:GetFloat()
+	local org1 = eye.Pos + (eye.Ang:Up() * 6) + (eye.Ang:Forward() * -3) + (eye.Ang:Right() * 6.5)
+	if hg_allow_gopro_pos and hg_allow_gopro_pos:GetBool() then
+		org1 = org1 + Vector(x, y, z)
+	end
 
 	local view = {
 		origin = org1,
@@ -622,7 +636,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 		return view
 	end
 
-	view.znear = 1 -- 3
+	view.znear = 1
 	view.zfar = zfar
 	view.fov = math.Clamp(hg_fov:GetFloat(),75,100) + fova[1] + lerpfovadd + lerpfovadd2
 	view.drawviewer = true--not hullcheck.Hit
@@ -661,13 +675,18 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 		return view
 	end--]]
 	if hg_gopro:GetBool() then
+		if not hg_allow_gopro:GetBool() then
+			RunConsoleCommand("hg_gopro", 0) -- i ain't gonna make over 9999 exceptions for hg_allow_gopro convar
+			return
+		end
+
 		local vpangs = GetAllViewPunchAngles()
 		local anglegopro = Angle(0, vpangs[1], -vpangs[2]) * 1--Angle(vpangs[2], -vpangs[1], vpangs[3])
 		anglegopro[2] = anglegopro[2] + math.sin(CurTime() * 2) * math.cos(CurTime() * 1) * 2
 		anglegopro[1] = anglegopro[1] + math.cos(CurTime() * 1) * math.sin(CurTime() * 1.25) * 3
 		
 		hg.bone.Set(ply, "head", vector_origin, anglegopro, "gopro")
-		return SpecCam(ply, origin, angles, fov, znear, zfa)
+		return GoProCam(ply, origin, angles, fov, znear, zfa)
 	end
 
 	if result == view then

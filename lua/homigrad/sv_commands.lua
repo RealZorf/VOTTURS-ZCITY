@@ -672,6 +672,7 @@ if SERVER then
 				Appearance.AColthes = ""
 				ply2:SetNetVar("Accessories", "")
 				ply2:SetModel(mdl)
+				ply2:SetBodyGroups("00000000")
 				ply2:SetSubMaterial()
 				ply2:SetPlayerColor(ply2:GetNWVector("PlayerColor", vector_origin))
 

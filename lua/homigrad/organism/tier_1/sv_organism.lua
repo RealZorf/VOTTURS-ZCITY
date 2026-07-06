@@ -1376,7 +1376,7 @@ end
 concommand.Add("hg_fixdislocation", function(ply, cmd, args)
 	local fixer = ply
 
-	if math.Round(tonumber(args[2])) == 1 then
+	if args and args[2] and math.Round(tonumber(args[2])) == 1 then
 		ply = hg.eyeTrace(fixer).Entity
 	end
 

@@ -66,7 +66,28 @@ local random_phrase = {
 	"Breathing feels oddly satisfying right now.",
 	"What if this quiet lasts forever?",
 	"Why isn't anything happening?",
+	"I can hear my own heartbeat...",
+	"The silence is almost deafening.",
+	"Time feels... different somehow.",
+	"Is anyone even out there?",
+	"How long have I been standing here?",
+	"The air tastes stale.",
+	"I don't remember how I got here.",
+	"Nothing ever changes, does it?",
+	"Am I awake right now?",
+	"The shadows seem deeper than usual.",
+	"My thoughts are so loud in this silence.",
+	"When did it get so dark?",
+	"I feel like I'm being watched.",
+	"Everything's exactly where it was before.",
+	"Does anyone know I'm here?",
+	"The walls feel closer somehow.",
+	"What was I thinking about?",
+	"Time moves so strangely here.",
+	"I can't remember the last time anything changed.",
+	"The quiet is starting to feel alive.",
 }
+
 
 local fear_hurt_ironic = {
 	"I bet there's a lesson in this... if I survive.",
@@ -75,6 +96,13 @@ local fear_hurt_ironic = {
 	"At least my life wasn't boring.",
 	"Note to self: Never do this again.",
 	"This isn't the worst day to die.",
+	"This is fine. Everything's fine.",
+	"At least I'll die knowing I was right.",
+	"Guess I'm getting what I deserved.",
+	"Well, I asked for an adventure.",
+	"They'll probably laugh at this funeral.",
+	"At least it'll make a good story... if anyone lives to hear it.",
+	"I've survived worse... probably.",
 }
 
 local fear_phrases = {
@@ -311,7 +339,7 @@ function hg.likely_to_phrase(ply)
 		or (temperature < 31 and 0.5)
 		or (temperature > 38 and 0.5)
 		or (blood < 3000 and 0.3)
-		--or (fear > 0.5 and 0.7)
+		or (fear > 0.5 and 0.7)
 		or (brain > 0.1 and brain * 5)
 		or (fear < -0.5 and 0.05)
 		or -0.1
@@ -345,6 +373,8 @@ local function get_status_message(ply)
 	local blood = org.blood
 	local hungry = org.hungry
 	local broken_dislocated = org.just_damaged_bone and ((org.just_damaged_bone + 3 - CurTime()) < -3)
+	local fear = org.fear
+	local adrenaline = org.adrenaline
 
 	if broken_dislocated and org.just_damaged_bone then
 		org.just_damaged_bone = nil
@@ -389,7 +419,11 @@ local function get_status_message(ply)
 			--elseif(broken_dislocated_notify)then
 				--most_wanted_phraselist = (broken_notify and broken_limb or dislocated_limb)
 			elseif(blood < 3100)then
-				most_wanted_phraselist = near_death_poetic
+				if adrenaline > 1.3 and fear < 0.5 then
+					most_wanted_phraselist = near_death_positive
+				else
+					most_wanted_phraselist = near_death_poetic
+				end
 			end
 		end
 	elseif after_unconscious_notify then
