@@ -1901,29 +1901,36 @@ end
 --//
 
 MODE.TraitorKilledRoundEndDelay = MODE.TraitorKilledRoundEndDelay or 15
+MODE.TraitorNeutralizationStart = MODE.TraitorNeutralizationStart or nil
+
+local function HMCDTraitorIsNeutralized(ply)
+	if not ply:Alive() then return true end
+	if ply:GetNetVar("handcuffed", false) then return true end
+	return not zb:CanActivelyParticipate(ply)
+end
 
 function MODE:TraitorNeutralizedDelayActive()
-	local aliveTraitorCount = 0
-	local incapTraitorCount = 0
+	local totalTraitorCount = 0
+	local neutralizedTraitorCount = 0
 
 	for _, ply in player.Iterator() do
-		if ply.isTraitor and ply:Alive() then
-			aliveTraitorCount = aliveTraitorCount + 1
+		if not ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
 
-			if not zb:CanActivelyParticipate(ply) then
-				incapTraitorCount = incapTraitorCount + 1
-			end
+		totalTraitorCount = totalTraitorCount + 1
+
+		if HMCDTraitorIsNeutralized(ply) then
+			neutralizedTraitorCount = neutralizedTraitorCount + 1
 		end
 	end
 
-	if aliveTraitorCount == 0 or incapTraitorCount < aliveTraitorCount then
-		self.LastTraitorNeutralizedTime = nil
+	if totalTraitorCount == 0 or neutralizedTraitorCount < totalTraitorCount then
+		MODE.TraitorNeutralizationStart = nil
 		return false
 	end
 
-	self.LastTraitorNeutralizedTime = self.LastTraitorNeutralizedTime or CurTime()
+	MODE.TraitorNeutralizationStart = MODE.TraitorNeutralizationStart or CurTime()
 
-	return (CurTime() - self.LastTraitorNeutralizedTime) < self.TraitorKilledRoundEndDelay
+	return (CurTime() - MODE.TraitorNeutralizationStart) < self.TraitorKilledRoundEndDelay
 end
 
 function MODE:ShouldRoundEnd()
