@@ -307,13 +307,10 @@ if CLIENT then
             ["hmcd"] = true,
             ["hl2dm"] = true,
             ["hl3"] = true,
-            ["lastmanstanding"] = true,
-            ["melee_tdm"] = true,
             ["pathowogen"] = true,
             ["riot"] = true,
             ["sandbox"] = true,
             ["scugarena"] = true,
-            ["shipassassins"] = true,
             ["superfighters"] = true,
         }
         

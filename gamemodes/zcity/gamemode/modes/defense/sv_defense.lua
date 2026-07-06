@@ -16,7 +16,7 @@ MODE.ROUND_TIME = 10000
 MODE.TotalWaves = 6  
 MODE.CurrentSubMode = "STANDARD" 
 MODE.LootSpawn = true
-MODE.Chance = 0.02
+MODE.Chance = 0
 
 local defenseDefaultPlayerSpawns = {
     "info_player_deathmatch", "info_player_combine", "info_player_rebel",

@@ -7,7 +7,7 @@ MODE.ROUND_TIME = 300
 
 MODE.OverrideSpawn = false
 MODE.LootSpawn = false
-MODE.Chance = 0.05
+MODE.Chance = 0
 
 MODE.randomSpawns = true
 
