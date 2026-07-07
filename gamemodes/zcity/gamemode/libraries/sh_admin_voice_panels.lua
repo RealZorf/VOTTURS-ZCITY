@@ -335,11 +335,12 @@ local AdminShowVoiceChat = CreateClientConVar(
 )
 
 local adminVoicePanelSpeakers = {}
+local adminVoicePanelSuppressUntil = {}
 local serverAllowsAdminVoicePanels = false
 
 surface.CreateFont("ZB_AdminVoicePanel_Name", {
 	font = "Bahnschrift",
-	size = ScreenScale(7),
+	size = math.max(15, ScreenScale(6)),
 	weight = 700,
 	extended = true,
 	antialias = true
@@ -347,8 +348,16 @@ surface.CreateFont("ZB_AdminVoicePanel_Name", {
 
 surface.CreateFont("ZB_AdminVoicePanel_Tag", {
 	font = "Bahnschrift",
-	size = ScreenScale(5),
+	size = math.max(10, ScreenScale(4)),
 	weight = 700,
+	extended = true,
+	antialias = true
+})
+
+surface.CreateFont("ZB_AdminVoicePanel_Meta", {
+	font = "Bahnschrift",
+	size = math.max(9, ScreenScale(3)),
+	weight = 600,
 	extended = true,
 	antialias = true
 })
@@ -370,10 +379,29 @@ local function requestAdminVoicePanelSnapshot()
 	net.SendToServer()
 end
 
+local function removeDefaultVoicePanel(ply)
+	if not IsValid(ply) or not IsValid(g_VoicePanelList) then return end
+
+	for _, panel in ipairs(g_VoicePanelList:GetChildren()) do
+		if IsValid(panel) and (panel.ply == ply or panel.Player == ply or panel.Target == ply) then
+			panel:Remove()
+		end
+	end
+end
+
+local function suppressDefaultVoicePanel(ply, duration)
+	if not IsValid(ply) then return end
+
+	adminVoicePanelSuppressUntil[ply] = math.max(adminVoicePanelSuppressUntil[ply] or 0, CurTime() + (duration or 1.5))
+	ply.IsSpeak = false
+	removeDefaultVoicePanel(ply)
+end
+
 local function clearAdminVoicePanels()
 	local lply = LocalPlayer()
 
 	table.Empty(adminVoicePanelSpeakers)
+	table.Empty(adminVoicePanelSuppressUntil)
 
 	for _, ply in ipairs(player.GetHumans()) do
 		if IsValid(ply) and ply ~= lply then
@@ -394,8 +422,13 @@ net.Receive("ZB_AdminVoicePanelState", function()
 	if not IsValid(ply) or not IsValid(lply) or ply == lply then return end
 	if not AdminShowVoiceChat:GetBool() then return end
 
-	ply.IsSpeak = isSpeaking
 	adminVoicePanelSpeakers[ply] = isSpeaking and (CurTime() + 1.75) or nil
+
+	if isSpeaking then
+		suppressDefaultVoicePanel(ply, 2)
+	else
+		suppressDefaultVoicePanel(ply, 0.35)
+	end
 end)
 
 net.Receive("ZB_AdminVoicePanelAccess", function()
@@ -409,12 +442,34 @@ net.Receive("ZB_AdminVoicePanelAccess", function()
 end)
 
 function hg.IsAdminVoicePanelActive(ply)
-	return IsValid(ply) and adminVoicePanelSpeakers[ply] ~= nil
+	return IsValid(ply) and (adminVoicePanelSpeakers[ply] or 0) > CurTime()
 end
+
+hook.Add("PlayerStartVoice", "ZB_AdminVoicePanelSuppressDefault", function(ply)
+	local lply = LocalPlayer()
+	if not IsValid(ply) or not canSeeVoicePanelsInRound(lply) then return end
+
+	suppressDefaultVoicePanel(ply, 2)
+
+	timer.Simple(0, function()
+		if not IsValid(ply) then return end
+
+		suppressDefaultVoicePanel(ply, 2)
+	end)
+
+	return true
+end)
+
+hook.Add("PlayerEndVoice", "ZB_AdminVoicePanelSuppressDefault", function(ply)
+	if not IsValid(ply) then return end
+	if not hg.IsAdminVoicePanelActive or not hg.IsAdminVoicePanelActive(ply) then return end
+
+	suppressDefaultVoicePanel(ply, 0.35)
+end)
 
 local function endVoicePanel(ply)
 	if IsValid(ply) then
-		ply.IsSpeak = false
+		suppressDefaultVoicePanel(ply, 0.25)
 	end
 
 	adminVoicePanelSpeakers[ply] = nil
@@ -431,7 +486,7 @@ hook.Add("Think", "ZB_AdminVoicePanelClientWatchdog", function()
 	local now = CurTime()
 
 	if not canSeeVoicePanelsInRound(lply) then
-		if next(adminVoicePanelSpeakers) then
+		if next(adminVoicePanelSpeakers) or next(adminVoicePanelSuppressUntil) then
 			clearAdminVoicePanels()
 		end
 
@@ -441,6 +496,17 @@ hook.Add("Think", "ZB_AdminVoicePanelClientWatchdog", function()
 	for ply, expireTime in pairs(adminVoicePanelSpeakers) do
 		if not IsValid(ply) or expireTime <= now then
 			endVoicePanel(ply)
+		else
+			suppressDefaultVoicePanel(ply, 0.45)
+		end
+	end
+
+	for ply, expireTime in pairs(adminVoicePanelSuppressUntil) do
+		if not IsValid(ply) or expireTime <= now then
+			adminVoicePanelSuppressUntil[ply] = nil
+		else
+			ply.IsSpeak = false
+			removeDefaultVoicePanel(ply)
 		end
 	end
 end)
@@ -462,28 +528,67 @@ hook.Add("HUDPaint", "ZB_AdminVoicePanelHUD", function()
 		return string.lower(a:Nick() or "") < string.lower(b:Nick() or "")
 	end)
 
-	local scale = math.Clamp(math.min(ScrW() / 1920, ScrH() / 1080), 0.85, 1.25)
+	local now = CurTime()
+	local scale = math.Clamp(math.min(ScrW() / 1920, ScrH() / 1080), 0.78, 1)
 	local rowH = math.floor(34 * scale)
-	local w = math.floor(255 * scale)
-	local pad = math.floor(10 * scale)
-	local x = ScrW() - w - math.floor(34 * scale)
-	local y = math.floor(ScrH() * 0.14)
+	local w = math.floor(235 * scale)
+	local pad = math.floor(9 * scale)
+	local x = ScrW() - w - math.floor(26 * scale)
+	local y = math.floor(ScrH() * 0.20)
+	local gap = math.floor(5 * scale)
 
 	for i, ply in ipairs(speakers) do
-		local rowY = y + (i - 1) * (rowH + math.floor(6 * scale))
+		local expireTime = adminVoicePanelSpeakers[ply] or 0
+		local rowY = y + (i - 1) * (rowH + gap)
 		local voice = math.Clamp((ply.VoiceVolume and ply:VoiceVolume()) or 0, 0, 1)
-		local pulse = 0.45 + math.sin(CurTime() * 8 + i) * 0.18
-		local fill = math.Clamp(math.max(voice, pulse), 0.25, 1)
+		local pulse = 0.5 + math.sin(now * 9 + i) * 0.18
+		local fill = math.Clamp(math.max(voice, pulse * 0.28), 0.05, 1)
+		local fade = math.Clamp((expireTime - now) / 0.4, 0, 1)
+		local alpha = math.floor(235 * fade)
+		local green = Color(35, 255, 120, alpha)
+		local softGreen = Color(35, 255, 120, math.floor(alpha * 0.13))
+		local textMain = Color(245, 255, 248, alpha)
+		local textSoft = Color(135, 255, 175, math.floor(alpha * 0.86))
 
-		surface.SetDrawColor(0, 0, 0, 185)
+		surface.SetDrawColor(2, 8, 5, math.floor(alpha * 0.82))
 		surface.DrawRect(x, rowY, w, rowH)
-		surface.SetDrawColor(35, 255, 110, 55 + fill * 75)
+
+		surface.SetDrawColor(0, 0, 0, math.floor(alpha * 0.35))
+		surface.DrawRect(x + 1, rowY + 1, w - 2, rowH - 2)
+
+		surface.SetDrawColor(softGreen)
 		surface.DrawRect(x, rowY, math.floor(w * fill), rowH)
-		surface.SetDrawColor(35, 255, 110, 165)
+
+		surface.SetDrawColor(green)
+		surface.DrawRect(x, rowY, math.max(3, math.floor(4 * scale)), rowH)
+		surface.DrawRect(x + math.floor(4 * scale), rowY, w - math.floor(4 * scale), 1)
 		surface.DrawOutlinedRect(x, rowY, w, rowH, 1)
 
-		draw.SimpleText("ADMIN VOICE", "ZB_AdminVoicePanel_Tag", x + pad, rowY + math.floor(6 * scale), Color(125, 255, 170, 210), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-		draw.SimpleText(ply:Nick(), "ZB_AdminVoicePanel_Name", x + pad, rowY + math.floor(16 * scale), color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+		local name = string.Trim(tostring(ply:Nick() or "Unknown"))
+		name = string.upper(string.sub(name, 1, 1)) .. string.sub(name, 2)
+		draw.SimpleText("ADMIN VOICE", "ZB_AdminVoicePanel_Tag", x + pad, rowY + math.floor(4 * scale), textSoft, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+
+		render.SetScissorRect(x + pad, rowY, x + w - math.floor(62 * scale), rowY + rowH, true)
+			draw.SimpleText(name, "ZB_AdminVoicePanel_Name", x + pad, rowY + math.floor(15 * scale), textMain, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+		render.SetScissorRect(0, 0, 0, 0, false)
+
+		local barsX = x + w - math.floor(51 * scale)
+		local barsY = rowY + math.floor(10 * scale)
+		local barW = math.max(2, math.floor(4 * scale))
+		local barGap = math.max(2, math.floor(2 * scale))
+		local maxBarH = math.floor(17 * scale)
+
+		for bar = 1, 5 do
+			local wave = math.Clamp(fill * (0.6 + math.sin(now * 11 + bar * 0.8 + i) * 0.28), 0.08, 1)
+			local barH = math.max(math.floor(4 * scale), math.floor(maxBarH * wave))
+			local bx = barsX + (bar - 1) * (barW + barGap)
+			local by = barsY + maxBarH - barH
+
+			surface.SetDrawColor(35, 255, 120, math.floor(alpha * (0.35 + wave * 0.55)))
+			surface.DrawRect(bx, by, barW, barH)
+		end
+
+		draw.SimpleText("LIVE", "ZB_AdminVoicePanel_Meta", x + w - pad, rowY + math.floor(4 * scale), Color(255, 255, 255, math.floor(alpha * 0.58)), TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
 	end
 end)
 
