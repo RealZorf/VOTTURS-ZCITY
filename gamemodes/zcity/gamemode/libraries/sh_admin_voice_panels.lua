@@ -443,31 +443,25 @@ net.Receive("ZB_AdminVoicePanelAccess", function()
 end)
 
 function hg.IsAdminVoicePanelActive(ply)
-	if not IsValid(ply) or not adminVoicePanelEligible[ply] then return false end
-
-	return ply:IsSpeaking() or (adminVoicePanelLevels[ply] or 0) > 0.02
+	return IsValid(ply) and adminVoicePanelEligible[ply] and ply:IsSpeaking()
 end
 
 local function adminVoicePanelFill(ply)
-	if not IsValid(ply) then return 0 end
-
-	local raw = math.Clamp(((ply.VoiceVolume and ply:VoiceVolume()) or 0) * 3, 0, 1)
-	if ply:IsSpeaking() then
-		raw = math.max(raw, 0.1)
+	if not IsValid(ply) or not ply:IsSpeaking() then
+		adminVoicePanelLevels[ply] = nil
+		return 0
 	end
 
+	local raw = math.Clamp(((ply.VoiceVolume and ply:VoiceVolume()) or 0) * 3, 0, 1)
 	local smoothed = adminVoicePanelLevels[ply] or 0
-	local attack = ply:IsSpeaking() and 18 or 24
-	smoothed = Lerp(FrameTime() * attack, smoothed, raw)
+	smoothed = Lerp(FrameTime() * 18, smoothed, raw)
 	adminVoicePanelLevels[ply] = smoothed
 
 	return smoothed
 end
 
 local function shouldDrawAdminVoicePanel(ply)
-	if not IsValid(ply) or not adminVoicePanelEligible[ply] then return false end
-
-	return ply:IsSpeaking() or (adminVoicePanelLevels[ply] or 0) > 0.02
+	return IsValid(ply) and adminVoicePanelEligible[ply] and ply:IsSpeaking()
 end
 
 hook.Add("PlayerStartVoice", "ZB_AdminVoicePanelSuppressDefault", function(ply)
@@ -491,6 +485,9 @@ end)
 
 hook.Add("PlayerEndVoice", "ZB_AdminVoicePanelSuppressDefault", function(ply)
 	if not IsValid(ply) then return end
+
+	adminVoicePanelLevels[ply] = nil
+
 	if not hg.IsAdminVoicePanelActive or not hg.IsAdminVoicePanelActive(ply) then return end
 
 	suppressDefaultVoicePanel(ply, 0.1)
@@ -515,7 +512,7 @@ hook.Add("Think", "ZB_AdminVoicePanelClientWatchdog", function()
 	end
 
 	for ply in pairs(adminVoicePanelLevels) do
-		if not shouldDrawAdminVoicePanel(ply) and (adminVoicePanelLevels[ply] or 0) <= 0.02 then
+		if not shouldDrawAdminVoicePanel(ply) then
 			adminVoicePanelLevels[ply] = nil
 		end
 	end
@@ -573,7 +570,7 @@ hook.Add("HUDPaint", "ZB_AdminVoicePanelHUD", function()
 	for i, ply in ipairs(speakers) do
 		local rowY = y + (i - 1) * (rowH + gap)
 		local fill = adminVoicePanelLevels[ply] or 0
-		local alpha = math.floor(235 * math.Clamp(fill * 1.15 + (ply:IsSpeaking() and 0.35 or 0), 0.2, 1))
+		local alpha = math.floor(235 * math.Clamp(fill * 1.15 + 0.35, 0.35, 1))
 		local green = Color(35, 255, 120, alpha)
 		local softGreen = Color(35, 255, 120, math.floor(alpha * 0.13))
 		local textMain = Color(245, 255, 248, alpha)
@@ -585,8 +582,10 @@ hook.Add("HUDPaint", "ZB_AdminVoicePanelHUD", function()
 		surface.SetDrawColor(0, 0, 0, math.floor(alpha * 0.35))
 		surface.DrawRect(x + 1, rowY + 1, w - 2, rowH - 2)
 
-		surface.SetDrawColor(softGreen)
-		surface.DrawRect(x, rowY, math.floor(w * fill), rowH)
+		if fill > 0.01 then
+			surface.SetDrawColor(softGreen)
+			surface.DrawRect(x, rowY, math.floor(w * fill), rowH)
+		end
 
 		surface.SetDrawColor(green)
 		surface.DrawRect(x, rowY, math.max(3, math.floor(4 * scale)), rowH)
@@ -607,14 +606,18 @@ hook.Add("HUDPaint", "ZB_AdminVoicePanelHUD", function()
 		local barGap = math.max(2, math.floor(2 * scale))
 		local maxBarH = math.floor(17 * scale)
 
-		for bar = 1, 5 do
-			local wave = math.Clamp(fill * (0.45 + bar * 0.11), 0, 1)
-			local barH = math.max(math.floor(4 * scale), math.floor(maxBarH * wave))
-			local bx = barsX + (bar - 1) * (barW + barGap)
-			local by = barsY + maxBarH - barH
+		if fill > 0.01 then
+			for bar = 1, 5 do
+				local wave = math.Clamp(fill * (0.45 + bar * 0.11), 0, 1)
+				local barH = math.floor(maxBarH * wave)
+				if barH <= 0 then continue end
 
-			surface.SetDrawColor(35, 255, 120, math.floor(alpha * (0.35 + wave * 0.55)))
-			surface.DrawRect(bx, by, barW, barH)
+				local bx = barsX + (bar - 1) * (barW + barGap)
+				local by = barsY + maxBarH - barH
+
+				surface.SetDrawColor(35, 255, 120, math.floor(alpha * (0.35 + wave * 0.55)))
+				surface.DrawRect(bx, by, barW, barH)
+			end
 		end
 
 		draw.SimpleText("LIVE", "ZB_AdminVoicePanel_Meta", x + w - pad, rowY + math.floor(4 * scale), Color(255, 255, 255, math.floor(alpha * 0.58)), TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
