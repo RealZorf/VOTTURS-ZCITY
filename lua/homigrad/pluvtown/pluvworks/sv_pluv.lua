@@ -3,7 +3,7 @@ local PLUGIN = hg.PluvTown
 PLUGIN.AddHook("ShowTeam", function(ply)
     if (ply.PluviskiCD or 0) > CurTime() then return end
 
-    ply:Say("Я ЛЮБЛЮ ПЛЫВИСКИ")
+    ply:Say("I LOVE SWIMWISKI")
     ply.PluviskiCD = CurTime() + 0.5
 end)
 

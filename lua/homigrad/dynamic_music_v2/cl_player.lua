@@ -1,6 +1,6 @@
 --[[
     TO-DO
-    - Добавить прикольную плажку когда трек включается.
+    - Add a cool splash when a track starts.
 --]]
 hg = hg or {}
 hg.DynamicMusicV2 = hg.DynamicMusicV2 or {}
@@ -8,7 +8,7 @@ hg.DynamicMusicV2.Player = hg.DynamicMusicV2.Player or {}
 
 
 --[[
-    ["условный трек"] = {
+    ["conditional track"] = {
         ["SelectPreset"] = function(ply)
             local intens = 0
             local org = ply.organism
@@ -16,25 +16,25 @@ hg.DynamicMusicV2.Player = hg.DynamicMusicV2.Player or {}
                 intens = intens + 1
             end
 
-            -- и так далее...
+            --and so on...
         end,
 
         ["Presets"] = {
-            [1] = {"Название для слоев1"}
+            [1] = {"Name for layers1"}
             [2] = {
-                ["Название для слоев2"] = {volume = 1}, 
-                ["Название для слоев4"] = {volume = 1}
+                ["Name for layers2"] = {volume = 1}, 
+                ["Name for layers4"] = {volume = 1}
             }
 
-            -- думаю понятно...
+            --I think it's clear...
         },
 
         ["Layers"] = {
-            ["Название для слоев1"] = ".wav .mp3 путь к любому файлу который может сожрать игра",
-            ["Название для слоев2"] = ".wav .mp3 путь к любому файлу который может сожрать игра",
-            ["Название для слоев3"] = ".wav .mp3 путь к любому файлу который может сожрать игра",
-            ["Название для слоев4"] = ".wav .mp3 путь к любому файлу который может сожрать игра",
-            ["Название для слоев5"] = ".wav .mp3 путь к любому файлу который может сожрать игра",
+            ["Name for layers1"] = ".wav .mp3 path to any file that the game can eat",
+            ["Name for layers2"] = ".wav .mp3 path to any file that the game can eat",
+            ["Name for layers3"] = ".wav .mp3 path to any file that the game can eat",
+            ["Name for layers4"] = ".wav .mp3 path to any file that the game can eat",
+            ["Name for layers5"] = ".wav .mp3 path to any file that the game can eat",
         }
     }
 --]]

@@ -266,9 +266,9 @@ local function StartStrangle(self, victim)
     self.StrangleRag = rag
     self.StrangleStartedAt = CurTime()
 
-    -- === НОВОЕ: инициализация звуков ===
+    --=== NEW: Initialize sounds ===
     self.nextBreathSound = CurTime() + math.Rand(3, 5)
-    self.breathStage = 0        -- 0 = вдохи, 1 = агональное дыхание
+    self.breathStage = 0        --0 = breaths, 1 = agonal breathing
     self.inhaleCount = 0
 
     rag.Strangler = owner -- link for other systems
@@ -284,7 +284,7 @@ local function StartStrangle(self, victim)
     if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism then
         ragPly.organism.neckBrainOxygenPenalty = math.max(ragPly.organism.neckBrainOxygenPenalty or 0, 0.08)
         ragPly:SetNetVar("fiberwireStrangled", true)
-    -- === НОВОЕ: уведомление жертве ===
+    --=== NEW: Victim Notification ===
         ragPly:Notify("I feel something suddenly and forcefully pull around my neck from my back. I can't breathe...", true, "fiberwire_strangle_start", 3)
     end
 
@@ -358,7 +358,7 @@ local function StopStrangle(self)
     self.StrangleStartedAt = nil
     self.NoIdleLoop = nil -- allow idle again
 
-    -- === НОВОЕ: сброс звуковых переменных ===
+    --=== NEW: Reset audio variables ===
     self.nextBreathSound = nil
     self.breathStage = nil
     self.inhaleCount = nil
@@ -609,22 +609,22 @@ function SWEP:CustomThink()
         return
     end
 
-        -- === НОВОЕ: звуки жертвы ===
+        --=== NEW: Sacrifice Sounds ===
     if IsValid(rag) then
         local ragPly = hg.RagdollOwner and hg.RagdollOwner(rag)
         if IsValid(ragPly) and ragPly:IsPlayer() then
-            -- Проверяем, функционируют ли лёгкие (если нет – звуки не проигрываем)
+            --We check whether the lungs are functioning (if not, we do not play the sounds)
             if not (ragPly.organism and ragPly.organism.lungsfunction == false) then
                 if CurTime() >= (self.nextBreathSound or 0) then
                     local soundToPlay
-                    -- Определяем пол жертвы (функция ThatPlyIsFemale должна быть доступна глобально)
+                    --Determine the gender of the victim (the ThatPlyIsFemale function must be available globally)
                     local isFemale = false
                     if ThatPlyIsFemale then
                         isFemale = ThatPlyIsFemale(ragPly)
                     end
 
                     if self.breathStage == 0 then
-                        -- Вдохи (inhale)
+                        --Inhales
                         if isFemale then
                             local r = math.random(1, 5)
                             soundToPlay = "breathing/inhale/female/inhale_0" .. r .. ".wav"
@@ -634,20 +634,20 @@ function SWEP:CustomThink()
                         end
                         self.inhaleCount = (self.inhaleCount or 0) + 1
                         if self.inhaleCount >= 5 then
-                            self.breathStage = 1   -- после пяти вдохов переключаемся на агональное дыхание
+                            self.breathStage = 1   --after five breaths we switch to agonal breathing
                         end
                     else
-                        -- Агональное дыхание (общие звуки)
+                        --Agonal breathing (general sounds)
                         local r = math.random(1, 13)
                         soundToPlay = "breathing/agonalbreathing_" .. r .. ".wav"
                     end
 
                     if soundToPlay then
-                        -- Проигрываем звук от регдолла жертвы с невысокой громкостью (уровень 50)
+                        --Play the sound from the victim's ragdoll at low volume (level 50)
                         rag:EmitSound(soundToPlay, 50, 100)
                     end
 
-                    -- Устанавливаем следующий интервал (3-5 секунд)
+                    --Set the next interval (3-5 seconds)
                     self.nextBreathSound = CurTime() + math.Rand(3, 5)
                 end
             end
@@ -730,10 +730,10 @@ function SWEP:CustomThink()
         end
     end
 
-         -- FIX: Принудительно блокируем регенерацию кислорода, пока длится удушье
+         --FIX: Forcefully block oxygen regeneration while suffocation lasts
     --[[
     if IsValid(ragPly) and ragPly:IsPlayer() and ragPly.organism and ragPly.organism.o2 then
-        ragPly.organism.o2.curregen = 0   -- <-каждый параметр будет обнулен
+        ragPly.organism.o2.curregen = 0   --<-each parameter will be reset to zero
     end
     ]]
 

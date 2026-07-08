@@ -1,4 +1,4 @@
--- Система точек, спавны и так далее, все для чего нужны какие либо координаты на карте.
+--A system of points, spawns, and so on, all of which require some coordinates on the map.
 zb = zb or {}
 
 zb.Points = zb.Points or {}
@@ -12,7 +12,7 @@ function zb.CreateMapDir()
     if file.Exists( "zbattle/mappoints/" .. map, "DATA" ) then return true end
 end
 
-function zb.GetMapPoints( pointGroup, forceupdatepoints ) -- Загрузить точки в память игры... На клиенте будет примерно такая же функция.
+function zb.GetMapPoints( pointGroup, forceupdatepoints ) --Load points into the game memory... The client will have approximately the same function.
     if not zb.CreateMapDir() then PrintMessage( HUD_PRINTTALK, "sv_points.lua: map folder dosen't exist?" ) return false end
     if not zb.Points[pointGroup] then PrintMessage( HUD_PRINTTALK, "sv_points.lua: point group " .. "\"" .. pointGroup .. "\"" .. " doesn't exist." ) return false end
 
@@ -35,8 +35,8 @@ function zb.GetMapPoints( pointGroup, forceupdatepoints ) -- Загрузить 
     return newTbl
 end--undebiled this function no need to thank me
 
--- pointsData = zb.Points[pointGroup].Points  // Таблица пойнтов
-function zb.SaveMapPoints( pointGroup, pointsData ) -- Сохранаяет все точки в группе
+--pointsData = zb.Points[pointGroup].Points // Points table
+function zb.SaveMapPoints( pointGroup, pointsData ) --Saves all points in a group
     if not zb.CreateMapDir() then PrintMessage( HUD_PRINTTALK, "sv_points.lua: map folder dosen't exists?" ) return false end
     if not zb.Points[pointGroup] then PrintMessage( HUD_PRINTTALK, "sv_points.lua: point group " .. "\"" .. pointGroup .. "\"" .. " doesn't exist." ) return false end
 
@@ -45,8 +45,8 @@ function zb.SaveMapPoints( pointGroup, pointsData ) -- Сохранаяет вс
     file.Write( "zbattle/mappoints/" .. map .. "/" .. pointGroup .. ".json", util.TableToJSON( pointsData, true ) )
 end
 
--- pointData = { pos = Vector(), ang = Angle() } // Таблица пойнта
-function zb.CreateMapPoint( pointGroup, pointData, needsave ) -- Создать точку на карте, и сохранить ли ее?
+--pointData = { pos = Vector(), ang = Angle() } // Point table
+function zb.CreateMapPoint( pointGroup, pointData, needsave ) --Create a point on the map and save it?
     if not zb.CreateMapDir() then PrintMessage( HUD_PRINTTALK, "sv_points.lua: map folder dosen't exists?" ) return false end
     if not zb.Points[pointGroup] then PrintMessage( HUD_PRINTTALK, "sv_points.lua: point group " .. "\"" .. pointGroup .. "\"" .. " doesn't exist." ) return false end
 
@@ -59,7 +59,7 @@ function zb.CreateMapPoint( pointGroup, pointData, needsave ) -- Создать 
     end
 end
 
-function zb.RemoveMapPoint( pointGroup, pointNum, needsave, removeall ) -- Создать точку на карте, и сохранить ли ее?
+function zb.RemoveMapPoint( pointGroup, pointNum, needsave, removeall ) --Create a point on the map and save it?
     if not zb.CreateMapDir() then PrintMessage( HUD_PRINTTALK, "sv_points.lua: map folder dosen't exists?" ) return false end
     if not zb.Points[pointGroup] then PrintMessage( HUD_PRINTTALK, "sv_points.lua: point group " .. "\"" .. pointGroup .. "\"" .. " doesn't exist." ) return false end
 
@@ -78,7 +78,7 @@ function zb.RemoveMapPoint( pointGroup, pointNum, needsave, removeall ) -- Со�
     return true
 end
 
-function zb.SetMapPoint( pointGroup, pointNum, pointData, needsave ) -- Создать точку на карте, и сохранить ли ее?
+function zb.SetMapPoint( pointGroup, pointNum, pointData, needsave ) --Create a point on the map and save it?
     if not zb.CreateMapDir() then PrintMessage( HUD_PRINTTALK, "sv_points.lua: map folder couldn't be created." ) return false end
     if not zb.Points[pointGroup] then PrintMessage( HUD_PRINTTALK, "sv_points.lua: point group " .. "\"" .. pointGroup .. "\"" .. " doesn't exist." ) return false end
 
@@ -115,7 +115,7 @@ end)
 
 hook.Add( "Initialize", "LoadMapPoints", zb.CreateMapDir )
 --PrintTable(zb.Points.Example.Points)
--- pointData = { pos = Vector(), ang = Angle() } // Таблица пойнта
+--pointData = { pos = Vector(), ang = Angle() } // Point table
 COMMANDS.pointnew = {function(ply,args)
     if not args[1] then
         ply:ChatPrint("Usage: !pointnew <pointGroup>")
@@ -158,7 +158,7 @@ COMMANDS.pointremove = {function(ply,args)
 
 end,1,"Remove point (points) on the map\nArgs - pointGroup, pointNumber ( * - allpoints )"}
 
--- Передача клиенту точек
+--Transferring points to the client
 
 function zb.SendPointsToPly(ply, shouldprint)
     net.Start("zb_getallpoints")

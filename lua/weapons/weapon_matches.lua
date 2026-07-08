@@ -126,7 +126,7 @@ function SWEP:PrimaryAttack()
         local ent = ents.Create("ent_zcity_match")
         if not IsValid(ent) then return end
 		
-		local owner = self:GetOwner() -- салат ты реально furry какой self.Owner -- да
+		local owner = self:GetOwner() --salad you are really furry what a self.Owner - yes
         
         local boneIndex = owner:LookupBone("ValveBiped.Bip01_R_Hand")
         if not boneIndex then return end

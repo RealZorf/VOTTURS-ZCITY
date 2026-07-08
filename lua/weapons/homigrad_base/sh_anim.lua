@@ -482,7 +482,7 @@ hook.Add("Bones", "homigrad-lean-bone", function(ply, dtime)
 	hg.bone.Set(ply, "r_thigh", vecZero, tbl[math.Round((CurTime()*10)%#tbl)])
 	hg.bone.Set(ply, "r_calf", vecZero, tbl2[math.Round((CurTime()*10)%#tbl2)])
 	--]]
-	--пинок early access ^^^
+	--kick early access ^^^
 	
 	if ply:IsFlagSet(FL_ANIMDUCKING) and not ply:InVehicle() and not isragdoll then
 		local normaldist = 80

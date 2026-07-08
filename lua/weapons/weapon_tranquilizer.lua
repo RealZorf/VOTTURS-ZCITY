@@ -151,7 +151,7 @@ local vector_zero = Vector(0,0,0)
 SWEP.ShootAnimMul = 4
 
 local mat = "models/weapons/arccw/ur_m1911/m45_glow"
-local mat2 = "models/weapons/tfa_ins2/nova/weapon_m590a1_dm" -- я незнаю как но это выглядит круто
+local mat2 = "models/weapons/tfa_ins2/nova/weapon_m590a1_dm" --I don't know how but it looks cool
 function SWEP:ModelCreated(model)
 	local wep = self:GetWeaponEntity()
 	self:SetSubMaterial(0, mat2)
@@ -210,7 +210,7 @@ end
 
 function SWEP:ReloadEnd()
 	self:InsertAmmo(self:GetMaxClip1() - self:Clip1() + (self.drawBullet ~= nil and not self.OpenBolt and 1 or 0))
-	self.ReloadNext = CurTime() + self.ReloadCooldown --я хуй знает чо это
+	self.ReloadNext = CurTime() + self.ReloadCooldown --I don't know what this is
 	self:Draw()
 end
 

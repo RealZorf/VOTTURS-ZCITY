@@ -742,7 +742,7 @@ SWEP.AutoSwitchTo = false
 SWEP.AutoSwitchFrom = false
 
 function SWEP:GetInfo()
-	if not IsValid(self) then return {self.Primary.ClipSize,hg.ClearAttachments(self.ClassName)} end -- дурак
+	if not IsValid(self) then return {self.Primary.ClipSize,hg.ClearAttachments(self.ClassName)} end --fool
 	return {self:Clip1(),self:GetNetVar("attachments")}
 end
 

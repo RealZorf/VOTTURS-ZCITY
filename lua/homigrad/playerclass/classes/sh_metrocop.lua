@@ -113,11 +113,11 @@ local function giveSubClassLoadout(ply, subclass)
         else
             local wep = ply:Give(item.weapon)
             if IsValid(wep) then
-                --;; патрончики
+                --;; cartridges
                 if item.ammo_mult then
                     ply:GiveAmmo(wep:GetMaxClip1() * item.ammo_mult, wep:GetPrimaryAmmoType(), true)
                 end
-                --;; пример кастомной какахи 
+                --;; example of custom kakaha
                 if item.count then
                     wep.count = item.count
                 end
@@ -159,7 +159,7 @@ function CLASS.On(self, data)
 
     self.organism.CantCheckPulse = true
 
-    --;; Армор
+    --;; Armor
     self.armors = {}
     self.armors["torso"] = "metrocop_armor"
     self.armors["head"] = "metrocop_helmet"

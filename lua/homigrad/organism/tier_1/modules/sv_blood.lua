@@ -88,7 +88,7 @@ module[1] = function(org)
 	org.bloodtype = table.GetKeys(hg.organism.bloodtypes)[math.random(8)]
 	
 	if org.bloodtype == "c-" then
-		org.bloodtype = "o-" --эпик
+		org.bloodtype = "o-" --epic
 	end
 
 	org.hemotransfusionshock = 0
@@ -278,7 +278,7 @@ module[2] = function(owner, org, mulTime)
 		hg.organism.Vomit(owner)
 	end
 
-	org.bleed = (bleedoutspeed + bleedoutspeed2 + bleed)--в секунду
+	org.bleed = (bleedoutspeed + bleedoutspeed2 + bleed)--per second
 	
 	org.venousBleed = bleedoutspeed
 	org.arterialBleed = bleedoutspeed2

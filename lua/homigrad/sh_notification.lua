@@ -24,29 +24,15 @@ local translateSymbol = {
 	["R"] = "W",
 	["l"] = "w",
 	["L"] = "W",
-	["з"] = "в",
-	["З"] = "В",
-	["ш"] = "ф",
-	["Ш"] = "Ф",
-	--["ч"] = "т",
-	--["Ч"] = "Т",
-	--["у"] = "ю",
-	--["У"] = "Ю",
-	--["т"] = "в",
-	--["Т"] = "В",
 }
 
 local repeating = {
 	["r"] = true,
 	["R"] = true,
-	["р"] = true,
-	["Р"] = true,
 }
 
--- можно сделать чтобы оно просто брало стринг, текущее местоположение буквы и добавляло ещё сверху
+--you can make it just take the string, the current location of the letter and add more on top
 --
-
-
 
 function hg.FurrifyPhrase(msg)
 	local iter = utf8.codes(msg)
@@ -65,7 +51,7 @@ function hg.FurrifyPhrase(msg)
 	-- end
 
 
-	--i нельзя менять
+	--i cannot be changed
 	for i = #chars, 1, -1 do
 		if repeating[chars[i]] and math.random(2) == 1 then
 			for i2 = 1, math.random(3) do
@@ -235,7 +221,7 @@ if CLIENT then
 			hg.currentNotification = {tbl[1], time_spent, tbl[2], tbl[3]}
 
 			table.remove(hg.notifications,1)
-		end--показываем только одну нотификацию за раз (остальные держим в уме....)
+		end--We show only one notification at a time (we keep the rest in mind....)
 	end
 
 	local colBrown = Color(40,40,40)

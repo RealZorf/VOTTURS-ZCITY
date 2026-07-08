@@ -182,7 +182,7 @@ if SERVER then
 		local SelfPos, Owner = self:LocalToWorld(self:OBBCenter()), self
 		self:SetMoveType(MOVETYPE_NONE)
 
-		--; говна поел
+		--; ate shit
 		local offset = VectorRand() * 10
 		SelfPos = SelfPos + offset
 

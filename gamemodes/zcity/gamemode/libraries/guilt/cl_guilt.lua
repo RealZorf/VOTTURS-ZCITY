@@ -1,7 +1,7 @@
 --[[    TO-DO
-    -- Добавить менюшку с прощением! |
-    -- Добавить нетворкинг |
-    -- Ну и все | 
+    --Add a menu with forgiveness! |
+    --Add networking |
+    --That's it |
 --]]
 
 hook.Add("OnNetVarSet", "Guilt",function(index, key, var)

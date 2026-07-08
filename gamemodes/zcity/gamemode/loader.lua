@@ -16,7 +16,7 @@ local function IncluderFunc(fileName)
 	end
 end
 
---прошу обратить внимание что файлы внутри папок загружаются первыми
+--please note that files inside folders are loaded first
 local function LoadFromDir(directory)
 	local files, folders = file.Find(directory .. "/*", "LUA")
 

@@ -327,10 +327,10 @@ hook.Add("HUDShouldDraw", "WeaponSelector_HUDShouldDraw", function(sElementName)
     if tHideElements[sElementName] then return false end
 end)
 
--- Я ТАК ЗАДОЛБАЛСЯ ПРОСТО УБЕЙТЕ МЕНЯ ХАХАХАХАХАХАХАХАХАХААХАХАХАХАХАХА
--- ПОЛЧАСА Я ПЫТАЛСЯ СДЕЛАТЬ НОРМЛАЬНОЕ ПЕРЕКЛЮЧЕНИЕ ГОВНА!!!
--- ЗАТО ПОЛУЧИЛОСЬ!!!!
--- УЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭЭ
+--I'M SO SICK JUST KILL ME HAHAHAHAHAHAHAHAHAHAHAHAHAHAHAHAHAHA
+--FOR HALF AN HOUR I TRIED TO DO A NORMAL SHIT SWITCH!!!
+--BUT IT WORKED!!!!
+--UEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 --[[
     /\_/\
     |_ _|

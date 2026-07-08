@@ -3,14 +3,14 @@ if SERVER then
 end
 
 if (CLIENT) then
-    --sw и sh как глобальные переменные
+    --sw and sh as global variables
     sw, sh = ScrW(), ScrH()
 
     hook.Add( "OnScreenSizeChanged", "sw_sh_globals", function()
         sw, sh = ScrW(), ScrH()
     end)
 
-    --светящийся текст
+    --glowing text
 
     local old = surface.CreateFont
     local cache = {}

@@ -1,6 +1,6 @@
 hg.organism = hg.organism or {}
 local empty = {}
-local Vector = Vector --ыыы
+local Vector = Vector --yyy
 local vecZero, angZero = Vector(0, 0, 0), Angle(0, 0, 0)
 local box, _mins = Vector(0, 0, 0), Vector(0, 0, 0)
 local center
@@ -23,7 +23,7 @@ function hg.organism.ShootMatrix(ent, organs)
 	local mins, maxs, matrix, box
 	local pos, ang, center
 	local sphereChunk = 0
-	local obbCenter = ent:GetPos() --да какая же хуйня это))0
+	local obbCenter = ent:GetPos() --what kind of bullshit is this))0
 	obbCenter:Add(ent:OBBCenter())
 	for i = 0, ent:GetHitBoxCount(0) - 1 do
 		matrix = ent:GetBoneMatrix(ent:GetHitBoxBone(i, 0))

@@ -178,7 +178,7 @@ local function oldExplosionDisorientation(enta, tinnitus, disorientation)
 	enta.organism.owner:AddTinnitus(tinnitus)
 	enta.organism.disorientation = enta.organism.disorientation + (disorientation)
 
-	net.Start("organism_send") -- отправляем только дизориентацию (чтобы не нагружать нет), и сразу
+	net.Start("organism_send") --we send only disorientation (so as not to load no), and immediately
 	local tbl = {}
 	tbl.disorientation = enta.organism.disorientation
 	tbl.shock = enta.organism.shock
@@ -187,7 +187,7 @@ local function oldExplosionDisorientation(enta, tinnitus, disorientation)
 	net.WriteBool(true)
 	net.WriteBool(false)
 	net.WriteBool(false)
-	net.WriteBool(true) -- вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
+	net.WriteBool(true) --this little bitch is responsible for making it just blink and that’s it
 	net.Send(enta.organism.owner)
 end
 
@@ -295,7 +295,7 @@ local function ExplodeTheItem(self,ent)
 
 		timer.Simple(0.2,function()
 			if not IsValid(ent) then self:Remove() return end
-			util.BlastDamage(self, IsValid(self:GetOwner()) and self:GetOwner() or self, EntPos, BlastDis / 0.01905, BlastDamage * 0.1) -- эта функция полное говно кстати. бьет сковзь любые пропы...
+			util.BlastDamage(self, IsValid(self:GetOwner()) and self:GetOwner() or self, EntPos, BlastDis / 0.01905, BlastDamage * 0.1) --This function is complete crap by the way. hits through any props...
 			
 			local dis = BlastDis / 0.01905
 			local disorientation_dis = 10 / 0.01905

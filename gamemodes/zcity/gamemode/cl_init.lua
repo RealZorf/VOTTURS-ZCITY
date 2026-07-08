@@ -1027,7 +1027,7 @@ function GM:ScoreboardShow()
 		end
 	end
 
-	--без матов
+	--no swearing
 
 	local DScrollPanel = vgui.Create("DScrollPanel", scoreBoardMenu)
 	DScrollPanel:SetPos(10, ScreenScaleH(58))
@@ -1043,7 +1043,7 @@ function GM:ScoreboardShow()
 	end
 
 	local disappearance = lply:GetNetVar("disappearance", nil)
-	for i, ply in player.Iterator() do -- надо это говно переделать.
+	for i, ply in player.Iterator() do --we need to change this shit.
 		if ply:Team() == TEAM_SPECTATOR then continue end
 		if CurrentRound().name == "fear" and !ply:Alive() then continue end
 		if disappearance and ply != lply then continue end
@@ -1218,7 +1218,7 @@ hook.Add("PlayerStartVoice", "showVoicePanels", function(ply)
 	return other_alive or nil
 end)
 
--- свет от молнии а саму молнию я не сделал skill issue
+--the light from the lightning, but I didn’t make the lightning itself skill issue
 if CLIENT then
 	net.Receive("PunishLightningEffect", function()
 		local target = net.ReadEntity()
@@ -1237,7 +1237,7 @@ if CLIENT then
 	end)
 end
 
-/*  -- а кстати зачем здесь нэт, это же можно было на клиенте полностью сделать...
+/*  --and by the way, why is there a net here, it could have been done completely on the client...
 	if CLIENT then
 		net.Receive("PluvCommand", function()
 			local specialSteamID = "STEAM_0:1:81850653" 
@@ -1304,9 +1304,9 @@ end
 
 local snakeGameOpen = false
 
-concommand.Add("zb_snake", function() -- вот как здесь!
+concommand.Add("zb_snake", function() --that's how it is here!
     if snakeGameOpen then
-        print("[Snake Game] Игра уже запущена!")
+        print("[Snake Game] The game is already running!")
         return
     end
 
@@ -1445,7 +1445,7 @@ concommand.Add("zb_snake", function() -- вот как здесь!
     end
 
 
-    function frame:OnKeyCodePressed(key) -- ФУРИ МУВ теперь понятно почему лагает змейка
+    function frame:OnKeyCodePressed(key) --FURY MOVE now it’s clear why the snake is lagging
         if key == KEY_W and snakeDirection ~= "DOWN" then
             snakeDirection = "UP"
         elseif key == KEY_S and snakeDirection ~= "UP" then
@@ -1471,7 +1471,7 @@ concommand.Add("zb_snake", function() -- вот как здесь!
     frame.OnClose = function()
         timer.Remove("SnakeGameTimer")
         snakeGameOpen = false  
-        print("[Snake Game] Игра закрыта.") -- НЕ РАБОТАЕТ
+        print("[Snake Game] Game closed.") --NOT WORKING
     end
 
 

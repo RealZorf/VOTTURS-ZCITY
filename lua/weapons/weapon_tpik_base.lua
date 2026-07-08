@@ -2,7 +2,7 @@
 SWEP.PrintName = "TPIK Base"
 SWEP.Instructions = "Tpik Base"
 SWEP.Category = "ZCity Anims items"
-SWEP.Instructions = ":3 если вы скриптхукнули знайте вы для нас вонючка."
+SWEP.Instructions = ":3 if you scripthook you know you are a stinker to us."
 SWEP.Spawnable = false
 SWEP.AdminOnly = true
 SWEP.Slot = 1

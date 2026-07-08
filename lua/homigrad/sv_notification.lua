@@ -24,8 +24,8 @@ local function CreateNotification(ply, msg, delay, msgKey, showTime, func, clr)
     delay = delay or 0
 
     if msgKey then ply.msgs[msgKey] = delay and (not isnumber(delay) or CurTime() + delay) or nil end
-    --показывать один раз за промежуток времени
-    --(если delay не номерок то оно пинганет в следующей жизни)
+    --show once per period of time
+    --(if delay is not a number, it will ping in the next life)
 
     if ply.organism and ply.organism.brain > 0.1 then
         for i = 1, utf8.len(msg) do
@@ -88,8 +88,8 @@ local function CreateNotificationBerserk(ply, msg, delay, msgKey, showTime, func
     delay = delay or 0
 
     if msgKey then ply.msgs[msgKey] = delay and (not isnumber(delay) or CurTime() + delay) or nil end
-    --показывать один раз за промежуток времени
-    --(если delay не номерок то оно пинганет в следующей жизни)
+    --show once per period of time
+    --(if delay is not a number, it will ping in the next life)
     if func and isfunction(func) then
         func(ply)
     end

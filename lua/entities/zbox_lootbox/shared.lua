@@ -15,7 +15,7 @@ function ENT:Initialize()
 	self:SetSolid(SOLID_VPHYSICS)
 	self:SetUseType(SIMPLE_USE)
 
-	self:SetModel(self.Model) --| Стандартные функции спавна
+	self:SetModel(self.Model) --| Standard Spawn Features
 
 end
 

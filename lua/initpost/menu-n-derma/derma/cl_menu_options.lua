@@ -352,7 +352,7 @@ function hg.DrawSettings(ParentPanel)
     pppanel3:SetPos(0,0)
     --pppanel3:SetAlpha(0)
     pppanel3.Paint = function()end
-    -- 🥴 <- лучший смайлик
+    --🥴 <- best emoticon
 
     local yOffset = pppanel3:GetTall()/100
 

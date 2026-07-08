@@ -15,7 +15,7 @@ RMB - Low ready
 While low ready:
 LMB to remove spoon.
 Reload to insert pin back.
-]]--"тильда двуеточее три"
+]]--"tilde two dot three"
 SWEP.Category = "Weapons - Explosive"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -34,7 +34,7 @@ SWEP.ViewModel = ""
 SWEP.WorkWithFake = true
 
 SWEP.WorldModel = "models/weapons/w_m84.mdl"
-SWEP.WorldModelReal = "models/weapons/zcity/c_m84.mdl" -- переделал :)
+SWEP.WorldModelReal = "models/weapons/zcity/c_m84.mdl" --redone :)
 SWEP.WorldModelExchange = false
 
 if CLIENT then

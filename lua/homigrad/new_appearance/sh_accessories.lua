@@ -839,7 +839,7 @@ hg.Accessories = {
         bPointShop = true,
         price = 2500,
         vpos = Vector(0,0,69),
-        name = "ОЧКИ С УСАМИ МЕМ"
+        name = "GLASSES WITH MUSTACHE MEM"
     },
 
     ["glasses fmf"] = {
@@ -1225,7 +1225,7 @@ hg.Accessories = {
         bonemerge = true,
         bSetColor = false,
         bPointShop = true,
-        price = 99999999, -- не должно быть видно в поинтшопе типо нельзя купить (пасхалка)
+        price = 99999999, --should not be visible in the point shop, supposedly cannot be bought (Easter egg)
         vpos = Vector(0,0,5),
         name = "Burger King Crown"
     },

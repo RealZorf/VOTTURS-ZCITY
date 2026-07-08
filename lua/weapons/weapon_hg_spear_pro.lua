@@ -11,7 +11,7 @@ SWEP.WorldModelReal = "models/weapons/tfa_nmrih/v_me_fubar.mdl"
 SWEP.WorldModelExchange = "models/distac/pro_spear.mdl"
 SWEP.ViewModel = ""
 
-SWEP.NoHolster = false -- надо чтобы на спине показывался
+SWEP.NoHolster = false --it needs to be shown on the back
 
 SWEP.HoldType = "revolver"
 

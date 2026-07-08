@@ -74,7 +74,7 @@ SWEP.Attack2HitFlesh = "Flesh.ImpactHard"
 SWEP.DeploySnd = "GlassBottle.ImpactSoft"
 
 function SWEP:PrimaryAttackAdd(ent,trace)
-    if SERVER and ent and math.random(1,2) == 2 then -- я либо забыл это добавить либо ктото убрал если шо простите
+    if SERVER and ent and math.random(1,2) == 2 then --I either forgot to add this or someone removed it if so forgive me
         self:PrecacheGibs()
         self:GibBreakServer(trace.HitNormal * -100)
         self:GetOwner():EmitSound("physics/glass/glass_pottery_break"..math.random(1,4)..".wav")

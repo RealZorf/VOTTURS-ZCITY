@@ -227,7 +227,7 @@ function SWEP:Shoot(override)
 					end)
 				end
 			end)
-			--чзх добавить возможность тазерить мощнее при нажатии лкм
+			--chzh add the ability to taser more powerfully when pressing LMB
 			local i = 1
 			local max = math.Round(time * 80)
 			local owner = self:GetOwner()

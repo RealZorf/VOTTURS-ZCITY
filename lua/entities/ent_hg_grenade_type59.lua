@@ -8,7 +8,7 @@ ENT.BlastDis = 5 --meters
 ENT.Penetration = 5.5
 
 function ENT:PoopBomb()
-	return math.random(1, 50) == 1 -- китайская
+	return math.random(1, 50) == 1 --Chinese
 end
 
 ENT.playedSound = false

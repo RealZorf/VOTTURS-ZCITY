@@ -284,7 +284,7 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     if tbl.CreatedFunc then tbl.CreatedFunc(btn, self, luaMenu) end
     btn.RColor = Color(225,225,225)
     function btn:DoClick()
-        -- ,kz оптимизировать надо, но идёт ошибка(кэшировать бы luaMenu.panelparrent вместо вызова его каждый раз)
+        --,kz needs to be optimized, but there is an error (I should cache luaMenu.panelparrent instead of calling it every time)
         if curent_panel == string.lower(strTitle) then
 			for i = 1, 3 do
 				surface.PlaySound("shitty/tap_release.wav")

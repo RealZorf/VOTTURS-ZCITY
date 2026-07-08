@@ -1,22 +1,22 @@
---\\Перевод плагиновых штук в ваши штуки
+--\\Translation of plug-in things into your things
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
 --
 
 PLUGIN.SpecialWords = PLUGIN.SpecialWords or {}
 local sw = PLUGIN.SpecialWords
-sw["ритуал"] = {ritual = 4, shield = -4}
-sw["кровь"] = {harm = 3, help = -4}
-sw["смерть"] = {harm = 3, sacrifice = 3, help = -4}
-sw["жертва"] = {sacrifice = 5, help = -4}
-sw["помощь"] = {help = 5, harm = -4}
-sw["щит"] = {shield = 2, harm = -2}
-sw["привет"] = {shield = 2, harm = -2, help = 2}
-sw["ноте"] = {ritual = 4}
+sw["ritual"] = {ritual = 4, shield = -4}
+sw["blood"] = {harm = 3, help = -4}
+sw["death"] = {harm = 3, sacrifice = 3, help = -4}
+sw["sacrifice"] = {sacrifice = 5, help = -4}
+sw["help"] = {help = 5, harm = -4}
+sw["shield"] = {shield = 2, harm = -2}
+sw["Hello"] = {shield = 2, harm = -2, help = 2}
+sw["note"] = {ritual = 4}
 
-sw["ritual"] = sw["ритуал"]
-sw["blood"] = sw["кровь"]
-sw["death"] = sw["смерть"]
-sw["sacrifice"] = sw["жертва"]
-sw["help"] = sw["помощь"]
-sw["shield"] = sw["щит"]
+sw["ritual"] = sw["ritual"]
+sw["blood"] = sw["blood"]
+sw["death"] = sw["death"]
+sw["sacrifice"] = sw["sacrifice"]
+sw["help"] = sw["help"]
+sw["shield"] = sw["shield"]

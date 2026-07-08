@@ -1,13 +1,13 @@
 --\\
 	--; TODO
-	--; Призыв демонов
-	--; Ловушки
-	--; Роль тауматурга в рп обновлении
-	--; Защита от ловушек
-	--; Проверка зон
+	--; Summon Demons
+	--; Traps
+	--; The role of the thaumaturge in the RP update
+	--; Anti-trap protection
+	--; Checking zones
 --
 
---\\Перевод плагиновых штук в ваши штуки
+--\\Translation of plug-in things into your things
 	hg.Abnormalties = hg.Abnormalties or {}
 	local PLUGIN = hg.Abnormalties
 --
@@ -52,7 +52,7 @@ PLUGIN.PossibleCharInfo = {
 		end
 	end
 
-	PLUGIN.String.RegisterStringLowerCodes(65, 90, 32)	--; От А до Я
+	PLUGIN.String.RegisterStringLowerCodes(65, 90, 32)	--; From A to Z
 	PLUGIN.String.RegisterStringLowerCodes(1040, 1071, 32)	--; From A to Z, look at utf-8 table to create your own lowerings
 --
 

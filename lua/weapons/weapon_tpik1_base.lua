@@ -1,10 +1,10 @@
--- Это база для ручной настройки тпик... афигеть да?
--- Сообщение всем скриптхукерам, ну вы это хоть оставляйте тех кто это кодил. Уважайте чужой труд!
+--This is the basis for manual configuration of tpik... awesome right?
+--A message to all script hookers, at least leave it to those who coded it. Respect other people's work!
 if SERVER then AddCSLuaFile() end
 SWEP.PrintName = "TPIK Base 1"
 SWEP.Instructions = "Tpik Base 1"
 SWEP.Category = "ZCity Anims items"
-SWEP.Instructions = ":3 если вы скриптхукнули знайте вы для нас вонючка."
+SWEP.Instructions = ":3 if you scripthook you know you are a stinker to us."
 SWEP.Spawnable = false
 SWEP.AdminOnly = true
 SWEP.Slot = 1
@@ -114,7 +114,7 @@ function SWEP:SetHandPos(noset)
 	local vec1, ang1 = -(-self.handPos), -(-self.handAng)
 	
 	--[[
-	--второй способ гавна
+	--second way of shit
 	local matrix = Matrix()
 	matrix:SetTranslation(self.WorldPos)
 	matrix:SetAngles(self.WorldAng)

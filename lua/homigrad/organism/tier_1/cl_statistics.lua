@@ -181,9 +181,9 @@ end
 local function set(set)
 	return set.r, set.g, set.b
 end
--- твое говно вообще-то это глуаинтер дурак лучше бы вы его не использовали я бы
+--your shit is actually a gluainter fool, it would be better if you didn’t use it, I would
 
-local Round = math.Round -- Тут были плохие слова от деке...
+local Round = math.Round --There were bad words from the deke...
 local red, green = Color(255, 0, 0), Color(0, 255, 0)
 local function getTextTable(org)
 	local textList = {}
@@ -215,7 +215,7 @@ local function getTextTable(org)
 				if type(v[2]) == "string" then max = org[v[2]] end
 				if type(v[2]) == "table" then max = org[v[2][1]][v[2][2]] end
 				if not max then continue end
-				local k = value ~= 0 and max ~= 0 and value / max or 0 -- Тут были плохие слова от шарика...
+				local k = value ~= 0 and max ~= 0 and value / max or 0 --There were bad words from the ball...
 				if v[3] then
 					r, g, b = LerpColor(1 - k, red, green)
 				else
@@ -719,7 +719,7 @@ hook.Add("HUDPaint","homigrad-wound-debug",function()
 					surface.SetDrawColor(155,0,0,15)
 					surface.DrawTexturedRect(0,0,ScrW(),ScrH(),0)
 				cam.End2D()
-				--skiletmodel:DrawModel() // надо доделать, когда разберусь в стенсилах // а все уже, работает
+				--skiletmodel:DrawModel() // need to finish it when I understand the stencils // but everything already works
 				cam.Start2D()
 					surface.SetDrawColor(155,0,0,95)
 					surface.DrawTexturedRect(0,0,ScrW(),ScrH(),0)

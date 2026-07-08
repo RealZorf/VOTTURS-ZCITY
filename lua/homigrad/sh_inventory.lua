@@ -386,7 +386,7 @@ if CLIENT then
 					surface.DrawRect(0, 0, w, h)
 					local Icon, HaveIcon, Overide, Quad = getIconThing(i, thing, tab)
 					if Icon then
-						button.Icon = button.Icon or (isstring(Icon) and Material(Icon)) or Icon -- Ну тут так, без выбора если что материал будет
+						button.Icon = button.Icon or (isstring(Icon) and Material(Icon)) or Icon --Well, here it is, without a choice if there is any material
 					end
 
 					if HaveIcon then

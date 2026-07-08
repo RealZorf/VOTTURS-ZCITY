@@ -6,7 +6,7 @@ SWEP.AdminOnly = false
 
 SWEP.PrintName = "Vepr SOK-94-03"
 SWEP.Author = "Vyatskiye Polyany Machine-Building Plant"
-SWEP.Instructions = "SOK-94 carbine is based on a manual Kalashnikov machine gun and is designed for commercial and amateur hunting of average and large animals. Сhambered in .366 TKM."
+SWEP.Instructions = "SOK-94 carbine is based on a manual Kalashnikov machine gun and is designed for commercial and amateur hunting of average and large animals. Chambered in .366 TKM."
 SWEP.Category = "Weapons - Carbines"
 SWEP.ShockMultiplier = 1.5
 SWEP.Ergonomics = 0.85

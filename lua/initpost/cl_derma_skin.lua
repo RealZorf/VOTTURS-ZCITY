@@ -16,7 +16,7 @@ end)
 
 --; Adapted from Helix
 
--- HG.DrawBlur находится в cl_pointshop.lua... простите за такое ГОВНО но это нужно чтобы оно везде грузилось нормально.
+--HG.DrawBlur is located in cl_pointshop.lua... sorry for such SHIT, but this is necessary so that it loads normally everywhere.
 
 --local hg_coolvetica = ConVarExists("hg_coolvetica") and GetConVar("hg_coolvetica") or CreateClientConVar("hg_coolvetica", "0", true, false, "changes every text to coolvetica because its good", 0, 1)
 local hg_font = ConVarExists("hg_font") and GetConVar("hg_font") or CreateClientConVar("hg_font", "Bahnschrift", true, false, "change every text font to selected because ui customization is cool")

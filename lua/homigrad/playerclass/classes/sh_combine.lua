@@ -78,9 +78,9 @@ local primary_weapons = {
     "weapon_mp7"
 }
 
---;; Реврайт сабклассов (бай дека)
---;; Теперь можно настроить нормально лодаут,
---;; цвет, модель, дополнительные настройки и т.д.
+--;; Rewrite subclasses (buy deck)
+--;; Now you can configure the lodout normally,
+--;; color, model, additional settings, etc.
 local combine_subclasses = {
     default = {
         color = Color(0,220,220),
@@ -89,7 +89,7 @@ local combine_subclasses = {
 			["models/combine_soldier/combinesoldiersheet_player"] = "models/combine_soldier/combinesoldiersheet"
 		},
         loadout = {
-            {weapon = "weapon_melee"}, --;; ближний бой мясо кишки
+            {weapon = "weapon_melee"}, --;; melee meat guts
             {
                 weapon = "weapon_hg_hl2nade_tpik",
                 count = 1
@@ -253,11 +253,11 @@ local function giveSubClassLoadout(ply, subclass)
         else
             local wep = ply:Give(item.weapon)
             if IsValid(wep) then
-                --;; патрончики
+                --;; cartridges
                 if item.ammo_mult then
                     ply:GiveAmmo(wep:GetMaxClip1() * item.ammo_mult, wep:GetPrimaryAmmoType(), true)
                 end
-                --;; пример кастомной какахи 
+                --;; example of custom kakaha
                 if item.count then
                     wep.count = item.count
                 end
@@ -305,7 +305,7 @@ function CLASS.On(self, data)
 
     self.organism.CantCheckPulse = true
 
-    --;; Армор
+    --;; Armor
     self.armors = {}
     self.armors["torso"] = "cmb_armor"
     self.armors["head"] = "cmb_helmet"
@@ -715,12 +715,12 @@ hook.Add("HG_CanThoughts", "CombineCantDumat", function(ply)
 	end
 end)
 
---;; Серверные хуки и звуки шагов/смерти
+--;; Server hooks and footstep/death sounds
 if SERVER then
     hook.Add("HG_PlayerFootstep","Combine_footsteps",function(ply)
         local chr = hg.GetCurrentCharacter(ply)
         if ply:Alive() and ply.PlayerClassName == "Combine" then
-            --;; Если есть ragdoll и т.п.
+            --;; If there is a ragdoll, etc.
             ply.CombineLerpedFootStep = LerpFT(0.5,ply.CombineLerpedFootStep or 60, (not ply:IsSprinting() and (ply:KeyDown(IN_DUCK) or ply:KeyDown(IN_WALK))) and 20 or 60)
             if IsValid(ply.FakeRagdoll) and ply:GetNetVar("lastFake") == 0 then return end
             chr:EmitSound("npc/combine_soldier/gear" .. math.random(1,6) .. ".wav",

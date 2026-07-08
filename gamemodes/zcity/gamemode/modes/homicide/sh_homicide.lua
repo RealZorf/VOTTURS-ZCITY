@@ -15,8 +15,8 @@ MODE.SubRole_Traitor_Random = "traitor_random"
 MODE.SubRole_Traitor_Random_SOE = "traitor_random_soe"
 
 if(CLIENT)then
-	MODE.ConVar_SubRole_Traitor_SOE = CreateClientConVar(MODE.ConVarName_SubRole_Traitor_SOE, "traitor_default_soe", true, true, "Выбор роли трейтора в режиме SOE хомисайда")
-	MODE.ConVar_SubRole_Traitor = CreateClientConVar(MODE.ConVarName_SubRole_Traitor, "traitor_default", true, true, "Выбор роли трейтора в стандартном режиме хомисайда")
+	MODE.ConVar_SubRole_Traitor_SOE = CreateClientConVar(MODE.ConVarName_SubRole_Traitor_SOE, "traitor_default_soe", true, true, "Choosing the role of a tutor in the SOE homeside mode")
+	MODE.ConVar_SubRole_Traitor = CreateClientConVar(MODE.ConVarName_SubRole_Traitor, "traitor_default", true, true, "Choosing the role of a treator in the standard homeside mode")
 end
 
 function MODE.IsThiefRole(subrole)
@@ -50,7 +50,7 @@ if SERVER then
 end
 
 --; TODO
---; Инженер - шахид бомба + иеды
+--; Engineer - shahid bomb + food
 
 function MODE.ApplyJuggernautStats(ply)
 	if not IsValid(ply) or not ply.organism then return end
@@ -987,8 +987,8 @@ MODE.Professions = {
 --
 
 --\\
---; Названия перменных чуть чуть конченные получились, нужно будет подумать как улучшить
---; ужас
+--; The names of the variables are a bit messed up, I'll need to think about how to improve them
+--; horror
 MODE.FadeScreenTime = 1.5
 MODE.DefaultRoundStartTime = 6
 MODE.RoleChooseRoundStartTime = 10

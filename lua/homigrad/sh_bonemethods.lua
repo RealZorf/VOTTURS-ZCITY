@@ -1,4 +1,4 @@
-hg.bone = hg.bone or {} -- посттравматический синдром личности
+hg.bone = hg.bone or {} --post-traumatic personality disorder
 
 local tbl = {
 	["head"] = "ValveBiped.Bip01_Head1",
@@ -240,7 +240,7 @@ function hg.HomigradBones(ply, dtime)
 
 	local vec2 = ang1:Forward() * vec[1] + ang1:Right() * -vec[2] + ang1:Up() * vec[3]
 	local ang2 = mat:GetAngles()
-	--ОБЯЗАТЕЛЬНО В ПОРЯДКЕ 3 1 2!!! (roll pitch yaw)
+	--MUST BE OKAY 3 1 2!!! (roll pitch yaw)
 	ang2:RotateAroundAxis(ang2:Forward(), -ang[3])
 	ang2:RotateAroundAxis(ang2:Right(), ang[1])
 	ang2:RotateAroundAxis(ang2:Up(), -ang[2])
@@ -263,10 +263,10 @@ function hg.HomigradBones(ply, dtime)
 	mat:SetAngles(ang1)
 
 	print(mat:GetTranslation(), mat:GetAngles(), 2, "\n")
-	--проблема в том что оно не учитывает то что позиция кости меняется при ее повороте...
+	--the problem is that it does not take into account that the position of the bone changes when it is rotated...
 	--]]
 
-	--better version, здесь учитывает
+	--better version, takes into account here
 	--[[
 	local vec = Vector(0,0,0)
 	local ang = Angle(0,0,0)
@@ -284,7 +284,7 @@ function hg.HomigradBones(ply, dtime)
 
 	local vec2 = ang1:Forward() * vec[1] + ang1:Right() * -vec[2] + ang1:Up() * vec[3]
 	local ang2 = mat:GetAngles()
-	--ОБЯЗАТЕЛЬНО В ПОРЯДКЕ 3 1 2!!! (roll pitch yaw)
+	--MUST BE OKAY 3 1 2!!! (roll pitch yaw)
 	ang2:RotateAroundAxis(ang2:Forward(), -ang[3])
 	ang2:RotateAroundAxis(ang2:Right(), ang[1])
 	ang2:RotateAroundAxis(ang2:Up(), -ang[2])
@@ -305,7 +305,7 @@ function hg.HomigradBones(ply, dtime)
 	--ply:MBAngles(ply:LookupBone("ValveBiped.Bip01_Spine2"), Angle(0,0,0))
 
 	--[[
-	--о да.
+	--oh yes.
 
 	--ply:MBAngles(ply:LookupBone("ValveBiped.Bip01_R_UpperArm"), Angle(50,50,50))
 	--ply:MBAngles(ply:LookupBone("ValveBiped.Bip01_R_Forearm"), Angle(50,50,50))
@@ -359,7 +359,7 @@ function hg.get_unmanipulated_bones(ply, bone, matmodify)--set bone to 0 for the
 
 	local vec2 = ang1:Forward() * vec[1] + ang1:Right() * -vec[2] + ang1:Up() * vec[3]
 	local ang2 = mat:GetAngles()
-	--ОБЯЗАТЕЛЬНО В ПОРЯДКЕ 3 1 2!!! (roll pitch yaw)
+	--MUST BE OKAY 3 1 2!!! (roll pitch yaw)
 	ang2:RotateAroundAxis(ang2:Forward(), -ang[3])
 	ang2:RotateAroundAxis(ang2:Right(), ang[1])
 	ang2:RotateAroundAxis(ang2:Up(), -ang[2])

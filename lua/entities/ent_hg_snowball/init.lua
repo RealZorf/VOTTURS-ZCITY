@@ -16,7 +16,7 @@ function ENT:Initialize()
 	end)
 	local phys = self:GetPhysicsObject()
 	if phys:IsValid() then
-		phys:SetMass(2) -- Убить человека снежком..
+		phys:SetMass(2) --Kill a man with a snowball...
 		phys:Wake()
 	end
 end

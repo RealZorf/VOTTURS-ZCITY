@@ -26,7 +26,7 @@ function hg.AddAttachment(ply,wep,att)
 	if not IsValid(wep) or not wep.attachments or att == "" then return end
 	if not IsValid(ply) then return end
 	if not table.HasValue(ply.inventory.Attachments, att) then return end --oops :(
-	if ply.organism.larmamputated or ply.organism.rarmamputated then return end -- зубами
+	if ply.organism.larmamputated or ply.organism.rarmamputated then return end --teeth
 
 	if att and istable(att) then
 		for i,atta in pairs(att) do

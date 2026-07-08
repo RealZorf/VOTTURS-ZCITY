@@ -192,7 +192,7 @@ function hg.RenewInv(ply, isDead, deathRagdoll)
     local inv = ply.inventory
     inv.Weapons = inv.Weapons or {}
 
-    local sling = inv.Weapons["hg_sling"] -- Вот бы все это автоматизировать
+    local sling = inv.Weapons["hg_sling"] --I wish I could automate all this
     local kastet = inv.Weapons["hg_brassknuckles"]
     local flashlight = inv.Weapons["hg_flashlight"]
 
@@ -442,7 +442,7 @@ local functions = {
             weapon.DontEquipInstantly = (not weapon.NoHolster) and (weapon.weaponInvCategory != 1)
             weapon.IsSpawned = true
             weapon.init = true
-            --weapon.init = true--<^разве это не одно и то же?
+            --weapon.init = true--<^aren't these the same thing?
             weapon:Spawn()
             weapon:SetPos(ent:GetPos())
             weapon:SetAngles(ent:GetAngles())

@@ -40,7 +40,7 @@ local randomgovno = {
 	"Fuck.. I dropped it...",
 }
 
--- возможно немного насралкод но работает норм
+--maybe a little messed up code but it works fine
 local IsValid, hg, pairs, isnumber, timer, math, AngleRand, timer = IsValid, hg, pairs, isnumber, timer, math, AngleRand, timer
 
 local function FailSafe(ply)
@@ -88,7 +88,7 @@ concommand.Add("hg_reloadfloorweapon", function(ply, cmd, args)
 		hg.SetCarryEnt2(ply, ent, 0, phys:GetMass(), vector_origin, ply:GetAimVector() * 10 + ply:GetUp() * -25 + ply:GetShootPos(), ply:EyeAngles())
 		ply:EmitSound("physics/body/body_medium_impact_soft"..mRandom(7)..".wav", 55)
 		ply:ViewPunch(AngleRand(-2, 2))
-		ply:SetNW2Bool("FloorReloading", true) -- отсюда начинается фейлсейф..
+		ply:SetNW2Bool("FloorReloading", true) --This is where the failsafe begins..
 
 		if ent.FakeReloadSounds ~= nil then
 			for i, snd in pairs(ent.FakeReloadSounds) do

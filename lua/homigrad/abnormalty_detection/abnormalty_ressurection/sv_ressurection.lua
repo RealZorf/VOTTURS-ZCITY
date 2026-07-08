@@ -1,4 +1,4 @@
---\\Перевод плагиновых штук в ваши штуки
+--\\Translation of plug-in things into your things
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
 --
@@ -118,7 +118,7 @@ hook.Add("Think", "Abnormalties_Ressurection", function()
 				owner.organism.blood = 3500
 				
 				if(math.random(1, 4) == 4)then
-					owner.organism.pulse = 10	--; Смерть
+					owner.organism.pulse = 10	--; Death
 				else
 					owner.organism.pulse = 15
 				end
@@ -127,7 +127,7 @@ hook.Add("Think", "Abnormalties_Ressurection", function()
 				-- hg.LightStunPlayer(owner)
 				
 				if(math.random(1, 10) <= 7)then
-					owner.Swm = true	--; Паучки
+					owner.Swm = true	--; Spiders
 				end
 				-- owner:SetPos(body:GetPos())
 				-- body:Remove()

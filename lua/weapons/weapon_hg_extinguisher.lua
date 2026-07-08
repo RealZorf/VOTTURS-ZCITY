@@ -177,7 +177,7 @@ function SWEP:CanSecondaryAttack()
                 
                 if dot < -0.99 and pos.x > 0 and pos.x < ScrW() and pos.y > 0 and pos.y < ScrH() and hg.isVisible(LocalPlayer():EyePos(), tr.StartPos, {LocalPlayer(), self}, MASK_VISIBLE) then
                     --amtflashed2 = amtflashed2 + (FrameTime() * 2)
-                end--покачто
+                end--for now
             end
         end
 

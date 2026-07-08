@@ -42,7 +42,7 @@ local RandomEvents = {
             timer.Simple(.3,function()
                 owner:ViewPunch(Angle(2,0,0))
             end)
-        end) -- жаль что сломалось, а ради этого неты делать ну, такое... | update уже неважно
+        end) --It's a pity that it broke, but for the sake of this there is no way to do this... | update doesn't matter anymore
     end,
 } 
 
@@ -79,7 +79,7 @@ hook.Add("Org Think", "VirusRandomEvents", function(owner, org, timeValue)
     end
 end)
 
-hook.Add("Org Think", "TemperatureSounds", function(owner, org, timeValue) -- добавил звуки при низкой температуре Ж))
+hook.Add("Org Think", "TemperatureSounds", function(owner, org, timeValue) --added sounds at low temperature G))
     if not owner:IsPlayer() or not owner:Alive() or org.otrub then return end
     if owner:IsPlayer() and org.temperature > 24 and org.temperature < 35 then
         if not owner.ColdRandomEventTime or CurTime() >= owner.ColdRandomEventTime then

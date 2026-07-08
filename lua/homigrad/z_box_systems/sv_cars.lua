@@ -1,4 +1,4 @@
--- Машинки, споты для спавна. 1 машинка респавнится раз в 30 минут, если прошлая была уничтожена.
+--Cars, spawn spots. 1 car will respawn once every 30 minutes if the previous one was destroyed.
 ZBox = ZBox or {}
 
 ZBox.Plugins = ZBox.Plugins or {}
@@ -12,13 +12,13 @@ local Hook = PLUGIN.Hooks
 
 local spots = {
     ["rp_truenorth_v1a"] = {
-        {"Carshop", Vector(5869, 11571, 64), Angle(0, 20, 0)}, --; Автосалон
-        {"UnderPark 1.1", Vector(11710, 2607, -191), Angle(0, 180, 0)}, --; Подземная парковка 1 spot 1
-        {"UnderPark 1.2", Vector(10993, 2239, -191), Angle(0, 0, 0)}, --; Подземная парковка 1 spot 2
-        {"TNF Station", Vector(14979.943359, 10537.410156, 64.03125), Angle(9.951991, -90.711845, -0.000001)}, --; Заправка TNF в Городе
-        {"Factory Zone", Vector(12546.645508, -1931.185913, 64.031250), Angle(10.179018, 179.087418, -0.000001)}, --; Заводская Зона
-        {"Near City", Vector(3396.042236, 10945.347656, 192.031250), Angle(21.909510, 91.318527, -0.000001)}, --; Киношка возле города
-        {"City", Vector(8394, 4103, 64), Angle(0, 15, 0)} --; Центр города
+        {"Carshop", Vector(5869, 11571, 64), Angle(0, 20, 0)}, --; Car showroom
+        {"UnderPark 1.1", Vector(11710, 2607, -191), Angle(0, 180, 0)}, --; Underground parking 1 spot 1
+        {"UnderPark 1.2", Vector(10993, 2239, -191), Angle(0, 0, 0)}, --; Underground parking 1 spot 2
+        {"TNF Station", Vector(14979.943359, 10537.410156, 64.03125), Angle(9.951991, -90.711845, -0.000001)}, --; TNF gas station in the City
+        {"Factory Zone", Vector(12546.645508, -1931.185913, 64.031250), Angle(10.179018, 179.087418, -0.000001)}, --; Factory Zone
+        {"Near City", Vector(3396.042236, 10945.347656, 192.031250), Angle(21.909510, 91.318527, -0.000001)}, --; Cinema near the city
+        {"City", Vector(8394, 4103, 64), Angle(0, 15, 0)} --; City center
     }
 }
 

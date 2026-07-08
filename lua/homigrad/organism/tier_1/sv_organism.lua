@@ -771,8 +771,8 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 
 	if org.brain < 0.4 then
 		local naturalHeal = org.thiamine > 0 and timeValue / 480 or timeValue / 1800
-		-- full heal in ~30 minutes (really fast tho) -- Ну не идет столько раунд даже в каких-нибудь скраперсах ну какой даун это придумал
-		-- 8 minutes with thiamine -- ДАЖЕ СТОЛЬКО НЕ ВСЕГДА ДЛИТСЯ
+		--full heal in ~30 minutes (really fast tho) -- Well, the round doesn’t last that long even in some scrappers, what kind of down came up with that
+		--8 minutes with thiamine -- EVEN THAT DOESN'T ALWAYS LAST
 
 		org.thiamine = math.Approach(org.thiamine, 0, timeValue / 240)
 		-- you'd need to give 1 thiamine each 4 minutes
@@ -1037,7 +1037,7 @@ hook.Add("HG_OnWakeOtrub", "afterOtrub", function( owner )
 	owner:SendLua("system.FlashWindow()")
 end)
 
-hook.Add("HG_OnOtrub", "fearful", function( plya )-- ЧЕ
+hook.Add("HG_OnOtrub", "fearful", function( plya )--European Championship
 	local ent = hg.GetCurrentCharacter(plya)
 	for i,ply in ipairs(ents.FindInSphere(ent:GetPos(),256)) do
 		if not ply:IsPlayer() or not ply.organism or plya == ply then continue end

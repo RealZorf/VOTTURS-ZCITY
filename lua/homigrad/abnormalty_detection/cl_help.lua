@@ -37,7 +37,7 @@ After you chanted it 10 times, some thoughts will appear in your head and point 
 
 Example:
 <...>
-- ноте бено мемо ммммт
+- note bene memo mmmmt
 ~ I'm getting somewhere...
 ~ sacrifice - 2
 ~ ritual - 5
@@ -45,15 +45,15 @@ Example:
 
 So, let's for example get rid of sacrifice
 <...>
-- ноте бено мемо ммммтч
+- note bene memo mmmmtch
 ~ I'm getting somewhere...
 ~ sacrifice - 1
 ~ ritual - 6
 ~ But there's still something I need to exclude...
 
-See, I added letter "ч" and gained 1 ritual and lost 1 sacrifice, let's add one more then
+See, I added letter "h" and gained 1 ritual and lost 1 sacrifice, let's add one more then
 <...>
-- ноте бено мемо ммммтчч
+- note bene memo mmmmtchch
 ~ I'm getting somewhere...
 ~ ritual - 7
 ~ This is it... I found it!
@@ -226,8 +226,8 @@ What it does?:
 	},
 }
 
---; Добавить ритуалы:
---; Создание магической тыкалки
+--; Add rituals:
+--; Making a Magic Poke
 
 function ABNORMALTIESHELP:OpenStats(Recipe)
 	Recipe=Recipe or 1

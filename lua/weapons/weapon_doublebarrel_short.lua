@@ -1,7 +1,7 @@
 SWEP.Base = "homigrad_base"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
-SWEP.PrintName = "Sawed-off IZh-43" -- сам ты дабл баррел
+SWEP.PrintName = "Sawed-off IZh-43" --you yourself are a double barrel
 SWEP.Author = "Izhevsk Mechanical Plant"
 SWEP.Instructions = "Illegally sawed-off version of IZH-43. Chambered in 12/70"
 SWEP.Category = "Weapons - Shotguns"

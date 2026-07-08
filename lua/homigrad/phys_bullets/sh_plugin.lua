@@ -1,17 +1,17 @@
 --\\
 	--; TODO
-	--; Для вычисления урона (энергии) Ek = (m * V^2) / 2
-	--; Сопротивление воздуха F = B * v^2,
-	--; Метры в сек в юниты в сек V * 52.5
-	--; Дрейф
+	--; To calculate damage (energy) Ek = (m * V^2) / 2
+	--; Air resistance F = B * v^2,
+	--; Meters per second to units per second V * 52.5
+	--; Drifting
 
-	--; Из разных пушек разная скорость пули
-	--; Некоторые параметры будут считаться исходя из аммоайди
+	--; Different guns have different bullet speeds
+	--; Some parameters will be calculated based on ammoid
 
-	--; У дроби высокое сопротивление воздуху (~75 метров и они падают)
+	--; The shot has high air resistance (~75 meters and they fall)
 --
 
---\\Перевод плагиновых штук в ваши штуки
+--\\Translation of plug-in things into your things
 	hg.PhysBullet = hg.PhysBullet or {}
 	local PLUGIN = hg.PhysBullet
 	PLUGIN.ID = "PhysBullet"
@@ -39,7 +39,7 @@ PLUGIN.MaxAmmoIDBits = 8 --; Used for AmmoID
 PLUGIN.MaxVelocityLenBits = 16 --; Up to 32767 * 2 hu/s
 PLUGIN.MaxVelocityBits = 8
 PLUGIN.MaxVelocityInt = 2^(PLUGIN.MaxVelocityBits - 1) - 1
-PLUGIN.FirstPenetrationMul = 0.006	--; Что это нафиг
+PLUGIN.FirstPenetrationMul = 0.006	--; What the hell is this
 PLUGIN.DefaultSurfaceHardness = 0.5
 
 PLUGIN.SurfaceHardness = {
@@ -191,7 +191,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		net.WriteInt(math.Round(value[1] * PLUGIN.MaxVelocityInt), PLUGIN.MaxVelocityBits)
 		net.WriteInt(math.Round(value[2] * PLUGIN.MaxVelocityInt), PLUGIN.MaxVelocityBits)
 		net.WriteInt(math.Round(value[3] * PLUGIN.MaxVelocityInt), PLUGIN.MaxVelocityBits)
-		--; оптимизация круто но слишком заметна какашка когда скорость пули маленькая (ниче не заметно)
+		--; optimization is cool, but the poop is too noticeable when the bullet speed is low (nothing noticeable)
 		net.WriteUInt(len, PLUGIN.MaxVelocityLenBits)
 	end
 
@@ -273,8 +273,8 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 	}
 --
 
---; Пульки которые пиф паф взиу пиу
---; Написано будет все на анлийском потомучто я так уже начал и менять лень
+--; Bullets that bang bang wow pew
+--; Everything will be written in English because I’ve already started and I’m too lazy to change it
 
 --\\
 	--; Bullet structure:
@@ -341,7 +341,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		--[[if self.DistanceTraveled > 100 then
 			print(self.Vel:Length()/52)
 		end--]]
-		--; на 100 ~~метров~~ юнитов какая скорость узнать бесплатно
+		--; for 100 ~~meters~~ units what is the speed to find out for free
 		
 		if(self.DistanceTraveled >= self.Distance)then
 			if(self.OnStopped)then
@@ -355,7 +355,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		local interval = FrameTime()
 		local physenv_gravity = physenv.GetGravity()
 		
-		--=\\Изменения self.Vel
+		--=\\Changes self.Vel
 			--==\\Gravity
 				if(!self.NoGravity)then
 					self.Vel = self.Vel + physenv_gravity * interval
@@ -378,19 +378,19 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		
 		local dir = self.Vel / len
 		
-		--=\\Изменения длины скорости
+		--=\\Velocity length changes
 		
 		--[[
 		local tbl = hg.ammotypeshuy[game.GetAmmoName(self.AmmoID)].BulletSettings
 		
 		local Cd = tbl.AirResistanceCoef
-		local p = 1.2255--; в воздухе
+		local p = 1.2255--; in the air
 		local V = len / 52.5
 		local S = len / 52.5 * interval
 		--; E = P / t
 		--; (t = interval)
 		local energy = tbl.Mass / 1000 * (V^2) / 2
-		local energy_loss = (Cd * p * (V^2)) / 2 * S * S--; неверно...
+		local energy_loss = (Cd * p * (V^2)) / 2 * S * S--; wrong...
 		local newenergy = energy - energy_loss
 		local newspeed = newenergy
 		--]]
@@ -547,7 +547,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 						local speedmul = (len_before / self.StartLen)
 						local dmg = DamageInfo()
 						
-						dmg:SetDamage(self.Damage * math.sqrt(speedmul))--; скорость слишком быстро теряется... поэтому квадрат
+						dmg:SetDamage(self.Damage * math.sqrt(speedmul))--; the speed is lost too quickly... so the square
 						dmg:SetDamageType(self.DamageType or DMG_BULLET)
 						dmg:SetDamagePosition(trace.HitPos)
 						dmg:SetDamageForce(self.AmmoForce * dir * (speedmul * self.Force * self.ForceMul))
@@ -735,7 +735,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		if(ricochet)then
 			local len_subtract_frac = (90 - ang_diff) / 90
 			local resist_mul = PLUGIN.CalcMaterialResist(self.PenetratingMaterial)
-			len_before = len_before - math.min(resist_mul * self.AirResistMul * 140 * len_subtract_frac * len_before * len_before, len_before)	--; Не подтверждено ни чем
+			len_before = len_before - math.min(resist_mul * self.AirResistMul * 140 * len_subtract_frac * len_before * len_before, len_before)	--; Not confirmed by anything
 			len = math.min(len, len_before)
 			
 			if(SERVER)then
@@ -759,7 +759,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 				self.PenetratingSky = true
 			else
 				local resist_mul = PLUGIN.CalcMaterialResist(self.PenetratingMaterial, 1)
-				local resist = math.min(resist_mul * self.AirResistMul / self.PhysPenetrationMul * 200000000 / self.Mass, len_before)	--; Не подтверждено ни чем
+				local resist = math.min(resist_mul * self.AirResistMul / self.PhysPenetrationMul * 200000000 / self.Mass, len_before)	--; Not confirmed by anything
 				len_before = len_before - resist
 				len = math.min(len, len_before)
 				-- self.AirResistMul = self.AirResistMul * 2
@@ -815,7 +815,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		bullet.AmmoID = bullet.AmmoID or 0
 		bullet.Damage = bullet.Damage or 1
 		bullet.AirResistMul = bullet.AirResistMul or 0.0001	--; AMMOID
-		bullet.AirResistMul = bullet.AirResistMul / 5	--; Подтвердить вычислением
+		bullet.AirResistMul = bullet.AirResistMul / 5	--; Confirm by calculation
 		bullet.Distance = bullet.Distance or 56756
 		bullet.DistanceTraveled = 0
 		bullet.LifeTime = bullet.LifeTime or 5
@@ -897,12 +897,12 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 			local mat_hardness = PLUGIN.SurfaceHardness[trace.MatType] or PLUGIN.DefaultSurfaceHardness
 			local penetration_mul = 1 - mat_hardness
 
-			if(true)then	--; Доп вычисление REDO
+			if(true)then	--; Additional REDO calculation
 				if(len_before < 2500)then
 					ricochet = false
 					stopped = true
 				else
-					--; Даже при большом угле считать пробитие поверхности для проверки на истинный рикошет
+					--; Even at a large angle, consider penetration of the surface to check for true rebound
 					local penetration_dist = len_before * penetration_mul * PLUGIN.FirstPenetrationMul
 					local hull_trace = {}
 					local move_vector = trace_normal * penetration_dist

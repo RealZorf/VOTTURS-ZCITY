@@ -1,22 +1,22 @@
---\\Перевод плагиновых штук в ваши штуки
+--\\Translation of plug-in things into your things
 	hg.PhysSilk = hg.PhysSilk or {}
 	local PLUGIN = hg.PhysSilk
 	PLUGIN.ID = "PhysSilk"
 --
 
---\\Литература
+--\\Literature
 	--; Philip Schneider David Eberly - Geometric Tools for Computer Graphics
 --
 
 --\\
 	--; TODO
-	--; Граплинг хук физика
-	--; Шёлковые ленточки на стрелах
-	--; Шёлковые ленточки на палочках
+	--; Grappling hook physics
+	--; Silk ribbons on arrows
+	--; Silk ribbons on sticks
 --
 
 PLUGIN.Name = "Physics Silk"
-PLUGIN.Description = "Шёлковые ленточки"
+PLUGIN.Description = "Silk ribbons"
 PLUGIN.Version = 1
 PLUGIN.SilkTable = PLUGIN.SilkTable or {}
 PLUGIN.SilkTableClient = PLUGIN.SilkTableClient or {}
@@ -60,7 +60,7 @@ PLUGIN.SilkTableClient = PLUGIN.SilkTableClient or {}
 				segment.Pos = self.Pos
 			else
 				if(!self.NoGravity)then
-					segment.Vel = segment.Vel + physenv_gravity * interval	--; Ослабить взаимодействие в зависимости от того, какой сегмент по очереди и кол-ва сегментов
+					segment.Vel = segment.Vel + physenv_gravity * interval	--; Reduce interaction depending on which segment is in turn and the number of segments
 				end
 				
 				local vel_len = segment.Vel:Length()
@@ -136,7 +136,7 @@ PLUGIN.SilkTableClient = PLUGIN.SilkTableClient or {}
 							local projection = trace_normal - trace_normal:Dot(trace_hitnormal) * trace_hitnormal
 							local projection_ang = projection:Angle()
 							
-							projection_ang:RotateAroundAxis(trace_hitnormal, 180) --; Вроде оптимизировано должно быть а вроде?
+							projection_ang:RotateAroundAxis(trace_hitnormal, 180) --; It seems like it should be optimized, but what?
 							
 							projection = projection_ang:Forward()
 							local trace_info_2 = {

@@ -254,10 +254,10 @@ function zb.ThinkRTV()
 end
 
 --;; ===================================
---;; ВЕЛИКАЯ МЕГА СИСТЕМА ГОВНА:
---;; Функция для выбора "уникальных" префиксов
---;; с учётом того, что у них есть >=4 доступных карт
---;; (т. е. не в PlayedMaps)
+--;; GREAT MEGA SHIT SYSTEM:
+--;; Function for selecting "unique" prefixes
+--;; considering that they have >=4 available cards
+--;; (i.e. not in PlayedMaps)
 --;; ===================================
 local function getUniquePrefixes(playedMaps)
     local chosen = {}
@@ -311,9 +311,9 @@ function zb.StartRTV(time)
         PlayedMaps = {}
     end
 
-    --;; Сначала попытаемся выбрать 3 "уникальных" префикса 
-    --;; через взвешенный рандом. В каждом должно быть >=4 карт, 
-    --;; которые НЕ в PlayedMaps.
+    --;; First let's try to choose 3 "unique" prefixes
+    --;; through weighted random. Each must have >=4 cards,
+    --;; which are NOT in PlayedMaps.
     local selectedPrefixes = getUniquePrefixes(PlayedMaps)
 
     if #selectedPrefixes < 3 then
@@ -455,7 +455,7 @@ COMMANDS.forcertv = {function(ply, args)
 	0
 }
 
---;; чут чут переписал 
+--;; I rewrote it a bit
 local rtvVotes = {} -- Dagestani fleas heard lezginka and trampled a cat to death
 local rtvTimeout = nil
 
@@ -468,7 +468,7 @@ function zb.ClearRTVVotes()
     end
 end
 
--- ДЕКА КАК ТЫ ТАК СМОГ СДЕЛАТЬ, ЧТО ОНО СРЕТ БЕЗ ОСТНАОВКИ МНЕ ПРИНТОМ, ЧТО РТВ СОСТОИТСЯ, ГДЕ ТЫ НАСРАЛ 
+--DEKA HOW COULD YOU DO SO THAT IT SHIT WITHOUT STOPPING PRINTED ME THAT RTV WILL TAKE PLACE WHERE YOU SHIT
 function zb.CheckRTVVotes(needPrint)
     local votesNeeded = math.ceil(#player.GetAll() / 2)
     local votes = table.Count(rtvVotes)
@@ -503,14 +503,14 @@ local function rtv(ply, args)
         local remaining = votesNeeded - votes
         
         --for _, v in pairs(player.GetAll()) do
-        --    if v ~= ply then БЕСМЫСЛЕННЫЙ СПАМ
+        --if v ~= ply then MEANINGLESS SPAM
         --        v:ChatPrint(ply:Nick() .. " canceled their vote for map change. " .. remaining .. " more votes needed.")
         --    end
         --end
         
         return
     end
-    --;; Дебилы
+    --;; Morons
     --[[if table.Count(rtvVotes) == 0 and not rtvTimeout then
         rtvTimeout = true
         timer.Create("RTVTimeout", 1800, 1, function()
@@ -544,7 +544,7 @@ local function rtv(ply, args)
 end
 
 COMMANDS.rtv = {rtv, 0}
-COMMANDS.кем = {rtv, 0}
+COMMANDS.who = {rtv, 0}
 
 hook.Add("ShutDown", "ResetRTVVotesOnMapChange", zb.ClearRTVVotes)
 hook.Add("PostGamemodeLoaded", "InitializeRTVSystem", function()

@@ -1084,7 +1084,7 @@ local IsValid = IsValid
 
 	-- 	local printed
 	-- 	concommand.Add("hg_change_standposture", function(ply, cmd, args)
-	-- 		if not args[1] and not isnumber(args[1]) and not printed then print([[я такой газовый чэловек]]) printed = true end
+	--if not args[1] and not isnumber(args[1]) and not printed then print([[I'm such a gas man]]) printed = true end
 	-- 		local pos = math.Round(args[1] or -1)
 	-- 		net.Start("change_standposture")
 	-- 		net.WriteInt(pos, 8)
@@ -1431,7 +1431,7 @@ local IsValid = IsValid
 		["lunasflightschool_ah6"] = {multi = 20, AmmoType = "14.5x114mm BZTM"},
 		["npc_turret_floor"] = {multi = 1.25, AmmoType = "9x19 mm Parabellum"},
 		["npc_sniper"] = {multi = 3, AmmoType = "14.5x114mm BZTM", PenetrationMul = 4},
-		["npc_hunter"] = {multi = 4, AmmoType = "12/70 RIP", PenetrationMul = 1}, --;; не работает( потому что прожектайлами стреляет
+		["npc_hunter"] = {multi = 4, AmmoType = "12/70 RIP", PenetrationMul = 1}, --;; doesn't work (because it shoots projectiles
 		["npc_turret_ceiling"] = {multi = 1.25, AmmoType = "9x19 mm QuakeMaker"},
 	}
 

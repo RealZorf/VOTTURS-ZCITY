@@ -33,7 +33,7 @@ SWEP.FakeVPShouldUseHand = true
 
 SWEP.stupidgun = true
 
-SWEP.CantFireFromCollision = true -- 2 спусковых крючка все дела
+SWEP.CantFireFromCollision = true --2 triggers everything is done
 
 SWEP.AnimList = {
 	["idle"] = "idle",

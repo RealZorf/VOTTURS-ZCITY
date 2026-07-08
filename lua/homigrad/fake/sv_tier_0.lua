@@ -693,7 +693,7 @@ hg.humans_cached = hg.humans_cached or {}
 hook.Add("SetupPlayerVisibility", "fuckragdolls", function( ply )
 	local queue = hg.queue_ragdolls
 
-	for ent, tbl in pairs(queue) do--ему, наверное, больно
+	for ent, tbl in pairs(queue) do--he's probably in pain
 		if not IsValid(ent) then queue[ent] = nil continue end
 		if queue[ent].count == #hg.humans_cached then queue[ent] = nil continue end
 		if queue[ent][ply] then continue end
@@ -1032,7 +1032,7 @@ function hg.FakeUp(ply, forced, instant)
 
 	if IsValid(ragdoll) then
 		local phys = ragdoll:GetPhysicsObject()
-		ply:SetVelocity(-ply:GetVelocity() + (IsValid(phys) and phys:GetVelocity() or vecZero)) --как это работает б**н
+		ply:SetVelocity(-ply:GetVelocity() + (IsValid(phys) and phys:GetVelocity() or vecZero)) --how the fuck does this work
 		--hg.SetFreemove(ply, true)
 
 		if pos then

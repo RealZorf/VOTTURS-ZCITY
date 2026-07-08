@@ -41,7 +41,7 @@ function Player:SetPlayerClass(value, data)
 	--end
 end
 
-function Player:GiveSwep(list, mulClip1) -- улучшенный tdm.GiveSwep
+function Player:GiveSwep(list, mulClip1) --improved tdm.GiveSwep
 	if not list then return end
 	local wep = self:Give(type(list) == "table" and list[math.random(#list)] or list)
 	mulClip1 = mulClip1 or 3

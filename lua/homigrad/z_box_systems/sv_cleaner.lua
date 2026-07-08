@@ -1,4 +1,4 @@
--- Очистка карты, вывоз 200-х, мародерство оружия и лута :3
+--Clearing the map, removing 200s, looting weapons and loot :3
 ZBox = ZBox or {}
 ZBox.Plugins = ZBox.Plugins or {}
 ZBox.Plugins["Cleaner"] = ZBox.Plugins["Cleaner"] or {}
@@ -9,8 +9,8 @@ PLUGIN.Name = "Cleaner"
 PLUGIN.Hooks = {}
 local Hook = PLUGIN.Hooks
 
-local CLEANUP_INTERVAL = 1200 --; 10 мин проверка
-local ENTITY_LIFETIME = 1200 --; 10 мин
+local CLEANUP_INTERVAL = 1200 --; 10 min check
+local ENTITY_LIFETIME = 1200 --; 10 min
 
 local ragdollSpawnTimes = {}
 local weaponSpawnTimes = {}
@@ -34,7 +34,7 @@ end
 
 local function CleanupEntities()
     -- Ragdolls 
-    --; (ТВОЙ ЕНТИТИ).organism.alive
+    --; (YOUR ENTITY).organism.alive
     for ragdoll, spawnTime in pairs(ragdollSpawnTimes) do
         if not IsValid(ragdoll) then
             ragdollSpawnTimes[ragdoll] = nil

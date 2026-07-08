@@ -13,7 +13,7 @@ RMB - Low ready
 While low ready:
 LMB to remove spoon.
 Reload to insert pin back.
-]]--"тильда двуеточее три"
+]]--"tilde two dot three"
 SWEP.Category = "Weapons - Explosive"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false

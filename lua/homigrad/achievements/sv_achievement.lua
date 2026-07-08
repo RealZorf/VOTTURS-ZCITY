@@ -280,11 +280,8 @@ end)
 
 local tblToFind_bking = {
     {"sir","sir"},
-    {"сэр","sir"},
     {"please","please"},
-    {"пожалуйста","please"},
-    {"calm down","calm down"},
-	{"успокойтесь","calm down"}
+	{"calm down","calm down"}
 }
 hook.Add("HG_PlayerSay","burgerking",function(ply, txtTbl, txt)
     local bking = {

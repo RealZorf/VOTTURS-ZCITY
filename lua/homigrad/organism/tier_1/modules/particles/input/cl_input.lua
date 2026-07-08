@@ -20,7 +20,7 @@ end
 
 local cloudmat = Material("effects/smoke_b")
 
---оставь это лучше выглядит
+--leave it looking better
 --[[for i = 4, 6 do
 	mats[i-3] = Material("homigrad/decals/bld" .. i)
 end]]

@@ -150,7 +150,7 @@ function CreateAdminWaveMenu(subMode, currentWave, totalWaves, isActive)
             surface.SetDrawColor(ADMIN_MENU.PRIMARY_COLOR)
             surface.DrawOutlinedRect(0, 0, w, h, 1)
             
-            draw.SimpleText("Волна " .. i, "Defense_AdminText", w/2, h/2, ADMIN_MENU.TEXT_COLOR, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            draw.SimpleText("Wave" .. i, "Defense_AdminText", w/2, h/2, ADMIN_MENU.TEXT_COLOR, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
         
         waveBtn.DoClick = function()
@@ -170,7 +170,7 @@ function CreateAdminWaveMenu(subMode, currentWave, totalWaves, isActive)
     infoPanel.Paint = function(self, w, h)
         surface.SetDrawColor(30, 30, 30)
         surface.DrawRect(0, 0, w, h)
-        draw.SimpleText("Нажмите на номер волны чтобы перейти к ней", "Defense_AdminInfo", w/2, h/2, Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText("Click on the wave number to go to it", "Defense_AdminInfo", w/2, h/2, Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 end
 

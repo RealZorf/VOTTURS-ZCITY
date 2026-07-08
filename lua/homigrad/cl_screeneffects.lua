@@ -186,7 +186,7 @@ local haloents = {
 	["weapon_hg_f1_tpik"] = true
 }
 
---[[hook.Add( "PreDrawHalos", "AddPropHalos", function() -- вариант с подсветкой всего в радиусе
+--[[hook.Add( "PreDrawHalos", "AddPropHalos", function() -- variant: highlight everything in radius
 	local pickuphalo = {}
 	 
 	local lpos = lply:GetPos()
@@ -202,7 +202,7 @@ local haloents = {
 	halo.Add( pickuphalo, color_red, 1, 1, 1 )
 end )]]
 
---[[hook.Add( "PreDrawHalos", "AddPropHalos", function() -- вариант с подсвечиванием только когда смотришь
+--[[hook.Add( "PreDrawHalos", "AddPropHalos", function() -- variant: highlight only while looking at it
 	local pickuphalo = {}
 	 
 	local tr = hg.eyeTrace(lply,72)

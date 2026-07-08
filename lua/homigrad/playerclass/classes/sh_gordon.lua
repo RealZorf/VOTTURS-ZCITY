@@ -273,7 +273,7 @@ hook.Add("WeaponEquip","pickuplom",function(wep,ply)
         wep:Remove()
 		local bar = ply:Give("weapon_hg_crowbar_gordon")
 		ply:SelectWeapon(bar)
-	elseif ply.PlayerClassName ~= "Gordon" and wep:GetClass() == "weapon_hg_crowbar_gordon" then -- не достоен
+	elseif ply.PlayerClassName ~= "Gordon" and wep:GetClass() == "weapon_hg_crowbar_gordon" then --not worthy
 		wep:Remove()
 		local bar = ply:Give("weapon_hg_crowbar")
 		ply:SelectWeapon(bar)

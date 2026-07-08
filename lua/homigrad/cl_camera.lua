@@ -387,7 +387,7 @@ surface.CreateFont(
 	}
 )
 
-hook.Add("HUDPaint", "HUDPaint_DrawABox", function() -- этот код старше вас, не судите строго
+hook.Add("HUDPaint", "HUDPaint_DrawABox", function() --this code is older than you, don't judge strictly
 	local lply = LocalPlayer()
 	if lply:Alive() and hg_gopro:GetBool() then
 		local specPly = lply
@@ -560,7 +560,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 		--oldVechicleAng = angPunch
 		angPunch:Sub(oldVechicleAng)
 		angPunch:Normalize()
-		angPunch:Div(5) -- Ставьте это на 1 чтобы врубить блевота мод
+		angPunch:Div(5) --Set this to 1 to enable vomit mod
 		
 		--print(angPunch)
 		local PunchFinal = -angPunch
@@ -836,7 +836,7 @@ hook.Add( "CreateMove", "flipmove", function( cmd )
 end)
 
 --local hg_norenderoverride = ConVarExists("hg_norenderoverride") and GetConVar("hg_norenderoverride") or CreateClientConVar("hg_norenderoverride", 0, true, false, "if you have lags you can try turning that on", 0, 1)
-local mapswithfog = { -- Надо от сервер сайда сделать...
+local mapswithfog = { --We need to do it from the server side...
 	--["gm_freespace_09_super_extended_night"] = 5500,
 	--["gm_white_forest_countryside"] = 6000,
 	--["gm_york_remaster"] = 9500,

@@ -326,7 +326,7 @@ else
                 center[3] = max[3]
                 local volumePos = center - Vector(0,0,45 - drum.Volume)
 
-                --слишком сложно
+                --too difficult
                 */
                 
 

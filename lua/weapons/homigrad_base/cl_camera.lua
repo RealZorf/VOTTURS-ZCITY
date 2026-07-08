@@ -121,7 +121,7 @@ SWEP.punchspeed = 1
 local blurintens = CreateClientConVar("hg_weaponshotblur_mul", "0.03", true, false,"Sets shotblurintens",0,1)
 local shouldblur = CreateClientConVar("hg_weaponshotblur_enable", "1", true, false,"Enable shotblur",0,1)
 local hg_nofovzoom = CreateClientConVar("hg_nofovzoom", "0", true, false, "Enable fov zooming when aiming", 0, 1)
-local hg_show_hitposmuzzle = ConVarExists("hg_show_hitposmuzzle") and GetConVar("hg_show_hitposmuzzle") or CreateClientConVar("hg_show_hitposmuzzle", "0", false, false, "shows weapons crosshair, work only ведьма admin rank or sv_cheats 1")
+local hg_show_hitposmuzzle = ConVarExists("hg_show_hitposmuzzle") and GetConVar("hg_show_hitposmuzzle") or CreateClientConVar("hg_show_hitposmuzzle", "0", false, false, "shows weapons crosshair, work only witch admin rank or sv_cheats 1")
 --local hg_aiminganim = ConVarExists("hg_aiminganim") and GetConVar("hg_aiminganim") or CreateClientConVar("hg_aiminganim", "0", false, false, "change the way you aim your gun")
 
 function SWEP:Blur(x,y,w,z)

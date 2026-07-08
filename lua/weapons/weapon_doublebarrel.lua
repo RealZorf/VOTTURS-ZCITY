@@ -1,7 +1,7 @@
 SWEP.Base = "weapon_doublebarrel_short"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
-SWEP.PrintName = "IZh-43" -- сам ты дабл баррел
+SWEP.PrintName = "IZh-43" --you yourself are a double barrel
 SWEP.Author = "Izhevsk Mechanical Plant"
 SWEP.Instructions = "IZh-43 is a side by side smoothbore shotgun chambered in 12/70"
 SWEP.Category = "Weapons - Shotguns"

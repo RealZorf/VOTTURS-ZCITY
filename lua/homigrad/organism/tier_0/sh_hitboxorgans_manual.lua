@@ -414,7 +414,7 @@ table.insert(male["ValveBiped.Bip01_R_Thigh"], 1, {"gordon_armor", 1, Vector(4, 
 
 table.insert(male["ValveBiped.Bip01_L_Calf"], 1, {"gordon_armor", 1, Vector(4, -1, 0), Angle(0, 0, 90), Vector(6, 5, 4), Color(255, 242, 0), true, 15})
 table.insert(male["ValveBiped.Bip01_R_Calf"], 1, {"gordon_armor", 1, Vector(4, -1, 0), Angle(0, 0, 90), Vector(6, 5, 4), Color(255, 242, 0), true, 16})
---не нужно добавлять в female потому что гордон это не female
+--no need to add it to female because Gordon is not female
 
 --[[local combine = {}
 combine["ValveBiped.Bip01_Spine1"] = table.Copy(male["ValveBiped.Bip01_Spine1"])

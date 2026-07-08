@@ -1,8 +1,8 @@
 
---size (длина)
+--size (length)
 --10 biggest, 1 smallest
---можно использовать эти числа чтобы замедлять поиск
---и чем больше места тем больше может заспавнится вещей (и большие вещи)
+--you can use these numbers to slow down the search
+--and the more space, the more things can spawn (and big things)
 
 local loot_boxes = {
     ["models/props_borealis/bluebarrel001.mdl"] = {8,"all"},
@@ -73,7 +73,7 @@ local loot_boxes = {
     ["models/Items/item_item_crate.mdl"] = {1,"weapons"},
 	["models/props_junk/cardboard_box001a_present.mdl"] = {6,"all",true},
     ["models/props_junk/cardboard_box001b_present.mdl"] = {6,"all",true},
-    ["models/props_junk/cardboard_box002a_present.mdl"] = {6,"all",true}, -- Кто нибудь сделайте просто проверку на существование данного пропа на карте...
+    ["models/props_junk/cardboard_box002a_present.mdl"] = {6,"all",true}, --Someone just check for the existence of this prop on the map...
     ["models/props_junk/cardboard_box002b_present.mdl"] = {6,"all",true},
     ["models/props_junk/cardboard_box003a_present.mdl"] = {6,"all",true},
     ["models/props_junk/cardboard_box003b_present.mdl"] = {6,"all",true},
@@ -119,7 +119,7 @@ props_junk/cardboard_box003a_present.mdl
 props_junk/cardboard_box003b_present.mdl
 props_junk/cardboard_box004a_present.mdl
 
-props_c17/woodbarrel001_gleb.mdl -- сами понимаете почему здесь...
+props_c17/woodbarrel001_gleb.mdl --you understand why here...
 ]]
 
 
@@ -398,7 +398,7 @@ function hg.GenerateLoot(ply,ent,func)
 					end
 				end
 
-				if not ammo then--если все еще не нашло патрон
+				if not ammo then--if you still haven't found the cartridge
 					ammo = table.Random(hg.ammotypesallowed).name
 				end
 
@@ -585,7 +585,7 @@ local trCheck = {
 
 local function MakeRandomSpawns(basepoints,iterations,maxiterations,tbl)
 	if iterations >= maxiterations then return tbl end
-	--я приготовил пельмени с говном вместо мяса
+	--I made dumplings with shit instead of meat
 	iterations = iterations + 1
 
 	local vecRand = VectorRand(-2048, 2048)
@@ -805,7 +805,7 @@ hook.Add("Boxes Think", "SpawnBoxes", function()
 			huy:Remove()
 		end
 
-		--huy.stats = stats--длина и тип спавна лута (для рп дополнения...)
+		--huy.stats = stats--length and type of loot spawn (for RP add-on...)
 		return
 	end
 

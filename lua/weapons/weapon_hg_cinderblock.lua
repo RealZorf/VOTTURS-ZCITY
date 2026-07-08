@@ -121,15 +121,15 @@ SWEP.AnimList["Attack_Charge_End"] = SWEP.AnimList["attack"]
 
 SWEP.CanHeavyAttack = true
 SWEP.HeavyAttackDamageMul = 2.5          
-SWEP.HeavyAttackWaitTime = 2.0            -- перезарядка
-SWEP.HeavyAttackAnimTimeBegin = 0.7       -- подготовка
-SWEP.HeavyAttackAnimTimeIdle = 0.8        -- цикл удержания
-SWEP.HeavyAttackAnimTimeEnd = 2.5        -- длительность удара
-SWEP.HeavyAttackDelay = 0.4               -- задержка до попадания
-SWEP.HeavyAttackTimeLength = 0.25         -- окно попадания
-SWEP.HeavyAttackMaxChargeTime = 1.5       -- время до полной зарядки
+SWEP.HeavyAttackWaitTime = 2.0            --recharge
+SWEP.HeavyAttackAnimTimeBegin = 0.7       --Preparation
+SWEP.HeavyAttackAnimTimeIdle = 0.8        --hold cycle
+SWEP.HeavyAttackAnimTimeEnd = 2.5        --impact duration
+SWEP.HeavyAttackDelay = 0.4               --delay to hit
+SWEP.HeavyAttackTimeLength = 0.25         --hit window
+SWEP.HeavyAttackMaxChargeTime = 1.5       --time until fully charged
 SWEP.HeavyAttackSwingAng = -45
-SWEP.HeavyAttackRads = 110                -- широкий угол удара
+SWEP.HeavyAttackRads = 110                --wide impact angle
 SWEP.HeavyChargeHoldPos = Vector(-13,0,7)
 SWEP.HeavyChargeHoldAng = Angle(-30, 0, 0) 
 

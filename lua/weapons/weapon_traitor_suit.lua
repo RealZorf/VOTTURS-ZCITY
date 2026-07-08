@@ -95,14 +95,14 @@ SWEP.AvailableCostumes = {
         Color = Color(255, 255, 255),
         Attachments = {}
     }
-    --;; К слову можно добавить донатные костюмы
+    --;; By the way, you can add donated costumes
 }
 
 SWEP.Identity = {
     AName = "Unknown", -- Player CustomName... 
     AModel = "models/distac/player/ghostface.mdl", -- GMODModel?
     AColor = Color(255, 0, 0),
-    AAttachments = {} -- Таблица внешней одежды по типу шапки и так далее... -- Потом! 
+    AAttachments = {} --Table of outer clothing by type of hat and so on... - Later!
 }
 
 SWEP.IsCostumeActive = false
@@ -157,7 +157,7 @@ end
 function SWEP:GetEyeTrace()
 	return hg.eyeTrace( self:GetOwner() )
 end
---;; Ненавижу работать над визуалом...
+--;; I hate working on visuals...
 if CLIENT then
 	function SWEP:DrawHUD()
 	end

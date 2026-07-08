@@ -75,7 +75,7 @@ function SWEP:GetAnimShoot2(time, force, delay)
 	return animpos
 end
 
-local angZero, vecZero = Angle(0, 0, 0), Vector(0, 0, 0) -- а неиспользуется потому что глуалин подчеркнул это
+local angZero, vecZero = Angle(0, 0, 0), Vector(0, 0, 0) --and not used because gualin emphasized it
 -- local angPosture3 = Angle(45, 45, -25)
 -- local angPosture3pistol = Angle(5, 65, 0)
 -- local angPosture4 = Angle(40, -30, -40)
@@ -755,7 +755,7 @@ function SWEP:WorldModel_Transform_Holstered()
 	if IsValid(ent) then
 		local noSling = inv and (not inv["Weapons"] or not inv["Weapons"]["hg_sling"]) and not self.shouldntDrawHolstered
 		--if noSling then self:WorldModel_Transform() return end
-		--потом...
+		--Then...
 		--local bone = noSling and noSlingBone or self.holsteredBone
 		--local pos = noSling and noSlingPos or self.holsteredPos
 		--local ang = noSling and noSlingAng or self.holsteredAng

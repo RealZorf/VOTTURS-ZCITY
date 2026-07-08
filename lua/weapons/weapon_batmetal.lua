@@ -115,7 +115,7 @@ SWEP.HeavyAttackStamina = 24
 
 SWEP.CanHeavyAttack = true -- Set to true to enable
 
-SWEP.AttackTimeLength = 0.15   -- важно для остановки
+SWEP.AttackTimeLength = 0.15   --important to stop
 SWEP.Attack2TimeLength = 0.001
 
 SWEP.AttackRads = 100

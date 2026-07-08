@@ -6,7 +6,7 @@ local CHANCE, FORCE, VIBRATION = 0.95, 1200, 150
 local extendDur, rigorDur, flexionDur = {4, 10}, {10, 20}, {6, 12}
 local RIGOR_DAMP, FLEXION_FORCE = 8, 400
 
-local spasmTypes = {[1] = {35, "extend"}, [2] = {25, "rigor"}, [3] = {15,"flexion"}} --;; Че хотите добавляйте изменяйте
+local spasmTypes = {[1] = {35, "extend"}, [2] = {25, "rigor"}, [3] = {15,"flexion"}} --;; Add or change anything you want
 
 local extendBones = {
 	["ValveBiped.Bip01_R_Hand"] = true, ["ValveBiped.Bip01_L_Hand"] = true,

@@ -238,7 +238,7 @@ function Gib_Input(rag, bone, force)
 		ent:SetParent(rag, 3)--rag:LookupBone("ValveBiped.Bip01_Head1"))
 		ent:Spawn()
 
-		SpawnMeatGore(ent, pos, nil, force) --модельки поменять и будет эпик
+		SpawnMeatGore(ent, pos, nil, force) --change the models and it will be epic
 
 		local armors = rag:GetNetVar("Armor",{})
 

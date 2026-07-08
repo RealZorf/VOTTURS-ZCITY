@@ -309,7 +309,7 @@ if SERVER then
 		local owner = self:GetOwner()
 		if not org then return end
 		
-		-- Если растрелять труп а потом его взорвать гранатой, после перевязать - крашнет сервер why?
+		--If you shoot a corpse and then blow it up with a grenade and then bandage it, the server crashes. Why?
 		if self.modeValues[1] <= 0 or not (#org.wounds > 0 or org.lleg == 1 or org.rleg == 1 or org.skull >= 0.6 or org.chest == 1 or org.rarm == 1 or org.larm == 1) then return end
 		table.sort(org.wounds, function(a, b) return a[1] > b[1] end)
 		

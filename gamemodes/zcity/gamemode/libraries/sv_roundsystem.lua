@@ -82,7 +82,7 @@ function zb:EndRound()
 		net.WriteInt(zb.ROUND_STATE, 4)
 	net.Broadcast()
 
-	--PrintMessage(HUD_PRINTTALK, "Раунд закончен.")
+	--PrintMessage(HUD_PRINTTALK, "Round over.")
 	CurrentRound():EndRound()
 	hook.Run("ZB_EndRound")
 	zb.AddFade()

@@ -276,8 +276,8 @@ end
 -- 	end
 
 -- 	draw.SimpleText(":", "ZB_ProotLarge", sw * 0.2, sh * 0.8, color_black, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
--- 	draw.SimpleTextOutlined("ЦЕЛОСТНОСТЬ:", "ZB_ProotLarge", sw * 0.2, sh * 0.8, bluewhite, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, ColorAlpha(shadow, 50))
--- 		draw.GlowingText("ЦЕЛОСТНОСТЬ:", "ZB_ProotLarge2", sw * 0.2, sh * 0.8, ColorAlpha(bluewhite, 255), ColorAlpha(bluewhite, 200), ColorAlpha(bluewhite, 100), TEXT_ALIGN_CENTER)
+--draw.SimpleTextOutlined("INTEGRITY:", "ZB_ProotLarge", sw * 0.2, sh * 0.8, bluewhite, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, ColorAlpha(shadow, 50))
+--draw.GlowingText("INTEGRITY:", "ZB_ProotLarge2", sw * 0.2, sh * 0.8, ColorAlpha(bluewhite, 255), ColorAlpha(bluewhite, 200), ColorAlpha(bluewhite, 100), TEXT_ALIGN_CENTER)
 
 -- 	local HealthBar = ""
 

@@ -1,9 +1,9 @@
 --\\
 --; https://ru.wikipedia.org/wiki/%D0%A6%D0%B8%D0%B0%D0%BD%D0%B8%D0%B4_%D0%BA%D0%B0%D0%BB%D0%B8%D1%8F
---; При больших дозах или поступлении яда натощак потеря сознания и смерть пострадавшего наступает практически мгновенно 
---; (отравленные мгновенно падают замертво) или через несколько секунд после мучительного удушья, судорог, которые часто сопровождаются пронзительными 
---; криками (иногда до хрипоты) и чрезвычайно сильным расширением зрачков.
---; Нейтрализуется от глюкозы и сам по себе т.к. нестабилен
+--; With large doses or the poison being taken on an empty stomach, loss of consciousness and death of the victim occurs almost instantly
+--; (poisoned instantly fall dead) or a few seconds after painful suffocation, convulsions, which are often accompanied by piercing
+--; screaming (sometimes to the point of hoarseness) and extremely strong dilation of the pupils.
+--; Neutralized from glucose and on its own because unstable
 --
 
 if SERVER then AddCSLuaFile() end

@@ -489,10 +489,10 @@ function MODE:RoundThink()
             end
         end
         
-        -- Для чего ты вызываешь вообще все ентити, ТЕБЕ БАНАЛЬНО ВЫГОДНО ИСПОЛЬЗОВАТЬ ents.FindByClass() 
-        -- КАКОГО ЧЕРТА У ТЕБЯ ТУТ ВООБЩЕ ЧЕРЕЗ ПЕЙРСЫ... И еще и в думалке D:
-        for _, ent in ents.Iterator() do -- дека если ты это не перепишишь я удалю этот режим. | SALAT :3
-			-- бедни дека
+        --Why do you call all the entities in general? IT’S VERY BENEFITABLE FOR YOU TO USE ents.FindByClass()
+        --WHAT THE HELL ARE YOU DOING HERE THROUGH PAIRS... And also in thought D:
+        for _, ent in ents.Iterator() do --deck, if you don’t rewrite this, I’ll delete this mode. | SALAT:3
+			--Poor deck
             if IsValid(ent) and ent.IsDefenseWaveNPC and not ent.DefenseNPCCountedAsDead then
                 local class = ent:GetClass() or ""
                 
@@ -567,7 +567,7 @@ function MODE:EndRound()
     self.NPCCount = 0
     
 
-    for _, ent in ents.Iterator() do -- дека если ты это не перепишишь я удалю этот режим. | SALAT :3
+    for _, ent in ents.Iterator() do --deck, if you don’t rewrite this, I’ll delete this mode. | SALAT:3
         if IsValid(ent) and (ent:IsNPC() or 
             string.find(tostring(ent:GetClass() or ""), "npc_vj_") or
             string.find(tostring(ent:GetClass() or ""), "sent_vj_") or

@@ -1,14 +1,14 @@
 --[[
-Инструменты администрации
-    ▬   C-menu настройка игрока (кол-во хп, strip, freeze и т.д.) --| DONE
-    ▬   Выдача всем игрокам (или опредленным) через f1 меню вещей
-    ▬   Команда на возвращение всех людей на дефолтные точки спавна
-    ▬   URL музыка играющая для всех
-    ▬   Стандартное управление аки Хомиград через спектаторы (физган,тулган и т.д.)
-    ▬   Настраиваемый красивый таймер и надписи сверху справа на экране, у всех игроков
-    ▬   Метка как в L4D2, например для аирдропов или целей на карте
-    ▬   Адекватный годмод для админов
-    ▬   Возрождение игроков --| DONE
+Admin tools
+    ▬   C-menu player setup (HP amount, strip, freeze, etc.) --| DONE
+    ▬   Give items to all players (or specific ones) via F1 menu
+    ▬   Command to return everyone to default spawn points
+    ▬   URL music playing for everyone
+    ▬   Standard Homigrad admin controls via spectator (physgun, toolgun, etc.)
+    ▬   Configurable timer and on-screen top-right labels for all players
+    ▬   L4D2-style marker, e.g. for airdrops or map objectives
+    ▬   Proper godmode for admins
+    ▬   Player respawn --| DONE
 --]]
 
 hg.AdminTools = hg.AdminTools or {}

@@ -682,7 +682,7 @@ function SWEP:PrimaryAttack(forcespecial)
 	if isfur then
 		local Ent = WhomILookinAt(owner, .3, 45)
 		if IsValid(Ent) then
-			local ent_org = Ent.organism -- ServerLog: Mr. Point: я люблю плывиски mrrrph~~
+			local ent_org = Ent.organism --ServerLog: Mr. Point: I love swimski mrrrph~~
 			if ent_org and ent_org.owner.PlayerClassName == "furry" then
 				if (owner.cooldownlick or 0) < CurTime() and SERVER then
 					owner.cooldownlick = CurTime() + 1
@@ -732,7 +732,7 @@ local concrete = {
 function SWEP:AttackFront(special_attack, rand)
 	if CLIENT then return end
 	local owner = self:GetOwner()
-	--self.PenetrationCopy = -(-self.Penetration) -- это как
+	--self.PenetrationCopy = -(-self.Penetration) -- this is how
 	owner:LagCompensation(true)
 	local Ent, HitPos, _, physbone, trace = WhomILookinAt(owner, .3, special_attack and 35 or 45)
 	local AimVec = owner:GetAimVector()

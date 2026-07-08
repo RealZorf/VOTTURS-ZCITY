@@ -1,4 +1,4 @@
--- Машинки, споты для спавна. 1 машинка респавнится раз в 30 минут, если прошлая была уничтожена.
+--Cars, spawn spots. 1 car will respawn once every 30 minutes if the previous one was destroyed.
 --ZBox = ZBox or {}
 
 --ZBox.Plugins = ZBox.Plugins or {}

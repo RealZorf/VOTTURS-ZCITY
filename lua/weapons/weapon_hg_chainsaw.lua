@@ -449,7 +449,7 @@ function SWEP:Think()
         end
     end
 
-    -- Если бензопила выброшена и включена, наносим урон игрокам, которые к ней приближаются
+    --If the chainsaw is thrown out and turned on, we deal damage to players who approach it
     if SERVER and is_on and not IsValid(self:GetOwner()) then
         self:CheckDangerTouch()
     end
@@ -458,33 +458,33 @@ end
 function SWEP:CheckDangerTouch()
     if not SERVER then return end
     if not self:GetNWBool("chainsawon", false) then return end
-    if IsValid(self:GetOwner()) then return end -- Не проверяем, если есть владелец
+    if IsValid(self:GetOwner()) then return end --We do not check if there is an owner
 
-    -- Проверяем раз в 0.5 секунды (чтобы не грузить сервер)
+    --We check once every 0.5 seconds (so as not to load the server)
     local nextCheck = self.nextDangerCheck or 0
     if CurTime() < nextCheck then return end
     self.nextDangerCheck = CurTime() + 0.5
 
     local pos = self:GetPos()
-    -- Ищем всех игроков в радиусе 35 юнитов
+    --We are looking for all players within a radius of 35 units
     for _, ply in ipairs(player.GetAll()) do
         if ply:Alive() and not ply:IsSpec() and ply:GetPos():Distance(pos) <= 45 then
-            -- Наносим урон
+            --We cause damage
             local dmg = DamageInfo()
-            dmg:SetAttacker(game.GetWorld()) -- или self, но чтобы не считалось атакой игрока
+            dmg:SetAttacker(game.GetWorld()) --or self, but so that it is not considered an attack by the player
             dmg:SetInflictor(self)
             dmg:SetDamage(5)
             dmg:SetDamageType(DMG_SLASH)
             dmg:SetDamagePosition(pos)
             ply:TakeDamageInfo(dmg)
 
-            -- Эффекты крови
+            --Blood effects
             util.Decal("Blood", ply:GetPos() + Vector(0,0,10), ply:GetPos() - Vector(0,0,10), self)
 
-            -- Звук пореза
+            --The sound of a cut
             ply:EmitSound("snd_jack_hmcd_axehit.wav", 50, math.random(95,105))
 
-            -- Небольшой толчок
+            --A little push
             local dir = (ply:GetPos() - pos):GetNormalized()
             ply:SetVelocity(dir * 100 + Vector(0,0,50))
         end
@@ -955,7 +955,7 @@ function SWEP:OnDrop()
     
     -- Transfer sound patches to the dropped weapon entity
     if self:GetNWBool("chainsawon", false) then
-        -- Не вызываем SetNextThink, так как Think уже будет вызван благодаря условию в Think
+        --We do not call SetNextThink, since Think will already be called due to the condition in Think
         local droppedEnt = self
         
         -- Store sound state for transfer

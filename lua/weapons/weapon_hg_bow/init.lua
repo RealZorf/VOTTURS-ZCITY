@@ -4,7 +4,7 @@ include("shared.lua")
 
 SWEP.CurState = -1 -- -1 = idle; 0 = period between ready and idle; 1 = ready
 
-function SWEP:SoundEmit(snd, vol, pitch, volstupid) -- хо ро шо я тебя услышал
+function SWEP:SoundEmit(snd, vol, pitch, volstupid) --ok ro sho I heard you
 	sound.Play(snd, self:GetPos(), vol, pitch, volstupid)
 end
 

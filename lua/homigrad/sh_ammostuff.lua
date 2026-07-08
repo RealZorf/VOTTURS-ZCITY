@@ -196,7 +196,7 @@ local function preremove_silk(self)
 	end
 	
 	if(CLIENT and self.Silks)then
-		HGAmmo_PhysSilkTranslationTable[self.Key] = {	--; СЕЛФ КЕУ МОЖЕТ БЫТЬ ОДИН И ТОТ ЖЕ У 2 ПУЛЬ ЕСЛИ ПРОШЛАЯ УСПЕЛА УДАЛИТЬСЯ
+		HGAmmo_PhysSilkTranslationTable[self.Key] = {	--; SELF KEY CAN BE THE SAME FOR 2 BULLETS IF THE PAST HAS BEEN DELETED
 			Silks = self.Silks,
 			DeathTime = CurTime() + 1,
 		}
@@ -1024,7 +1024,7 @@ hg.ammotypes = {
 			ShellColor = Color(255,185,0)
 		}
 	},
-	["20/70gauge"] = { --потом другие добавлю
+	["20/70gauge"] = { --I'll add others later
 		name = "20/70 gauge",
 		allowed = true,
 		--dmgtype = DMG_BUCKSHOT,
@@ -1814,7 +1814,7 @@ hg.ammotypes = {
 			Icon = matPistolAmmo
 		}
 	},
-	["14.5x114mmb32"] = { -- Салат ты у нас тут балансище, сделаешь конфетку 
+	["14.5x114mmb32"] = { --Salad, you are the balancer here, make some candy
 		name = "14.5x114mm B32",
 		dmgtype = DMG_BULLET + DMG_AIRBOAT,
 		tracer = TRACER_NONE,
@@ -1835,7 +1835,7 @@ hg.ammotypes = {
 			Icon = matRfileAmmo
 		}
 	},
-	["14.5x114mmbztm"] = { -- это тоже самое что и выше просто с трасером :D
+	["14.5x114mmbztm"] = { --this is the same as above, just with a tracer :D
 		name = "14.5x114mm BZTM",
 		dmgtype = DMG_BULLET + DMG_AIRBOAT,
 		tracer = TRACER_LINE,
@@ -2927,14 +2927,14 @@ end
 addAmmoTypes()
 hook.Add("Initialize", "init-ammo", addAmmoTypes)
 
---коэффициент лобового сопротивления также можно рассчитать математически
---11300 - плотность свинца в кг/м3
+--The drag coefficient can also be calculated mathematically
+--11300 - density of lead in kg/m3
 for i,tbl in pairs(ammotypes) do
 	if not tbl.BulletSettings or not tbl.BulletSettings.Diameter or not tbl.BulletSettings.Speed then continue end
 	local coef = 8 / (1.2255 * (tbl.BulletSettings.Speed^2) * math.pi * ((tbl.BulletSettings.Diameter / 1000)^2))
 	tbl.BulletSettings.AirResistanceCoef = coef
 	--local ballistic_coef = tbl.BulletSettings.Mass / 1000 / coef / (math.pi * (tbl.BulletSettings.Diameter / 1000 / 2)^2)
-	--неверно
+	--wrong
 	--print(i,coef,ballistic_coef)
 end
 

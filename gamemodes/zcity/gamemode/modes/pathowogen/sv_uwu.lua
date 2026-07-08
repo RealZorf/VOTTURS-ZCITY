@@ -720,20 +720,20 @@ MODE.LootTable = {
 		--{7,"ent_armor_vest6"},
 		{5,"ent_armor_vest7"},
 		{8, "ent_armor_helmet2"},
-		-- Добавил это так как банально через время верхний тир падает РЕЖЕ в раз сто чем этот.
+		--I added this because it’s trivial that over time the top tier falls less often than this one.
 		{0.3,"weapon_smallconsumable"},
 		{0.25,"weapon_bigconsumable"},
 		{0.24,"weapon_walkie_talkie"},
 		{0.23,"weapon_painkillers"},
 		{0.2,"weapon_medkit_sh"},
-		-- крутая медицина
+		--cool medicine
 		{0.2,"weapon_morphine"},
 		{0.2,"weapon_mannitol"},
 		{0.2,"weapon_naloxone"},
 		{0.2,"weapon_fentanyl"},
 		{0.2,"weapon_betablock"},
 		{0.2,"weapon_adrenaline"},
-		-- Как никак полезные инструменты для выбивание барикад и дверей
+		--After all, useful tools for knocking out barricades and doors
 		{0.15,"weapon_hg_crowbar"},
 		{0.15,"weapon_hatchet"},
 		{0.1,"weapon_hg_axe"},
@@ -870,8 +870,8 @@ function MODE:SpawnGlideHelicopter()
 
 		local extracted = false
 		local players = {}
-		--да дурак просто посмотри все сварки и все ентити из сварок удали (ну и проверь там если игрок то екстракт) ок
-		-- нет сам я не знаю
+		--Yes, you're a fool, just look at all the welds and remove all the entities from the welds (well, check there if the player is an extract) ok
+		--no I don't know myself
 		-- for _, seat in Glide.EntityPairs( this.seats ) do
 		-- 	if !IsValid( seat ) then return end
 		-- 	if !seat.GlideSeatIndex then return end

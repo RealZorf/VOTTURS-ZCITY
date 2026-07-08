@@ -1,41 +1,41 @@
 --\\
 --; TODO
---; Трейтор видит суброли других игроков в начале раунда
---; Трейтору даётся время на выбор своей суброли
+--; Traitor sees the sub-roles of other players at the beginning of the round
+--; Traitor is given time to choose his sub-role
 
---; Суброли Трейтора:
+--; Traitor sub-roles:
 --=\\Jack of all Trades
---; Все стандартно как сейчас
+--; Everything is standard as it is now
 --=//
---=\\Ассасин -имба
---; Оружие:
---; Плевалка парализующими дротиками (3 дротика)
---; Способности:
---; Отобрать оружие со спины (даже если оно используется), Подсечка (сбивает с ног)
---; Пассивки:
---; Эксперт по обращению с любым оружием (особенно с кулаками), при ударе из-за спины кулаками парализует жертву на 3 секунды
---=//
-
---=\\Пила +-инженер
---; Оружие:
---; Нож, СВУ
---; Способности:
---; Хихихихихихихихих
---; Пассивки:
---; Крафт из любых пропов на карте и предметов
+--=\\Assassin -imba
+--; Weapon:
+--; Spitting paralyzing darts (3 darts)
+--; Capabilities:
+--; Take a weapon from your back (even if it is in use), Trip (knocks you down)
+--; Passives:
+--; Expert in handling any weapon (especially fists), when struck from behind with fists, paralyzes the victim for 3 seconds
 --=//
 
---=\\Диверсант
---; Оружие:
---; Нож, СВУ, Граната, Дымовуха, Адреналин, Капкан???, Блокаторы дверей
---; Способности:
---; Спрятаться в подходящий для этого проп, Полностью сменить внешность на внешность трупа (включая кожу), Свернуть шею сзади
+--=\\Saw +-engineer
+--; Weapon:
+--; Knife, IED
+--; Capabilities:
+--; Hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi
+--; Passives:
+--; Craft from any props on the map and items
 --=//
 
---; Свернуть шею сзади
+--=\\Saboteur
+--; Weapon:
+--; Knife, IED, Grenade, Smoke, Adrenaline, Trap???, Door blockers
+--; Capabilities:
+--; Hide in a suitable prop, Completely change your appearance to that of a corpse (including skin), Roll your neck from behind
+--=//
+
+--; Roll your neck from behind
 --
 
---\\Перевод плагиновых штук в ваши штуки
+--\\Translation of plug-in things into your things
 hg.RolePlus = hg.RolePlus or {}
 local PLUGIN = hg.RolePlus
 PLUGIN.ID = "RolePlus"

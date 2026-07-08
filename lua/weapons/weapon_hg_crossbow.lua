@@ -19,7 +19,7 @@ SWEP.AttachmentAng = Angle(0,0,0)
 
 SWEP.FakeVPShouldUseHand = true
 
-SWEP.CantFireFromCollision = true -- 2 спусковых крючка все дела
+SWEP.CantFireFromCollision = true --2 triggers everything is done
 
 SWEP.AnimList = {
 	["idle"] = "idle_is",

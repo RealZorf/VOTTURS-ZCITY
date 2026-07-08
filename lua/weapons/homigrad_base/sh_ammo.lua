@@ -18,25 +18,25 @@ BulletSettings = {
 
 function SWEP:ApplyAmmoChanges(type_)
 	if not self.AmmoTypes or not istable(self.AmmoTypes) then
-		print("ЭРРАР: Таблица не валдинайа")
+		print("ERRAR: The table is not valid")
 		return
 	end
 
 	local ammo = self.AmmoTypes[type_]
 	if not ammo then
-		print("ЭРРАР: ИНВАЛИД ТИП ПАТРОНААА")
+		print("ERRAR: DISABLED PATRONAAA TYPE")
 		return
 	end
 
 	local ammohuy = hg.ammotypeshuy[ammo[1]]
 	if not ammohuy then
-		print("ЭРРАР: говно с патриками в hg.ammotypeshuy")
+		print("ERRAR: shit with Patricks in hg.ammotypeshuy")
 		return
 	end
 
 	local ammotype = ammohuy.BulletSettings
 	if not ammotype then
-		print("ЭРРАР: Нет настройек огузки") -- дека дебил
+		print("ERRAR: No rump settings") --soundboard moron
 		return
 	end
 

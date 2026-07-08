@@ -7,7 +7,7 @@ SWEP.Instructions =
 LMB - High ready
 
 RMB - Low ready
-]]--"тильда двуеточее три"
+]]--"tilde two dot three"
 SWEP.Category = "Weapons - Explosive"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -199,7 +199,7 @@ SWEP.AnimsEvents = {
 			--self:GetWM():ManipulateBoneScale(47, vector_full)
 		end,
 		[0.24] = function(self)
-			self.idleSnd = self:StartLoopingSound("в")
+			self.idleSnd = self:StartLoopingSound("V")
 			self.Burn = true
 			--
 			--self:GetWM():ManipulateBoneScale(47, vector_full)

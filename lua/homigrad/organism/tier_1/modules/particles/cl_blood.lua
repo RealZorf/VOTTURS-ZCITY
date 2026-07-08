@@ -186,7 +186,7 @@ local function decalBlood(pos, normal, tr, artery, owner)
 		hg.bloodcount = 0
 	end
 
-	-- я не знаю насколько большой можно делать такие таблицы... надеюсь, что это не так страшно выйдет
+	--I don’t know how big you can make such tables... I hope it won’t be so scary
 
 	if artery then
 		if !hg_old_blood:GetBool() then
@@ -239,7 +239,7 @@ local function decalBlood(pos, normal, tr, artery, owner)
 		end
 	end
 end
---дурак, просто смотри сколько ентити стоит в одном месте
+--fool, just look how much the entity costs in one place
 local tr2 = { collisiongroup = COLLISION_GROUP_WORLD, output = {} }
 
 function util.IsInWorld( pos )

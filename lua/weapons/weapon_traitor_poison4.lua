@@ -237,7 +237,7 @@ if SERVER then
 				org.owner:Notify("I'm doing.. Something.. Wrong...", true, "poison4", 3)
 				org.owner:EmitSound( ( ThatPlyIsFemale(org.owner) and "vo/npc/female01/moan0"..math.random(5)..".wav" ) or "vo/npc/male01/moan0"..math.random(5)..".wav")
 				org.o2.regen = 0
-				--hg.organism.AmputateLimb(org, "larm") -- жестокие видеоигры
+				--hg.organism.AmputateLimb(org, "larm") -- violent video games
 				--hg.organism.AmputateLimb(org, "rarm")
 			end
 		end

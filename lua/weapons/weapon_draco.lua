@@ -224,7 +224,7 @@ end
 
 function SWEP:ReloadEnd()
 	self:InsertAmmo(self:GetMaxClip1() - self:Clip1() + (self.drawBullet ~= nil and not self.OpenBolt and 1 or 0))
-	self.ReloadNext = CurTime() + self.ReloadCooldown --я хуй знает чо это
+	self.ReloadNext = CurTime() + self.ReloadCooldown --I don't know what this is
 	self:Draw()
 	local Fuck = self.HoldType == self.OldHoldType
 	self.HoldType = self.OldHoldType or self.HoldType

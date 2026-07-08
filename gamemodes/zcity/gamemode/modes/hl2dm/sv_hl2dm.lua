@@ -5,7 +5,7 @@ MODE.Chance = 0.05
 
 MODE.LootSpawn = false
 
-function MODE:ClearPlayerRoles() -- Щпасибо деке!!
+function MODE:ClearPlayerRoles() --Thanks to the deck!!
     for _, ply in player.Iterator() do
         ply:SetNWString("PlayerRole", "")
     end

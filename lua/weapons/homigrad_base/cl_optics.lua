@@ -94,7 +94,7 @@ end
 lodset = false
 
 local hg_optimise_scopes = GetConVar("hg_optimise_scopes") or CreateClientConVar("hg_optimise_scopes", "1", true, false, "Enable this if scoping makes your fps cry (1 - lowers quality of props around you, 2 - \"disables\" main render)", 0, 2)
-local hg_show_hitposmuzzle = ConVarExists("hg_show_hitposmuzzle") and GetConVar("hg_show_hitposmuzzle") or CreateClientConVar("hg_show_hitposmuzzle", "0", false, false, "shows weapons crosshair, work only ведьма admin rank or sv_cheats 1")
+local hg_show_hitposmuzzle = ConVarExists("hg_show_hitposmuzzle") and GetConVar("hg_show_hitposmuzzle") or CreateClientConVar("hg_show_hitposmuzzle", "0", false, false, "shows weapons crosshair, work only witch admin rank or sv_cheats 1")
 
 local angaddhuy = Angle(0,0,0)
 local scrw, scrh = ScrW(), ScrH() --retarded
@@ -342,7 +342,7 @@ function SWEP:DoHolo()
 end
 
 local blured
--- ПОЙНТ ТЫ НУБ ПОЛНЫЙ
+--POINT YOU ARE A COMPLETE NOOB
 --local hg_blur_holo = GetConVar("hg_blur_holo") or CreateClientConVar("hg_blur_holo", "1", true, false, "Disable this if holo blur makes your fps cry.", 0, 1)
 
 local invcolor = Color(0,0,0,0)
@@ -360,11 +360,11 @@ hook.Add("PostDrawTranslucentRenderables","stencil-test-holo2",function()
 	local hitPos = eyePos + ang:Forward() * 2624
 	
 	if blured ~= self.holo then
-		-- МОЙ ДРУГ ТОЛЬКО С ПРОЦЕССОРОМ НЕ МОГ ИГРАТЬ НОРМАЛЬНО С ГОЛОГРАФАМИ!!!!
-		-- ТЫ ОЧЕНЬ ПЛОХОЙ!!! И НУЫЫЫЫЫ																							|\_/|
-		-- Короче я пофиксил какашку, теперь блюр один раз на изменение текстуры, теперь смешных приколов фпс падений не будет. |'.'|
-		-- ПЛЫВ ПЛЫВ ПЛЫВ																										|	|
-		-- ЭТО САМЫЙ БОЛЬШОЙ КОМЕНТАРИЙ ХЕХЕХЕХЕХЕЕХ																		   	|___|
+		--MY FRIEND JUST WITH A PROCESSOR COULD NOT PLAY NORMALLY WITH HOLOGRAPHES!!!!
+		--YOU ARE VERY BAD!!! AND NUYYYY |\_/|
+		--In short, I fixed the poop, now I blur once per texture change, now there will be no funny jokes FPS drops. |'.'|
+		--SWIM SWIM SWIM |	|
+		--THIS IS THE BIGGEST COMMENT HEHEHEHEHEHEHEH |___|
 		render.PushRenderTarget( exampleRT )
 			render.OverrideAlphaWriteEnable( true, true )
 

@@ -79,7 +79,7 @@ function COMMAND_Input(ply,args)
 
 	return true,cmd[1](ply,args)
 end
--- Мдаааа А ПЛЕЙРСЕЙ ДЛЯ КОГО НУЖЕН????
+--Hmmm, WHO IS PLAYERSEY FOR????
 hook.Add("HG_PlayerSay","commands-chat",function(ply, txtTbl, text)
 	COMMAND_Input(ply, COMMAND_GETARGS(string.Split(string.sub(text, 2, #text), " ")))
 end)
@@ -621,7 +621,7 @@ if SERVER then
         target:TakeDamageInfo(dmg)
 
         ply:ChatPrint("Fatass " .. target:Nick() .. " has been punished.")
-    end, 2, "ник игрока"}
+    end, 2, "player nickname"}
 
     COMMANDS.pluv = {function(ply, args)
         net.Start("PluvCommand")

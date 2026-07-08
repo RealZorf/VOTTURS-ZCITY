@@ -2,7 +2,7 @@ gasparticles = gasparticles or {}
 gasparticles_hook = gasparticles_hook or {}
 local gasparticles_hook = gasparticles_hook
 
---;; За каждую оптимизацию на канале мир становится...
+--;; For every optimization on the channel, the world becomes...
 local DECAL_BUDGET = 8          
 local DEDUP_CELL_SIZE = 4       
 local DEDUP_COOLDOWN = 0.15     

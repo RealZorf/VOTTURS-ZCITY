@@ -1,4 +1,4 @@
--- Стартер, ну чтобы в сандбоксе мы не страдали.
+--Starter, so that we don’t suffer in the sandbox.
 ZBox = ZBox or {}
 ZBox.Plugins = ZBox.Plugins or {}
 

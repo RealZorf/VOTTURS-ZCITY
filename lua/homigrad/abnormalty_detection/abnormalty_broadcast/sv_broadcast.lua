@@ -1,4 +1,4 @@
---\\Перевод плагиновых штук в ваши штуки
+--\\Translation of plug-in things into your things
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
 --

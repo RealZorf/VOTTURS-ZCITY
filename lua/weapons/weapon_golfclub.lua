@@ -155,12 +155,12 @@ end
 SWEP.NoHolster = true
 
 
-SWEP.Swing = true -- Это отвесает за первый вид удара, изначально с права на лево
-SWEP.LSwing = false -- Это отвесает за второй вид удара, изначально с права на лево
-SWEP.SwingLeft = false -- Это отвесает за первый вид удара, переключает с лева на право
-SWEP.LSwingLeft = false -- Это отвесает за второй вид удара, переключает с лева на право
-SWEP.UpSwing = false -- Это отвесает за первый вид удара, Сверху вниз
-SWEP.LUpSwing = false -- Это отвесает за второй вид удара, Сверху вниз
+SWEP.Swing = true --This weighs for the first type of blow, initially from right to left
+SWEP.LSwing = false --This weighs for the second type of blow, initially from right to left
+SWEP.SwingLeft = false --It plumbs for the first kind of strike, switches from left to right
+SWEP.LSwingLeft = false --It plumbs for the second type of kick, switches from left to right
+SWEP.UpSwing = false --It plumbs for the first kind of blow, from top to bottom
+SWEP.LUpSwing = false --This weighs down for the second type of blow, from top to bottom
 
 SWEP.BreakBoneMul = 0.5
 SWEP.PainMultiplier = 0.7

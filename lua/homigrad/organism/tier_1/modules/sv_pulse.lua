@@ -128,7 +128,7 @@ module[2] = function(owner, org, timeValue)
 	end
 end
 
---if org.heartstop then org.needotrub = true end --не совсем...
+--if org.heartstop then org.needotrub = true end --not really...
 util.AddNetworkString("pulse")
 function hg.organism.Pulse(owner, org, timeValue)
 	local stamina = org.stamina

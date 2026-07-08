@@ -369,7 +369,7 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 end)
 
 
--- Я ебал это делать
+--I'm fucked doing this
 
 surface.CreateFont("TraitorPanelTitle", {
 	font = "coolvetica",

@@ -1,5 +1,5 @@
 --[[
-    - добавить все из zcity content dyn-music
+    - add everything from zcity content dyn-music
 
 --]]
 hg = hg or {}

@@ -739,7 +739,7 @@ hg.armor.face = {
 		AfterPickup = function(ply)
 			--timer.Simple(1,function()
 			--	if IsValid(ply) and ply:IsPlayer() then
-			--		ply:Notify("Enable \\ Disable NVG - С + E",nil,nil,0)
+			--ply:Notify("Enable \\ Disable NVG - C + E",nil,nil,0)
 			--	end
 			--end)
 		end

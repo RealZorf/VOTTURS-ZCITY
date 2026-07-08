@@ -267,11 +267,11 @@ function SWEP:PlaceSLAM(pos, ang, tr)
     ent:Spawn()
 
     constraint.Weld(ent, tr.Entity, 0, tr.PhysicsBone or 0, 9999, true, true)
-    self:SetPlaced(true) -- ЗАЧЕМ А?
-    self:SetSLAM(ent) -- НАХЕР ЭТО НУЖНО ЕСЛИ У ТЕБЯ И ТАК ПОТОМ ОРУЖИЕ УДАЛЯЕТСЯ?
+    self:SetPlaced(true) --WHY A?
+    self:SetSLAM(ent) --THE FUCK IS THIS NEEDED IF YOU HAVE AND THEN THE WEAPON IS REMOVED?
     ent.owner = self:GetOwner()
 
-    self:Remove() -- ДЕКА ТЫ ЧЕ ЧАТДЖП ИСПОЛЬЗУЕШЬ? ЧТО ЭТО ЗА КОД БЛЯТЬ
+    self:Remove() --DEKA WHAT ARE YOU USING CHATJP? WHAT THE FUCK IS THIS CODE
 end
 
 function SWEP:InitAdd()
@@ -285,7 +285,7 @@ function SWEP:SetupDataTables()
     self:NetworkVarNotify("Placed", self.OnVarChanged)
 end
 
-function SWEP:OnVarChanged(name, old, new) -- зач
+function SWEP:OnVarChanged(name, old, new) --why
     if not new then return end
     self.WorldModel = "models/mmod/weapons/w_slam.mdl"
     self.offsetVec = Vector(1.5, -12, -1)

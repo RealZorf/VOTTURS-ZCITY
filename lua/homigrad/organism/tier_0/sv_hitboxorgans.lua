@@ -1,6 +1,6 @@
 hg.organism = hg.organism or {}
 local empty = {}
-local Vector = Vector --ыыы
+local Vector = Vector --yyy
 local vecZero, angZero = Vector(0, 0, 0), Angle(0, 0, 0)
 local box, _mins = Vector(0, 0, 0), Vector(0, 0, 0)
 local center

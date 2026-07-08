@@ -783,8 +783,8 @@
 			return true
 		end
 
-		--copy hold делаешь когда нужно скопировать пальчики левой руки
-		--set hold когда хочешь чтобы пальчики встали ровно как надо по копии (и не двигались)
+		--copy hold you do when you need to copy the fingers of your left hand
+		--set hold when you want your fingers to stand exactly as they should according to the copy (and not move)
 		--hg.copy_hold(Entity(1))
 	end
 --

@@ -220,7 +220,7 @@ function hg.organism.AmputateLimb(org, limb)
 	net.WriteBool(true)
 	net.WriteBool(false)
 	net.WriteBool(false)
-	net.WriteBool(true) -- вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
+	net.WriteBool(true) --this little bitch is responsible for making it just blink and that’s it
 	net.Send(rf)
 end
 
@@ -946,9 +946,9 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		if dmgInfo:IsDamageType(DMG_BULLET) and RagdollDamageBoneMul[hitgroup] then
 			dmgInfo:ScaleDamage(RagdollDamageBoneMul[hitgroup])
 			dmg_before = dmg_before * RagdollDamageBoneMul[hitgroup]
-			-- я даже не знаю, может это снова убрать? ^
-			-- у нас это так давно было неправильно, что, наверное,
-			-- все уже привыкли
+			--I don’t even know, maybe I should remove this again? ^
+			--It’s been wrong for us for so long that it’s probably
+			--everyone is already used to it
 		end
 	--end
 
@@ -1044,7 +1044,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		if not IsValid(sfd) then return true end
 		if sfd:Health() < 0 then
 			sfd:Kill() 
-			return true -- кодинг это просто :fumo_bounce:
+			return true --coding is easy :fumo_bounce:
 		else
 			sfd:SetHealth(sfd:Health()-dmg_before * .15)
 		end
@@ -1093,7 +1093,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			
 			hg.AddForceRag(ply, bone, force * 0.5, 0.5)
 
-			if ply.AddForceRag[bone][2] and ply.AddForceRag[bone][2]:Length() > 4500 then --по-моему какие-то большие значения, не?
+			if ply.AddForceRag[bone][2] and ply.AddForceRag[bone][2]:Length() > 4500 then --In my opinion, some big values, no?
 				if ply.AddForceRag[bone][2]:Length() > 7000 then
 					hg.StunPlayer(ply, 0.5)
 					hg.LightStunPlayer(ply, 2)
@@ -1353,7 +1353,7 @@ local paintable = {
 	end,
 }
 
---[[hook.Add("HomigradDamage", "painsounds",function(ply, dmgInfo, hitgroup, ent) -- Пример использования HomigradDamage
+--[[hook.Add("HomigradDamage", "painsounds",function(ply, dmgInfo, hitgroup, ent) -- Example HomigradDamage usage
 	--ply.painCD = ply.painCD or 0
 	--if paintable[hitgroup] and ply.painCD and ply.painCD < CurTime() and ply.organism and !ply.organism.otrub and ply:Alive() and !ply.organism.holdingbreath then 
 	--	paintable[hitgroup](ply,ent)
@@ -1471,7 +1471,7 @@ local function GetTraceDamage(ent, start, dir)
 	start = -(-start)
 	tr.start = start
 	endpos:Set(start)
-	endpos:Add(dir) --вероятнее всего х3
+	endpos:Add(dir) --most likely x3
 	tr.endpos = endpos
 	--tr.filter = ent --gunius
 	local traceResult = util_TraceLine(tr)
@@ -1493,7 +1493,7 @@ takeRagdollDamage = function(ent, dmgInfo)
 	if not IsValid(ply) then return end
 	if ply.organism and ply.organism.godmode then return end
 	local traceResult = GetTraceDamage(ent, dmgInfo:GetDamagePosition(), dmgInfo:GetDamageForce())
-	--я не ебу как
+	--I don't give a fuck
 
 	if not IsValid(ply) or not ply:Alive() then return end
 
@@ -1635,7 +1635,7 @@ local function velocityDamage(ent, data)
 		if hitgroup == HITGROUP_STOMACH and (dmg * 3 > 0.25) then hg.organism.input_list.pelvis(org, bone, dmg * 3, dmgInfo) end
 		local physAng = data.PhysObject:GetAngles()
 		
-		if hitgroup == HITGROUP_STOMACH and physAng:Forward():Dot(data.HitNormal) > 0.6 then hg.organism.input_list.spine1(org, bone, dmg * (math.random(3) > 1 and 1 or 0) * 3, dmgInfo) end -- | И В ПРАВДУ ПОЧЕМУ У НАС СПИНА ЛОМАЕТСЯ ОТ ПАДЕНИЯ НА ГРУДЬ ИЛИ ЖИВОТ...
+		if hitgroup == HITGROUP_STOMACH and physAng:Forward():Dot(data.HitNormal) > 0.6 then hg.organism.input_list.spine1(org, bone, dmg * (math.random(3) > 1 and 1 or 0) * 3, dmgInfo) end --| AND WHY IS OUR BACK BROKEN FROM FALLING ON THE CHEST OR Stomach...
 		if hitgroup == HITGROUP_CHEST and physAng:Forward():Dot(data.HitNormal) > 0.6 then hg.organism.input_list.spine2(org, bone, dmg * (math.random(3) > 1 and 1 or 0) * 3, dmgInfo) end
 
 

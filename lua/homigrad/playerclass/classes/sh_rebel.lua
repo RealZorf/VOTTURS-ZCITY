@@ -205,7 +205,7 @@ local function giveSubClassLoadout(ply, subClass)
     
     cfg.give_fn(ply)
 
-    --;; Система случайного говна
+    --;; Random shit system
     ply.armors = ply.armors or {}
     local randVest = vest_list[math.random(#vest_list)]
     local randFace = face_list[math.random(#face_list)]
@@ -303,7 +303,7 @@ function CLASS.GiveEquipment(self, subClass)
     giveSubClassLoadout(ply, subClass or "default")
 end
 
---;; Серверная часть: звуки боли, перезарядки и т.п.
+--;; Server part: sounds of pain, reloading, etc.
 if SERVER then
     local paintable = {
         [HITGROUP_STOMACH] = function(ply,ent)

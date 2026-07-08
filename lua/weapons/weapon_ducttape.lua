@@ -129,7 +129,7 @@ end
 --		WorldModel:SetAngles(self:GetAngles())
 --	end
 --
---	--WorldModel:SetColor(clr) -- поч не робит
+----WorldModel:SetColor(clr) -- doesn't work at all
 --	--WorldModel:SetMaterial(mat)
 --	
 --	WorldModel:DrawModel()

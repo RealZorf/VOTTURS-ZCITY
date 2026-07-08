@@ -4,7 +4,7 @@ hg.organism.module.lungs = {}
 local module = hg.organism.module.lungs
 module[1] = function(org)
 	org.lungsL = {
-		0, --состояние,пневмотаракс
+		0, --condition, pneumotarax
 		0
 	}
 
@@ -40,7 +40,7 @@ function hg.organism.CanBreath(org)
 end
 
 local function insta_send_holdingbreath(org)
-	net.Start("organism_send") -- отправляем только дизориентацию (чтобы не нагружать нет), и сразу
+	net.Start("organism_send") --we send only disorientation (so as not to load no), and immediately
 	
 	local tbl = {}
 	tbl.holdingbreath = org.holdingbreath
@@ -50,7 +50,7 @@ local function insta_send_holdingbreath(org)
 	net.WriteBool(true)
 	net.WriteBool(false)
 	net.WriteBool(false)
-	net.WriteBool(true) -- вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
+	net.WriteBool(true) --this little bitch is responsible for making it just blink and that’s it
 	net.Send(org.owner)
 end
 

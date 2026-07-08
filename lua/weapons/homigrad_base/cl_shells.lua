@@ -164,7 +164,7 @@ function hg.CreateMag( self, vel, bodygroups, bDontChangePhys )
 	local ent = ClientsideModel(self.MagModel or "models/weapons/upgrades/w_magazine_m1a1_30.mdl")
 	hg_shelles[#hg_shelles+1] = ent
 	ent.RenderOverride = function(self)
-		if (LocalPlayer():EyePos() - self:GetPos()):LengthSqr() < 512*512 then -- так быстрее
+		if (LocalPlayer():EyePos() - self:GetPos()):LengthSqr() < 512*512 then --it's faster
 			if not bDontChangePhys then
 				local phys = self:GetPhysicsObject()
 				if IsValid(phys) then

@@ -9,7 +9,7 @@ While high ready:
 
 RMB - Low ready
 While low ready:
-]]--"тильда двуеточее три"
+]]--"tilde two dot three"
 SWEP.Category = "Weapons - Explosive"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -28,7 +28,7 @@ SWEP.ViewModel = ""
 SWEP.WorkWithFake = true
 
 SWEP.WorldModel = "models/weapons/w_molotov.mdl"
-SWEP.WorldModelReal = "models/weapons/zcity/c_molotov.mdl" -- переделать или найти нормальную
+SWEP.WorldModelReal = "models/weapons/zcity/c_molotov.mdl" --remake or find a normal one
 SWEP.WorldModelExchange = false
 
 if CLIENT then
