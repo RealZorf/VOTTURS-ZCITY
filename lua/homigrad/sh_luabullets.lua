@@ -716,20 +716,30 @@ function ENTITY:FireLuaBullets(tInfo)
 					filter = Filter
 				})
 			
+			local orgBulletIter = 0
+			local orgPrevEnt, orgPrevBone
 			while (IsValid(tr.Entity) and tr.Entity.organism) do
 				local ent = tr.Entity
-
-				--table.insert(Filter, ent)
 
 				local bonename = ent:GetBoneName(ent:TranslatePhysBoneToBone(tr.PhysicsBone))
 				local hitgroup = hg.bonetohitgroup[bonename]--( ent:IsPlayer() and tr.HitGroup or hg.bonetohitgroup[bonename])
 				
 				if !(armsbones[bonename] and hg.RagdollOwner(tr.Entity) == pInflictor:GetOwner()) and !IsValid(tr.Entity.OldRagdoll) and (tr.PhysicsBone != 0 or !tr.StartSolid) and (!hg.amputeetable[bonename] or !ent.organism[hg.amputeetable[bonename].."amputated"]) then break end
 
+				orgBulletIter = orgBulletIter + 1
+				if orgBulletIter >= 16 then break end
+
+				local step = 1
+				if IsValid(orgPrevEnt) and orgPrevEnt == ent and orgPrevBone == tr.PhysicsBone then
+					step = math.min(2 + orgBulletIter, 16)
+				end
+				orgPrevEnt = ent
+				orgPrevBone = tr.PhysicsBone
+
 				tr = bHullTrace and iShot % 2 == 0 and
 					// Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
 					util.TraceHull({
-						start = tr.HitPos + vShotDir * 1,
+						start = tr.HitPos + vShotDir * step,
 						endpos = vEnd,
 						mins = vFireBulletMin,
 						maxs = vFireBulletMax,
@@ -738,7 +748,7 @@ function ENTITY:FireLuaBullets(tInfo)
 					})
 				or
 					util.TraceLine({
-						start = tr.HitPos + vShotDir * 1,
+						start = tr.HitPos + vShotDir * step,
 						endpos = vEnd,
 						mask = iMask,
 						filter = Filter
