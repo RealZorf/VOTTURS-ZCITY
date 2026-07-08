@@ -9,7 +9,7 @@ surface.CreateFont("ZCity_Veteran", {
 	extended = true
 })
 
-surface.CreateFont("ZC_MM_Title", {
+surface.CreateFont("ZC_MM_Title2", {
     font = "JMH Typewriter",
     size = ScreenScaleH(40),
     weight = 800,
@@ -211,8 +211,8 @@ function MODE:HUDPaint()
 		local shadow = Color(0, 0, 0, alpha)
 		local text = tostring(sec) .. "s"
 
-		DrawScaledText(text, "ZC_MM_Title", x + 2, y + 2, shadow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, shooterPulseScale)
-		DrawScaledText(text, "ZC_MM_Title", x, y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, shooterPulseScale)
+		DrawScaledText(text, "ZC_MM_Title2", x + 2, y + 2, shadow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, shooterPulseScale)
+		DrawScaledText(text, "ZC_MM_Title2", x, y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, shooterPulseScale)
 	end
 
 	local copsRemain = math.max(copsArrivalAt - now, 0)
@@ -253,8 +253,8 @@ function MODE:HUDPaint()
 		local shadow = Color(0, 0, 0, alpha)
 		local text = tostring(sec) .. "s"
 
-		DrawScaledText(text, "ZC_MM_Title", x + 2, y + 2, shadow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, copsPulseScale)
-		DrawScaledText(text, "ZC_MM_Title", x, y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, copsPulseScale)
+		DrawScaledText(text, "ZC_MM_Title2", x + 2, y + 2, shadow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, copsPulseScale)
+		DrawScaledText(text, "ZC_MM_Title2", x, y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, copsPulseScale)
 	end
 
 	local lastStandRemain = math.max(lastStandEndAt - now, 0)
@@ -294,8 +294,8 @@ function MODE:HUDPaint()
 		local shadow = Color(0, 0, 0, alpha)
 		local text = tostring(sec) .. "s"
 
-		DrawScaledText(text, "ZC_MM_Title", x + 2, y + 2, shadow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, lastStandPulseScale)
-		DrawScaledText(text, "ZC_MM_Title", x, y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, lastStandPulseScale)
+		DrawScaledText(text, "ZC_MM_Title2", x + 2, y + 2, shadow, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, lastStandPulseScale)
+		DrawScaledText(text, "ZC_MM_Title2", x, y, color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, lastStandPulseScale)
 	end
 
 	if ply:Team() == 2 then
@@ -313,7 +313,7 @@ function MODE:HUDPaint()
 			local red = Color(228, 49, 49, 255 * fade)
 			local white = Color(255, 255, 255, 255 * fade)
 
-			draw.SimpleText("You are " .. roleName, "ZC_MM_Title", sw * 0.5, sh * 0.45, red, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("You are " .. roleName, "ZC_MM_Title2", sw * 0.5, sh * 0.45, red, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 			draw.SimpleText("Its about time.", "ZCity_Veteran", sw * 0.5, sh * 0.54, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 			draw.SimpleText("Spawn in " .. string.FormattedTime(math.max(shooterSpawnAt - now, 0), "%02i:%02i"), "ZCity_Veteran", sw * 0.5, sh * 0.62, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		end
@@ -330,12 +330,12 @@ function MODE:HUDPaint()
 		local microShake = 1.2
 		local titleX = sw * 0.5 + math.Rand(-microShake, microShake)
 		local titleY = sh * 0.1 + math.Rand(-microShake, microShake)
-		draw.SimpleText("Overstimulated", "ZC_MM_Title", titleX, titleY, Color(220, 35, 35, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("Overstimulated", "ZC_MM_Title2", titleX, titleY, Color(220, 35, 35, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 		local roleColor = Color(data.color1.r, data.color1.g, data.color1.b, 255 * fade)
 		local objectiveColor = Color(data.color2.r, data.color2.g, data.color2.b, 255 * fade)
 
-		draw.SimpleText("You are " .. roleName, "ZC_MM_Title", sw * 0.5, sh * 0.5, roleColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("You are " .. roleName, "ZC_MM_Title2", sw * 0.5, sh * 0.5, roleColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		draw.SimpleText(data.objective, "ZCity_Veteran", sw * 0.5, sh * 0.9, objectiveColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
@@ -346,7 +346,7 @@ function MODE:HUDPaint()
 		surface.SetDrawColor(0, 0, 0, 180 * fade)
 		surface.DrawRect(0, 0, sw, sh)
 
-		draw.SimpleText(reportData.title or "Incident Report", "ZC_MM_Title", sw * 0.5, sh * 0.25, Color(200, 50, 50, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText(reportData.title or "Incident Report", "ZC_MM_Title2", sw * 0.5, sh * 0.25, Color(200, 50, 50, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		draw.SimpleText(reportData.winner or "Outcome: unknown", "ZCity_Veteran", sw * 0.5, sh * 0.34, Color(255, 255, 255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 		local reportFont = "ZCity_Veteran"

@@ -43,9 +43,28 @@ local function CreateMenuFonts()
 end
 
 local Selects = {
-    {Title = "Disconnect", Func = function(luaMenu) RunConsoleCommand("disconnect") end},
-    {Title = "Main Menu", Func = function(luaMenu) gui.ActivateGameUI() luaMenu:Close() end},
-    {Title = "Discord", Func = function(luaMenu) luaMenu:Close() gui.OpenURL("https://discord.com/votturzcity")  end},
+    {Title = "Disconnect", Func = function(luaMenu) 
+        RunConsoleCommand("disconnect") 
+    end},
+    {Title = "Main Menu", Func = function(luaMenu) 
+        gui.ActivateGameUI() 
+        luaMenu:Close() 
+    end},
+    {Title = "Workshop Collection", Func = function(luaMenu) 
+        luaMenu:Close()
+        gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3715931702")
+    end},
+    {Title = "Discord", Func = function(luaMenu) 
+        luaMenu:Close() 
+        gui.OpenURL("https://discord.gg/votturzcity")  
+    end},
+    {Title = "Support Us", Func = function(luaMenu) 
+        luaMenu:Close() 
+        gui.OpenURL("https://ko-fi.com/votturzcity")  
+    end},
+    {Title = "Settings", Func = function(luaMenu,pp) hg.DrawSettings(pp) end},
+    {Title = "Achievements", Func = function(luaMenu,pp) hg.DrawAchievmentsMenu(pp) end},
+    {Title = "Appearance", Func = function(luaMenu,pp) hg.CreateApperanceMenu(pp) end},
     {Title = "Traitor Role",
     GamemodeOnly = true,
     Func = function(luaMenu, pp)
@@ -54,32 +73,54 @@ local Selects = {
         end
     end,
     },
-    {Title = "Achievements", Func = function(luaMenu,pp) 
-        hg.DrawAchievmentsMenu(pp)
-    end},
-    {Title = "Settings", Func = function(luaMenu,pp) 
-        hg.DrawSettings(pp) 
-    end},
-    {Title = "Appearance", Func = function(luaMenu,pp) hg.CreateApperanceMenu(pp) end},
     {Title = "Return", Func = function(luaMenu) luaMenu:Close() end},
 }
 
 local splasheh = {
-    'JOIN OUR DISCORD',
-    'PLUV PLUV PLUVISKI',
-    'LULU IS NOT DEAD | !PLUV',
-    'THE TRAITOR WAS KILLED',
-    'NAB HOMICIDE SERVER',
-    'ALSO TRY MODDED HOMICIDE 2',
-    'HOP ON Z-CITY',
-    'JOHN Z-CITY',
-    ':pluvrare:',
-    'SAW51 IS REAL',
-    'MORE SMALLTOWN',
-    'MORE CLUE2022',
-    'BACKROOMS == CLUE',
-    'HELL IS NEAR',
-    'I WISH YOU GOOD HEALTH, JASON STATHAM'
+    '100% LUA, 200% SPAGHETTI',
+    'IT WORKS ON MY SERVER',
+    'FEATURE OR BUG? YES.',
+    'SOURCE MOMENT',
+    'THE MAP IS FINE',
+    'NO ERRORS (YET)',
+    'WHO TOUCHED THE CONFIG',
+    'IF IT LAGS, ITS IMMERSION',
+    'ADMINS ARE WATCHING',
+    'THE LOGS KNOW EVERYTHING',
+    'YOUR MIC IS OPEN',
+    'SERVER RESTARTING AGAIN IN 3',
+    'HE WAS JUST STANDING THERE',
+    'DESYNC IS CANON',
+    'THE RDM WAS ACCIDENTAL',
+    'FUCK THE KARMA SYSTEM',
+    'NOTHING EVER HAPPENED',
+    'WE SAW THAT',
+    'SOMEONE CHECK THE LOGS',
+    'MORE FPS SOON™',
+    'GM_CONSTRUCT IS PEAK',
+    'MAP CHANGE IN 5 MINUTES',
+    'ANGERED SUX',
+    'LAST ROUND, I SWEAR',
+    'YOU ARE BEING OBSERVED',
+    'EVERYTHING IS CLIENTSIDED',
+    'TRUST THE LUA',
+    'THIS IS FINE',
+    'NO CLIP? NO PROBLEM.',
+    'THE DOORS ARE SENTIENT',
+    'WAKE UP, NEW ZCITY UPDATE',
+    'PLUV APPROVED',
+    '404: BALANCE NOT FOUND',
+    'CERTIFIED SOURCE JANK',
+    'UNPAID LUA INTERN',
+    'MISSING TEXTURE ENJOYER',
+    "DON'T LOOK AT THE CONSOLE",
+    "IT'S A FEATURE",
+    'THE NPCS ARE PLOTTING',
+    'YOUR PING IS A SKILL ISSUE',
+    'ABSOLUTELY NO EXPLOITS',
+    'JUST ONE MORE HOTFIX',
+    'SHIP IT.',
+    'JOIN OUR PLAYTEST SERVER TO BE ABUSED',
 }
 
 --print(string.upper('I wish you good health, Jason Statham'))
@@ -88,12 +129,7 @@ local splasheh = {
 local Pluv = Material("pluv/pluvkid.jpg")
 
 function PANEL:InitializeMarkup()
-	local mapname = game.GetMap()
-	local prefix = string.find(mapname, "_")
-	if prefix then
-		mapname = string.sub(mapname, prefix + 1)
-	end
-	local gm = splasheh[math.random(#splasheh)] .. " | " .. string.NiceName(mapname) 
+	local gm = splasheh[math.random(#splasheh)]
 
     if hg.PluvTown.Active then
         local text = "<font=ZC_MM_Title><colour=125,205,255>    </colour>City</font>\n<font=ZC_MM_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"

@@ -3,10 +3,10 @@ hg.PointShop = hg.PointShop or {}
 
 local function AltDonate()
     Derma_Query(
-        "We are sorry about that, but for now donation only through sadsalat",
+        "No workie",
         "Sorry...",
         "Discord",
-        function() gui.OpenURL("https://discord.com/votturzcity") end,
+        function() gui.OpenURL("https://discord.gg/votturzcity") end,
         "Close"
     )
 end
