@@ -50,7 +50,7 @@ function SWEP:WorldModel_Transform(bNoApply, bNoAdditional)
 		
 		local aimvec = ent:IsNPC() and matrixR:GetAngles() or owner:GetAimVector():Angle()
 
-		//self:ChangeGunPos()
+		--self:ChangeGunPos()
 		
 		local matrixRAngRot = matrixR:GetAngles()
 		matrixRAngRot:RotateAroundAxis(matrixRAngRot:Forward(),180)
@@ -86,7 +86,7 @@ function SWEP:WorldModel_Transform(bNoApply, bNoAdditional)
 		self.desiredPos, self.desiredAng = newPos, newAng
 
 		if self:ShouldUseFakeModel() then
-			//newPos, newAng = LocalToWorld(self.FakePos, self.FakeAng, newPos, newAng)
+			--newPos, newAng = LocalToWorld(self.FakePos, self.FakeAng, newPos, newAng)
 		end
 
 		if bNoApply then

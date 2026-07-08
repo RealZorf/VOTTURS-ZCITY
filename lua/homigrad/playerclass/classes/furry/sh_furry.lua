@@ -51,7 +51,7 @@ local function Randomize(self)
 		self:SetSkin(4)
 
 		local random = math.random(0, 4)
-		if random == 1 then // no place for silly nub tails >w<
+		if random == 1 then -- no place for silly nub tails >w<
 			random = 0
 		end
 		self:SetBodygroup(1, random)
@@ -112,7 +112,7 @@ function CLASS.On(self, data)
 			self:SetNWInt("SpeedGainClassMul", self.SpeedGainClassMul)
 	
 			self.armors = {}
-			//self.armors["torso"] = "cmb_armor"
+			--self.armors["torso"] = "cmb_armor"
 			self.armors["head"] = "protovisor"
 			self:SyncArmor()
 
@@ -148,7 +148,7 @@ function CLASS.On(self, data)
 			hg.furcrack = {}
 		end
 
-		//local ent = hg.GetCurrentCharacter(self)
+		--local ent = hg.GetCurrentCharacter(self)
 
 		if IsValid(self.mdlfur) then
 			self.mdlfur:Remove()
@@ -174,7 +174,7 @@ function CLASS.On(self, data)
 		hg.SetArmorRestrictions(self, {all = true})
 
 		self.armors = {}
-		//self.armors["torso"] = "cmb_armor"
+		--self.armors["torso"] = "cmb_armor"
 		self.armors["head"] = "protovisor"
 		self:SyncArmor()
 
@@ -259,7 +259,7 @@ end
 -- 	},
 -- }
 
-// old shit!!!!!!
+-- old shit!!!!!!
 
 -- local aimvectorsmooth = Angle()
 -- local hpcolor = Color(229, 56, 26)
@@ -360,7 +360,7 @@ function CLASS.HUDPaint(self)
 
 	-- BootUpProgress = Lerp(FrameTime() / 2, BootUpProgress, 1)
 
-	-- //grid sweep
+	-- grid sweep
 	-- surface.SetDrawColor(0, 0, 0)
 	-- surface.DrawRect(-10, -10, sw + 10, sh + 10)
 
@@ -429,16 +429,16 @@ hook.Add("RenderScreenspaceEffects","proot_HUD",function()
 	if hg.furcrack.intensity then
 		render.SetMaterial(CrackMat)
 		render.UpdateScreenEffectTexture()
-		CrackMat:SetFloat("$c0_x", hg.furcrack.x) //crackX
-		CrackMat:SetFloat("$c0_y", hg.furcrack.y) //crackY
-		CrackMat:SetFloat("$c1_x", 1 - (hg.furcrack.intensity ^ 0.001)) //Lerp
+		CrackMat:SetFloat("$c0_x", hg.furcrack.x) --crackX
+		CrackMat:SetFloat("$c0_y", hg.furcrack.y) --crackY
+		CrackMat:SetFloat("$c1_x", 1 - (hg.furcrack.intensity ^ 0.001)) --Lerp
 
-		CrackMat:SetFloat("$c1_y", 20) //Lerp
+		CrackMat:SetFloat("$c1_y", 20) --Lerp
 
-		CrackMat:SetFloat("$c1_z", hg.furcrack.rnd1) //amount
-		CrackMat:SetFloat("$c2_x", hg.furcrack.rnd2) //amount
-		CrackMat:SetFloat("$c2_y", hg.furcrack.rnd3) //amount
-		CrackMat:SetFloat("$c2_z", hg.furcrack.rnd4) //amount
+		CrackMat:SetFloat("$c1_z", hg.furcrack.rnd1) --amount
+		CrackMat:SetFloat("$c2_x", hg.furcrack.rnd2) --amount
+		CrackMat:SetFloat("$c2_y", hg.furcrack.rnd3) --amount
+		CrackMat:SetFloat("$c2_z", hg.furcrack.rnd4) --amount
 		render.DrawScreenQuad()
 	end
 end)
@@ -749,7 +749,7 @@ if CLIENT then
 		render.DrawSphere(pos, 48 * math.max(status - 0.7, 0), 32, 32, color_white)
 		local pos = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_R_Foot")):GetTranslation()
 		render.DrawSphere(pos, 48 * math.max(status - 0.2, 0), 32, 32, color_white)
-		//render.DrawSphere(pos + VectorRand(-16, 16), 64 * status, 32, 32, color_white)
+		--render.DrawSphere(pos + VectorRand(-16, 16), 64 * status, 32, 32, color_white)
 
 		render.SetStencilFailOperation( STENCILOPERATION_KEEP )
 		render.SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_EQUAL )
@@ -762,7 +762,7 @@ if CLIENT then
 			mdl:SetPos(ent:GetPos())
 			mdl:SetupBones()
 			ent:SetupBones()
-			//PrintBones(mdl)
+			--PrintBones(mdl)
 			/*for i = 0, mdl:GetBoneCount() - 1 do
 				local bon = ent:LookupBone(mdl:GetBoneName(i))
 				if !bon then continue end
@@ -783,7 +783,7 @@ if CLIENT then
 				newmat:SetAngles(q3:Angle())
 
 				hg.bone_apply_matrix(ent, i, newmat)
-				//hg.bone_apply_matrix(mdl, i, newmat)
+				--hg.bone_apply_matrix(mdl, i, newmat)
 			end*/
 			for i = 0, mdl:GetBoneCount() - 1 do
 				local nam = ent:GetBoneName(i)
@@ -794,7 +794,7 @@ if CLIENT then
 
 				hg.bone_apply_matrix(mdl, bon, m1)
 			end
-			//ent:DrawModel()
+			--ent:DrawModel()
 			mdl:DrawModel()
 		end
 
@@ -816,7 +816,7 @@ if CLIENT then
 	end
 end
 
-// stripped from combine playerclass
+-- stripped from combine playerclass
 if CLIENT then
     local pnv_enabled = false
     local next_toggle_time = 0

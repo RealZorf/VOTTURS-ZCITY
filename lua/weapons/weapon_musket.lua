@@ -142,7 +142,7 @@ function SWEP:PrimaryShootPost()
 	util.Effect("eff_jack_rockettrust", eff)
 end
 
---// Cycle anim.. Old and janky, but we still use it because we don't have good musket viewmodels..
+-- Cycle anim.. Old and janky, but we still use it because we don't have good musket viewmodels..
 local anims = {
 	Vector(0,0,0),
 	Vector(2,0,0),

@@ -220,7 +220,7 @@ function hg.organism.AmputateLimb(org, limb)
 	net.WriteBool(true)
 	net.WriteBool(false)
 	net.WriteBool(false)
-	net.WriteBool(true) // вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
+	net.WriteBool(true) -- вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
 	net.Send(rf)
 end
 
@@ -566,7 +566,7 @@ end
 
 function hg.AddHarm(ply, harm, reason)
 	if hg_developer:GetBool() and isstring(reason) then
-		//ply:ChatPrint(reason..": harm count is "..math.Round(harm,2))
+		--ply:ChatPrint(reason..": harm count is "..math.Round(harm,2))
 	end
 
 	ply.harm = ply.harm + harm
@@ -836,7 +836,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			org.explosionwounds = org.explosionwounds + 1
 		end
 	end
-	--//
+	--
 
 	local att = dmgInfo:GetAttacker()
 	if true and outputHole and #outputHole > 0 and dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT) then
@@ -864,7 +864,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			if bullet and true then
 				local mul = distance / pen
 				bullet.Src = outputHole[#outputHole]
-				bullet.Dir = dir:GetNormalized()//outputDir:GetNormalized()
+				bullet.Dir = dir:GetNormalized()--outputDir:GetNormalized()
 				bullet.Force = bullet.Force * mul
 				bullet.Damage = bullet.Damage * mul
 				bullet.Num = 1
@@ -978,7 +978,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	--if hitbody then
 	if not org.superfighter then
 		dmgBlood = dmgBlood * 1.5
-		local bleed_add = dmgBlood * bleedMul// / (RagdollDamageBoneMul[hitgroup] or 1)
+		local bleed_add = dmgBlood * bleedMul-- / (RagdollDamageBoneMul[hitgroup] or 1)
 		--org.bleed = org.bleed + bleed_add
 		attacker.harm = attacker.harm + bleed_add / 50
 		local hurt_add = dmgHurt * 0.5 * hurtMul
@@ -991,7 +991,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		local instant_pain = instantPainMul * painadd
 		local slow_pain = (1 - instantPainMul) * painadd
 		org.painadd = org.painadd + slow_pain
-		//org.avgpain = org.avgpain + instant_pain
+		--org.avgpain = org.avgpain + instant_pain
 		org.shock = math.min(org.shock + instaPain * shockMul * 4.5 * math.Clamp(pen / 5,1,2), 70)
 		org.immobilization = math.min(org.immobilization + immobilization * immobilizationMul, 30)
 		org.lasthit = CurTime()
@@ -1018,7 +1018,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		if dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT+DMG_SLASH+DMG_BURN) then
 			org.fearadd = org.fearadd + 0.3
 			if IsValid(att) and att.organism and att.organism.fearadd then
-				//att.organism.fearadd = att.organism.fearadd + 0.05
+				--att.organism.fearadd = att.organism.fearadd + 0.05
 			end
 		end
 
@@ -1027,8 +1027,8 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		if dmgInfo:IsDamageType(DMG_BURN) then
 			local bigRand = math.Rand(0.0005,0.0008)
 			local smallRand = math.Rand(0.0001,0.0002)
-			//org.lungsL[2] = math.min(org.lungsL[2] + bigRand,1)
-			//org.lungsR[2] = math.min(org.lungsR[2] + bigRand,1)
+			--org.lungsL[2] = math.min(org.lungsL[2] + bigRand,1)
+			--org.lungsR[2] = math.min(org.lungsR[2] + bigRand,1)
 			org.lungsL[1] = math.min(org.lungsL[1] + bigRand, 1)
 			org.lungsR[1] = math.min(org.lungsR[1] + bigRand, 1)
 			hg.organism.input_list.liver(org, nil, smallRand, dmgInfo)
@@ -1037,7 +1037,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			hg.AddHarmToAttacker(dmgInfo, bigRand, "Burns harm")
 			--org.liver = math.min(org.liver + math.Rand(0.0005,0.0008),1) 
 			--org.stomach = math.min(org.stomach + math.Rand(0.0005,0.0008),1) 
-			//org.trachea = math.min(org.trachea + smallRand, 1)
+			--org.trachea = math.min(org.trachea + smallRand, 1)
 		end
 	else
 		local sfd = org.fakePlayer and ent or ply
@@ -1051,7 +1051,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 	--end
 	
-	if not org.otrub and org.adrenalineAdd >= 0 then// and dmgInfo:IsDamageType(DMG_BULLET + DMG_BLAST + DMG_BUCKSHOT + DMG_SLASH + DMG_CLUB + DMG_BURN) then
+	if not org.otrub and org.adrenalineAdd >= 0 then-- and dmgInfo:IsDamageType(DMG_BULLET + DMG_BLAST + DMG_BUCKSHOT + DMG_SLASH + DMG_CLUB + DMG_BURN) then
 		org.owner:AddNaturalAdrenaline(instaPain * 0.75 * (dmgInfo:IsDamageType(DMG_BLAST) and 4 or 1) * (dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT) and 4 or 1))
 	end
 	
@@ -1093,7 +1093,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			
 			hg.AddForceRag(ply, bone, force * 0.5, 0.5)
 
-			if ply.AddForceRag[bone][2] and ply.AddForceRag[bone][2]:Length() > 4500 then //по-моему какие-то большие значения, не?
+			if ply.AddForceRag[bone][2] and ply.AddForceRag[bone][2]:Length() > 4500 then --по-моему какие-то большие значения, не?
 				if ply.AddForceRag[bone][2]:Length() > 7000 then
 					hg.StunPlayer(ply, 0.5)
 					hg.LightStunPlayer(ply, 2)
@@ -1249,9 +1249,9 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	if org.isPly then
 		hook.Run("Org Think Call", ply, org)
 		
-		if (not ply:Alive() or not org.alive) and (math.Round(ply:GetInfoNum("hg_deathfadeout", 1)) == 1) then// or org.otrub or hg.organism.paincheck(org) or (ply:Health() <= 0) then
+		if (not ply:Alive() or not org.alive) and (math.Round(ply:GetInfoNum("hg_deathfadeout", 1)) == 1) then-- or org.otrub or hg.organism.paincheck(org) or (ply:Health() <= 0) then
 			if org.skull == 1 then
-				//ent:SetNWString("PlayerName", "Unidentifiable person")
+				--ent:SetNWString("PlayerName", "Unidentifiable person")
 			end
 			
 			ply:ScreenFade(0, color_black, 1, 1)
@@ -1523,10 +1523,10 @@ takeRagdollDamage = function(ent, dmgInfo)
 		end
 	end
 	
-	//if not dmgInfo:IsDamageType(DMG_CRUSH) then
-	//	ply:SetHealth(ply:Health() - dmgInfo:GetDamage())
-	//	if ply:Health() <= 0 and ply:Alive() then timer.Simple(0,function() if ply:Alive() then ply:Kill() end end) end
-	//end
+	--if not dmgInfo:IsDamageType(DMG_CRUSH) then
+	--	ply:SetHealth(ply:Health() - dmgInfo:GetDamage())
+	--	if ply:Health() <= 0 and ply:Alive() then timer.Simple(0,function() if ply:Alive() then ply:Kill() end end) end
+	--end
 end
 
 hg.takeRagdollDamage = takeRagdollDamage
@@ -1570,7 +1570,7 @@ local function velocityDamage(ent, data)
 	local dmg = speed / 5350 * data.DeltaTime * ((IsValid(data.HitObject) && !data.HitObject:GetEntity():IsWorld()) && math.min(data.HitObject:GetMass() / 20, 1) || 1)
 	dmg = dmg * math.abs(data.OurOldVelocity:GetNormalized():Dot(data.HitNormal))
 	if !data.HitObject:GetEntity():IsWorld() && !data.HitObject:GetEntity():IsRagdoll() then
-		//dmg = dmg * math.max(data.HitObject:GetMass()*(speed/50000),5)
+		--dmg = dmg * math.max(data.HitObject:GetMass()*(speed/50000),5)
 	end
 	
 	if !ent.organism then return end
@@ -1660,9 +1660,9 @@ local function velocityDamage(ent, data)
 			
 			local neck_not_broken = org.spine3 < 0.8
 			
-			//if dmg > 0.5 then
+			--if dmg > 0.5 then
 				hg.organism.input_list.spine3(org, bone, dmg * (math.random(4) == 1 and 1 or 0) * 3 * (hadhelmet and 0.5 or 1), dmgInfo)
-			//end
+			--end
 			if dmg * 10 > 0.5 and !hadhelmet then
 				org.otrub = true
 				org.shock = org.shock + 10
@@ -1688,9 +1688,9 @@ local function velocityDamage(ent, data)
 	if org.isPly and ply then
 		hook.Run("Org Think Call", ply, org)
 		
-		if (not ply:Alive() or not org.alive) and (math.Round(ply:GetInfoNum("hg_deathfadeout", 1)) == 1) then// or org.otrub or hg.organism.paincheck(org) or (ply:Health() <= 0) then
+		if (not ply:Alive() or not org.alive) and (math.Round(ply:GetInfoNum("hg_deathfadeout", 1)) == 1) then-- or org.otrub or hg.organism.paincheck(org) or (ply:Health() <= 0) then
 			if org.skull == 1 then
-				//ent:SetNWString("PlayerName", "Unidentifiable person")
+				--ent:SetNWString("PlayerName", "Unidentifiable person")
 			end
 			
 			ply:ScreenFade(0, color_black, 1, 1)
@@ -1720,10 +1720,10 @@ local function velocityDamage(ent, data)
 		dmghuy = dmghuy * 0.5
 	end
 
-	//if dmghuy >= 1 then
-	//	ply:SetHealth(ply:Health() - dmghuy)
-	//	if ply:Health() <= 0 and ply:Alive() then ply:Kill() end
-	//end
+	--if dmghuy >= 1 then
+	--	ply:SetHealth(ply:Health() - dmghuy)
+	--	if ply:Health() <= 0 and ply:Alive() then ply:Kill() end
+	--end
 end
 
 function hg.BreakNeck(ent)

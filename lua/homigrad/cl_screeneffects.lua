@@ -58,9 +58,9 @@ local tab = {
 --local potatopc = GetConVar("hg_potatopc") or CreateClientConVar("hg_potatopc", "0", true, false, "enable this if you are noob", 0, 1)
 local hook_Run = hook.Run
 hook.Add("RenderScreenspaceEffects", "homigrad", function()
-	//if potatopc:GetInt() >= 1 then return end
+	--if potatopc:GetInt() >= 1 then return end
 	hook_Run("Post Processing")
-	//DrawSunEffect()
+	--DrawSunEffect()
 	for _, layer in ipairs(layers_name) do
 		layer = layers[layer]
 		local weight = layer.weight
@@ -70,10 +70,10 @@ hook.Add("RenderScreenspaceEffects", "homigrad", function()
 		--end
 	end
 
-	//DrawBloom(addtiveLayer.bloom_darken, addtiveLayer.bloom_mul, addtiveLayer.bloom_sizex, addtiveLayer.bloom_sizey, addtiveLayer.bloom_passes, addtiveLayer.bloom_colormul, addtiveLayer.bloom_colorr, addtiveLayer.bloom_colorg, addtiveLayer.bloom_colorb)
-	//DrawSharpen(addtiveLayer.sharpen, addtiveLayer.sharpen_dist)
-	//if not brain_motionblur then DrawMotionBlur(addtiveLayer.blur_addalpha, addtiveLayer.blur_drawalpha, addtiveLayer.blur_delay) end
-	//DrawToyTown(addtiveLayer.toytown, addtiveLayer.toytown_h * ScrH())
+	--DrawBloom(addtiveLayer.bloom_darken, addtiveLayer.bloom_mul, addtiveLayer.bloom_sizex, addtiveLayer.bloom_sizey, addtiveLayer.bloom_passes, addtiveLayer.bloom_colormul, addtiveLayer.bloom_colorr, addtiveLayer.bloom_colorg, addtiveLayer.bloom_colorb)
+	--DrawSharpen(addtiveLayer.sharpen, addtiveLayer.sharpen_dist)
+	--if not brain_motionblur then DrawMotionBlur(addtiveLayer.blur_addalpha, addtiveLayer.blur_drawalpha, addtiveLayer.blur_delay) end
+	--DrawToyTown(addtiveLayer.toytown, addtiveLayer.toytown_h * ScrH())
 	tab["$pp_colour_brightness"] = addtiveLayer.brightness
 	DrawColorModify(tab)
 
@@ -127,8 +127,8 @@ local LayerSetWeight = postprs.LayerSetWeight
 local CurTime = CurTime
 local timecheck = CurTime()
 hook.Add("Post Processing", "Main", function()
-	//if potatopc:GetInt() >= 1 then return end
-	//if !lply:Alive() then return end
+	--if potatopc:GetInt() >= 1 then return end
+	--if !lply:Alive() then return end
 	local ply = lply:Alive() and lply or lply:GetNWEntity("spect")
 	if !IsValid(ply) then return end
 	local waterLevel = oldWaterLevel
@@ -137,7 +137,7 @@ hook.Add("Post Processing", "Main", function()
 		
 		if !pos then return end
 
-		waterLevel = (ply:WaterLevel() == 3) or ((ply:WaterLevel() > 1) and bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER)//lply:WaterLevel()
+		waterLevel = (ply:WaterLevel() == 3) or ((ply:WaterLevel() > 1) and bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER)--lply:WaterLevel()
 
 		timecheck = CurTime() + 0.1
 	end
@@ -369,8 +369,8 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		surface.SetMaterial(hurtoverlay)
 		surface.SetDrawColor(0, 0, 0, lerpblood)
 		surface.DrawTexturedRect(-ScrW() * 2.0, -ScrH() * 2.0, ScrW() * 5, ScrH() * 5)
-		//ViewPunch(Angle(-amt * 1, amt2 * 1,0))
-		//ViewPunch2(Angle(-amt * 1, amt2 * 1,0))
+		--ViewPunch(Angle(-amt * 1, amt2 * 1,0))
+		--ViewPunch2(Angle(-amt * 1, amt2 * 1,0))
 	end
 
 	if !IsValid(PainStation) or PainStation:GetState() != GMOD_CHANNEL_PLAYING then
@@ -401,8 +401,8 @@ hook.Add("Post Post Processing", "ItHurts", function()
 
 		render.UpdateScreenEffectTexture()
 
-		heatMat:SetFloat("$c0_x", -CurTime() * 0.25)//math.sin(CurTime() * 0.1) * CurTime() * 0.01) //time
-		heatMat:SetFloat("$c0_y", 0.06 * heat)//(math.sin(CurTime()) + 1) * 2) //intensity (strict)
+		heatMat:SetFloat("$c0_x", -CurTime() * 0.25)--math.sin(CurTime() * 0.1) * CurTime() * 0.01) --time
+		heatMat:SetFloat("$c0_y", 0.06 * heat)--(math.sin(CurTime()) + 1) * 2) --intensity (strict)
 		heatMat:SetFloat("$c2_x", (math.sin(CurTime()) - 2) * heat)
 
 		render.SetMaterial(heatMat)
@@ -421,8 +421,8 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	if assimilatedLerp > 0.001 then
 		render.UpdateScreenEffectTexture()
 
-		assimilationMat:SetFloat("$c0_x", -CurTime())//math.sin(CurTime() * 0.1) * CurTime() * 0.01) //time
-		assimilationMat:SetFloat("$c0_y", assimilatedLerp * 3)//(math.sin(CurTime()) + 1) * 2) //intensity (strict)
+		assimilationMat:SetFloat("$c0_x", -CurTime())--math.sin(CurTime() * 0.1) * CurTime() * 0.01) --time
+		assimilationMat:SetFloat("$c0_y", assimilatedLerp * 3)--(math.sin(CurTime()) + 1) * 2) --intensity (strict)
 		local ctime = CurTime() * 2
 		local val = math.Clamp(3 - 1 / 3 * (math.sin(ctime * 2.8862) + math.cos(ctime * 1.115) - math.sin(ctime * 0.6215) + 3), 0, 5)
 		local val2 = math.Clamp(1 - 1 / 6 * (math.sin(ctime * 1.1862) + math.cos(ctime * 2.315) - math.sin(ctime * 0.9215) + 3), 0, 1)
@@ -440,7 +440,7 @@ hook.Add("Post Post Processing", "ItHurts", function()
 			end)
 		else
 			AssimilationStation:SetVolume(assimilatedLerp * 2)
-			//AssimilationStation:SetPlaybackRate(assimilatedLerp * 1)
+			--AssimilationStation:SetPlaybackRate(assimilatedLerp * 1)
 		end
 
 		render.SetMaterial(assimilationMat)
@@ -490,20 +490,20 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		shock = shockLerp
 		render.UpdateScreenEffectTexture()
 
-		vignetteMat:SetFloat("$c2_x", CurTime() + 10000) //Time
-		vignetteMat:SetFloat("$c0_z", org.otrub and 5 or (pain / 40 + math.max(shock - 5, 0) / 3)) //ColorIntensity
-		vignetteMat:SetFloat("$c1_y", org.otrub and 10 or (pain / 40 + math.max(shock - 5, 0) / 3)) //Vignette
+		vignetteMat:SetFloat("$c2_x", CurTime() + 10000) --Time
+		vignetteMat:SetFloat("$c0_z", org.otrub and 5 or (pain / 40 + math.max(shock - 5, 0) / 3)) --ColorIntensity
+		vignetteMat:SetFloat("$c1_y", org.otrub and 10 or (pain / 40 + math.max(shock - 5, 0) / 3)) --Vignette
 
 		render.SetMaterial(vignetteMat)
 		render.DrawScreenQuad()
 
 		render.UpdateScreenEffectTexture()
 
-		painMat:SetFloat("$c2_x", CurTime() + 10000) //Time
-		painMat:SetFloat("$c0_y", 0.8) //Gate
-		painMat:SetFloat("$c0_z", 1) //ColorIntensity
-		painMat:SetFloat("$c1_x", math.Clamp(pain / 90, 0, 0.75)) //Lerp
-		painMat:SetFloat("$c1_y", math.Clamp(pain / 90, 0, 0.75)) //Vignette
+		painMat:SetFloat("$c2_x", CurTime() + 10000) --Time
+		painMat:SetFloat("$c0_y", 0.8) --Gate
+		painMat:SetFloat("$c0_z", 1) --ColorIntensity
+		painMat:SetFloat("$c1_x", math.Clamp(pain / 90, 0, 0.75)) --Lerp
+		painMat:SetFloat("$c1_y", math.Clamp(pain / 90, 0, 0.75)) --Vignette
 
 		render.SetMaterial(painMat)
 		render.DrawScreenQuad()
@@ -513,21 +513,21 @@ hook.Add("Post Post Processing", "ItHurts", function()
 			lply:ScreenFade( SCREENFADE.IN, Color(0,0,0), 2, 0.5 )
 		end
 		
-		//if pain > 10 then
+		--if pain > 10 then
 			if IsValid(PainStation) then
 				PainStation:SetVolume(math.Clamp(math.Remap(pain, 0, 120, 0, 2), 0, 2))
 			end
-		//else
-		//	if IsValid(PainStation) then
-		//		PainStation:Stop()
-		//		PainStation = nil
-		//	end
-		//end
+		--else
+		--	if IsValid(PainStation) then
+		--		PainStation:Stop()
+		--		PainStation = nil
+		--	end
+		--end
 	else
-		//if IsValid(PainStation) then
-		//	PainStation:Stop()
-		//	PainStation = nil
-		//end
+		--if IsValid(PainStation) then
+		--	PainStation:Stop()
+		--	PainStation = nil
+		--end
 	end
 
 	if brain > 0.01 then
@@ -565,7 +565,7 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		end
 	end
 
-	//if brain > 0.1 and not org.otrub and show_some_images_time > 0 and false then
+	--if brain > 0.1 and not org.otrub and show_some_images_time > 0 and false then
 	if lply.tinnitus and lply.tinnitus > CurTime() and lply:Alive() then
 		if !IsValid(Tinnitus) or Tinnitus:GetState() != GMOD_CHANNEL_PLAYING  then
 			sound.PlayFile("sound/zcitysnd/real_sonar/tinnitus"..math.random(3)..".mp3", "noblock noplay", function(station, err)
@@ -624,11 +624,11 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		
 		o2 = O2Lerp
 		
-		noiseMat:SetFloat("$c0_y", 1 - o2 / 200) //Gate
-		noiseMat:SetFloat("$c0_z", 1) //ColorIntensity
-		noiseMat:SetFloat("$c1_x", math.Clamp(o2 / 200, 0, 2)) //Lerp
-		noiseMat:SetFloat("$c1_y", o2 * (!org.otrub and 0.05 or 1)) //Vignette
-		noiseMat:SetFloat("$c2_x", CurTime() + 10000) //Time
+		noiseMat:SetFloat("$c0_y", 1 - o2 / 200) --Gate
+		noiseMat:SetFloat("$c0_z", 1) --ColorIntensity
+		noiseMat:SetFloat("$c1_x", math.Clamp(o2 / 200, 0, 2)) --Lerp
+		noiseMat:SetFloat("$c1_y", o2 * (!org.otrub and 0.05 or 1)) --Vignette
+		noiseMat:SetFloat("$c2_x", CurTime() + 10000) --Time
 
 		render.SetMaterial(noiseMat)
 		render.DrawScreenQuad()

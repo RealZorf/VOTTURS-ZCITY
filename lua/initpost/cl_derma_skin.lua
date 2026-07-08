@@ -8,7 +8,7 @@ hg.VGUI.MainSkin = "ZCity"
 function hg.GetMainSkin()
 	return hg.VGUI.MainSkin
 end
---//
+--
 
 hook.Add("ForceDermaSkin", "ZCity", function()
 	return "ZCity" --; This will paint all Derma objects to new skin
@@ -108,7 +108,7 @@ surface.CreateFont("ZCity_Fixed_Icons_Small", {
 	size = 22,
 	weight = 500
 })
---//
+--
 
 local gradient = surface.GetTextureID("vgui/gradient-d")
 local gradientUp = surface.GetTextureID("vgui/gradient-u")

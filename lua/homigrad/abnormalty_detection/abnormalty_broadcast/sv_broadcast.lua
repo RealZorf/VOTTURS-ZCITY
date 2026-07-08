@@ -1,11 +1,11 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 --\\
 PLUGIN.Broadcast = PLUGIN.Broadcast or {}
---//
+--
 
 --\\
 function PLUGIN.Broadcast.Do(ply)
@@ -51,7 +51,7 @@ local function TryBroadcast(zone, ply)
 		PLUGIN.ShowMessage(ply, "There is not enough equalizers in order to cogito broadcast")
 	end
 end
---//
+--
 
 --\\SpecialEvents
 hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_Broadcast", function(zone_id, abnormalty_name, amt, ply)
@@ -78,7 +78,7 @@ hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_Broadcast", functi
 		end
 	end
 end)
---//
+--
 
 hook.Add("CanListenOthers", "Abnormalties_Broadcast", function(output, input, is_chat, teamonly, text)
 	if(output.Abnormalties_BroadcastNextFadeTime)then

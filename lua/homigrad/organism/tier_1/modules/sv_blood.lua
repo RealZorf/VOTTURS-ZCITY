@@ -172,7 +172,7 @@ module[2] = function(owner, org, mulTime)
 			coagulatespeed = coagulatespeed + coagulate / rand2 * 1
 			
 			local rand = math.Rand(0, 2) * 2
-			//if wound[5] + beatsPerSecond * 2 < time then
+			--if wound[5] + beatsPerSecond * 2 < time then
 				wound[5] = time
 				org.blood = max(org.blood - bleed, 1)
 				
@@ -182,7 +182,7 @@ module[2] = function(owner, org, mulTime)
 				end
 
 				if wound[1] == 0 then table.remove(org.wounds, i) owner:SetNetVar("wounds",org.wounds) end
-			//end
+			--end
 		end
 	end
 
@@ -192,8 +192,8 @@ module[2] = function(owner, org, mulTime)
 	end
 
 	if org.liver > 0.5 then
-		//org.blood = math.max(org.blood - mulTime * 10 * org.pulse / 70 * org.liver,0)
-		//bleedoutspeed = bleedoutspeed + mulTime * 10 * org.pulse / 70 * org.liver
+		--org.blood = math.max(org.blood - mulTime * 10 * org.pulse / 70 * org.liver,0)
+		--bleedoutspeed = bleedoutspeed + mulTime * 10 * org.pulse / 70 * org.liver
 	end
 
 	bleedoutspeed = bleedoutspeed / (beatsPerSecond + 2)
@@ -266,7 +266,7 @@ module[2] = function(owner, org, mulTime)
 		org.wantToVomit = org.wantToVomit + math.Rand(0, org.internalBleed / 1000 + org.pneumothorax / 200) * mulTime * 5
 		
 		if org.wantToVomit > 0.90 then
-			//owner:Notify(about_to_puke[math.random(#about_to_puke)], 15, "internalbleed_pre")
+			--owner:Notify(about_to_puke[math.random(#about_to_puke)], 15, "internalbleed_pre")
 		end
 	end
 

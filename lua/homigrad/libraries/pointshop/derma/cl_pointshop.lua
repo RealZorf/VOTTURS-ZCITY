@@ -298,42 +298,42 @@ function PANEL:Init()
 
         function SPan:Paint(w,h)
         end
-    //local tbl = col:AddSheet( "DZP-Shop", SPan, "icon16/money.png" )
-    //tbl["Button"]:SetFont("HomigradFontBig")
-    //tbl["Button"]:SizeToContents()
-    //tbl["Button"]:SetContentAlignment(6)
-    //--tbl["Button"]:Set
-//
-    //    self.ZScrollPanel = vgui.Create("DScrollPanel",col)
-    //    local SPan = self.ZScrollPanel
-    //    SPan:Dock( FILL )
-    //    SPan:DockMargin( 10, 0, 0, 0 )
-    //    SPan:SetSize( col:GetWide()/1.4, col:GetTall() )
-//
-    //        self.FillPanel = vgui.Create("DGrid",SPan)
-    //        local Pan = self.FillPanel
-    //        Pan:SetSize( SPan:GetWide(), SPan:GetTall() )
-    //        Pan:Dock( FILL )
-//
-    //        local size = Pan:GetWide() / 4.2
-    //        Pan:SetCols( Pan:GetWide() / size )
-    //        Pan:SetColWide( size * 1.01 )
-    //        Pan:SetRowHeight( size * 0.805 )
-//
-    //            for k, ent in pairs(PLUGIN.Items) do
-    //                if ent.ISDONATE then continue end
-    //                local but = createButton(k,ent,size,Pan,mainpan)
-    //                Pan:AddItem(but)
-    //            end
-//
-    //        Pan:SizeToContents()
-//
-//
-    //        function Pan:Paint(w,h)
-    //        end
-//
-    //    function SPan:Paint(w,h)
-    //    end
+    --local tbl = col:AddSheet( "DZP-Shop", SPan, "icon16/money.png" )
+    --tbl["Button"]:SetFont("HomigradFontBig")
+    --tbl["Button"]:SizeToContents()
+    --tbl["Button"]:SetContentAlignment(6)
+    ----tbl["Button"]:Set
+--
+    --    self.ZScrollPanel = vgui.Create("DScrollPanel",col)
+    --    local SPan = self.ZScrollPanel
+    --    SPan:Dock( FILL )
+    --    SPan:DockMargin( 10, 0, 0, 0 )
+    --    SPan:SetSize( col:GetWide()/1.4, col:GetTall() )
+--
+    --        self.FillPanel = vgui.Create("DGrid",SPan)
+    --        local Pan = self.FillPanel
+    --        Pan:SetSize( SPan:GetWide(), SPan:GetTall() )
+    --        Pan:Dock( FILL )
+--
+    --        local size = Pan:GetWide() / 4.2
+    --        Pan:SetCols( Pan:GetWide() / size )
+    --        Pan:SetColWide( size * 1.01 )
+    --        Pan:SetRowHeight( size * 0.805 )
+--
+    --            for k, ent in pairs(PLUGIN.Items) do
+    --                if ent.ISDONATE then continue end
+    --                local but = createButton(k,ent,size,Pan,mainpan)
+    --                Pan:AddItem(but)
+    --            end
+--
+    --        Pan:SizeToContents()
+--
+--
+    --        function Pan:Paint(w,h)
+    --        end
+--
+    --    function SPan:Paint(w,h)
+    --    end
     local tbl = col:AddSheet( "ZP-Shop", SPan, "icon16/basket.png" )
     tbl["Button"]:SetFont("HomigradFontBig")
     tbl["Button"]:SizeToContents()

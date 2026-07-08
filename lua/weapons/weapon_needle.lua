@@ -83,13 +83,13 @@ if SERVER then
 			if self:GetHolding() < 100 then return end
 		end
 
-		//if ((org.lungsL[2] + org.lungsR[2]) / 2 < 0.5) or org.needle then return end
+		--if ((org.lungsL[2] + org.lungsR[2]) / 2 < 0.5) or org.needle then return end
 		
-		//if ent != owner and !org.otrub then return end -- meh??
+		--if ent != owner and !org.otrub then return end -- meh??
 		local entOwner = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
 		entOwner:EmitSound("snd_jack_hmcd_needleprick.wav", 60, math.random(95, 105))
-		//org.lungsR[2] = 0
-		//org.lungsL[2] = 0
+		--org.lungsR[2] = 0
+		--org.lungsL[2] = 0
 		org.needle = 1
 
 		if !(org.lungsR[2] == 1 or org.lungsL[2] == 1) then

@@ -81,7 +81,7 @@ function hg.AddArmor(ply, equipment, ent)
     if hg.armor[placement][equipment].whitelistClasses and !hg.armor[placement][equipment].whitelistClasses[ply.PlayerClassName] then return false end
 
     for plc, arm in pairs(ply.armors) do
-        //if not hg.armor[plc] or not hg.armor[plc][arm] or not hg.armor[plc][arm].restricted then continue end
+        --if not hg.armor[plc] or not hg.armor[plc][arm] or not hg.armor[plc][arm].restricted then continue end
 
         if hg.armor[plc][arm].restricted and table.HasValue(hg.armor[plc][arm].restricted, placement) then
             if not hg.DropArmor(ply, ply.armors[plc]) then return false end
@@ -260,7 +260,7 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 	ArmorEffect(placement, armor, dmgInfo, org, hit, prot)
 
 	if prot < 0 then
-		//dmgInfo:ScaleDamage(scale)
+		--dmgInfo:ScaleDamage(scale)
 		return 0
 	end
 
@@ -520,7 +520,7 @@ hg.organism.input_list.protovisor = function(org, bone, dmg, dmgInfo, ...)
 	if org.owner.armors_health["protovisor"] == 0 then
 		org.owner.armors["head"] = nil
 	end
-	//dmgInfo:GetAttacker():ChatPrint(tostring(org.owner.armors_health["protovisor"]))
+	--dmgInfo:GetAttacker():ChatPrint(tostring(org.owner.armors_health["protovisor"]))
 	return protect
 end
 

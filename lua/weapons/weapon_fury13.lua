@@ -115,7 +115,7 @@ function SWEP:NPCHeal(npc, mul, snd)
 		npc:SetPlaybackRate(2)
 		npc:SetKeyValue("m_flPlaybackSpeed", 2)
 
-		if SERVER then --// kill everyone
+		if SERVER then -- kill everyone
 			local index = npc:EntIndex()
 			npc:SetSquad("fury13" .. index)
 

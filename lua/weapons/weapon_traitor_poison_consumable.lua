@@ -4,7 +4,7 @@
 --; (отравленные мгновенно падают замертво) или через несколько секунд после мучительного удушья, судорог, которые часто сопровождаются пронзительными 
 --; криками (иногда до хрипоты) и чрезвычайно сильным расширением зрачков.
 --; Нейтрализуется от глюкозы и сам по себе т.к. нестабилен
---//
+--
 
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_base"
@@ -207,7 +207,7 @@ function AddChemicalToPlayer(ply, chemical_name, amt)
 	
 	return ply.PassiveAbility_ChemicalAccumulation[chemical_name]
 end
---//
+--
 
 if(SERVER)then
     hook.Add("Org Clear", "RemovePoison_KCN", function(org)
@@ -232,7 +232,7 @@ if(SERVER)then
 			org.stamina[1] = math.min(org.stamina[1], 50 / poison_potency)
 			org.o2[1] = math.min(org.o2[1], org.o2.range / poison_potency)
 			org.disorientation = math.max(org.disorientation, 10 * poison_potency)
-			//org.pulse = math.max(org.pulse, 120 + 10 * poison_potency)
+			--org.pulse = math.max(org.pulse, 120 + 10 * poison_potency)
 		end
 
 		if((poison_start_time + (90 / poison_potency)) < CurTime())then

@@ -208,11 +208,11 @@ function MODE:StartNewWave()
                 for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
                     if IsValid(ent) then
                         local org = ent.organism
-                        //if org and org.critical then
+                        --if org and org.critical then
                             for i = 0, ent:GetPhysicsObjectCount() - 1 do
                                 ent:GetPhysicsObjectNum(i):Sleep()
                             end
-                        //end
+                        --end
                     end
                 end
             end)

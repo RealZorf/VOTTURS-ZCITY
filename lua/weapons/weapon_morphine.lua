@@ -119,8 +119,8 @@ if SERVER then
 		if self.modeValues[1] != 0 then
 			entOwner:EmitSound("pshiksnd")
 		else
-			//owner:SelectWeapon("weapon_hands_sh")
-			//self:Remove()
+			--owner:SelectWeapon("weapon_hands_sh")
+			--self:Remove()
 		end
 	end
 end

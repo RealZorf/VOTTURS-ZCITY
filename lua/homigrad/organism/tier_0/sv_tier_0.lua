@@ -14,7 +14,7 @@ function hg.organism.Add(ent)
 end
 
 function hg.organism.Clear(org)
-	hook_Run("Org Clear", org)//.owner.organism_internal)
+	hook_Run("Org Clear", org)--.owner.organism_internal)
 	if IsValid(org.owner) then org.owner.fullsend = true end
 	hg.send_organism(org)
 end
@@ -60,8 +60,8 @@ local CurTime = CurTime
 local SysTime = SysTime
 hook.Add("Think", "homigrad-organism", function()
 	time = CurTime()
-	local tickrate2 = tickrate// / math.max(game.GetTimeScale(), 0.01)
-	//print(delay ,time + tickrate)
+	local tickrate2 = tickrate-- / math.max(game.GetTimeScale(), 0.01)
+	--print(delay ,time + tickrate)
 	if delay + tickrate2 > time then return end
 
 	delay = time

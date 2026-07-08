@@ -169,7 +169,7 @@ local rebel_subclasses = {
 
             local wep1 = ply:Give(primary_weapons[math.random(#primary_weapons)])
             ply:GiveAmmo(wep1:GetMaxClip1() * 3, wep1:GetPrimaryAmmoType(), true)
-            //hg.AddAttachmentForce(ply, wep1, "ent_att_laser2")
+            --hg.AddAttachmentForce(ply, wep1, "ent_att_laser2")
 
             local wep2 = ply:Give(secondary_weapons[math.random(#secondary_weapons)])
             ply:GiveAmmo(wep2:GetMaxClip1() * 3, wep2:GetPrimaryAmmoType(), true)

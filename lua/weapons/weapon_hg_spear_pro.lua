@@ -112,7 +112,7 @@ if SERVER then
             phys:AddAngleVelocity(Vector(0,0,0))
         end
 
-        //ply:EmitSound("weapons/slam/throw.wav",50,math.random(95,105))
+        --ply:EmitSound("weapons/slam/throw.wav",50,math.random(95,105))
         ply:SelectWeapon("weapon_hands_sh")
         ply:ViewPunch(Angle(0, 0, -8))
 

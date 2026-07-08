@@ -10,7 +10,7 @@ hook.Add("HG.InputMouseApply", "ChangeZoom", function(tbl)
 
 	if IsAiming(ply) then
 		delta = input.WasMousePressed(MOUSE_WHEEL_UP) and delta + 1 * (FrameTime() / engine.TickInterval()) or input.WasMousePressed(MOUSE_WHEEL_DOWN) and delta - 1 * (FrameTime() / engine.TickInterval()) or delta
-		//tbl.cmd:SetMouseWheel(0)
+		--tbl.cmd:SetMouseWheel(0)
 		if LocalPlayer():KeyDown(IN_WALK) then
 			delta = delta - tbl.y / 24
 			tbl.y = 0
@@ -133,9 +133,9 @@ function SWEP:DoRT()
 	mat:SetTexture("$basetexture", rtmat)
 	
 	if hg_show_hitposmuzzle:GetBool() then
-		//cam.Start3D()
+		--cam.Start3D()
 			render.DrawLine(pos,point, Color( 255, 255, 255 ))
-		//cam.End3D()
+		--cam.End3D()
 	end
 
 	local firstPerson = lply == GetViewEntity()
@@ -144,7 +144,7 @@ function SWEP:DoRT()
 	local anghuy = localhuy:Angle()
 	local dist = pos:Distance(view.origin)
 	--ang[3] = ang[3] - 90--lply:EyeAngles()[3] + self.AdditionalAng[3]
-	//ang[3] = ang//lply:EyeAngles()[3] //+ self.AdditionalAng[3]
+	--ang[3] = ang--lply:EyeAngles()[3] --+ self.AdditionalAng[3]
 	--ang[3] = view.angles[3]
 	
 	local mul = 4 * self.ZoomFOV / 7 * (self.scopedef and 400 / self.scope_blackout or 1)
@@ -342,7 +342,7 @@ function SWEP:DoHolo()
 end
 
 local blured
-// ПОЙНТ ТЫ НУБ ПОЛНЫЙ
+-- ПОЙНТ ТЫ НУБ ПОЛНЫЙ
 --local hg_blur_holo = GetConVar("hg_blur_holo") or CreateClientConVar("hg_blur_holo", "1", true, false, "Disable this if holo blur makes your fps cry.", 0, 1)
 
 local invcolor = Color(0,0,0,0)
@@ -360,11 +360,11 @@ hook.Add("PostDrawTranslucentRenderables","stencil-test-holo2",function()
 	local hitPos = eyePos + ang:Forward() * 2624
 	
 	if blured ~= self.holo then
-		// МОЙ ДРУГ ТОЛЬКО С ПРОЦЕССОРОМ НЕ МОГ ИГРАТЬ НОРМАЛЬНО С ГОЛОГРАФАМИ!!!!
-		// ТЫ ОЧЕНЬ ПЛОХОЙ!!! И НУЫЫЫЫЫ																							|\_/|
-		// Короче я пофиксил какашку, теперь блюр один раз на изменение текстуры, теперь смешных приколов фпс падений не будет. |'.'|
-		// ПЛЫВ ПЛЫВ ПЛЫВ																										|	|
-		// ЭТО САМЫЙ БОЛЬШОЙ КОМЕНТАРИЙ ХЕХЕХЕХЕХЕЕХ																		   	|___|
+		-- МОЙ ДРУГ ТОЛЬКО С ПРОЦЕССОРОМ НЕ МОГ ИГРАТЬ НОРМАЛЬНО С ГОЛОГРАФАМИ!!!!
+		-- ТЫ ОЧЕНЬ ПЛОХОЙ!!! И НУЫЫЫЫЫ																							|\_/|
+		-- Короче я пофиксил какашку, теперь блюр один раз на изменение текстуры, теперь смешных приколов фпс падений не будет. |'.'|
+		-- ПЛЫВ ПЛЫВ ПЛЫВ																										|	|
+		-- ЭТО САМЫЙ БОЛЬШОЙ КОМЕНТАРИЙ ХЕХЕХЕХЕХЕЕХ																		   	|___|
 		render.PushRenderTarget( exampleRT )
 			render.OverrideAlphaWriteEnable( true, true )
 

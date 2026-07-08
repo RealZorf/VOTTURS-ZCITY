@@ -18,7 +18,7 @@ if SERVER then AddCSLuaFile() end
 			end
 		end)
 	end
---//
+--
 
 SWEP.Abnormalties_ShootableWeapon = true
 SWEP.Base = "weapon_m4super"
@@ -297,7 +297,7 @@ SWEP.InspectAnimWepAng = {
 
 		surface.DrawPoly( cir )
 	end
---//
+--
 
 function SWEP:PostSetupDataTables()
 	self:NetworkVar("Float", 2, "Charge")

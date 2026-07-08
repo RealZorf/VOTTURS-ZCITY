@@ -2,7 +2,7 @@ wOS = wOS or {}
 wOS.DynaBase = wOS.DynaBase or {}
 local added = {}
 
-////////////////////////////////////// BASELINE STUFF //////////////////////////////////////
+-------------------------------------- BASELINE STUFF --------------------------------------
 local model_table = {}
 model_table[ WOS_DYNABASE.SHARED  ] = "models/player/wiltos/anim_dynamic_pointer.mdl"
 model_table[ WOS_DYNABASE.MALE  ] = "models/player/wiltos/anim_dynamic_maleptr.mdl"
@@ -17,18 +17,18 @@ model_ext[ WOS_DYNABASE.ZOMBIE  ] = "_zombie"
 local INCLUDE_MODEL_START = 737
 local INCLUDE_MODEL_END_SHARED = 806
 
-// "Hard code the math idiot" says the guy who doesn't realize I'm making it easier on myself to change their names or expand in the future
-// I also can't count letters, only numbers?? GENIUS. NICE ONE
+-- "Hard code the math idiot" says the guy who doesn't realize I'm making it easier on myself to change their names or expand in the future
+-- I also can't count letters, only numbers?? GENIUS. NICE ONE
 local INCLUDE_MODEL_END_MALE = INCLUDE_MODEL_END_SHARED + ( #"_male" )*2
 local INCLUDE_MODEL_END_FEMALE = INCLUDE_MODEL_END_SHARED + ( #"_female" )*2 
 local INCLUDE_MODEL_END_ZOMBIE = INCLUDE_MODEL_END_SHARED + ( #"_zombie" )*2
 
-////////////////////////////////////////////////////////////////////////////////////////////
+--------------------------------------------------------------------------------------------
 
 function IncludeModel( mdl )
 	if not mdl then return end
 	if wOS.DynaBase.PreservedModels[ mdl ] then mdl = wOS.DynaBase.PreservedModels[ mdl ] end
-	if table.HasValue( added, mdl ) then return end //This isn't needed but let's not bloat the mount file
+	if table.HasValue( added, mdl ) then return end --This isn't needed but let's not bloat the mount file
 	table.insert( added, 1, mdl )
 end
 
@@ -42,9 +42,9 @@ local function IntToByte( num )
 	return t
 end
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// If you don't know what this does do not mess with it or you're gonna mess up your player model
-// There'll be a lot of repeated code here for now while we get some TESTING done
+--------------------------------------------------------------------------------------------------------/
+-- If you don't know what this does do not mess with it or you're gonna mess up your player model
+-- There'll be a lot of repeated code here for now while we get some TESTING done
 local function WRITE_TO_LOCAL( start, finish, type )
 	if not type then return end
 	local base_path = model_table[ type  ]
@@ -84,7 +84,7 @@ local function WRITE_TO_LOCAL( start, finish, type )
 
 	local null_insert = IntToByte( 0 )
 
-    // You can manipulate the list here to remove anything you don't want for this type
+    -- You can manipulate the list here to remove anything you don't want for this type
 	hook.Call( "PreCreateLocalAnimation", nil, type, added )
 
 	local first_num = 60 + ( #added - 1 )*8
@@ -133,7 +133,7 @@ local function WRITE_TO_LOCAL( start, finish, type )
     hook.Call( "PostCreateLocalAnimation", nil, type, added )
 end
 
-// If you don't know what this does do not mess with it or you're gonna mess up your player model
+-- If you don't know what this does do not mess with it or you're gonna mess up your player model
 local function WRITE_TO_POINTER( start, finish, type )
 	if not type then return end
 	local base_path = model_table[ type ]
@@ -172,7 +172,7 @@ local function WRITE_TO_POINTER( start, finish, type )
 
 	local null_insert = IntToByte( 0 )
 
-    // You can manipulate the list here to remove anything you don't want for this type
+    -- You can manipulate the list here to remove anything you don't want for this type
 	hook.Call( "PreMountAnimation", nil, type, added )
 
 	local first_num = 60 + ( #added - 1 )*8
@@ -221,7 +221,7 @@ local function WRITE_TO_POINTER( start, finish, type )
     hook.Call( "PostMountAnimation", nil, type, added )
 end
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
+--------------------------------------------------------------------------------------------------------/
 
 local function AdjustMountOrder( tbl, typ )
 	if not tbl then return end
@@ -257,7 +257,7 @@ local function AdjustMountOrder( tbl, typ )
 		end
 	end
 
-	// If we aren't allowed to use any other addon than the ones that are dictated, don't merge any extra models
+	-- If we aren't allowed to use any other addon than the ones that are dictated, don't merge any extra models
 	if WOS_DYNABASE_ENFORCECONTENT_CVAR:GetInt() >= 2 and reference then return new_tbl end
 
 	if plyref then
@@ -276,10 +276,10 @@ local function AdjustMountOrder( tbl, typ )
 		end	
 	end
 
-	// Add the ones we don't care about now
+	-- Add the ones we don't care about now
 	table.Add( new_tbl, tbl )
 
-	// Server gets final word what we can use
+	-- Server gets final word what we can use
 	if blacklist then
 		for _, path in ipairs( blacklist ) do
 			path = wOS.DynaBase.PreservedModels[ path ] or path

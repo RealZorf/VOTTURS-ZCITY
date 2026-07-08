@@ -20,7 +20,7 @@ function MODE:PreDrawPlayer2(ent, ply)
 		return
 	end
 
-	local bool = lply:GetNetVar("disappearance", nil) // it's not actually bool but float. works either way :3. update: it's a bool now >w<
+	local bool = lply:GetNetVar("disappearance", nil) -- it's not actually bool but float. works either way :3. update: it's a bool now >w<
 	if bool then
 		ShowShadows(ent, ply, false)
 		local wpn = ply.GetActiveWeapon and ply:GetActiveWeapon()
@@ -109,7 +109,7 @@ function MODE:RenderScreenspaceEffects()
 		hg.fearphrase1 = nil
 	end
 
-	local ghost = lply:GetNetVar("afterlife") // curtime start here
+	local ghost = lply:GetNetVar("afterlife") -- curtime start here
 	if !ghost then
 		if IsValid(hg.ghostStation) then
 			hg.ghostStation:Stop()
@@ -125,7 +125,7 @@ function MODE:RenderScreenspaceEffects()
 	local time = 60
 
 	if intensity > time and !IsValid(hg.ghostStation) then
-		sound.PlayFile("sound/zbattle/dragonfly_wings.ogg", "noplay", function(channel) //the track is 59 seconds btw
+		sound.PlayFile("sound/zbattle/dragonfly_wings.ogg", "noplay", function(channel) --the track is 59 seconds btw
 			channel:SetVolume(0)
 			channel:Play()
 			hg.ghostStation = channel

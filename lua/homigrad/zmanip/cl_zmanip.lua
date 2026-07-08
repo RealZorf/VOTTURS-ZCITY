@@ -258,7 +258,7 @@ function hg.DoZManip(ent, ply)
             WorldModel.OldAngPunch = WorldModel.OldAngPunch or gAngles
             local punch = ( WorldModel.OldAngPunch - gAngles ) / 250
 
-            //ViewPunch2( -punch )
+            --ViewPunch2( -punch )
             ViewPunch( punch )
 
             WorldModel.OldAngPunch = gAngles

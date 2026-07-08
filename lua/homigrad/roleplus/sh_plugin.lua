@@ -33,7 +33,7 @@
 --=//
 
 --; Свернуть шею сзади
---//
+--
 
 --\\Перевод плагиновых штук в ваши штуки
 hg.RolePlus = hg.RolePlus or {}
@@ -47,7 +47,7 @@ end
 function PLUGIN:RunHook(id, ...)
 	return hook.Run("HG.Plugin.List[" .. self.ID .. "].Hooks[" .. id .. "]", ...)
 end
---//
+--
 
 PLUGIN.Name = "RolePlus"
 PLUGIN.Description = "Adds subroles"

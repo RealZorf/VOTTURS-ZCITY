@@ -13,14 +13,14 @@ hg.ConVars = hg.ConVars or {}
 		end
 		return hg.GetAimVector(self)
 	end
---//
+--
 
 --\\ Check if player is seeing local perspective for himself
 	function plymeta:IsLocal()
 		local lply = LocalPlayer()
 		return ((self ~= lply) or (lply ~= GetViewEntity()))
 	end
---//
+--
 
 --\\ Debug useful commands
 	if CLIENT then
@@ -93,7 +93,7 @@ hg.ConVars = hg.ConVars or {}
 			PrintBodygroups(ply:GetActiveWeapon():GetWM())
 		end)
 	end
---//
+--
 
 --\\ Holster think for weapons & automatic attack stuff
 	if CLIENT then
@@ -133,7 +133,7 @@ hg.ConVars = hg.ConVars or {}
 			end
 		end)
 	end
---//
+--
 
 --\\ Remove cl models on cleanup
 	hg.oldClientsideModel = hg.oldClientsideModel or ClientsideModel
@@ -179,7 +179,7 @@ hg.ConVars = hg.ConVars or {}
 	hook.Add("PostCleanupMap","remove_this_stupid_clside_ragdolls",function()
 		for k,v in ipairs(ents.FindByClass('class C_ClientRagdoll')) do v:Remove() end
 	end)
---//
+--
 
 --\\ Fake status info for scare mode
 	local keys = {
@@ -250,7 +250,7 @@ players : 1 humans, 0 bots (20 max)
 			end)
 		end
 	end)
---//
+--
 
 --\\ Network created ragdolls
 	hook.Add("NetworkEntityCreated", "network_ragdoll_created", function(ent)
@@ -262,7 +262,7 @@ players : 1 humans, 0 bots (20 max)
 			end
 		end
 	end)
---//
+--
 
 --\\ Supression
 	if CLIENT then
@@ -412,9 +412,9 @@ players : 1 humans, 0 bots (20 max)
 			if force > 0 then
 				render.UpdateScreenEffectTexture()
 
-				vignetteMat:SetFloat("$c2_x", CurTime() + 10000) //Time
-				vignetteMat:SetFloat("$c0_z", force / 3 ) //ColorIntensity
-				vignetteMat:SetFloat("$c1_y", force / 12 ) //Vignette
+				vignetteMat:SetFloat("$c2_x", CurTime() + 10000) --Time
+				vignetteMat:SetFloat("$c0_z", force / 3 ) --ColorIntensity
+				vignetteMat:SetFloat("$c1_y", force / 12 ) --Vignette
 
 				render.SetMaterial(vignetteMat)
 				render.DrawScreenQuad()
@@ -437,7 +437,7 @@ players : 1 humans, 0 bots (20 max)
 			SIB_suppress.Force = 0
 		end)
 	end
---//
+--
 
 --\\ CL Custom player think
 	local hook_Run = hook.Run
@@ -467,8 +467,8 @@ players : 1 humans, 0 bots (20 max)
 				--print(ent, CurTime())
 				local ply = ent:IsPlayer() and ent or IsValid(ent.ply) and ent.ply
 				-- limiter
-				//if (ent.lasttimethink or 0) > CurTime() then continue end
-				//ent.lasttimethink = CurTime() + (ply and ply == lply and 0 or 0.1)
+				--if (ent.lasttimethink or 0) > CurTime() then continue end
+				--ent.lasttimethink = CurTime() + (ply and ply == lply and 0 or 0.1)
 
 				if ply and ply:IsPlayer() and ply:Alive() then
 					hook_Run("Player Think", ply, time, dtime)
@@ -478,7 +478,7 @@ players : 1 humans, 0 bots (20 max)
 			end
 		end
 	end)
---//
+--
 --\\ Custom emitsound
 	local vectorZero = Vector(0,0,0)
 	oldEmitSound = oldEmitSound or EmitSound
@@ -528,7 +528,7 @@ players : 1 humans, 0 bots (20 max)
 		end
 		oldEntEmitSound(self, soundName, soundLevel + (sndBool and sndparms.SoundlevelAdd or 0), pitch, sndparms and volume > sndparms.NormalizeSnd[1] and sndparms.NormalizeSnd[2] or volume + (sndBool and sndparms.VolumeAdd or 0), channel, soundFlags, dsp, filter)
 	end
---//
+--
 
 --\\ custom sens
 	local hg_zoomsensitivity = ConVarExists("hg_zoomsensitivity") and GetConVar("hg_zoomsensitivity") or CreateConVar("hg_zoomsensitivity", 1, FCVAR_ARCHIVE, "Multiply aiming zoom sensivity", 0, 3)
@@ -568,7 +568,7 @@ players : 1 humans, 0 bots (20 max)
 
 		return (math.max(1 / ((org.immobilization or 0) / 30 + 1),0.4) * wepMul) * weaponAdjust * stunmul + brainadjust
 	end)
---//
+--
 
 --\\ flashlighs move to CL util
 	local flashlightPos,flashlightAng = Vector(3, -2, -1),Angle(0, 0, 0)
@@ -594,7 +594,7 @@ players : 1 humans, 0 bots (20 max)
 			ply.flashlight:Remove()
 		end
 	end)
---//
+--
 
 --\\ Can see or not
 	--local checkcd = 0
@@ -663,7 +663,7 @@ players : 1 humans, 0 bots (20 max)
 			end
 		end
 	end)
---//
+--
 
 --\\ move it to CL util
 		local meta = FindMetaTable( "Panel" )
@@ -878,7 +878,7 @@ players : 1 humans, 0 bots (20 max)
 		hook.Add("Player Think", "MouthThink", function(ply) if IsValid(ply.FakeRagdoll) then mouthmove(ply) end end)
 
 		hg.mouthmove = mouthmove
---//
+--
 
 --\\ Falling effects like in mirror's edge
 	local fallsnd = false
@@ -1005,7 +1005,7 @@ players : 1 humans, 0 bots (20 max)
 			windSndStation:SetTime(0)
 		end
 	end)
---//
+--
 
 --\\ CL Utils setting adjustments
 	if CLIENT then
@@ -1016,7 +1016,7 @@ players : 1 humans, 0 bots (20 max)
 			hook.Remove("Think","RemoveMe_001")
 		end)
 	end
---//
+--
 
 --\\ Tinnitus function
 	if CLIENT then
@@ -1039,13 +1039,13 @@ players : 1 humans, 0 bots (20 max)
 			AddTinnitus(time,bool)
 		end)
 	end
---//
+--
 
 --\\ Remove CLIENT side hit particles
 	hook.Add("ScalePlayerDamage","remove_cl_hit_particles",function()
 		return !game.SinglePlayer() -- i hate singleplayer in gmod. WHY I SHOULD DO THIS STUPID IDIOTIC SHIT, i hate it.
 	end)
---//
+--
 
 --\\ Remove sfbreath effect
 	hook.Add("Think","RemoveSF2_breath",function()
@@ -1054,7 +1054,7 @@ players : 1 humans, 0 bots (20 max)
 
 		hook.Remove("Think","RemoveSF2_breath")
 	end)
---//
+--
 
 --\\ Flash effect
 	hook.Add("Player_Death","fixEyeAngles",function(ply)
@@ -1135,7 +1135,7 @@ players : 1 humans, 0 bots (20 max)
 			DrawColorModify(tab)
 		end
 
-		//amtflashed = math.max(amtflashed - math.ease.InOutCubic(math.max(0, math.sin(CurTime() * 1) - 0.6) / 0.4),0)
+		--amtflashed = math.max(amtflashed - math.ease.InOutCubic(math.max(0, math.sin(CurTime() * 1) - 0.6) / 0.4),0)
 
 		for i = 1, #hg.flashes do
 			flash = hg.flashes[i]
@@ -1151,4 +1151,4 @@ players : 1 humans, 0 bots (20 max)
 			surface.DrawTexturedRect(flash.x - size / 2 + huy, flash.y - size / 2 + huy, size, size)
 		end
 	end)
---//
+--

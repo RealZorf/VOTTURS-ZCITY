@@ -1,7 +1,7 @@
 hook.Add("Org Think", "regenerationfurry", function(owner, org, timeValue)
 	if not owner:IsPlayer() or not owner:Alive() then return end
 	if owner.PlayerClassName != "furry" then return end
-	//if org.heartstop then return end
+	--if org.heartstop then return end
 
 	org.blood = math.Approach(org.blood, 5000, timeValue * 60)
 
@@ -60,12 +60,12 @@ hook.Add("HomigradDamage","FurCrackHit",function(ply, dmgInfo, hitgroup, ent)
 		if hitgroup == HITGROUP_HEAD then
 			local intensity = math.max(dmgInfo:GetDamage() / 3, 0.05)
 
-			//if intensity > 0.1 then
-			//	timer.Simple(0, function()
-			//		ply.armors["head"] = "protovisor"
-			//		ply:SyncArmor()
-			//	end)
-			//end
+			--if intensity > 0.1 then
+			--	timer.Simple(0, function()
+			--		ply.armors["head"] = "protovisor"
+			--		ply:SyncArmor()
+			--	end)
+			--end
 
 			net.Start("CrackScreen")
 				net.WriteFloat(intensity)

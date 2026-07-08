@@ -7,7 +7,7 @@ SWEP.WorldAng = Angle(5, 0, 180)
 SWEP.UseCustomWorldModel = false
 
 function SWEP:ShouldUseFakeModel()
-	return self.WorldModelFake// and IsValid(self:GetOwner())
+	return self.WorldModelFake-- and IsValid(self:GetOwner())
 end
 
 SWEP.weaponAng = Angle(0, 0, 0)
@@ -123,7 +123,7 @@ function SWEP:ChangeGunPos(dtime)
 		ply.viewingGun = not (self:KeyDown(IN_ATTACK2) or self:KeyDown(IN_ATTACK)) and ply.viewingGun or nil
 	end
 	
-	local huya = false//self.lerpaddcloseanim > (self:IsPistolHoldType() and 0.7 or 0.39)
+	local huya = false--self.lerpaddcloseanim > (self:IsPistolHoldType() and 0.7 or 0.39)
 	-- local func = hg.postureFuncWorldModel[ply:GetNWFloat("InLegKick",0) > CurTime() and 3 or self.reload and 0 or (self:IsSprinting() or huya) and ((ply.posture == 3 and 3) or ((ply.posture == 3 or fakeRagdoll) and 3) or (self:IsPistolHoldType() and 3 or 3)) or ply.posture] or funcNil
 	
 	-- if not self.inspect then
@@ -356,8 +356,8 @@ local function DrawWorldModel(self, force)
 	local localdraw = (self:IsLocal2() and (owner:GetActiveWeapon() == self)) and not force
 	
 	if not owner:IsNPC() then self:DrawPost() end
-	//self.worldModel:SetRenderOrigin(self:GetPos())
-	//self.worldModel:SetPos(self:GetPos())
+	--self.worldModel:SetRenderOrigin(self:GetPos())
+	--self.worldModel:SetPos(self:GetPos())
 	
 	if not localdraw then
 		if IsValid(owner) and (owner.GetActiveWeapon and (owner:GetActiveWeapon() ~= self) or owner:IsRagdoll()) then
@@ -366,7 +366,7 @@ local function DrawWorldModel(self, force)
 				willdraw = true
 			else
 				if IsValid(self.worldModel) then
-					//self.worldModel:Remove()
+					--self.worldModel:Remove()
 					self.worldModel:SetNoDraw(true)
 				end
 				self:ClearAttModels()
@@ -520,7 +520,7 @@ end
 
 hg.DrawWorldModel = DrawWorldModel
 
-//hg.models = hg.models or {}
+--hg.models = hg.models or {}
 
 function SWEP:CreateWorldModel()
 	if not IsValid(self) then return end
@@ -573,7 +573,7 @@ function SWEP:CreateWorldModel()
 		self:ModelCreated(model)
 	end
 
-	//hg.models[model:GetModel()] = model
+	--hg.models[model:GetModel()] = model
 	
 	model:SetNoDraw(true)
 	model:SetOwner(self)
@@ -653,16 +653,16 @@ function SWEP:WorldModel_Transform(bNoApply, bNoAdditional, model)
 		local matrixR = ent:GetBoneMatrix(RHand) or ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_R_Forearm"))
 		
 		if not matrixR then 
-			//matrixR = Matrix()
-			//local att = ent:GetAttachment(ent:LookupAttachment("anim_attachment_RH"))
-			//matrixR:SetTranslation(att.Pos)
-			//matrixR:SetAngles(att.Ang)
+			--matrixR = Matrix()
+			--local att = ent:GetAttachment(ent:LookupAttachment("anim_attachment_RH"))
+			--matrixR:SetTranslation(att.Pos)
+			--matrixR:SetAngles(att.Ang)
 			return
 		end
 		
 		local aimvec = ent:IsNPC() and matrixR:GetAngles() or owner:GetAimVector():Angle()
 
-		//self:ChangeGunPos()
+		--self:ChangeGunPos()
 		
 		local matrixRAngRot = matrixR:GetAngles()
 		matrixRAngRot:RotateAroundAxis(matrixRAngRot:Forward(),180)
@@ -679,7 +679,7 @@ function SWEP:WorldModel_Transform(bNoApply, bNoAdditional, model)
 		--local oldPos = -(-desiredPos)
 		--local oldAng = -(-desiredAng)
 				
-		if !owner:IsNPC() then//should then
+		if !owner:IsNPC() then--should then
 			local desiredPos1, desiredAng1 = self:PosAngChanges(owner, desiredPos, desiredAng, bNoAdditional, nil, dtime)
 			
 			desiredPos = LerpVector(self.lerped_positioning or 0, desiredPos, desiredPos1)
@@ -869,7 +869,7 @@ function SWEP:DrawWorldModel()
 	local owner = self:GetOwner()
 	if IsValid(owner) and owner:IsNPC() then
 		DrawWorldModel(self)
-		//self:DrawModel()
+		--self:DrawModel()
 	end
 
 	if CLIENT then
@@ -880,13 +880,13 @@ function SWEP:DrawWorldModel()
 	end
 
 	if (not IsValid(owner)) then
-		//self:SetupBones()
-		//self:SetRenderOrigin()
-		//self:SetRenderAngles()
-		//self:DrawModel()
-		//self:DrawPost()
-		//self:DrawAttachments()
-		//if IsValid(self.worldModel) then
+		--self:SetupBones()
+		--self:SetRenderOrigin()
+		--self:SetRenderAngles()
+		--self:DrawModel()
+		--self:DrawPost()
+		--self:DrawAttachments()
+		--if IsValid(self.worldModel) then
 			--[[self.worldModel:SetupBones()
 			self.worldModel:SetRenderOrigin(self:GetPos())
 			self.worldModel:SetRenderAngles(self:GetAngles())
@@ -894,7 +894,7 @@ function SWEP:DrawWorldModel()
 			self.worldModel:SetAngles(self:GetAngles())
 			self.worldModel:DrawModel()--]]
 			DrawWorldModel(self)
-		//end
+		--end
 	end
 end
 

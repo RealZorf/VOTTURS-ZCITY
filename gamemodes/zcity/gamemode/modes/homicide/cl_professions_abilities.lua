@@ -56,7 +56,7 @@ function MODE.RemoveFootstep(footstep_key)
 		MODE.FootStepsAmt = MODE.FootStepsAmt - 1
 	end
 end
---//
+--
 
 hook.Add("PostDrawTranslucentRenderables", "HMCD_Professions_Abilities", function()
 	local view = render.GetViewSetup(true)

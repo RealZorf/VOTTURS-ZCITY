@@ -128,7 +128,7 @@ function SWEP:Step_Reload(time)
 		--print(self.StaminaReloadTime)
 		local shouldalreadyreload
 		if SERVER then
-			//shouldalreadyreload = self:ReloadSounds(part)
+			--shouldalreadyreload = self:ReloadSounds(part)
 			self:ReloadSounds(part)
 		end
 
@@ -138,11 +138,11 @@ function SWEP:Step_Reload(time)
 			if self.GetDebug then
 				self:GetOwner():PrintMessage( 4,tostring(time) )
 			end
-			//local nextTimeEvent = self.FakeReloadEventsMap[self.countevent]
-			//local event = self.FakeReloadEvents[nextTimeEvent]
+			--local nextTimeEvent = self.FakeReloadEventsMap[self.countevent]
+			--local event = self.FakeReloadEvents[nextTimeEvent]
 			local event = self.FakeReloadEvents[time]
 			--print(self.FakeReloadEvents[time])
-			//if event and nextTimeEvent < time and self.FakeEventPlayed ~= event then
+			--if event and nextTimeEvent < time and self.FakeEventPlayed ~= event then
 			if event and self.FakeEventPlayed ~= event then
 				event( self, self.StaminaReloadMul )
 				self.FakeEventPlayed = event
@@ -273,16 +273,16 @@ function SWEP:AnimationReload(time, staminaReload)
 		return true
 	end
 
-	--// Prodecural reload magazine stuff
+	-- Prodecural reload magazine stuff
 	if pos1 == "removemag" and self.ProceduralMagMethod then
 		local method, rem = self.ProceduralMagMethod, self.ProceduralMagSets["remove"]
 		local wm = self:GetWM()
 
-		if method == 0 then --// Single bodygroup
+		if method == 0 then -- Single bodygroup
 			wm:SetBodygroup(self.ProceduralMagID or 1, rem or 1)
-		elseif method == 1 then --// Set of bodygroups
+		elseif method == 1 then -- Set of bodygroups
 			wm:SetBodyGroups(tostring(rem) or "1111")
-		elseif method == 2 then --// Submaterial method
+		elseif method == 2 then -- Submaterial method
 			wm:SetSubMaterial(self.ProceduralMagID or 1, tostring(rem) or "null")
 		end
 
@@ -291,11 +291,11 @@ function SWEP:AnimationReload(time, staminaReload)
 		local method, ret = self.ProceduralMagMethod, self.ProceduralMagSets["return"]
 		local wm = self:GetWM()
 
-		if method == 0 then --// Single bodygroup
+		if method == 0 then -- Single bodygroup
 			wm:SetBodygroup(self.ProceduralMagID or 1, ret or 0)
-		elseif method == 1 then --// Set of bodygroups
+		elseif method == 1 then -- Set of bodygroups
 			wm:SetBodyGroups(tostring(ret) or "0000")
-		elseif method == 2 then --// Submaterial method
+		elseif method == 2 then -- Submaterial method
 			wm:SetSubMaterial(self.ProceduralMagID or 1, tostring(ret) or "")
 		end
 

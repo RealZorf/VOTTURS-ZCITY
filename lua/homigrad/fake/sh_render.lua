@@ -40,7 +40,7 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 
 				if i == headBone and lply == GetViewEntity() and lply == ply then
 					newmat:SetScale(vecSmall)
-					//ply.headm = newmat
+					--ply.headm = newmat
 				end
 
 				ent:SetBoneMatrix(i, newmat)
@@ -48,7 +48,7 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 			end
 		end
 	end
---//
+--
 --\\ DrawPlayerRagdoll
 	local hg_ragdollcombat = ConVarExists("hg_ragdollcombat") and GetConVar("hg_ragdollcombat") or CreateConVar("hg_ragdollcombat", 0, FCVAR_REPLICATED, "Toggle ragdoll combat-like ragdoll mode (walking, running in ragdoll, etc.)", 0, 1)
 	
@@ -151,9 +151,9 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		end
 	end
 
-	function DrawPlayerRagdoll(ent, ply) --// actually not only ragdoll render but player too
+	function DrawPlayerRagdoll(ent, ply) -- actually not only ragdoll render but player too
 		if ply.prevragdoll_index != nil and ply.prevragdoll_index != ply.ragdoll_index and ply.ragdoll_index == 0 then
-			//print(ply.ragdoll_index, ply.prevragdoll_index, Entity(ply.ragdoll_index))
+			--print(ply.ragdoll_index, ply.prevragdoll_index, Entity(ply.ragdoll_index))
 
 			ply.gettingup = CurTime()
 			ply.OldRagdoll = Entity(ply.prevragdoll_index)
@@ -195,8 +195,8 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		if fullPoseRender then applyBoneRenderScale(ent, renderModelScale) end
 
 		if fullPoseRender and IsValid(wep) then
-			//if wep.isTPIKBase then hg.RenderTPIKBase(ent, ply, wep) end
-			//if wep.ismelee then hg.RenderMelees(ent, ply, wep) end
+			--if wep.isTPIKBase then hg.RenderTPIKBase(ent, ply, wep) end
+			--if wep.ismelee then hg.RenderMelees(ent, ply, wep) end
 			if wep.DrawWorldModel2 then wep:DrawWorldModel2() end
 		end
 
@@ -248,4 +248,4 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 
 		if detailRender and ply:GetNetVar("headcrab") then hg.RenderHeadcrab(ent, ply) end
 	end
---//
+--

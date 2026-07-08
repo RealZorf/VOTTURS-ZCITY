@@ -28,7 +28,7 @@ net.Receive("HMCD_BreakingOtherNeck", function(len, ply)
 		end
 	end
 end)
---//
+--
 
 --\\
 net.Receive("HMCD_BeingVictimOfDisarmament", function(len, ply)
@@ -52,7 +52,7 @@ net.Receive("HMCD_DisarmingOther", function(len, ply)
 		MODE.StopDisarmingOther(LocalPlayer())
 	end
 end)
---//
+--
 
 --\\Chemical resistance
 net.Receive("HMCD_UpdateChemicalResistance", function(len, ply)
@@ -71,7 +71,7 @@ net.Receive("HMCD_UpdateChemicalResistance", function(len, ply)
 		chemical_name = net.ReadString()
 	end
 end)
---//
+--
 
 --\\Stalker sonar
 local stalkerMarks = {}
@@ -257,7 +257,7 @@ hook.Add("HUDPaint", "HMCD_StalkerSonar", function()
 		drawStalkerPulseAt(x, y, color, size, alpha, not onScreen, mark.Isolated)
 	end
 end)
---//
+--
 
 hook.Add("Think", "HMCD_SubRole_Abilities", function()
 	if(BeingVictimOfNeckBreakResetTime and BeingVictimOfNeckBreakResetTime <= CurTime())then

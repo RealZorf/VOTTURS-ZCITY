@@ -9,7 +9,7 @@
 	--; Некоторые параметры будут считаться исходя из аммоайди
 
 	--; У дроби высокое сопротивление воздуху (~75 метров и они падают)
---//
+--
 
 --\\Перевод плагиновых штук в ваши штуки
 	hg.PhysBullet = hg.PhysBullet or {}
@@ -23,7 +23,7 @@
 	function PLUGIN:RunHook(id, ...)
 		return hook.Run("HG.Plugin.List[" .. self.ID .. "].Hooks[" .. id .. "]", ...)
 	end
---//
+--
 
 -- ulx luarun SetGlobalBool('PhysBullets_ReplaceDefault', true)
 SetGlobalBool("PhysBullets_ReplaceDefault", false)
@@ -163,7 +163,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		
 		return new_bullet
 	end
---//
+--
 
 --\\Misc Network
 	function PLUGIN.net_writekey(value)
@@ -246,7 +246,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		
 		return filter
 	end
---//
+--
 
 --\\Network
 	PLUGIN.NetworkTableFull = {
@@ -271,7 +271,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		{"Pos", net.WriteVector, net.ReadVector},
 		{"Vel", PLUGIN.net_writevelocity, PLUGIN.net_readvelocity},
 	}
---//
+--
 
 --; Пульки которые пиф паф взиу пиу
 --; Написано будет все на анлийском потомучто я так уже начал и менять лень
@@ -306,7 +306,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 	--; AttackedEnts = auto - Calculated automatically
 
 	--; Removed = auto - Set then removed
---//
+--
 
 --\\MetaTable
 	PLUGIN.Class_Bullet = {}
@@ -805,7 +805,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 			self:PostRemove()
 		end
 	end
---//
+--
 
 --\\Creation
 	function PLUGIN.CreateBullet(bullet)
@@ -869,7 +869,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 
 		return bullet
 	end
---//
+--
 
 --\\Calculations
 	function PLUGIN.CalcMaterialResist(material, mul)
@@ -973,7 +973,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		
 		return new_vel_normal, len_left, ricochet, ang_diff, stopped
 	end
---//
+--
 
 --\\Hooks
 	PLUGIN:AddHook("Think", function()
@@ -991,7 +991,7 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 			end
 		end)
 	end
---//
+--
 
 hook.Add("PostCleanupMap", "PhysBullets", function()
 	for key, bullet in pairs(PLUGIN.BulletsTable) do
@@ -1030,5 +1030,5 @@ end)
 --\\Includes
 	-- PLUGIN:Include("sv_plugin.lua")
 	-- PLUGIN:Include("cl_plugin.lua")
---//
+--
 

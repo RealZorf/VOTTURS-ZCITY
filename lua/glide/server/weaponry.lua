@@ -90,11 +90,11 @@ do
 
         if params.isExplosive then
             length = params.length or 8000
-            damage = 125//params.damage or 25
+            damage = 125--params.damage or 25
             explosionRadius = params.explosionRadius or 180
         else
             length = params.length or 30000
-            damage = 100//params.damage or 20
+            damage = 100--params.damage or 20
         end
 
         ang[1] = ang[1] + RandomFloat( -spread, spread )

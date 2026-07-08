@@ -194,9 +194,9 @@ SWEP.availableAttachments = {
 		["mount"] = Vector(-3, 0.5, 0),
 		["mountAngle"] = Angle(0, 0, 0),
 	},
-	//mount = {
-		//[1] = {"mount2", Vector(-5, -0.5, 0), {}},
-	//}
+	--mount = {
+		--[1] = {"mount2", Vector(-5, -0.5, 0), {}},
+	--}
 }
 
 SWEP.ShockMultiplier = 2

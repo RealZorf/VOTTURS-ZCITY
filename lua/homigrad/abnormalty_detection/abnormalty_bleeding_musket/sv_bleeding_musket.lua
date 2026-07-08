@@ -1,12 +1,12 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 --\\
 PLUGIN.ConjureBleedingMusket = PLUGIN.ConjureBleedingMusket or {}
 PLUGIN.ConjureBleedingMusket.ToConjure = PLUGIN.ConjureBleedingMusket.ToConjure or {}
---//
+--
 
 --\\
 function PLUGIN.ConjureBleedingMusket.Do(ent, time, zone)
@@ -29,7 +29,7 @@ local function TryConjureBleedingMusket(zone, ply)
 		PLUGIN.ShowMessage(ply, "There is not enough blood in order to conjure Bleeding Musket")
 	end
 end
---//
+--
 
 --\\SpecialEvents
 hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_ConjureBleedingMusket", function(zone_id, abnormalty_name, amt, ply)
@@ -56,7 +56,7 @@ hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_ConjureBleedingMus
 		end
 	end
 end)
---//
+--
 
 hook.Add("Think", "Abnormalties_ConjureBleedingMusket", function()
 	for id, info in pairs(PLUGIN.ConjureBleedingMusket.ToConjure) do

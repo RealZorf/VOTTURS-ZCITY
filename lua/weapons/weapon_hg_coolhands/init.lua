@@ -156,7 +156,7 @@ function SWEP:ApplyForce()
 		if self.CarryEnt.organism and ((ply.sendTimeOrg or 0) < CurTime()) then
 			ply.sendTimeOrg = CurTime() + 0.5
 
-			//hg.send_organism(self.CarryEnt.organism, ply)
+			--hg.send_organism(self.CarryEnt.organism, ply)
 		end
 
 		if self.CarryPos then
@@ -237,30 +237,30 @@ function SWEP:ApplyForce()
 						end
 
 						if org.blood < 3500 then
-							//if org.blood < 1000 then
-								//ply:ChatPrint("The skin looks almost white.")
-							//else
+							--if org.blood < 1000 then
+								--ply:ChatPrint("The skin looks almost white.")
+							--else
 								ply:ChatPrint("The skin is pale.")
-							//end
+							--end
 						end
 
 						if org.bleed > 0 then
 							ply:ChatPrint("The body is bleeding "..((org.bleed > 10 and "profusely.") or (org.bleed > 5 and "moderately.") or "slightly."))
 						end
 
-						//org.bulletwounds = 0
-						//org.stabwounds = 0
-						//org.slashwounds = 0
-						//org.bruises = 0
-						//org.burns = 0
-						//org.explosionwounds = 0
+						--org.bulletwounds = 0
+						--org.stabwounds = 0
+						--org.slashwounds = 0
+						--org.bruises = 0
+						--org.burns = 0
+						--org.explosionwounds = 0
 
 						if org.bulletwounds > 0 then
 							ply:ChatPrint("You notice "..org.bulletwounds.." bullet wounds on this body.")
 						end
 
 						if org.stabwounds > 0 then
-							ply:ChatPrint("You notice "..org.stabwounds.." stab wounds on this body.")//28 STAB WOUNDS. YOU WOULDNT LEAVE HIM A CHANCE, HUH?
+							ply:ChatPrint("You notice "..org.stabwounds.." stab wounds on this body.")--28 STAB WOUNDS. YOU WOULDNT LEAVE HIM A CHANCE, HUH?
 						end
 
 						if org.slashwounds > 0 then
@@ -331,7 +331,7 @@ function SWEP:ApplyForce()
 					if (self.CPRThink or 0) < CurTime() then
 						self.CPRThink = CurTime() + (1 / 120) * 60
 						if org.alive then
-							//org.o2[1] = math.min(org.o2[1] + hg.organism.OxygenateBlood(org) * 2 * (ply.Profession == "doctor" and 2 or 1), org.o2.range)
+							--org.o2[1] = math.min(org.o2[1] + hg.organism.OxygenateBlood(org) * 2 * (ply.Profession == "doctor" and 2 or 1), org.o2.range)
 							org.pulse = math.min(org.pulse + 5 * (ply.Profession == "doctor" and 2 or 1),70)
 							org.CO = math.Approach(org.CO, 0, (ply.Profession == "doctor" and 2 or 1))
 							org.COregen = math.Approach(org.COregen, 0, (ply.Profession == "doctor" and 2 or 1))
@@ -370,8 +370,8 @@ function SWEP:ApplyForce()
 
 				hg.LightStunPlayer(org.owner, 1)
 
-				//phys:ApplyForceCenter(ply:GetAimVector() * 40000 * self.Penetration)
-				//self:SetCarrying()
+				--phys:ApplyForceCenter(ply:GetAimVector() * 40000 * self.Penetration)
+				--self:SetCarrying()
 			end
 
 			if ply:KeyDown(IN_ATTACK) and (ply.organism.superfighter or ply:IsBerserk()) then
@@ -400,7 +400,7 @@ function SWEP:ApplyForce()
 				rotate = Vector(0, -x, -y) / 4
 			end
 
-			//phys:AddAngleVelocity(rotate * phys:GetMass() / 10)
+			--phys:AddAngleVelocity(rotate * phys:GetMass() / 10)
 		end
 
 		phys:ApplyForceCenter(Vector(0, 0, mul))
@@ -456,7 +456,7 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		if IsValid(self.CarryEnt) and self.CarryEnt:GetCustomCollisionCheck() then
 			hg.SafeCollisionRulesChanged(self.CarryEnt)
 			hg.SafeCollisionRulesChanged(owner)
-			//self.CarryEnt:SetCustomCollisionCheck(false)
+			--self.CarryEnt:SetCustomCollisionCheck(false)
 		end
 
 		if IsValid(owner:GetNetVar("carryent")) then
@@ -488,7 +488,7 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 
 		local dist, posHit, distLine = util.DistanceToLine(pos + aimvec * 100, pos, trace.HitPos)
 
-		//print(dist, distLine)
+		--print(dist, distLine)
 
 		local dmg = wep.DamagePrimary
 		local selfdmg = self.DamagePrimary * 0.2
@@ -498,7 +498,7 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 
 			wep:SetLastBlocked(CurTime())
 
-			//viewpunch the attacker maybe?
+			--viewpunch the attacker maybe?
 			self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg / 2)
 			self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg / 2)
 
@@ -518,7 +518,7 @@ end
 function SWEP:Think()
 	local owner = self:GetOwner()
 
-	self.Secondary.Automatic = false//owner.PlayerClassName == "furry"
+	self.Secondary.Automatic = false--owner.PlayerClassName == "furry"
 
 	self.Checking = math.max(self.Checking - FrameTime(), 0)
 
@@ -576,11 +576,11 @@ function SWEP:Think()
 		if self:GetBlocking() then
 			self:SetNextDown(Time + 1)
 
-			//owner:DoAnimationEvent(ACT_HL2MP_FIST_BLOCK)
+			--owner:DoAnimationEvent(ACT_HL2MP_FIST_BLOCK)
 			HoldType = "slam"
 		end
 
-		//if (self:GetNextDown() < Time) or owner:KeyDown(IN_SPEED) then
+		--if (self:GetNextDown() < Time) or owner:KeyDown(IN_SPEED) then
 		if owner:KeyDown(IN_SPEED) and (owner.PlayerClassName != "furry" or owner:KeyDown(IN_WALK)) then
 			self:SetNextDown(Time + 1)
 			self:SetFists(false)
@@ -694,7 +694,7 @@ function SWEP:PrimaryAttack(forcespecial)
 					self:SetNextPrimaryFire(CurTime() + .5)
 				end
 
-				//self:SetFists(false)
+				--self:SetFists(false)
 				return
 			end
 		end
@@ -739,17 +739,17 @@ function SWEP:AttackFront(special_attack, rand)
 	local isfur = owner.PlayerClassName == "furry"
 	if IsValid(Ent) or (Ent and Ent.IsWorld and Ent:IsWorld()) then
 		if string.find(Ent:GetClass(),"break") and Ent:GetBrushSurfaces()[1] and string.find(Ent:GetBrushSurfaces()[1]:GetMaterial():GetName(),"glass") then
-			//Ent:EmitSound("physics/glass/glass_sheet_impact_hard"..math_random(3)..".wav")
+			--Ent:EmitSound("physics/glass/glass_sheet_impact_hard"..math_random(3)..".wav")
 
-			//if math_random(1,8) == 8 and Ent:Health() < 250 then
+			--if math_random(1,8) == 8 and Ent:Health() < 250 then
 				hg.organism.AddWoundManual(owner, math.Rand(50,75) * 1, vector_origin, AngleRand(), owner:LookupBone("ValveBiped.Bip01_"..(rand and "R" or "L").."_Hand"), CurTime())
-				//Ent:Fire("Break")
-				//Ent.Broken = true
-			//end
+				--Ent:Fire("Break")
+				--Ent.Broken = true
+			--end
 
-			//owner:LagCompensation(false) // idiot
+			--owner:LagCompensation(false) -- idiot
 
-			//return
+			--return
 		end
 
 		local inv = owner:GetNetVar("Inventory",{})

@@ -2,12 +2,12 @@
 	--; TODO
 	--; Что я пытаюсь достичь?
 	--; Я просто должен использовать банк голоса и не париться с математическим синтезированием
---//
+--
 
 --\\Перевод плагиновых штук в ваши штуки
 	hg.Synthesizer = hg.Synthesizer or {}
 	local PLUGIN = hg.Synthesizer
---//
+--
 
 PLUGIN.Name = "Synthesizer"
 PLUGIN.Description = "Adds math and voicebank (not yet) based vocal synthesizer"
@@ -43,7 +43,7 @@ PLUGIN.Version = 1
 			end
 		end)
 	end
---//
+--
 
 --; Дайте мне незалицензированные звуки человеческого голоса плиз
 
@@ -251,4 +251,4 @@ PLUGIN.Version = 1
 
 		return z
 	end
---//
+--

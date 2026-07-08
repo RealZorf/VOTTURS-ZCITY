@@ -144,7 +144,7 @@ function SWEP:AnimHold()
 	local ply = self:GetOwner()
 	
 	if not self.attachments then return end
-	//self.holdtype = self.attachments.grip and #self.attachments.grip ~= 0 and hg.attachments.grip[self.attachments.grip[1]].holdtype or self.HoldType
+	--self.holdtype = self.attachments.grip and #self.attachments.grip ~= 0 and hg.attachments.grip[self.attachments.grip[1]].holdtype or self.HoldType
 	self.holdtype = self.HoldType
 	--self.holdtype = self.holster and (self.holster - CurTime()) / (self.CooldownHolster / self.Ergonomics) < 0.5 and "normal" or self.holdtype
 	self.holdtype = ((self.deploy and (self.deploy - CurTime()) / (self.CooldownDeploy / self.Ergonomics) > 0.5)) and "normal" or self.holdtype
@@ -244,14 +244,14 @@ function SWEP:CloseAnim(dtime)
 	if owner:IsNPC() then self.lerpaddcloseanim = 0 return 0 end
 	if owner.suiciding then self.lerpaddcloseanim = 0 return 0 end
 	
-	//local desiredPos, desiredAng = self:PosAngChanges(owner, nil, nil, true, true)
+	--local desiredPos, desiredAng = self:PosAngChanges(owner, nil, nil, true, true)
 	
-	//if not desiredPos or not desiredAng then return end
+	--if not desiredPos or not desiredAng then return end
 
-	//desiredAng = owner:EyeAngles()
+	--desiredAng = owner:EyeAngles()
 
-	//local newPos, newAng = LocalToWorld(self.WorldPos, self.WorldAng, desiredPos, desiredAng)
-	//newAng:RotateAroundAxis(newAng:Forward(),180)
+	--local newPos, newAng = LocalToWorld(self.WorldPos, self.WorldAng, desiredPos, desiredAng)
+	--newAng:RotateAroundAxis(newAng:Forward(),180)
 	
 	--print(desiredAng)
 	local _, pos, ang = self:GetTrace(nil, nil, nil, true, true)
@@ -369,7 +369,7 @@ hook.Add("Bones", "homigrad-lean-bone", function(ply, dtime)
 		end
 
 		if ply.takeOldLeanStamina != leanStamina then
-			//ply:SetNetVar("leanSpeedMul", ply.organism.stamina[1]/ply.organism.stamina.range)
+			--ply:SetNetVar("leanSpeedMul", ply.organism.stamina[1]/ply.organism.stamina.range)
 		end
 		if (!ply.SetPlayerLeanCD or ply.SetPlayerLeanCD < CurTime()) and ply.lean != ply:GetNWFloat("PlayerLean",0) then
 			ply:SetNWFloat("PlayerLean",ply.lean)

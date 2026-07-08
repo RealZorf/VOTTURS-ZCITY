@@ -18,7 +18,7 @@ SWEP.AttachmentAng = Angle(0,0,0)
 SWEP.FakeAttachment = "muzzle"
 
 
-//PrintBones(Entity(1):GetActiveWeapon():GetWM())
+--PrintBones(Entity(1):GetActiveWeapon():GetWM())
 
 
 function SWEP:RevolverPostInit()

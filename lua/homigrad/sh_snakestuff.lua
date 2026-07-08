@@ -1,4 +1,4 @@
---// Q-Menu snake/worm
+-- Q-Menu snake/worm
 
 local zmeyka_netsendtime = 0.05
 
@@ -384,12 +384,12 @@ if CLIENT then
 		MainFrame:SetSize( sizeX, sizeY ) -- Set the size to 300x by 200y.
 		MainFrame:SetTitle( "zmeyka settings" ) -- Set the title in the top left to "Derma Frame".
 		MainFrame:MakePopup() -- Makes your mouse be able to move around.
-		//function MainFrame:Paint( w, h )
-		//	draw.RoundedBox( 0, 2.5, 2.5, w-5, h-5, Color( 0, 0, 0, 140) )
-		//	BlurBackground(MainFrame)
-		//	surface.SetDrawColor( 255, 0, 0, 128)
-		//	surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
-		//end
+		--function MainFrame:Paint( w, h )
+		--	draw.RoundedBox( 0, 2.5, 2.5, w-5, h-5, Color( 0, 0, 0, 140) )
+		--	BlurBackground(MainFrame)
+		--	surface.SetDrawColor( 255, 0, 0, 128)
+		--	surface.DrawOutlinedRect( 0, 0, w, h, 2.5 )
+		--end
 
 		local DScrollPanel = vgui.Create("DScrollPanel", MainFrame)
 		DScrollPanel:SetPos(10, 50)

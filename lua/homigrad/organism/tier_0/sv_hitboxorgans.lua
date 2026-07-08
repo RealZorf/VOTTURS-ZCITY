@@ -58,7 +58,7 @@ function hg.organism.Trace(pos, dir, size, maxpen, boxs, center, endDis, organs,
 			local hit_, normal_, frac_ = util_IntersectRayWithOBB(startpos, endpos, box[1], box[2], box[3], box[4])
 			
 			if hit_ then
-				//print(organs[box[6]][box[7]][1], distance, passing, passing > distance, 2)
+				--print(organs[box[6]][box[7]][1], distance, passing, passing > distance, 2)
 				if frac_ < frac then
 					iHit = i
 					
@@ -106,7 +106,7 @@ function hg.organism.Trace(pos, dir, size, maxpen, boxs, center, endDis, organs,
 				distance = distance - dirSub * distance
 			end
 			
-			//print(organs[box[6]][box[7]][1], distance, dirSub, passing, passing > distance)
+			--print(organs[box[6]][box[7]][1], distance, dirSub, passing, passing > distance)
 		end
 		
 		passing = passing + 100 * frac
@@ -124,7 +124,7 @@ function hg.organism.Trace(pos, dir, size, maxpen, boxs, center, endDis, organs,
 		if hit then
 			tracePos = hit
 		else
-			//tracePos:Add(dir)
+			--tracePos:Add(dir)
 		end
 		
 		tracePoses[#tracePoses + 1] = Vector(tracePos[1], tracePos[2], tracePos[3])

@@ -1,12 +1,12 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 --\\
 PLUGIN.ConjureEqualizer = PLUGIN.ConjureEqualizer or {}
 PLUGIN.ConjureEqualizer.ToConjure = PLUGIN.ConjureEqualizer.ToConjure or {}
---//
+--
 
 --\\
 function PLUGIN.ConjureEqualizer.Do(ent, time, zone)
@@ -29,7 +29,7 @@ local function TryConjureEqualizer(zone, ply)
 		PLUGIN.ShowMessage(ply, "There is not enough equalizers in order to conjure Equalizer")
 	end
 end
---//
+--
 
 --\\SpecialEvents
 hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_ConjureEqualizer", function(zone_id, abnormalty_name, amt, ply)
@@ -56,7 +56,7 @@ hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_ConjureEqualizer",
 		end
 	end
 end)
---//
+--
 
 hook.Add("Think", "Abnormalties_ConjureEqualizer", function()
 	for id, info in pairs(PLUGIN.ConjureEqualizer.ToConjure) do

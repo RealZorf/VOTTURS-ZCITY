@@ -119,7 +119,7 @@ function SWEP:PrimarySpread()
 		local prank3 = math.Rand(-self.Primary.Force2,self.Primary.Force2) / (self.Primary.Force2 != 0 and self.Primary.Force2 or 1) * 2
 		local angleprikol = Angle(0,0,prank3)
 
-		//ViewPunch2(angleprikol)
+		--ViewPunch2(angleprikol)
 
 		local mul = mul * self.Primary.Force2 / 100 * (self:IsPistolHoldType() and 2 or 1) * (self.NumBullet and self.NumBullet * 3 or 1)
 		ViewPunch2(Angle(-1 * math.Rand(1,2),-1 * math.Rand(-1,1),0) * mul)
@@ -146,7 +146,7 @@ function SWEP:PrimarySpread()
 			max_clip1 = 1
 		end
 		
-		local sprayvel = spray * mul * math.max(sprayI / max_clip1, 0.5) * self.addSprayMul * (self.cameraShakeMul or 1) * 10 * 1.2//(self.Primary.Automatic and 1 or 1)
+		local sprayvel = spray * mul * math.max(sprayI / max_clip1, 0.5) * self.addSprayMul * (self.cameraShakeMul or 1) * 10 * 1.2--(self.Primary.Automatic and 1 or 1)
 		
 		--self.weaponSway = self.weaponSway + sprayvel
 
@@ -158,7 +158,7 @@ function SWEP:PrimarySpread()
 end
 
 function SWEP:ApplyForce(mul)
-	//mul = mul * self.Primary.Damage / 60 * (self.NumBullet or 1)
+	--mul = mul * self.Primary.Damage / 60 * (self.NumBullet or 1)
 	local ply = self:GetOwner()
 
 	if IsValid(ply.FakeRagdoll) then

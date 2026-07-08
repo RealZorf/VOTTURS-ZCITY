@@ -1,9 +1,9 @@
 local function SetAbsVelocity(pEntity, vAbsVelocity)
 	if (pEntity:GetInternalVariable("m_vecAbsVelocity") ~= vAbsVelocity) then
-		// The abs velocity won't be dirty since we're setting it here
+		-- The abs velocity won't be dirty since we're setting it here
 		pEntity:RemoveEFlags(EFL_DIRTY_ABSVELOCITY)
 
-		// All children are invalid, but we are not
+		-- All children are invalid, but we are not
 		local tChildren = pEntity:GetChildren()
 
 		for i = 1, #tChildren do
@@ -12,14 +12,14 @@ local function SetAbsVelocity(pEntity, vAbsVelocity)
 
 		pEntity:SetSaveValue("m_vecAbsVelocity", vAbsVelocity)
 
-		// NOTE: Do *not* do a network state change in this case.
-		// m_vVelocity is only networked for the player, which is not manual mode
+		-- NOTE: Do *not* do a network state change in this case.
+		-- m_vVelocity is only networked for the player, which is not manual mode
 		local pMoveParent = pEntity:GetMoveParent()
 
 		if (pMoveParent:IsValid()) then
-			// First subtract out the parent's abs velocity to get a relative
-			// velocity measured in world space
-			// Transform relative velocity into parent space
+			-- First subtract out the parent's abs velocity to get a relative
+			-- velocity measured in world space
+			-- Transform relative velocity into parent space
 			-- FIXME
 			--pEntity:SetSaveValue("m_vecVelocity", (vAbsVelocity - pMoveParent:_GetAbsVelocity()):IRotate(pMoveParent:EntityToWorldTransform()))
 			pEntity:SetSaveValue("velocity", vAbsVelocity)

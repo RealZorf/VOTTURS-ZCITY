@@ -173,18 +173,18 @@ if CLIENT then
         saveBtn:DockMargin(5, 5, 5, 5)
         saveBtn:SetTall(30)
         saveBtn.DoClick = function()
-            //if #zb.RoundList > 0 then
+            --if #zb.RoundList > 0 then
                 local tbl = table.Copy(zb.RoundList)
-                //table.insert(tbl, 1, zb.nextround)
+                --table.insert(tbl, 1, zb.nextround)
                 net.Start("ZB_UpdateRoundList")
                     net.WriteTable(tbl)
                     net.WriteBool(true)
                 net.SendToServer()
                 
                 chat.AddText(Color(0, 255, 0), "Game mode queue has been set!")
-            //else
-                //chat.AddText(Color(255, 0, 0), "Game mode queue is empty!")
-            //end
+            --else
+                --chat.AddText(Color(255, 0, 0), "Game mode queue is empty!")
+            --end
         end
         
         local clearBtn = vgui.Create("DButton", queuePanel)
@@ -472,8 +472,8 @@ if CLIENT then
         
         timer.Create("QueueAutoRefresh", 5, 0, function()
             if IsValid(frame) then
-                //net.Start("ZB_RequestRoundList")
-                //net.SendToServer()
+                --net.Start("ZB_RequestRoundList")
+                --net.SendToServer()
             else
                 timer.Remove("QueueAutoRefresh")
             end

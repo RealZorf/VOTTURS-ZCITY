@@ -169,7 +169,7 @@ net.Receive("req_ach", function(len, ply)
     net.Send(ply)
 end)
 
-//if !hg.init_ach then
+--if !hg.init_ach then
     -- braindeath
     hg.achievements.CreateAchievementType("brain",1,0,"Die from hypoxia.","I will definitely survive...", nil, false)
     -- death from drugs
@@ -187,8 +187,8 @@ end)
     -- please calm down
     hg.achievements.CreateAchievementType("bking", 1, 0, "Something terrible happened on that plane...", "Sir please calm down", nil, false)
 
-    //hg.init_ach = true
-//end
+    --hg.init_ach = true
+--end
 
 local roundply = 0
 

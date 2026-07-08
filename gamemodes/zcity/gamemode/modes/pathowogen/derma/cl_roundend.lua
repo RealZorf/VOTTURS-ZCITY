@@ -155,7 +155,7 @@ function PANEL:Paint(w, h)
 		surface.SetDrawColor(zebra)
 		surface.DrawRect(offsetX, y + offsetY, w - offsetX * 2, barsizeY)
 
-		// og
+		-- og
 
 		local color
 
@@ -177,7 +177,7 @@ function PANEL:Paint(w, h)
 
 		draw.SimpleText(v.name, "ZB_UWUEnd2", barsizeX / 2 + offsetX, barsizeY / 2.5 + y + offsetY, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
-		// now
+		-- now
 
 		color = nil
 		if v.now.role == "survivor" then

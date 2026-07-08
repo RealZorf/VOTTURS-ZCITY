@@ -32,7 +32,7 @@ module[1] = function(org)
 end
 
 function hg.organism.OxygenateBlood(org)
-	return (math.max(((1 - org.lungsL[1]) + (1 - org.lungsR[1])) / 2, 0.5) * (1 - org.trachea)) * org.o2.regen / 4 * (org.owner:WaterLevel() < 3 and 1 or 0)// * (1 - org.pneumothorax)
+	return (math.max(((1 - org.lungsL[1]) + (1 - org.lungsR[1])) / 2, 0.5) * (1 - org.trachea)) * org.o2.regen / 4 * (org.owner:WaterLevel() < 3 and 1 or 0)-- * (1 - org.pneumothorax)
 end
 
 function hg.organism.CanBreath(org)
@@ -40,7 +40,7 @@ function hg.organism.CanBreath(org)
 end
 
 local function insta_send_holdingbreath(org)
-	net.Start("organism_send") // отправляем только дизориентацию (чтобы не нагружать нет), и сразу
+	net.Start("organism_send") -- отправляем только дизориентацию (чтобы не нагружать нет), и сразу
 	
 	local tbl = {}
 	tbl.holdingbreath = org.holdingbreath
@@ -50,7 +50,7 @@ local function insta_send_holdingbreath(org)
 	net.WriteBool(true)
 	net.WriteBool(false)
 	net.WriteBool(false)
-	net.WriteBool(true) // вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
+	net.WriteBool(true) -- вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
 	net.Send(org.owner)
 end
 
@@ -133,10 +133,10 @@ local lowoxy = {
 }
 
 local not_enough_intake = {
-	//"I have to breathe...",
-	//"I gotta take a break...",
-	//"Need a break from this... to breathe...",
-	//"Resting sounds like a nice idea.",
+	--"I have to breathe...",
+	--"I gotta take a break...",
+	--"Need a break from this... to breathe...",
+	--"Resting sounds like a nice idea.",
 	"I need to breathe...",
 	"I'm struggling to breathe...",
 }
@@ -184,7 +184,7 @@ module[2] = function(owner, org, timeValue)
 	end
 
 	if org.holdingbreath then
-		//org.stamina[1] = max(org.stamina[1] - timeValue * 15,0)
+		--org.stamina[1] = max(org.stamina[1] - timeValue * 15,0)
 		if org.stamina[1] < 90 or org.o2[1] <= 10 then
 			togglebreath(owner, false)
 		end
@@ -239,8 +239,8 @@ module[2] = function(owner, org, timeValue)
 
 		o2[1] = max(o2[1] - (org.CO > 0 and o2.curregen * 1.1 * (org.CO / 30) or 0),0)
 
-		//org.owner:ResetNotification("oxygen_cantbreathe")
-		//org.owner:ResetNotification("oxygen_cantbreathe2")
+		--org.owner:ResetNotification("oxygen_cantbreathe")
+		--org.owner:ResetNotification("oxygen_cantbreathe2")
 	else
 		o2.curregen = 0
 	end
@@ -277,7 +277,7 @@ module[2] = function(owner, org, timeValue)
 
 	if org.analgesia > 1.5 or org.painkiller > 2.4 then
 		if math.Rand(0, 500) < (org.analgesia + org.painkiller) then
-			//org.lungsfunction = false
+			--org.lungsfunction = false
 		end
 	end
 
@@ -307,7 +307,7 @@ module[2] = function(owner, org, timeValue)
 
 	if org.isPly then
 		if org.pneumothorax > 0 then
-			org.owner:Notify("I can feel something filling my lungs.", true, "pneumothorax1",10) // delay of 10 seconds before typing that
+			org.owner:Notify("I can feel something filling my lungs.", true, "pneumothorax1",10) -- delay of 10 seconds before typing that
 		else
 			org.owner:ResetNotification("pneumothorax1")
 		end
@@ -349,11 +349,11 @@ module[2] = function(owner, org, timeValue)
 	end
 
 	if org.lungsR[1] < 0.5 then
-		//org.lungsR[1] = max(org.lungsR[1] - timeValue / 240, 0)
+		--org.lungsR[1] = max(org.lungsR[1] - timeValue / 240, 0)
 	end
 
 	if org.lungsL[1] < 0.5 then
-		//org.lungsL[1] = max(org.lungsL[1] - timeValue / 240, 0)
+		--org.lungsL[1] = max(org.lungsL[1] - timeValue / 240, 0)
 	end
 
 	if owner:IsBerserk() then

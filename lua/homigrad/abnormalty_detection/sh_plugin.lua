@@ -5,12 +5,12 @@
 	--; Роль тауматурга в рп обновлении
 	--; Защита от ловушек
 	--; Проверка зон
---//
+--
 
 --\\Перевод плагиновых штук в ваши штуки
 	hg.Abnormalties = hg.Abnormalties or {}
 	local PLUGIN = hg.Abnormalties
---//
+--
 
 PLUGIN.Name = "Abnormalties"
 PLUGIN.Description = "Adds abnormalty detection in players behaviour"
@@ -54,7 +54,7 @@ PLUGIN.PossibleCharInfo = {
 
 	PLUGIN.String.RegisterStringLowerCodes(65, 90, 32)	--; От А до Я
 	PLUGIN.String.RegisterStringLowerCodes(1040, 1071, 32)	--; From A to Z, look at utf-8 table to create your own lowerings
---//
+--
 
 --\\
 	function PLUGIN.CreateRandomCharInfo(start, stop)
@@ -73,4 +73,4 @@ PLUGIN.PossibleCharInfo = {
 			end
 		end
 	end
---//
+--

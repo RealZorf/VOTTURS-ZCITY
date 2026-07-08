@@ -33,7 +33,7 @@ function Hook.EntityRemoved(ent)
 end
 
 local function CleanupEntities()
-    --// Ragdolls 
+    -- Ragdolls 
     --; (ТВОЙ ЕНТИТИ).organism.alive
     for ragdoll, spawnTime in pairs(ragdollSpawnTimes) do
         if not IsValid(ragdoll) then
@@ -51,7 +51,7 @@ local function CleanupEntities()
             ragdollSpawnTimes[ragdoll] = nil
         end
     end
-    --// Weapons
+    -- Weapons
     for weapon, spawnTime in pairs(weaponSpawnTimes) do
         if not IsValid(weapon) then
             weaponSpawnTimes[weapon] = nil

@@ -14,7 +14,7 @@ module[1] = function(org)
 end
 
 function hg.organism.should_gain_fear(org)
-	return ((org.pain > 30) or (org.blood < 3000) or (org.bleed > 1))// + (org.just_damaged_bone and ((org.just_damaged_bone + 10 - CurTime()) >= 10) and 10 or 0)
+	return ((org.pain > 30) or (org.blood < 3000) or (org.bleed > 1))-- + (org.just_damaged_bone and ((org.just_damaged_bone + 10 - CurTime()) >= 10) and 10 or 0)
 end
 
 module[2] = function(owner, org, timeValue)
@@ -23,8 +23,8 @@ module[2] = function(owner, org, timeValue)
 	local o2 = org.o2
 	local o2 = halfValue2(o2[1], o2.range, o2.k)
 
-	//if org.isPly and not org.otrub and (heart == 0) then org.owner:Notify("My torso hurts.",true,"heart",6) end
-	//if org.isPly and not org.otrub and org.heartstop then org.owner:Notify("",true,"heartstop",6) end
+	--if org.isPly and not org.otrub and (heart == 0) then org.owner:Notify("My torso hurts.",true,"heart",6) end
+	--if org.isPly and not org.otrub and org.heartstop then org.owner:Notify("",true,"heartstop",6) end
 
 	local stamina = org.stamina
 	
@@ -111,11 +111,11 @@ module[2] = function(owner, org, timeValue)
 	if org.heartstop then
 		org.heartstoptime = org.heartstoptime or CurTime()
 		if org.isPly then
-			//org.owner:Notify("I'm feeling dizzy...", true, "heartstop", 10)
+			--org.owner:Notify("I'm feeling dizzy...", true, "heartstop", 10)
 		end
 	else
 		if org.isPly then
-			//org.owner:ResetNotification("heartstop")
+			--org.owner:ResetNotification("heartstop")
 		end
 		org.heartstoptime = nil
 	end

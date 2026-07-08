@@ -370,7 +370,7 @@ local host_timescale = game.GetTimeScale
 
 local addAng = Angle()
 local addPos = Vector()
-//local velpunch = Vector()
+--local velpunch = Vector()
 
 local vechuy = Vector(-12, 0, 0)
 local zombHandOffset = Vector(5, -2, -7)
@@ -464,8 +464,8 @@ function SWEP:ModelAnim(model, pos, ang)
 		addPos.z = x * 2 * vellenlerp * 0.3 - vellenlerp * 1
 		addPos.y = y * 2 * vellenlerp * 0.3
 
-		addAng.z = -x * 2// * vellenlerp * 0.3
-		addAng.y = -y * 2// * vellenlerp * 0.3
+		addAng.z = -x * 2-- * vellenlerp * 0.3
+		addAng.y = -y * 2-- * vellenlerp * 0.3
 
 		addPos.y = addPos.y - angle_difference.y * 2
 		addAng.y = addAng.y + angle_difference.y * 4
@@ -475,24 +475,24 @@ function SWEP:ModelAnim(model, pos, ang)
 
 		addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
 
-		//addPos.z = addPos.z + eyeAng[1] * 0.05
+		--addPos.z = addPos.z + eyeAng[1] * 0.05
 		addPos.x = addPos.x + eyeAng[1] * 0.05
 
 		local veldot = self.velocityAdd:Dot(aimvec:Angle():Right())
 
 		addAng.r = addAng.r - veldot * 5 + math.cos(CurTime() * 5) * walk * 2
 
-		//addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
+		--addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
 
 		self.lastAddPos = addPos
 	end
 
 
-	//local inattack1 = self:GetAttackType() == 1 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
-	//local inattack2 = self:GetAttackType() == 2 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
+	--local inattack1 = self:GetAttackType() == 1 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
+	--local inattack2 = self:GetAttackType() == 2 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
 
-	//self.attackanim = LerpFT(0.1, self.attackanim, (inattack1 and 0.8 or 0) - (inattack2 and 0.3 or 0))
-	//self.sprintanim = LerpFT(0.05, self.sprintanim, self:IsSprinting() and 1 or 0)
+	--self.attackanim = LerpFT(0.1, self.attackanim, (inattack1 and 0.8 or 0) - (inattack2 and 0.3 or 0))
+	--self.sprintanim = LerpFT(0.05, self.sprintanim, self:IsSprinting() and 1 or 0)
 
 	local holdPos = self.HoldPos or vector_origin
 	if isZombieHands(owner) then
@@ -513,7 +513,7 @@ end
 SWEP.supportTPIK = true
 SWEP.ismelee = true
 function SWEP:Camera(eyePos, eyeAng, view, vellen)
-	//self:SetHandPos()
+	--self:SetHandPos()
 	self:DrawWorldModel()
 	local owner = self:GetOwner()
 	if not IsValid(owner) then return end
@@ -693,7 +693,7 @@ function SWEP:SetHandPos(noset)
 
 		local lastaddpos = self:IsLocal() and self.lastAddPos or vector_origin
 		local posadd, _ = LocalToWorld(lastaddpos, angle_zero, vector_origin, ply:EyeAngles())
-		//local posadd = self:IsLocal() and self.lastAddPos and -(-self.lastAddPos) or -(-vector_origin)
+		--local posadd = self:IsLocal() and self.lastAddPos and -(-self.lastAddPos) or -(-vector_origin)
 
 		local vecR = vector_origin
 		if isZombieHands(ply) then
@@ -864,7 +864,7 @@ else
 		surface.DrawRect(x - 25 * lerpthing * 0.1, y - 2.5, 50 * lerpthing * 0.1, 5)
 		surface.DrawRect(x - 2.5, y - 25 * lerpthing * 0.1, 5, 50 * lerpthing * 0.1)
 
-		do return end // mannytko stupid UwU
+		do return end -- mannytko stupid UwU
 
 		local ent = IsValid(Tr.Entity) and Tr.Entity.organism and Tr.Entity or owner
 		if ent.organism then
@@ -1315,7 +1315,7 @@ function SWEP:ApplyForce()
 		if self.CarryEnt.organism and ((ply.sendTimeOrg or 0) < CurTime()) then
 			ply.sendTimeOrg = CurTime() + 0.5
 
-			//hg.send_organism(self.CarryEnt.organism, ply)
+			--hg.send_organism(self.CarryEnt.organism, ply)
 		end
 
 		if self.CarryPos then
@@ -1410,11 +1410,11 @@ function SWEP:ApplyForce()
 						end
 
 						if org.blood < 3500 then
-							//if org.blood < 1000 then
-								//ply:ChatPrint("The skin looks almost white.")
-							//else
+							--if org.blood < 1000 then
+								--ply:ChatPrint("The skin looks almost white.")
+							--else
 								ply:ChatPrint("The skin is pale.")
-							//end
+							--end
 						end
 
 						printPerfusionDiagnosis(ply, org)
@@ -1423,19 +1423,19 @@ function SWEP:ApplyForce()
 							ply:ChatPrint("The body is bleeding "..((org.bleed > 10 and "profusely.") or (org.bleed > 5 and "moderately.") or "slightly."))
 						end
 
-						//org.bulletwounds = 0
-						//org.stabwounds = 0
-						//org.slashwounds = 0
-						//org.bruises = 0
-						//org.burns = 0
-						//org.explosionwounds = 0
+						--org.bulletwounds = 0
+						--org.stabwounds = 0
+						--org.slashwounds = 0
+						--org.bruises = 0
+						--org.burns = 0
+						--org.explosionwounds = 0
 
 						if org.bulletwounds > 0 then
 							ply:ChatPrint("You notice "..org.bulletwounds.." bullet wounds on this body.")
 						end
 
 						if org.stabwounds > 0 then
-							ply:ChatPrint("You notice "..org.stabwounds.." stab wounds on this body.")//28 STAB WOUNDS. YOU WOULDNT LEAVE HIM A CHANCE, HUH?
+							ply:ChatPrint("You notice "..org.stabwounds.." stab wounds on this body.")--28 STAB WOUNDS. YOU WOULDNT LEAVE HIM A CHANCE, HUH?
 						end
 
 						if org.slashwounds > 0 then
@@ -1514,7 +1514,7 @@ function SWEP:ApplyForce()
 					if (self.CPRThink or 0) < CurTime() then
 						self.CPRThink = CurTime() + (1 / 120) * 60
 						if org.alive then
-							//org.o2[1] = math.min(org.o2[1] + hg.organism.OxygenateBlood(org) * 2 * (ply.Profession == "doctor" and 2 or 1), org.o2.range)
+							--org.o2[1] = math.min(org.o2[1] + hg.organism.OxygenateBlood(org) * 2 * (ply.Profession == "doctor" and 2 or 1), org.o2.range)
 							org.pulse = math.min(org.pulse + 5 * (ply.Profession == "doctor" and 2 or 1),70)
 							org.CO = math.Approach(org.CO, 0, (ply.Profession == "doctor" and 2 or 1))
 							org.COregen = math.Approach(org.COregen, 0, (ply.Profession == "doctor" and 2 or 1))
@@ -1549,8 +1549,8 @@ function SWEP:ApplyForce()
 
 				hg.LightStunPlayer(org.owner, 1)
 
-				//phys:ApplyForceCenter(ply:GetAimVector() * 40000 * self.Penetration)
-				//self:SetCarrying()
+				--phys:ApplyForceCenter(ply:GetAimVector() * 40000 * self.Penetration)
+				--self:SetCarrying()
 			end
 
 			if ply:KeyDown(IN_ATTACK) and (ply.organism.superfighter or ply:IsBerserk()) then
@@ -1579,7 +1579,7 @@ function SWEP:ApplyForce()
 				rotate = Vector(0, -x, -y) / 4
 			end
 
-			//phys:AddAngleVelocity(rotate * phys:GetMass() / 10)
+			--phys:AddAngleVelocity(rotate * phys:GetMass() / 10)
 		end
 
 		phys:ApplyForceCenter(Vector(0, 0, mul))
@@ -1637,7 +1637,7 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		if IsValid(self.CarryEnt) and self.CarryEnt:GetCustomCollisionCheck() then
 			hg.SafeCollisionRulesChanged(self.CarryEnt)
 			hg.SafeCollisionRulesChanged(owner)
-			//self.CarryEnt:SetCustomCollisionCheck(false)
+			--self.CarryEnt:SetCustomCollisionCheck(false)
 		end
 
 		if IsValid(owner:GetNetVar("carryent")) then
@@ -1713,7 +1713,7 @@ end
 
 --[[hook.Add("UpdateAnimation", "blockingfists", function(ply , vel, seq)//salat balbes
 	if IsValid(ply:GetActiveWeapon()) and ply:GetActiveWeapon().GetBlocking and ply:GetActiveWeapon():GetBlocking() then
-		//ply:DoAnimationEvent(ACT_HL2MP_FIST_BLOCK)
+		--ply:DoAnimationEvent(ACT_HL2MP_FIST_BLOCK)
 	end
 end)]]
 
@@ -1816,7 +1816,7 @@ function SWEP:Think()
 		HoldType = "revolver"
 		local Time = CurTime()
 		if self:GetNextIdle() < Time then
-			//self:DoBFSAnimation("fists_idle_0" .. math.random(1, 2),2)
+			--self:DoBFSAnimation("fists_idle_0" .. math.random(1, 2),2)
 			self:UpdateNextIdle()
 		end
 
@@ -1832,7 +1832,7 @@ function SWEP:Think()
 					end
 				end
 			end
-			//owner:DoAnimationEvent(ACT_HL2MP_FIST_BLOCK)
+			--owner:DoAnimationEvent(ACT_HL2MP_FIST_BLOCK)
 			--HoldType = "camera"
 		else
 			if self.blockSound then
@@ -1844,7 +1844,7 @@ function SWEP:Think()
 			self.blockSound = nil
 		end
 
-		//if (self:GetNextDown() < Time) or owner:KeyDown(IN_SPEED) then
+		--if (self:GetNextDown() < Time) or owner:KeyDown(IN_SPEED) then
 		if owner:KeyDown(IN_SPEED) and (owner.PlayerClassName != "furry" or owner:KeyDown(IN_WALK)) and not isZombieHands(owner) then
 			self:SetNextDown(Time + 1)
 			self:SetFists(false)
@@ -1922,7 +1922,7 @@ function SWEP:PrimaryAttack(forcespecial)
 
 	if self.IsLocal and self:IsLocal() then
 		ViewPunch(special_attack and Angle(0, 0, 0) or Angle((-1), -(rand and 2 or -2), (rand and 8 or -8)))
-		//ViewPunch2(special_attack and Angle(5, -2, 2) or Angle((-1), -(rand and 2 or -2), (rand and 6 or -6)))
+		--ViewPunch2(special_attack and Angle(5, -2, 2) or Angle((-1), -(rand and 2 or -2), (rand and 6 or -6)))
 		if special_attack then
 			timer.Simple(0.06, function()
 				ViewPunch(Angle(-15, 2, 2))
@@ -1971,7 +1971,7 @@ function SWEP:PrimaryAttack(forcespecial)
 					self:SetNextPrimaryFire(CurTime() + .5)
 				end
 
-				//self:SetFists(false)
+				--self:SetFists(false)
 				return
 			else
 				if SERVER then sound.Play(snd, self:GetPos(), 65, pitch) end

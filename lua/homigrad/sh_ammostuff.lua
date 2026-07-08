@@ -63,7 +63,7 @@ else
 		end
 	end)
 end
---//
+--
 
 --\\Common Function Overrides
 local function scrape_blood(self, trace, len, len_before)
@@ -341,7 +341,7 @@ local function onstopped_explosive(self, last_unsure_penetration_pos, reason, tr
 	end
 end
 --=//
---//
+--
 
 --
 local matPistolAmmo = Material("vgui/hud/bullets/low_caliber.png")
@@ -1024,7 +1024,7 @@ hg.ammotypes = {
 			ShellColor = Color(255,185,0)
 		}
 	},
-	["20/70gauge"] = { //потом другие добавлю
+	["20/70gauge"] = { --потом другие добавлю
 		name = "20/70 gauge",
 		allowed = true,
 		--dmgtype = DMG_BUCKSHOT,

@@ -169,7 +169,7 @@ function hg.CreateMag( self, vel, bodygroups, bDontChangePhys )
 				local phys = self:GetPhysicsObject()
 				if IsValid(phys) then
 					local min, max = phys:GetAABB()
-					//debugoverlay.BoxAngles( self:GetPos(), min, max, self:GetAngles(), 1)
+					--debugoverlay.BoxAngles( self:GetPos(), min, max, self:GetAngles(), 1)
 					local pos, ang = LocalToWorld(lpos, lang, self:GetPos(), self:GetAngles())
 					self:SetRenderOrigin(pos)
 					self:SetRenderAngles(ang)

@@ -234,10 +234,10 @@ if CLIENT then
 			if not RHand then return end
 			local matrixR = ent:GetBoneMatrix(RHand) or ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_R_Forearm"))
 			if not matrixR then 
-				//matrixR = Matrix()
-				//local att = ent:GetAttachment(ent:LookupAttachment("anim_attachment_RH"))
-				//matrixR:SetTranslation(att.Pos)
-				//matrixR:SetAngles(att.Ang)
+				--matrixR = Matrix()
+				--local att = ent:GetAttachment(ent:LookupAttachment("anim_attachment_RH"))
+				--matrixR:SetTranslation(att.Pos)
+				--matrixR:SetAngles(att.Ang)
 				return
 			end
 
@@ -374,12 +374,12 @@ if CLIENT then
             if not mat then return end
 
             local pos, ang = mat:GetTranslation(), mat:GetAngles()
-            //local oldpos, oldang = WorldModel:GetPos(), WorldModel:GetAngles()
+            --local oldpos, oldang = WorldModel:GetPos(), WorldModel:GetAngles()
 
-            //self.Current = LerpFT(0.1, self.Current,  and 1 or 0)
+            --self.Current = LerpFT(0.1, self.Current,  and 1 or 0)
             
-            //local pos = Lerp(self.Current, oldpos, pos)
-            //local ang = Lerp(self.Current, oldang, ang)
+            --local pos = Lerp(self.Current, oldpos, pos)
+            --local ang = Lerp(self.Current, oldang, ang)
 
             WorldModel:SetRenderOrigin(pos)
 			WorldModel:SetRenderAngles(ang) 
@@ -560,7 +560,7 @@ function SWEP:ModelAnim(model, pos, ang)
     self.velocityAdd = self.velocityAdd or Vector()
     self.velocityAddVel = self.velocityAddVel or Vector()
 
-    //vel.z = vel.z + ((owner:IsFlagSet(FL_ANIMDUCKING) and !owner:IsFlagSet(FL_DUCKING)) and (100) or (!owner:IsFlagSet(FL_ANIMDUCKING) and owner:IsFlagSet(FL_DUCKING)) and (-100) or 0)
+    --vel.z = vel.z + ((owner:IsFlagSet(FL_ANIMDUCKING) and !owner:IsFlagSet(FL_DUCKING)) and (100) or (!owner:IsFlagSet(FL_ANIMDUCKING) and owner:IsFlagSet(FL_DUCKING)) and (-100) or 0)
     self.velocityAddVel = LerpFT(0.9, self.velocityAddVel * 0.99, -vel * 0.01)
     self.velocityAddVel[3] = self.velocityAddVel[3]
 
@@ -613,8 +613,8 @@ function SWEP:ModelAnim(model, pos, ang)
         addPos.z = x * 2 * vellenlerp * 0.3 - vellenlerp * 1
         addPos.y = y * 2 * vellenlerp * 0.3
     
-        addAng.z = -x * 2// * vellenlerp * 0.3
-        addAng.y = -y * 2// * vellenlerp * 0.3
+        addAng.z = -x * 2-- * vellenlerp * 0.3
+        addAng.y = -y * 2-- * vellenlerp * 0.3
 
         addPos.y = addPos.y - angle_difference.y * 2
         addAng.y = addAng.y + angle_difference.y * 4
@@ -624,23 +624,23 @@ function SWEP:ModelAnim(model, pos, ang)
 
         addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
 
-        //addPos.z = addPos.z + eyeAng[1] * 0.05
+        --addPos.z = addPos.z + eyeAng[1] * 0.05
         addPos.x = addPos.x + eyeAng[1] * 0.05
 
         local veldot = self.velocityAdd:Dot(eyeAng:Right())
         
         addAng.r = addAng.r - veldot * 5 + math.cos(CurTime() * 5) * walk * 2 - angle_difference.y * 2
 
-        //addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
+        --addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
     end
 
     self.lastAddPos = addPos
 
-    //local inattack1 = self:GetAttackType() == 1 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
-    //local inattack2 = self:GetAttackType() == 2 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
+    --local inattack1 = self:GetAttackType() == 1 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
+    --local inattack2 = self:GetAttackType() == 2 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
 
-    //self.attackanim = LerpFT(0.1, self.attackanim, (inattack1 and 0.8 or 0) - (inattack2 and 0.3 or 0))
-    //self.sprintanim = LerpFT(0.05, self.sprintanim, self:IsSprinting() and 1 or 0)
+    --self.attackanim = LerpFT(0.1, self.attackanim, (inattack1 and 0.8 or 0) - (inattack2 and 0.3 or 0))
+    --self.sprintanim = LerpFT(0.05, self.sprintanim, self:IsSprinting() and 1 or 0)
 
     local hpos = self.HoldPos
     local hang = self.HoldAng
@@ -686,7 +686,7 @@ end
 local host_timescale = game.GetTimeScale
 
 function SWEP:Camera(eyePos, eyeAng, view, vellen)
-    //self:SetHandPos()
+    --self:SetHandPos()
     self:DrawWorldModel2()
 
     local WorldModel = self.worldModel
@@ -706,7 +706,7 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen)
             
             self.punch = punch
 
-            //ViewPunch2( -punch )
+            --ViewPunch2( -punch )
             ViewPunch( punch )
             
             self.OldAngPunch = gAngles
@@ -720,8 +720,8 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen)
     view.angles = eyeAng
     
     local lpos = self.lastAddPos or vector_origin
-    //view.angles[1] = view.angles[1] + lpos.z * 1
-    //view.angles[2] = view.angles[2] + lpos.y * 1
+    --view.angles[1] = view.angles[1] + lpos.z * 1
+    --view.angles[2] = view.angles[2] + lpos.y * 1
     
     return view
 end
@@ -752,7 +752,7 @@ function SWEP:SetHandPos(noset)
 	if !IsValid(wm) then return end
 	-- ent:SetupBones()
 
-	self.rhandik = self.setrh and IsValid(owner)//self.setrh
+	self.rhandik = self.setrh and IsValid(owner)--self.setrh
 	self.lhandik = self.setlh and IsValid(owner) and ((ply:GetTable().ChatGestureWeight or 0) < 0.1) and hg.CanUseLeftHand(ply) and !(owner.suiciding and self.SuicideNoLH)
 
     local rhmat, lhmat = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_R_Hand")), ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_L_Hand"))
@@ -981,7 +981,7 @@ function SWEP:MultiplyDMG(owner, ent, vellen, mul)
 end
 
 function SWEP:Attack(owner, ent, vellen, attacktype, inattackLength)
-    //if SERVER then owner:SetNetVar("slowDown", owner:GetNetVar("slowDown", 0) + (attacktype and self.DamageSecondary or self.DamagePrimary)) end
+    --if SERVER then owner:SetNetVar("slowDown", owner:GetNetVar("slowDown", 0) + (attacktype and self.DamageSecondary or self.DamagePrimary)) end
     
     if not self.FirstAttackTick then 
         if CLIENT then
@@ -1023,13 +1023,13 @@ function SWEP:Attack(owner, ent, vellen, attacktype, inattackLength)
     
     local vellen = math.min(owner:GetVelocity():Length() * 0.05, 40)
     local eyetr = hg.eyeTrace(owner, (self:GetAttackLength() + vellen), ent, owner:GetAimVector())
-    //debugoverlay.Line(eyetr.StartPos, eyetr.StartPos + eyetr.Normal * (self:GetAttackLength() + vellen), 3, color_white)
-    //local ent = ents.Create("prop_physics")
-    //ent:SetModel("models/props_interiors/pot01a.mdl")
-    //ent:SetPos(eyetr.HitPos)
-    //ent:Spawn()
-    //ent:SetMoveType(MOVETYPE_NONE)
-    //ent:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+    --debugoverlay.Line(eyetr.StartPos, eyetr.StartPos + eyetr.Normal * (self:GetAttackLength() + vellen), 3, color_white)
+    --local ent = ents.Create("prop_physics")
+    --ent:SetModel("models/props_interiors/pot01a.mdl")
+    --ent:SetPos(eyetr.HitPos)
+    --ent:Spawn()
+    --ent:SetMoveType(MOVETYPE_NONE)
+    --ent:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
     if self:IsEntSoft(eyetr.Entity) then return eyetr end
     
     local trace
@@ -1061,12 +1061,12 @@ function SWEP:Attack(owner, ent, vellen, attacktype, inattackLength)
 
         trace = util.TraceLine(tr)
 
-        //if SERVER then
-        //    local vec = trace.Normal * math.min(self.DamagePrimary * 0.5, 20)
-        //    vec[3] = 0
-    //
-        //    owner:SetVelocity(vec)
-        //end
+        --if SERVER then
+        --    local vec = trace.Normal * math.min(self.DamagePrimary * 0.5, 20)
+        --    vec[3] = 0
+    --
+        --    owner:SetVelocity(vec)
+        --end
 
         if self:IsEntSoft(trace.Entity) then break end
     end
@@ -1123,10 +1123,10 @@ end
 function SWEP:BreakGlass(ent)
 	if not IsValid(ent) then return end
     if string.find(ent:GetClass(),"break") and ent:GetBrushSurfaces()[1] and string.find(ent:GetBrushSurfaces()[1]:GetMaterial():GetName(),"glass") then
-        //ent:EmitSound("physics/glass/glass_sheet_impact_hard"..math.random(3)..".wav")
+        --ent:EmitSound("physics/glass/glass_sheet_impact_hard"..math.random(3)..".wav")
         
         if math.random(1, 4) == 4 and ent:Health() < 250 then
-            //ent:Fire("Break")
+            --ent:Fire("Break")
         end
         
         return true
@@ -1196,7 +1196,7 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 
         local dist, posHit, distLine = util.DistanceToLine(pos + aimvec * 100, pos, trace.HitPos)
 
-        //print(dist, distLine)
+        --print(dist, distLine)
 
         local dmg = wep.DamagePrimary
         local selfdmg = self.DamagePrimary * 0.2
@@ -1660,7 +1660,7 @@ function SWEP:CustomThink()
     
     if CLIENT and owner ~= lply then return end
 
-    //if SERVER then
+    --if SERVER then
         local oldblocking = self:GetBlocking()
         local now = CurTime()
         local feintLockActive = (self.HeavyAttackFeintLockEndTime or 0) > now
@@ -1671,7 +1671,7 @@ function SWEP:CustomThink()
         if self:GetBlocking() and !oldblocking then
             self:SetStartedBlocking(CurTime())
         end
-    //end
+    --end
 
 	if self:GetBlocking() then
 		if not self.blockSound then
@@ -1959,9 +1959,9 @@ function SWEP:CustomThink()
             end
 
             if self.MultiDmg2 or (self.HitEnts[#self.HitEnts] ~= ent) then
-                //if self:BreakGlass(ent) then
-                    //goto meleeskip2
-                //end
+                --if self:BreakGlass(ent) then
+                    --goto meleeskip2
+                --end
 
                 if self.MultiDmg2 or not self:IsEntSoft(ent) then
                     dmg = dmg / math.max(1,self.AttackRads2 * self.Attack2TimeLength)
@@ -2190,7 +2190,7 @@ function SWEP:PrimaryAttack()
     if !hg.KeyDown(self:GetOwner(), IN_ATTACK2) and not self:CanPrimaryAttack() then return end
     
     if self:GetLastBlocked() + 1 > CurTime() then
-        //return
+        --return
     end
 
     if self:GetBlocking() then
@@ -3003,7 +3003,7 @@ end
         phys:AddAngleVelocity(VectorRand() * 500)
     end
 
-    //ply:EmitSound("weapons/slam/throw.wav",50,math.random(95,105))
+    --ply:EmitSound("weapons/slam/throw.wav",50,math.random(95,105))
     ply:ViewPunch(self.ViewPunch1 * 0.6)
     ply:SelectWeapon("weapon_hands_sh")
 

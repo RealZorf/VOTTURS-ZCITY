@@ -4,7 +4,7 @@ MODE.PrintName = "Homicide"
 
 --\\
 MODE.TraitorExpectedAmtBits = 13
---//
+--
 
 --\\Sub Roles
 MODE.ConVarName_SubRole_Traitor_SOE = "hmcd_subrole_traitor_soe"
@@ -840,7 +840,7 @@ Despite being zombie, still bears appearance of a normal human.],
 	}, --]]
 	--=//
 }
---//
+--
 
 --\\Professions
 MODE.ProfessionsRoundTypes = {
@@ -984,7 +984,7 @@ MODE.Professions = {
 		end,
 	},
 }
---//
+--
 
 --\\
 --; Названия перменных чуть чуть конченные получились, нужно будет подумать как улучшить
@@ -1112,7 +1112,7 @@ MODE.RoleChooseRoundTypes = {
 		},
 	},
 }
---//
+--
 
 MODE.Roles = {}
 MODE.Roles.soe = {

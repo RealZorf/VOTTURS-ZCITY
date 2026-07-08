@@ -111,7 +111,7 @@ hook.Add("InitPostEntity", "inithuyOwOs", function()
     zb.GetAllPoints(true)
 end)
 
-//zb.GetAllPoints()
+--zb.GetAllPoints()
 
 hook.Add( "Initialize", "LoadMapPoints", zb.CreateMapDir )
 --PrintTable(zb.Points.Example.Points)

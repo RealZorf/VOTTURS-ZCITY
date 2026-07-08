@@ -74,7 +74,7 @@ function ENT:UpdateTurret( parent, body, t )
 
         local fromPos = body:GetPos() + body:GetUp() * self:GetBulletOffset()[3]
         local aimPos = SERVER and user:GlideGetAimPos() or Glide.GetCameraAimPos()
-        local dir = user:GetAimVector()//aimPos - fromPos
+        local dir = user:GetAimVector()--aimPos - fromPos
         dir:Normalize()
 
         local ang = parent:WorldToLocalAngles( dir:Angle() )

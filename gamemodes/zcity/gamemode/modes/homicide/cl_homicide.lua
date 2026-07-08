@@ -5,7 +5,7 @@ MODE.name = "hmcd"
 local function screen_scale_2(num)
 	return ScreenScale(num) / (ScrW() / ScrH())
 end
---//
+--
 
 MODE.TypeSounds = {
 	["standard"] = {"snd_jack_hmcd_psycho.mp3","snd_jack_hmcd_shining.mp3"},
@@ -135,7 +135,7 @@ net.Receive("HMCD_RoundStart",function()
 	end
 
 	lply.Profession = net.ReadString()
-	--//
+	--
 
 	if(MODE.RoleChooseRoundTypes[MODE.Type] and !screen_time_is_default)then
 		MODE.DynamicFadeScreenEndTime = CurTime() + MODE.RoleChooseRoundStartTime
@@ -1456,8 +1456,8 @@ function hg.SelectPlayerRole(role, mode, parent)
 	end
 
 	if(MODE.RoleChooseRoundTypes[mode])then
-		//VGUI_HMCD_RolePanelList = vgui.Create("ZB_TraitorSelectionMenu")
-		//VGUI_HMCD_RolePanelList:Center()
+		--VGUI_HMCD_RolePanelList = vgui.Create("ZB_TraitorSelectionMenu")
+		--VGUI_HMCD_RolePanelList:Center()
 		VGUI_HMCD_RolePanelList = vgui.Create("HMCD_RolePanelList")
 		VGUI_HMCD_RolePanelList.RolesIDsList = MODE.RoleChooseRoundTypes[mode][role]	--; WARNING TCP Reroute
 		VGUI_HMCD_RolePanelList.Mode = mode
@@ -1487,6 +1487,6 @@ end)
 net.Receive("HMCD(SetProfession)", function()
 	lply.Profession = net.ReadString()
 end)
---//
+--
 
 --CreateEndMenu()

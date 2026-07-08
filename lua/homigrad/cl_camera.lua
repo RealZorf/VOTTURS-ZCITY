@@ -261,10 +261,10 @@ function HGAddView(ply, origin, angles, velLen)
 		--ang[2] = math.Rand(-tmpmul, tmpmul) / 155
 		--ang[3] = math.Rand(-adrenaline, adrenaline) / 15
 		--angles:Add(ang)
-		//ViewPunch2(ang * -0.05)
+		--ViewPunch2(ang * -0.05)
 		--ply:SetEyeAngles(ply:EyeAngles() + lerped_ang * 0.1)
-		//angles:Add(ang)
-		//ViewPunch2(lerped_ang * 0.1)
+		--angles:Add(ang)
+		--ViewPunch2(lerped_ang * 0.1)
 
 		--[[if hg_realismcam:GetBool() then
 			origin = origin + angle_difference_localvec2 * 100
@@ -294,8 +294,8 @@ function HGAddView(ply, origin, angles, velLen)
 		local x, y = math.cos(huy) * math.sin(huy) * walk * 1, math.sin(huy) * walk * 1
 		local x2, y2 = math.cos(huy) * math.sin(huy) * walk + math.sin(huy + 0.25) * 0.25 * walk, math.sin(huy) * walk + math.cos(huy) * 0.25 * walk
 
-		//angles[1] = angles[1] + x * 1
-		//angles[2] = angles[2] + y * 1
+		--angles[1] = angles[1] + x * 1
+		--angles[2] = angles[2] + y * 1
 		ViewPunch4(Angle(y2, x2, x2 * 50) * 0.0005 * (ishgweapon(wep) and 1.5 or 1))
 
 		local music = hg.DynamicMusicV2.Player.GetTrack()
@@ -358,7 +358,7 @@ local lerpasad = 0
 
 hook.Remove("CalcView", "wac_air_calcview")
 hook.Remove("CreateMove", "wac_cl_seatswitch_centerview")
-//PrintTable(wac)
+--PrintTable(wac)
 
 local lerpaim = 1
 local hg_leancam_mul = ConVarExists("hg_leancam_mul") and GetConVar("hg_leancam_mul") or CreateClientConVar("hg_leancam_mul", "7", true, false, "Multiply first-person camera view leaning angle", -10, 10)
@@ -458,7 +458,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	fov = hg_fov:GetInt()
 	
 	if not IsValid(ply) then return end
-	//do return end
+	--do return end
 
 	--print(ply, ply.FakeRagdoll, ply:GetNWEntity("FakeRagdoll"))
 	
@@ -478,7 +478,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 		return hg.CalcViewFake(ply, origin, angles, fov, znear, zfar)
 	end
 	if ply:InVehicle() then
-		ply.lockcamera = false//true
+		ply.lockcamera = false--true
 	else
 		ply.lockcamera = false
 	end
@@ -520,7 +520,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	--selfdraw = true
 	--ply:DrawModel()
 	--selfdraw = nil
-	//hg.DoTPIK(lply, lply)
+	--hg.DoTPIK(lply, lply)
 	local tr, hullcheck, headm = hg.eyeTrace(ply, 10, ply, att.Ang, att.Pos)
 	
 	--[[if hg_realismcam:GetBool() and ishgweapon(ply:GetActiveWeapon()) then
@@ -538,10 +538,10 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	local BadSurfaceDrive = false
 	local vel = ply:GetMoveType() ~= MOVETYPE_NOCLIP and ( ( ply:InVehicle() and -vehicle:GetVelocity() or -ply:GetVelocity()) / (ply:InVehicle() and (BadSurfaceDrive and 150 or 550) or 200)) or vector_origin
 
-	//local ent = tr.Entity
-	//if IsValid(ent) then
-	//	debugoverlay.Line(ent:GetPos(), ent:GetPos() + ent:GetAngles():Forward() * 102, 1, color_white, false)
-	//end
+	--local ent = tr.Entity
+	--if IsValid(ent) then
+	--	debugoverlay.Line(ent:GetPos(), ent:GetPos() + ent:GetAngles():Forward() * 102, 1, color_white, false)
+	--end
 
 	if IsValid(vehicle) then
 		if IsValid(vehiclebase) then
@@ -887,8 +887,8 @@ local function renderscene(pos, angle, fov)
 	if mapswithfog[map] then
 		renderView.zfar = zfar
 	end
-	//local cur = hg.GetCurrentCharacter(lply)
-	//if cur == lply then hg.renderOverride(cur, lply) end
+	--local cur = hg.GetCurrentCharacter(lply)
+	--if cur == lply then hg.renderOverride(cur, lply) end
 
 	lply.norender = true
 	local ok, result = pcall(render_RenderView, renderView)

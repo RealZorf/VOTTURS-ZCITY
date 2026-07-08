@@ -48,7 +48,7 @@ end
 
 function MODE:BoringRoundFunction()		
 	timer.Simple(2, function()
-		//PrintMessage(HUD_PRINTTALK, "IT IS A GANG SHOOTOUT FFS...")
+		--PrintMessage(HUD_PRINTTALK, "IT IS A GANG SHOOTOUT FFS...")
 	end)
 end
 
@@ -69,10 +69,10 @@ local tblweps = {
 		"weapon_p22",
 		"weapon_doublebarrel_short",
 		"weapon_skorpion",
-		//"weapon_uzi",
+		--"weapon_uzi",
 		"weapon_mac11",
-		//"weapon_draco",
-		//"weapon_ar_pistol",
+		--"weapon_draco",
+		--"weapon_ar_pistol",
 	},
 	[1] = {
 		"weapon_cz75",
@@ -84,10 +84,10 @@ local tblweps = {
 		"weapon_p22",
 		"weapon_doublebarrel_short",
 		"weapon_skorpion",
-		//"weapon_uzi",
+		--"weapon_uzi",
 		"weapon_mac11",
-		//"weapon_draco",
-		//"weapon_ar_pistol",
+		--"weapon_draco",
+		--"weapon_ar_pistol",
 	}
 }
 
@@ -141,8 +141,8 @@ function MODE:GiveEquipment()
 			ply:GiveAmmo(wep:GetMaxClip1() * 3, wep:GetPrimaryAmmoType())
 
 			if wep.SetDeagleSkin then
-				//wep:SetDeagleSkin(4)
-				//wep:SetDeagleBodygroup(1)
+				--wep:SetDeagleSkin(4)
+				--wep:SetDeagleBodygroup(1)
 			end
 
 			ply:Give("weapon_bandage_sh")
@@ -176,7 +176,7 @@ function MODE:RoundThink()
 		for i = 1, math.min(4, #deadPlayers) do
             local ply = deadPlayers[i]
 
-            //if self.TPoints and #self.TPoints > 0 then
+            --if self.TPoints and #self.TPoints > 0 then
                 ply:Spawn()
 				ply:SetTeam(2)
 				if !startpos then
@@ -198,7 +198,7 @@ function MODE:RoundThink()
 
                 local hands = ply:Give("weapon_hands_sh")
                 ply:SelectWeapon("weapon_hands_sh")
-            //end
+            --end
         end
 
         swatSpawned = true

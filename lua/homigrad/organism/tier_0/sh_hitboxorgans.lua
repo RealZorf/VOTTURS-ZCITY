@@ -61,8 +61,8 @@ function hg.organism.ShootMatrix(ent, organs)
 		end
 	end
 
-	//table.sort(boxs, function(a, b) return (organs[a[6]] and organs[a[6]][a[7]][2] or 0) > (organs[b[6]] and organs[b[6]][b[7]][2] or 0) end)
-	//PrintTable(boxs)
+	--table.sort(boxs, function(a, b) return (organs[a[6]] and organs[a[6]][a[7]][2] or 0) > (organs[b[6]] and organs[b[6]][b[7]][2] or 0) end)
+	--PrintTable(boxs)
 	return boxs, obbCenter, sphereChunk
 end
 
@@ -113,7 +113,7 @@ hook.Add("PostDrawTranslucentRenderables", "homigrad-organism", function()
 			dir:Rotate(LocalPlayer():EyeAngles())
 			local distance = math_ceil(dir:Length())
 			local start = hg.eyeTrace(lply).HitPos -- Vector(1005.879456,608.151123,-77.997421)
-			//pos, dir, size, maxpen, boxs, center, endDis, organs, ricochetable, funcInput, ...
+			--pos, dir, size, maxpen, boxs, center, endDis, organs, ricochetable, funcInput, ...
 			local endPos, hitBoxs, inputHole, outputHole = hg.organism.Trace(start, dir, 1, 0, boxs, pos, sphere, organs, false, hg.organism.Trace_Bullet, organs)
 			--render.DrawWireframeBox(endPos, angZero, -box, box)
 			

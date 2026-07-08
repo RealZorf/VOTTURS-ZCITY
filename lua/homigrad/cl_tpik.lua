@@ -418,7 +418,7 @@ function hg._DeprecatedDoTPIK(ply, ent, rhmat, lhmat)
     angasd:RotateAroundAxis(angasd:Up(), -90)
     angasd:RotateAroundAxis(angasd:Forward(), -90)
     --debugoverlay.Line(r_arm_startingpos + vector_up * 10, r_arm_startingpos + vector_up * 10 + angasd:Right() * 10, 1, color_white)
-    //local _, angasd = LocalToWorld(vector_origin, Angle(180, 90, 90), vector_origin, angasd)
+    --local _, angasd = LocalToWorld(vector_origin, Angle(180, 90, 90), vector_origin, angasd)
     if shouldfullupdate or !ply.ply_r_upperarm_pos then
         ply_r_upperarm_pos, ply_r_forearm_pos, ply_r_upperarm_angle, ply_r_forearm_angle = hg.Solve2PartIK(r_arm_startingpos, r_arm_endpos, r_upperarm_length, r_forearm_length, ply_r_upperarm_matrix, ply_r_hand_matrix, -1, ply_spine_matrix, angasd, ply_r_hand_matrix:GetAngles())
 
@@ -509,7 +509,7 @@ function hg._DeprecatedDoTPIK(ply, ent, rhmat, lhmat)
                     ply_l_hand_matrix:SetTranslation(LerpVector(lerp, ply_l_hand_matrix:GetTranslation(), pullTarget or pos))
                     ply_l_hand_matrix:SetAngles(LerpAngle(math.min(lerp * 2,1), ply_l_hand_matrix:GetAngles(), ang))
 
-                    if ((((ply.pullingTowardsStart + ply.pullingTowardsTime - CurTime()) / ply.pullingTowardsTime) * 2 - 1) < 0) then// || ply.pullingMagNow then
+                    if ((((ply.pullingTowardsStart + ply.pullingTowardsTime - CurTime()) / ply.pullingTowardsTime) * 2 - 1) < 0) then-- || ply.pullingMagNow then
                         if IsValid(ply.pullingTowardsModel) and ply.pullingTowardsOffsets then
                             local pos2, ang2 = LocalToWorld(ply.pullingTowardsOffsets[1], ply.pullingTowardsOffsets[2], ply_l_hand_matrix:GetTranslation(), ply_l_hand_matrix:GetAngles())
                             local lerp = math.max(((((1 - (ply.pullingTowardsStart + ply.pullingTowardsTime - CurTime()) / ply.pullingTowardsTime)) - 0.5) * 2 - 0.6) / 0.4,0)
@@ -582,8 +582,8 @@ function hg._DeprecatedDoTPIK(ply, ent, rhmat, lhmat)
     ply_l_forearm_matrix:SetAngles(LerpAngle(ply.lerp_lh, ply_l_forearm_matrix:GetAngles(), ply_l_forearm_angle))
     ply_l_forearm_matrix:SetTranslation(LerpVector(ply.lerp_lh, ply_l_forearm_matrix:GetTranslation(), ply_l_upperarm_pos))
 
-    //debugoverlay.Line(l_arm_startingpos, ply_l_upperarm_pos, 1, color_white)
-    //debugoverlay.Line(ply_l_upperarm_pos, ply_l_forearm_pos, 1, color_white)
+    --debugoverlay.Line(l_arm_startingpos, ply_l_upperarm_pos, 1, color_white)
+    --debugoverlay.Line(ply_l_upperarm_pos, ply_l_forearm_pos, 1, color_white)
 
     if lhik then
         hg.bone_apply_matrix(ent, ply_l_upperarm_index, ply_l_upperarm_matrix, ply_l_forearm_index)
@@ -771,7 +771,7 @@ function hg.MainTPIKFunction(ent, ply, wpn)
     if not ply:IsPlayer() then return end
     if not ply.InVehicle then return end
 
-    //local systime = SysTime()
+    --local systime = SysTime()
     if shouldResetTPIKState(ply, ent, wpn) then
         hg.ResetTPIKState(ply)
         ply.ZCTPIKLastWeapon = wpn
@@ -780,14 +780,14 @@ function hg.MainTPIKFunction(ent, ply, wpn)
     end
 
     local should = hg.ShouldTPIK(ply)
-    //print("shouldtpik func: ", SysTime() - systime)
+    --print("shouldtpik func: ", SysTime() - systime)
 
     if should then
         if ent != ply then
-            //ent:SetupBones()
+            --ent:SetupBones()
         end
         
-        //local systime = SysTime()
+        --local systime = SysTime()
         if IsValid(wpn) and wpn.ismelee and wpn.DrawWorldModel2 then
             wpn:DrawWorldModel2(true)
         end
@@ -796,7 +796,7 @@ function hg.MainTPIKFunction(ent, ply, wpn)
             wpn:SetHandPos()
         end
 
-        //print("sethandpos: ", SysTime() - systime)
+        --print("sethandpos: ", SysTime() - systime)
         
         if ply:InVehicle() then
             --print(ply:IsDrivingSimfphys())
@@ -827,11 +827,11 @@ function hg.MainTPIKFunction(ent, ply, wpn)
             --hg.DragHandsToPos(ent,self,ply:GetBoneMatrix(ply:LookupBone("ValveBiped.Bip01_L_Hand")):GetTranslation(),false,0,vector_up,angle_zero,ply:GetBoneMatrix(ply:LookupBone("ValveBiped.Bip01_L_Hand")):GetAngles())
         end
 
-        //local systime = SysTime()
+        --local systime = SysTime()
         hg.FlashlightPos(ply)
-        //print("FlashlightPos: ", SysTime() - systime)
+        --print("FlashlightPos: ", SysTime() - systime)
 
-        //local systime = SysTime()
+        --local systime = SysTime()
         if IsValid(wpn) and (wpn:GetClass() ~= "weapon_hands_sh") and IsValid(ply:GetNetVar("carryent2")) then
             hg.DragHands(ply,wpn)
         end
@@ -845,12 +845,12 @@ function hg.MainTPIKFunction(ent, ply, wpn)
 			end
 		end
         
-        //print("DragHands: ", SysTime() - systime)
+        --print("DragHands: ", SysTime() - systime)
         hg.DoZManip(ent, ply)
-        //local systime = SysTime()
+        --local systime = SysTime()
         hg.DoTPIK(ply, ent)
         --hg._DeprecatedDoTPIK(ply, ent)
-        //print("DoTPIK: ", SysTime() - systime)
+        --print("DoTPIK: ", SysTime() - systime)
     end
 
     if ent ~= ply and ent.organism and ent.organism.stamina and ent.organism.stamina[1] then
@@ -973,7 +973,7 @@ function hg.CoolGloves(ent, ply)
         
         if TPIKBonesTranslate[bone] == bone then
             ply_bonematrix:SetScale(vector_small2)
-            //ply_bonematrix:SetTranslation(ent:GetBoneMatrix(ent:GetBoneParent(ply_boneindex)):GetTranslation())
+            --ply_bonematrix:SetTranslation(ent:GetBoneMatrix(ent:GetBoneParent(ply_boneindex)):GetTranslation())
             ent:SetBoneMatrix(cachedLookupBone(ent, bone), ply_bonematrix)
             ply_bonematrix:SetScale(scl)
         end
@@ -1097,7 +1097,7 @@ function hg.DoTPIK(ply, ent)
     if !ply_l_hand_index then return end
     if !ply_r_hand_index then return end
 
-    local eyepos, eyeang = ply:EyePos(), ply:EyeAngles() + (IsValid(ply:GetVehicle()) and hg.IsLocal(ply) and ply:GetVehicle():GetAngles() or angle_zero)//ply:GetAimVector():Angle()
+    local eyepos, eyeang = ply:EyePos(), ply:EyeAngles() + (IsValid(ply:GetVehicle()) and hg.IsLocal(ply) and ply:GetVehicle():GetAngles() or angle_zero)--ply:GetAimVector():Angle()
     local headpos = ply_head_matrix:GetTranslation()
 
     local origin = ent:GetPos()
@@ -1176,22 +1176,22 @@ function hg.DoTPIK(ply, ent)
         ent.dirtymatrixrh = nil
     end*/
 
-    ply.lerp_lh = math.Approach(ply.lerp_lh or 0, lhik2 and 1 or 0, FrameTime() * 2.0 * game.GetTimeScale())//LerpFT(0.1, ply.lerp_lh or 1, lhik2 and 1 or 0)
-    ply.lerp_rh = math.Approach(ply.lerp_rh or 0, rhik2 and 1 or 0, FrameTime() * 2.0 * game.GetTimeScale())//LerpFT(0.1, ply.lerp_rh or 1, rhik2 and 1 or 0)
+    ply.lerp_lh = math.Approach(ply.lerp_lh or 0, lhik2 and 1 or 0, FrameTime() * 2.0 * game.GetTimeScale())--LerpFT(0.1, ply.lerp_lh or 1, lhik2 and 1 or 0)
+    ply.lerp_rh = math.Approach(ply.lerp_rh or 0, rhik2 and 1 or 0, FrameTime() * 2.0 * game.GetTimeScale())--LerpFT(0.1, ply.lerp_rh or 1, rhik2 and 1 or 0)
 
     local lerp_lh = math.ease.InOutSine(ply.lerp_lh)
     local lerp_rh = math.ease.InOutSine(ply.lerp_rh)
 
-    //if lerp_rh == 0 and lerp_lh == 0 then return end
+    --if lerp_rh == 0 and lerp_lh == 0 then return end
 
     local limblength = ply:BoneLength(ply_l_forearm_index) - 0
 
     if !limblength or limblength == 0 then limblength = 12 end
 
-    //local r_upperarm_length = limblength
-    //local r_forearm_length = limblength
-    //local l_upperarm_length = limblength
-    //local l_forearm_length = limblength
+    --local r_upperarm_length = limblength
+    --local r_forearm_length = limblength
+    --local l_upperarm_length = limblength
+    --local l_forearm_length = limblength
 
     ply.segmentsr = ply.segmentsr or {}
     ensureArmSegments( ply.segmentsr, ply_r_upperarm_matrix, ply_r_forearm_matrix, ply_r_hand_matrix, limblength )
@@ -1317,7 +1317,7 @@ function hg.DoTPIK(ply, ent)
         ply_r_forearm_matrix:SetAngles(ang)
 
         if false and ply.organism and ply.organism.rarm and ply.organism.rarm > 0.99 then
-            local ang = ang//qt:Angle()
+            local ang = ang--qt:Angle()
             ang:RotateAroundAxis(ang:Forward(), -95)
             ply_r_hand_matrix:SetAngles(LerpAngle(math_Clamp(ply.leftClicking * 2, 0, 1), ang, ply_r_hand_matrix:GetAngles()))
         end
@@ -1452,7 +1452,7 @@ function hg.DoTPIK(ply, ent)
         ply_l_forearm_matrix:SetAngles(ang)
 
         if ply.organism and ply.organism.larm and ply.organism.larm > 0.99 and ishgweapon(self) and !self.reload and ishgweapon(self) then
-            local ang = ang//qt:Angle()
+            local ang = ang--qt:Angle()
             ang:RotateAroundAxis(ang:Forward(), 95)
             ply_l_hand_matrix:SetAngles(LerpAngle(0.5, ply_l_hand_matrix:GetAngles(), ang))
         end
@@ -1548,10 +1548,10 @@ function hg.Solve2PartIK(start_p, end_p, length0, length1, mat0, mat1, sign, tor
     --render.DrawLine(start_p,start_p + torsoang:Up() * sign * 10,color_red, true)
 
     local Joint0 = prev_ang0:Angle():Forward() * length0
-    //local diffa2 = ang[3] + 90
+    --local diffa2 = ang[3] + 90
 
     local Joint1 = Angle(angle0 + angle2 + 180 + angle1, angle3, 0)
-    Joint1:RotateAroundAxis(Joint1:Forward(), diffa2 + 30)// + angar[3] * (sign > 0 and 1 or 0) * (1 - math.abs(angar[1] / 90)))//+ ang[3] / 4 + 60)
+    Joint1:RotateAroundAxis(Joint1:Forward(), diffa2 + 30)-- + angar[3] * (sign > 0 and 1 or 0) * (1 - math.abs(angar[1] / 90)))--+ ang[3] / 4 + 60)
     Joint1:RotateAroundAxis(axis, angle3 - torsoright)
     prev_ang1:SetAngle(Joint1)
     --prev_ang1:SetDirection(Joint1:Forward(), torsomat:GetAngles():Up() * 1)
@@ -1960,14 +1960,14 @@ function meta:PullLHTowards(towards, timetopull, mdl, offsets, callback)
             ply.pullingTowardsModel:Remove()
         end
 
-        //ply.pullingMagNow = nil
+        --ply.pullingMagNow = nil
         ply.pullingTowardsModel = nil
         ply.pullingTowardsOffsets = nil
 
         return
     end
 
-    //ply.pullingMagNow = magNOW
+    --ply.pullingMagNow = magNOW
     ply.pullingTowards = towards
     ply.pullingTowardsStart = CurTime()
     ply.pullingTowardsTime = timetopull
@@ -1977,6 +1977,6 @@ function meta:PullLHTowards(towards, timetopull, mdl, offsets, callback)
         ply.pullingTowardsModel = ClientsideModel(mdl)
         ply.pullingTowardsModel:SetNoDraw(true)
         ply.pullingTowardsOffsets = offsets
-        //ply.pullingTowardsModel:SetPos(self:GetPos())
+        --ply.pullingTowardsModel:SetPos(self:GetPos())
     end
 end

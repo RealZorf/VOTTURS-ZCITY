@@ -101,7 +101,7 @@ function SWEP:CustomAttack2()
         phys:AddAngleVelocity(VectorRand() * 500)
     end
 
-    //ply:EmitSound("weapons/slam/throw.wav",50,math.random(95,105))
+    --ply:EmitSound("weapons/slam/throw.wav",50,math.random(95,105))
     ply:ViewPunch(Angle(0, 0, -8))
     ply:SelectWeapon("weapon_hands_sh")
 

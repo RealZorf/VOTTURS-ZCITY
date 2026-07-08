@@ -413,7 +413,7 @@ end)
 
 hook.Add("PlayerDeathThink", "spectNetwork", function(ply)
 	if ply:Alive() then return end
-	//ply:Spectate(OBS_MODE_ROAMING)
+	--ply:Spectate(OBS_MODE_ROAMING)
 
 	ply.viewmode = ply.viewmode or 1
 

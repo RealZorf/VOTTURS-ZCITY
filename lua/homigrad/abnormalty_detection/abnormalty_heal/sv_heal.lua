@@ -1,12 +1,12 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 --\\
 PLUGIN.Heal = PLUGIN.Heal or {}
 PLUGIN.Heal.ToHeal = PLUGIN.Heal.ToHeal or {}
---//
+--
 
 --\\
 local function FindPly(zone, caller)
@@ -60,7 +60,7 @@ local function TryHeal(zone, ply)
 		PLUGIN.ShowMessage(ply, "There is not enough blood in order to heal")
 	end
 end
---//
+--
 
 --\\SpecialEvents
 hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_Heal", function(zone_id, abnormalty_name, amt, ply)
@@ -139,4 +139,4 @@ end)
 hook.Add("PostCleanupMap", "Abnormalties_Heal", function()
 	PLUGIN.Heal.ToHeal = {}
 end)
---//
+--

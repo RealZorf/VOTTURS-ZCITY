@@ -1,4 +1,4 @@
-// That's right, x64 won't work with .dat in this trick. Special thanks to 8Z
+-- That's right, x64 won't work with .dat in this trick. Special thanks to 8Z
 WOS_DYNABASE_FILE_EXTENSION = ".dat"
 -- if jit.arch == "x64" then
 -- 	WOS_DYNABASE_FILE_EXTENSION = ".txt"
@@ -134,7 +134,7 @@ end
 function wOS.DynaBase:ProcessLoadOrder()
 	if self.EnforceCount < 1 then self.FilteredLoadOrder = {} return end
 
-	// Initialize it here so it can fail later
+	-- Initialize it here so it can fail later
 	self.FilteredLoadOrder[ WOS_DYNABASE.MALE ] = {}
 	self.FilteredLoadOrder[ WOS_DYNABASE.FEMALE ] = {}
 	self.FilteredLoadOrder[ WOS_DYNABASE.ZOMBIE ] = {}
@@ -169,7 +169,7 @@ function wOS.DynaBase:ProcessPlayerOrder()
 		return 
 	end
 
-	// Initialize it here so it can fail later
+	-- Initialize it here so it can fail later
 	self.FilteredPlayerOrder[ WOS_DYNABASE.MALE ] = {}
 	self.FilteredPlayerOrder[ WOS_DYNABASE.FEMALE ] = {}
 	self.FilteredPlayerOrder[ WOS_DYNABASE.ZOMBIE ] = {}
@@ -216,7 +216,7 @@ function wOS.DynaBase:GetSource( name )
 end
 
 
-// Need to register the base stuff LMAO
+-- Need to register the base stuff LMAO
 wOS.DynaBase:RegisterSource({
 	Name = "Base Animations",
 	Type = WOS_DYNABASE.REANIMATION,

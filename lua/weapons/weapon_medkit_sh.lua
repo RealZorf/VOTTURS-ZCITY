@@ -163,7 +163,7 @@ if SERVER then
 		elseif self.mode == 4 then
 			if self:Tourniquet(ent, bone) then self.modeValues[4] = 0 end
 		elseif self.mode == 5 then
-			//if ((org.lungsL[2] + org.lungsR[2]) / 2 >= 0.5) and not org.needle then
+			--if ((org.lungsL[2] + org.lungsR[2]) / 2 >= 0.5) and not org.needle then
 				if self.modeValues[5] == 0 then return end
 				if self.poisoned2 then
 					org.poison4 = CurTime()
@@ -184,7 +184,7 @@ if SERVER then
 				self.modeValues[5] = 0
 				self:RefreshPerfusionTreatment(ent, 0.2)
 				entOwner:EmitSound("snd_jack_hmcd_needleprick.wav", 60, math.random(95, 105))
-			//end
+			--end
 		elseif self.mode == 6 then
 			local naloxoneDose = self.modeValues[6] or 0
 			if naloxoneDose <= 0 then return end

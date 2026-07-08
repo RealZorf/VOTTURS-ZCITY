@@ -5,7 +5,7 @@ local PLUGIN = hg.PluvTown
 -- local Pluv = Material("pluv/pluv.png")
 
 PLUGIN.AddHook("PostDrawAppearance", function(ent, ply)
-	//for _, ply in player.Iterator() do
+	--for _, ply in player.Iterator() do
 		-- if ply == LocalPlayer() then continue end
 		if ply.NotSeen then return end
 		if IsValid(ply.FakeRagdoll) then return end
@@ -64,7 +64,7 @@ PLUGIN.AddHook("PostDrawAppearance", function(ent, ply)
 				end
 			cam.End3D2D()
 		cam.End3D()
-	//end
+	--end
 	/*
 	for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
 		if ent.NotSeen then continue end

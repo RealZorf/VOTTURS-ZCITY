@@ -58,7 +58,7 @@ local function CreateNotification(ply, msg, delay, msgKey, showTime, func, clr)
 
         net.Start("HGNotificate")
         net.WriteString(msg)
-        //net.WriteFloat(showTime or 3)
+        --net.WriteFloat(showTime or 3)
         net.WriteColor(clr2)
         net.Send(ply)
     end)
@@ -66,7 +66,7 @@ local function CreateNotification(ply, msg, delay, msgKey, showTime, func, clr)
     return true
 end
 
-//erm it's ass but i don't care enough
+--erm it's ass but i don't care enough
 local function CreateNotificationBerserk(ply, msg, delay, msgKey, showTime, func, clr)
     if ply.organism and ply.organism.otrub then return end
     if ply.PlayerClassName and ply.PlayerClassName == "Gordon" and clr != hev_color then return end
@@ -121,7 +121,7 @@ local function CreateNotificationBerserk(ply, msg, delay, msgKey, showTime, func
 
         net.Start("HGNotificateBerserk")
         net.WriteString(msg)
-        //net.WriteFloat(showTime or 3)
+        --net.WriteFloat(showTime or 3)
         net.WriteColor(clr2)
         net.Send(ply)
     end)

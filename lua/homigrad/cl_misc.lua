@@ -50,7 +50,7 @@
 	end)
 
 	override()
---//
+--
 
 -- local seqOverride = {
 -- 	["run_all_01"] = "jump_slam", ["run_all_02"] = "jump_slam", ["run_all_panicked_01"] = "jump_slam", ["run_all_panicked_02"] = "jump_slam", ["run_all_protected"] = "jump_slam", ["run_all_charging"] = "jump_slam",
@@ -110,7 +110,7 @@
 			end
 		end
 	end)
---//
+--
 
 --\\ Spawnmenu category icons
 	local categories = {
@@ -140,4 +140,4 @@
 	for cat, icon in pairs(categories) do
 		list.Set("ContentCategoryIcons", cat, icon)
 	end
---//
+--

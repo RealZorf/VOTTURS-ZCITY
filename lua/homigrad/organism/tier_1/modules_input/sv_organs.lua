@@ -8,12 +8,12 @@ local function damageOrgan(org, dmg, dmgInfo, key)
 	local oldval = org[key]
 	org[key] = math.Round(math.min(org[key] + dmg * (isCrush(dmgInfo) and 1 or 3), 1), 3)
 	
-	//local damage = org[key] - oldval
-	//dmgInfo:SetDamage(dmgInfo:GetDamage() + (damage * 5))
+	--local damage = org[key] - oldval
+	--dmgInfo:SetDamage(dmgInfo:GetDamage() + (damage * 5))
 
 	dmgInfo:ScaleDamage(0.8)
 
-	return 0//isCrush(dmgInfo) and 0 or prot
+	return 0--isCrush(dmgInfo) and 0 or prot
 end
 
 local input_list = hg.organism.input_list
@@ -171,7 +171,7 @@ local function hitArtery(artery, org, dmg, dmgInfo, boneindex, dir, hit)
 	if org[string.Replace(artery, "artery", "").."amputated"] then return end
 
 	if artery ~= "arteria" then
-		hg.AddHarmToAttacker(dmgInfo, 4, "Random artery punctured harm")//((1 - org[artery]) - math.max((1 - org[artery]) - dmg,0)) / 4
+		hg.AddHarmToAttacker(dmgInfo, 4, "Random artery punctured harm")--((1 - org[artery]) - math.max((1 - org[artery]) - dmg,0)) / 4
 	else
 		if org.isPly and not org.otrub then
 			org.owner:Notify(table.Random(arteryMessages), true, "arteria", 0)
@@ -216,7 +216,7 @@ input_list.lungsL = function(org, bone, dmg, dmgInfo)
 	
 	dmgInfo:ScaleDamage(0.8)
 
-	return 0//isCrush(dmgInfo) and 1 or prot
+	return 0--isCrush(dmgInfo) and 1 or prot
 end
 
 input_list.lungsR = function(org, bone, dmg, dmgInfo)
@@ -231,7 +231,7 @@ input_list.lungsR = function(org, bone, dmg, dmgInfo)
 
 	dmgInfo:ScaleDamage(0.8)
 
-	return 0//isCrush(dmgInfo) and 1 or prot
+	return 0--isCrush(dmgInfo) and 1 or prot
 end
 
 input_list.trachea = function(org, bone, dmg, dmgInfo)
@@ -244,7 +244,7 @@ input_list.trachea = function(org, bone, dmg, dmgInfo)
 
 	hg.AddHarmToAttacker(dmgInfo, (org.trachea - oldDmg) * 8, "Trachea damage harm")
 
-	//org.internalBleed = org.internalBleed + dmg * 2
+	--org.internalBleed = org.internalBleed + dmg * 2
 
 	return result
 end

@@ -109,7 +109,7 @@ function ENT:Explode()
             if org then
                 hg.ExplosionDisorientation(org.owner, 5, 6)
 				hg.RunZManipAnim(org.owner, "shieldexplosion")
-                //org.owner:ViewPunch(Angle(0, 0, org.owner:GetAimVector():Dot((SelfPos - org.owner:EyePos()):GetNormalized()) * 55))
+                --org.owner:ViewPunch(Angle(0, 0, org.owner:GetAimVector():Dot((SelfPos - org.owner:EyePos()):GetNormalized()) * 55))
             end
         end
     end

@@ -28,8 +28,8 @@ net.Receive("gwars_start", function()
 		end
 	end)
 
-	//music_themes/ghetto_loop.wav
-	//music_themes/ghetto_start.wav
+	--music_themes/ghetto_loop.wav
+	--music_themes/ghetto_start.wav
 	
 end)
 
@@ -65,7 +65,7 @@ surface.CreateFont("timer_Font2", {
 })
 
 function MODE:HUDPaint()
-	//if !lply.organism or !lply.organism.fear then return end
+	--if !lply.organism or !lply.organism.fear then return end
 
 	local timeBeforeSWAT = (zb.ROUND_START - CurTime() + 120)
 	if timeBeforeSWAT > 0 and zb.ROUND_START + 10.5 < CurTime() then
@@ -79,8 +79,8 @@ function MODE:HUDPaint()
 		surface.DrawText(time)
 		surface.SetTextPos(sw * 0.5 - w2 / 2 + w, sh * 0.05)
 		surface.DrawText("time left before SWAT arrives!")
-		//draw.SimpleText(" left before SWAT arrives!", "timer_Font2", sw * 0.432, sh * 0.05, Color(255, 255, 255, 255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-		//draw.SimpleText(time, "timer_Font2", sw * 0.36, sh * 0.05, Color(255, 255, 255, 255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		--draw.SimpleText(" left before SWAT arrives!", "timer_Font2", sw * 0.432, sh * 0.05, Color(255, 255, 255, 255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		--draw.SimpleText(time, "timer_Font2", sw * 0.36, sh * 0.05, Color(255, 255, 255, 255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 	end
 
 	if zb.ROUND_START + 8 < CurTime() then

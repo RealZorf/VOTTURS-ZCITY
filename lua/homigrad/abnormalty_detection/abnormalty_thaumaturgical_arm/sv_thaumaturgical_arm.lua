@@ -1,12 +1,12 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 --\\
 PLUGIN.ConjureTA = PLUGIN.ConjureTA or {}
 PLUGIN.ConjureTA.ToConjure = PLUGIN.ConjureTA.ToConjure or {}
---//
+--
 
 --\\
 function PLUGIN.ConjureTA.Do(ent, time)
@@ -38,7 +38,7 @@ local function TryConjureTA(zone, ply)
 		PLUGIN.ShowMessage(ply, "There is not enough equalizers or blood in order to conjure thaumaturgic arm")
 	end
 end
---//
+--
 
 --\\SpecialEvents
 hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_ConjureTA", function(zone_id, abnormalty_name, amt, ply)
@@ -65,7 +65,7 @@ hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_ConjureTA", functi
 		end
 	end
 end)
---//
+--
 
 hook.Add("Think", "Abnormalties_ConjureTA", function()
 	for ent, info in pairs(PLUGIN.ConjureTA.ToConjure) do

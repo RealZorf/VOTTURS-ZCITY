@@ -626,7 +626,7 @@ hook.Add("Player Think", "loot-fellows",function(ply)
     end
 end)
 
---// Prop inventory example
+-- Prop inventory example
 --[[
 	local pos = Entity(1):GetEyeTrace().HitPos
 	local ent = ents.Create("prop_physics")

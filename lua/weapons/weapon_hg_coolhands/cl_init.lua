@@ -2,7 +2,7 @@ include("shared.lua")
 SWEP.Category = "ZCity Other"
 SWEP.PrintName = "Cool Hands"
 SWEP.AdminOnly = true
-SWEP.Spawnable = true --// Use this hands if you like it more.. - Mannytko
+SWEP.Spawnable = true -- Use this hands if you like it more.. - Mannytko
 SWEP.Instructions = "LMB - raise fists\nRELOAD - lower fists\n\nIn the raised state:\nLMB - strike\nRMB - block\n\nIn the lowered state: RMB - raise the object, RMB+R - check the pulse (when used on someone's head or hand)\n\nWhen holding the object: RELOAD - fix the object in air, E - spin the object in the air."
 SWEP.blockinganim = 0
 SWEP.animtime = 0
@@ -56,7 +56,7 @@ function SWEP:DrawHUD()
 	surface.DrawRect(x - 25 * lerpthing * 0.1, y - 2.5, 50 * lerpthing * 0.1, 5)
 	surface.DrawRect(x - 2.5, y - 25 * lerpthing * 0.1, 5, 50 * lerpthing * 0.1)
 
-	do return end // mannytko stupid UwU
+	do return end -- mannytko stupid UwU
 
 	local ent = IsValid(Tr.Entity) and Tr.Entity.organism and Tr.Entity or owner
 	if ent.organism then
@@ -305,8 +305,8 @@ function SWEP:ModelAnim(model, pos, ang)
 		addPos.z = x * 2 * vellenlerp * 0.3 - vellenlerp * 1
 		addPos.y = y * 2 * vellenlerp * 0.3
 
-		addAng.z = -x * 2// * vellenlerp * 0.3
-		addAng.y = -y * 2// * vellenlerp * 0.3
+		addAng.z = -x * 2-- * vellenlerp * 0.3
+		addAng.y = -y * 2-- * vellenlerp * 0.3
 
 		addPos.y = addPos.y - angle_difference.y * 2
 		addAng.y = addAng.y + angle_difference.y * 4
@@ -316,24 +316,24 @@ function SWEP:ModelAnim(model, pos, ang)
 
 		addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
 
-		//addPos.z = addPos.z + eyeAng[1] * 0.05
+		--addPos.z = addPos.z + eyeAng[1] * 0.05
 		addPos.x = addPos.x + eyeAng[1] * 0.05
 
 		local veldot = self.velocityAdd:Dot(tr.Normal:Angle():Right())
 
 		addAng.r = addAng.r - veldot * 5 + math.cos(CurTime() * 5) * walk * 2
 
-		//addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
+		--addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
 
 		self.lastAddPos = addPos
 	end
 
 
-	//local inattack1 = self:GetAttackType() == 1 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
-	//local inattack2 = self:GetAttackType() == 2 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
+	--local inattack1 = self:GetAttackType() == 1 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
+	--local inattack2 = self:GetAttackType() == 2 and math.max(self:GetLastAttack() - CurTime(),0) / self.AttackTime > 0 or false
 
-	//self.attackanim = LerpFT(0.1, self.attackanim, (inattack1 and 0.8 or 0) - (inattack2 and 0.3 or 0))
-	//self.sprintanim = LerpFT(0.05, self.sprintanim, self:IsSprinting() and 1 or 0)
+	--self.attackanim = LerpFT(0.1, self.attackanim, (inattack1 and 0.8 or 0) - (inattack2 and 0.3 or 0))
+	--self.sprintanim = LerpFT(0.05, self.sprintanim, self:IsSprinting() and 1 or 0)
 
 	local hpos = (self.HoldPos or vector_origin) + vechuy
 	local hang = (self.HoldAng or angle_zero)
@@ -344,7 +344,7 @@ function SWEP:ModelAnim(model, pos, ang)
 end
 
 function SWEP:Camera(eyePos, eyeAng, view, vellen)
-	//self:SetHandPos()
+	--self:SetHandPos()
 	self:DrawWorldModel()
 	local owner = self:GetOwner()
 	if not IsValid(owner) then return end
@@ -456,7 +456,7 @@ function SWEP:SetHandPos(noset)
 
 		local lastaddpos = self:IsLocal() and self.lastAddPos or vector_origin
 		local posadd, _ = LocalToWorld(lastaddpos, angle_zero, vector_origin, ply:EyeAngles())
-		//local posadd = self:IsLocal() and self.lastAddPos and -(-self.lastAddPos) or -(-vector_origin)
+		--local posadd = self:IsLocal() and self.lastAddPos and -(-self.lastAddPos) or -(-vector_origin)
 
 		self.blockingR = LerpFT(0.1, self.blockingR or vector_origin, (self:GetBlocking() and vecBlockingR or (self:GetNextIdle() < CurTime() and vecIdleR or vector_origin)))
 		local blocking = -(-self.blockingR)
@@ -692,7 +692,7 @@ function SWEP:PrimaryAttack(forcespecial)
 
 	if CLIENT and self.IsLocal and self:IsLocal() then
 		ViewPunch(special_attack and specang1 or Angle(-1, -(rand and -3 or 3), (rand and -9 or 9)))
-		//ViewPunch2(special_attack and Angle(5, -2, 2) or Angle((-1), -(rand and 2 or -2), (rand and 6 or -6)))
+		--ViewPunch2(special_attack and Angle(5, -2, 2) or Angle((-1), -(rand and 2 or -2), (rand and 6 or -6)))
 		if special_attack then
 			if not isfur then
 				timer.Simple(0.4, function()

@@ -23,7 +23,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 	--=\\SQL
 		-- PLUGIN.SQLSaveCD
 	--=//
---//
+--
 
 --\\SQL
 	-- PLUGIN.LoadConsequences(Entity(1))
@@ -96,7 +96,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 	hook.Add("PlayerInitialSpawn", "AbnormaltiesSQL", function(ply)
 		PLUGIN.LoadConsequences(ply, true)
 	end)
---//
+--
 
 --\\Universal save system
 	PLUGIN.PlayerStatsToAddAfterLoad = {
@@ -173,7 +173,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 			PLUGIN.PlayerStatsPlayers[steam_id_64] = nil
 		end
 	end)
---//
+--
 
 --\\Knowledge
 	function PLUGIN.SetKnowledge(ply, knowledge)
@@ -192,7 +192,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 			return false
 		end
 	end
---//
+--
 
 --\\Consequences
 	function PLUGIN.SetConsequences(ply, amt, no_punishment)
@@ -541,7 +541,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 			end
 		end)
 	--=//
---//
+--
 
 --\\??
 	function PLUGIN.ShowTranslation(ply, abnormalty)
@@ -587,7 +587,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 			end
 		end
 	end
---//
+--
 
 --\\Ritual
 	function PLUGIN.ResetPhrasesAbnormaltiesFromZone(zone)
@@ -677,7 +677,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 		
 		return best_ent
 	end
---//
+--
 
 --\\
 	function PLUGIN.TranslateWordsToAbnormalty(text)
@@ -1024,7 +1024,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 		
 		hook.Run("Abnormalties_RandomizeCharInfos")
 	end
---//
+--
 
 --\\Special Equipment
 	hook.Add("PreHomigradDamage", "Abnormalties_SpecialEquipment", function(ply, dmg, hitgroup, ent, harm)
@@ -1066,7 +1066,7 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 			end
 		end
 	end)
---//
+--
 
 --\\??
 	local function coroutine_think_func()
@@ -1271,4 +1271,4 @@ util.AddNetworkString("Abnormalties(SendOpenedPage)")
 			end
 		end
 	end)
---//
+--

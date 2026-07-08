@@ -5,7 +5,7 @@ local PLUGIN = hg.Abnormalties
 local convar_newbie = CreateClientConVar("abnormalties_newbie", "1", true, false, "Set to 1 if you want to see a hint again")
 
 PLUGIN.MainColor = Color(150, 0, 0)
---//
+--
 -- abnormalties_help
 --\\
 net.Receive("Abnormalties(ShowTranslation)", function(len, ply)
@@ -33,7 +33,7 @@ net.Receive("Abnormalties(ShowMessage)", function(len, ply)
 	
 	PLUGIN.ShowMessage(msg)
 end)
---//
+--
 
 --\\
 function PLUGIN.ShowTranslation(abnormalty)
@@ -62,4 +62,4 @@ end
 function PLUGIN.ShowMessage(msg)
 	chat.AddText(PLUGIN.MainColor, msg)
 end
---//
+--

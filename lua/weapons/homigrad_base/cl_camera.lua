@@ -166,12 +166,12 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 	ply = ply or self:GetOwner()
 	gun = self:GetWeaponEntity()
 	
-	//if self.drawnlasttime != CurTime() then
-		//self.drawnlasttime = CurTime()
+	--if self.drawnlasttime != CurTime() then
+		--self.drawnlasttime = CurTime()
 		hg.DrawWorldModel(self, true)
 
-		//self:GetTrace(true, nil, nil, true)
-	//end
+		--self:GetTrace(true, nil, nil, true)
+	--end
 
 	if not ply.GetAimVector then return end
 
@@ -233,7 +233,7 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 
 	local posIdle = eyePos
 	local angIdle = eyeAng
-	local zoom = self:IsZoom() and (IsValid(ply.FakeRagdoll) or ((self.lerpaddcloseanim * self.closeanimdis) < 3)) and (self:GetNetVar("shootgunReload", 0) < CurTime())// and (posIdle:IsEqualTol(posZoom,20))))
+	local zoom = self:IsZoom() and (IsValid(ply.FakeRagdoll) or ((self.lerpaddcloseanim * self.closeanimdis) < 3)) and (self:GetNetVar("shootgunReload", 0) < CurTime())-- and (posIdle:IsEqualTol(posZoom,20))))
 	
 	--if hg_aiminganim:GetBool() then
 		self.k = Lerp(self.Ergonomics * FrameTime() * 2, self.k or 0, zoom and 1 or 0)
@@ -280,7 +280,7 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 	local angfuk = angfuk23
 	angfuk[2] = -position_difference3[2]/40
 
-	//ViewPunch2(angfuk)
+	--ViewPunch2(angfuk)
 
 	--local shootLerp = self.Anim_RecoilLerp
 	--view.fov = Lerp(shootLerp,view.fov,view.fov - 5 * self.Penetration / 15)
@@ -293,8 +293,8 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 
 	spray = spray + animpos * 6 * k * mult * ply:EyeAngles():Up()
 
-	//angIdle:Add(-angle_difference*2)
-	//angZoom:Add(-angle_difference*1)
+	--angIdle:Add(-angle_difference*2)
+	--angZoom:Add(-angle_difference*1)
 
 	local mulhuy = (self:IsPistolHoldType() or self.PistolKinda) and 2 or (((ply.posture == 1 and not self:IsZoom()) or ply.posture == 7 or ply.posture == 8) and 2 or 0.75)
 	local shit = 0.2 * mulhuy / game.GetTimeScale()
@@ -355,7 +355,7 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 
 	if not hg_nofovzoom:GetBool() then
 		fov_mode_lerp = LerpFT(0.12, fov_mode_lerp, (self:HasAttachment("sight","optic") and not self.viewmode1 and -15 - (hg_fov:GetInt() - 75)) or - (hg_fov:GetInt() - 80))
-		fov = fovlerp + fov_mode_lerp * k//Lerp(k, fovlerp, fov_mode_lerp)
+		fov = fovlerp + fov_mode_lerp * k--Lerp(k, fovlerp, fov_mode_lerp)
 	else
 		fov = fovlerp
 	end
@@ -474,7 +474,7 @@ hook.Add("HUDPaint", "homigrad-test-att", function()
 	posa = (pos + ang:Forward()):ToScreen()
 	draw.RoundedBox(0, posa.x - 2, posa.y - 2, 4, 4, blue)
 
-	//draw.RoundedBox(0, ScrW() / 2 - 2, ScrH() / 2 - 2, 4, 4, white3)
+	--draw.RoundedBox(0, ScrW() / 2 - 2, ScrH() / 2 - 2, 4, 4, white3)
 end)
 
 local pp_dof_initlength = CreateClientConVar("pp_dof_initlength", "256", true, false)

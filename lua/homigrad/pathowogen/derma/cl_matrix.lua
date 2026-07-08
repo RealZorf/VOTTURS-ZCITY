@@ -78,7 +78,7 @@ function PANEL:Paint()
 		end
 	end
 
-	if self:GetAlpha() <= 0 then // a sanity check
+	if self:GetAlpha() <= 0 then -- a sanity check
 		self:Remove()
 	end
 end

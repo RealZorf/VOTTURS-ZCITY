@@ -172,7 +172,7 @@ function hg.HomigradBones(ply, dtime)
 	if CLIENT and (dtime2 < 1 / fps) then return end
 	if SERVER and dtime2 < 0.2 then return end
 	
-	//dtime = dtime2
+	--dtime = dtime2
 	ply.timeFrameasd = SysTime()
 
 	hook_Run("Bones", ply, dtime2)

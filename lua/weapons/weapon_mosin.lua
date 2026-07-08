@@ -22,7 +22,7 @@ SWEP.FakeBodyGroups = "000000000"
 SWEP.BarrelLength = 40
 SWEP.SUPBarrelLenght = 47
 SWEP.OpenBolt = true
-SWEP.CantFireFromCollision = false // 2 спусковых крючка все дела
+SWEP.CantFireFromCollision = false -- 2 спусковых крючка все дела
 
 SWEP.FakeViewBobBone = "ValveBiped.Bip01_L_Hand"
 SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"

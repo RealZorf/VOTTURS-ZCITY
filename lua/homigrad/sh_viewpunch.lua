@@ -41,7 +41,7 @@ local IsValid = IsValid
 				consciousness = consciousness * math_Clamp(org.o2[1] / 20, 0.5, 1)
 				--consciousness = consciousness * (org.larmamputated and 0.8 or 1) * (org.rarmamputated and 0.8 or 1)
 				consciousness = consciousness * (1 - org.disorientation / 10)
-				//consciousness = consciousness * math.min(1, org.stamina[1] / (org.stamina.max * 0.3))
+				--consciousness = consciousness * math.min(1, org.stamina[1] / (org.stamina.max * 0.3))
 			end
 
 			return math_Clamp(((consciousness - 1) * 3 + 1), 0.4, 1)
@@ -291,4 +291,4 @@ local IsValid = IsValid
 			net.Send(self)
 		end
 	end
---//
+--

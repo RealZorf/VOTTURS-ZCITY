@@ -315,7 +315,7 @@ function MODE.GetPlayerTraceToOtherVictim(ply, victim, dist)
 		end
 	end
 end
---//
+--
 
 --\\Neck Break
 function MODE.CanPlayerBreakOtherNeck(ply, aim_ent)
@@ -570,7 +570,7 @@ hook.Add("HG_MovementCalc_2", "HMCD_SubRole_Abilities", function(mul, ply, cmd)
 		mul[1] = mul[1] * 0.45
 	end
 end)
---//
+--
 
 --\\Disarm
 function MODE.CanPlayerDisarmOtherPly(ply, other_ply)
@@ -721,4 +721,4 @@ hook.Add("PlayerSwitchWeapon", "HMCD_SubRole_Abilities", function(ply)
 		return true
 	end
 end)
---//
+--

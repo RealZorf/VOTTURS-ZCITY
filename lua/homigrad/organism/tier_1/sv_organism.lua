@@ -69,7 +69,7 @@ hook.Add("Org Clear", "Main", function(org)
 
 	org.fear = 0
 	org.fearadd = 0
-	--//
+	--
 
 	org.bloodpressure = 1
 	org.perfusion = 1
@@ -752,7 +752,7 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 
 	local just_went_uncon = not org.otrub and org.needotrub
 
-	if org.posturing then //-- the decerebrate one
+	if org.posturing then ---- the decerebrate one
 		local ent = hg.GetCurrentCharacter(org.owner)
 
 		local rleg = ent:GetPhysicsObjectNum(ent:TranslateBoneToPhysBone(ent:LookupBone("ValveBiped.Bip01_R_Foot")))
@@ -786,8 +786,8 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 	end
 
 	if org.otrub and isPly and org.owner:Alive() then
-		//org.owner:ScreenFade(SCREENFADE.PURGE, color_black, 0.5, 0)
-		//org.owner:ConCommand("soundfade 100 99999")
+		--org.owner:ScreenFade(SCREENFADE.PURGE, color_black, 0.5, 0)
+		--org.owner:ConCommand("soundfade 100 99999")
 	end
 
 	if not org.otrub and isPly and org.owner:Alive() then
@@ -838,12 +838,12 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		if not org.likely_phrase then org.likely_phrase = 0 end
 
 		org.likely_phrase = math.max(org.likely_phrase + math.Rand(0, mul) / 100, 0)
-		//print(org.likely_phrase)
+		--print(org.likely_phrase)
 		if org.likely_phrase >= 1 and !hg.GetCurrentCharacter(owner):IsOnFire() then
 			org.likely_phrase = 0
 
 			local str = hg.get_status_message(owner)
-			//print(str)
+			--print(str)
 			-- (msg, delay, msgKey, showTime, func, clr)
 			owner:Notify(str, 1, "phrase", 1, nil, Color(255, math.Clamp(1 / hg.likely_to_phrase(owner) * 255, 0, 255), math.Clamp(1 / hg.likely_to_phrase(owner) * 255, 0, 255), 255))
 		end
@@ -876,7 +876,7 @@ end)
 hook.Add("Org Think", "regenerationberserk", function(owner, org, timeValue)
 	if not owner:IsPlayer() or not owner:Alive() then return end
 	if !owner:IsBerserk() then return end
-	//if org.heartstop then return end
+	--if org.heartstop then return end
 
 	org.blood = math.Approach(org.blood, 5000, timeValue * 60)
 
@@ -1025,7 +1025,7 @@ hook.Add("HG_OnWakeOtrub", "afterOtrub", function( owner )
 	owner.organism.after_otrub = true
 	local str = hg.get_status_message(owner)
 	owner.organism.after_otrub = nil
-	//print(str)
+	--print(str)
 	-- (msg, delay, msgKey, showTime, func, clr)
 	timer.Simple(0.1,function()
 		if not IsValid(owner) then return end
@@ -1037,7 +1037,7 @@ hook.Add("HG_OnWakeOtrub", "afterOtrub", function( owner )
 	owner:SendLua("system.FlashWindow()")
 end)
 
-hook.Add("HG_OnOtrub", "fearful", function( plya )// ЧЕ
+hook.Add("HG_OnOtrub", "fearful", function( plya )-- ЧЕ
 	local ent = hg.GetCurrentCharacter(plya)
 	for i,ply in ipairs(ents.FindInSphere(ent:GetPos(),256)) do
 		if not ply:IsPlayer() or not ply.organism or plya == ply then continue end

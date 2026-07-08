@@ -41,7 +41,7 @@ function MODE:RenderScreenspaceEffects()
     surface.DrawRect(-1,-1,ScrW() + 1,ScrH() + 1)
 end
 
---// Ну вроде сделал его чуточку читаемым 
+-- Ну вроде сделал его чуточку читаемым 
 function MODE:HUDPaint()
     if zb.ROUND_START + 8.5 < CurTime() then return end
      

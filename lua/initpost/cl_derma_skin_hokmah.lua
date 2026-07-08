@@ -3,7 +3,7 @@
 	HOKMAH_VGUI.MainColor = Color(35, 225, 110)
 	HOKMAH_VGUI.SecondaryColor = Color(14, 40, 28, 240)
 	HOKMAH_VGUI.BackgroundColor = Color(6, 14, 10)
---//
+--
 
 --; Adapted from Helix
 
@@ -18,7 +18,7 @@ local font = function() -- hg_coolvetica:GetBool() and "Coolvetica" or "Bahnschr
 
     return usefont
 end
---//
+--
 
 local gradient = surface.GetTextureID("vgui/gradient-d")
 local gradientUp = surface.GetTextureID("vgui/gradient-u")

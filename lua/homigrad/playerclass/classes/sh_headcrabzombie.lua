@@ -178,7 +178,7 @@ function CLASS.On(self)
 	end
 end
 
---// Reset organism and npc relationship
+-- Reset organism and npc relationship
 function CLASS.Off(self)
     if CLIENT then return end
 
@@ -197,7 +197,7 @@ function CLASS.Off(self)
 	hook.Remove("OnEntityCreated", "relation_shipdo"..self:EntIndex())
 end
 
---// Reset npc relationship
+-- Reset npc relationship
 function CLASS.PlayerDeath(self)
 	for k, v in ipairs(ents.FindByClass("npc_*")) do
         if table.HasValue(rebels, v:GetClass()) then
@@ -214,13 +214,13 @@ function CLASS.Guilt(self, victim)
     if CLIENT then return end
 
 	--[[if victim:GetPlayerClass() == self:GetPlayerClass() then
-        return 1 --// Idk if zombies really need this so uncomment if you want
+        return 1 -- Idk if zombies really need this so uncomment if you want
     end]]
 
 	return 0
 end
 
---// We'll do some tricky stuff there..
+-- We'll do some tricky stuff there..
 function CLASS.Think(self)
     if CLIENT then return end
 
@@ -282,7 +282,7 @@ function CLASS.Think(self)
 	org.rarmdislocation = false
 end
 
---// Phrase stuff
+-- Phrase stuff
 local zomb_pain = {"npc/zombie/zombie_die2.wav"}
 for i = 1, 6 do
 	table.insert(zomb_pain, "npc/zombie/zombie_pain" .. i .. ".wav")
@@ -318,7 +318,7 @@ hook.Add("HG_CanThoughts", "ZombCantDumat", function(ply)
 	end
 end)
 
---// Can't pickup weapons and use doors
+-- Can't pickup weapons and use doors
 hook.Add("PlayerCanPickupWeapon", "ZombCantPickup", function(ply, ent)
 	if IsValid(ply) and ply.PlayerClassName == "headcrabzombie" and ent:GetClass() ~= "weapon_hands_sh" then
 		return false
@@ -331,7 +331,7 @@ hook.Add("PlayerUse", "ZombCantPickup", function(ply, ent)
 	end
 end)
 
---// Player speed & animation speed stuff
+-- Player speed & animation speed stuff
 hook.Add("HG_MovementCalc_2", "ZombSpeed", function(mul, ply, cmd, mv)
 	if IsValid(ply) and ply.PlayerClassName == "headcrabzombie" then
         mul[1] = 0.8
@@ -387,21 +387,21 @@ if SERVER then
 		end
 	end)]]
 
-	--// Zombies can't loot anyone
+	-- Zombies can't loot anyone
 	hook.Add("ZB_CanLootInventory", "ZombCanLoot", function(ply, ent, canloot)
 		if ply.PlayerClassName == "headcrabzombie" then
 			return ply, ent, false
 		end
 	end)
 
-	--// Zombies can't speak
+	-- Zombies can't speak
 	hook.Add("HG_PlayerCanHearPlayersVoice", "ZombVoice", function(listener, speaker)
 		if speaker.PlayerClassName == "headcrabzombie" then
 			return false, false
 		end
 	end)
 else
-	--// Draw 3d headcrab overlay
+	-- Draw 3d headcrab overlay
 	local function DrawHeadcrab(ply, strModel, vecAdjust, fFov)
 		if not IsValid(ply.FirstPersonCrab) then
 			ply.FirstPersonCrab = ClientsideModel(strModel)
@@ -486,7 +486,7 @@ else
 		end
 	end)
 
-	--// Change view from head to upper torso because zombie model doesn't have proper head bone..
+	-- Change view from head to upper torso because zombie model doesn't have proper head bone..
 	-- "HG_CalcView", ply, origin, angles, fova, znear, zfar
 	hook.Add("HGAddView", "ZombView", function(ply, origin, angles)
 		if ply:Alive() and IsVisualZombie(ply) then
@@ -521,8 +521,8 @@ else
 		if IsVisualZombie(lply) and lply:Alive() and GetViewEntity() == lply then
 			render.UpdateScreenEffectTexture()
 
-			zombMat_Add:SetFloat("$c0_x", -CurTime() * 0.1) //time
-			zombMat_Add:SetFloat("$c0_y", 0.1) //intensity (strict)
+			zombMat_Add:SetFloat("$c0_x", -CurTime() * 0.1) --time
+			zombMat_Add:SetFloat("$c0_y", 0.1) --intensity (strict)
 			zombMat_Add:SetFloat("$c2_x", 2)
 
 			render.SetMaterial(zombMat_Add)
@@ -555,7 +555,7 @@ hook.Add("PlayerCanLegAttack", "ZombKick", function(ply)
 	end
 end)
 
---// Zombie animations
+-- Zombie animations
 hook.Add("CalcMainActivity", "ZombAnims", function(ply, vel)
 	if ply.PlayerClassName == "headcrabzombie" then
 		local anim = ACT_HL2MP_RUN_ZOMBIE
@@ -577,7 +577,7 @@ hook.Add("CalcMainActivity", "ZombAnims", function(ply, vel)
 	end
 end)
 
---// Zombie can't drive vehicles
+-- Zombie can't drive vehicles
 hook.Add("CanPlayerEnterVehicle", "ZombVehicle", function(ply, ent)
 	if ply.PlayerClassName == "headcrabzombie" then
 		return false

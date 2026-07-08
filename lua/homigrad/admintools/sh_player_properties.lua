@@ -657,10 +657,10 @@ local function Respawn(ply,body)
         ply:Kill()
     end
     ply.gottarespawn = true
-    //OverrideSpawn = true
+    --OverrideSpawn = true
     timer.Simple(0.1, function()
         ply:Spawn()
-        //OverrideSpawn = false
+        --OverrideSpawn = false
         timer.Simple(0.1, function()
             ply.inventory = table.Copy(body.inventory or defaultinv)
             --PrintTable(ply.inventory)

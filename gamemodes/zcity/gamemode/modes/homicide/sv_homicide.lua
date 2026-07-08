@@ -1396,10 +1396,10 @@ function MODE:Intermission()
 		end
 	end
 
-	//MODE.NextRoundMainTraitors = MODE.NextRoundMainTraitors or {}
+	--MODE.NextRoundMainTraitors = MODE.NextRoundMainTraitors or {}
 	for i, ply in RandomPairs(player.GetAll()) do
 		if not CanPickTraitor(ply, false) then continue end
-		//if not MODE.NextRoundMainTraitors[ply:SteamID()] then continue end
+		--if not MODE.NextRoundMainTraitors[ply:SteamID()] then continue end
 
 		if traitors_needed > 0 then
 			ply.isTraitor = true
@@ -1820,7 +1820,7 @@ net.Receive("HMCD(StartPlayersRoleSelection)", function(len, ply)
 		end
 	end
 end)
-// ...
+-- ...
 
 
 util.AddNetworkString("HMCD_TraitorDeathState")
@@ -1892,13 +1892,13 @@ net.Receive("HMCD_RequestTraitorStatuses", function(len, ply)
         end
     end
 end)
-// ...
+-- ...
 
 function MODE.ShouldStartRoleRound()
 	do return false end
 	return MODE.RoleChooseRoundTypes[MODE.Type] and GetGlobalBool("RolesPlus_Enable", false)
 end
---//
+--
 
 MODE.TraitorKilledRoundEndDelay = MODE.TraitorKilledRoundEndDelay or 15
 MODE.TraitorNeutralizationStart = MODE.TraitorNeutralizationStart or nil

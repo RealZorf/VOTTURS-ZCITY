@@ -1,7 +1,7 @@
 --\\
 	--; уод
 	--; уоп
---//
+--
 
 --\\Vocal Synthesizer Lore (insert funny_research_compilation.mp4 here)
 	--; L = S / F
@@ -31,11 +31,11 @@
 	--; https://habr.com/ru/articles/500764/
 	--; Спектрограммы и прочее
 	--; https://habr.com/ru/articles/469775/
---//
+--
 
 --\\True info sources
 	--; https://youtu.be/79N1O0lF0GY?si=KexQCyL-WYCBfbMw
---//
+--
 
 --\\
 	--; В целом звуки речи подразделяются на шумы и тоны: 
@@ -45,18 +45,18 @@
 	--; Звонкие согласные образуются путём слияния шумов и тонов.
 	--; Шумы и тоны исследуются по их высоте, тембру, силе и многим другим характеристикам.
 	--; Согласные состоят из шумов...
---//
+--
 
 --\\Звуки
 	--; Тональные
 	--; Шипящие
 	--; Нозальные
---//
+--
 
 --\\Перевод плагиновых штук в ваши штуки
 	hg.Synthesizer = hg.Synthesizer or {}
 	local PLUGIN = hg.Synthesizer
---//
+--
 
 local function median(...)
 	local args = {...}
@@ -205,7 +205,7 @@ end
 	vocal_funcs["saw_a_p"] = function(args, val, current_frequency, work_table)	
 		return median(vocal_funcs["saw_a"](args, val, current_frequency, work_table), vocal_funcs["p"](args, val, current_frequency, work_table))
 	end
---//
+--
 
 --\\
 	local default_args = {}
@@ -217,7 +217,7 @@ end
 	default_args["Mul"] = -1
 	default_args["Period"] = 1
 	default_args["Trebble"] = 1
---//
+--
 
 local mh = math.huge
 local vocals = {
@@ -490,7 +490,7 @@ local vocals = {
 			-- {0.3, {["sin"] = 0.6, ["noise_pink"] = 0.3}, 0.5, 0.85, {Pitch = 7, Trebble = 1.0, Length = 0.70}},
 			-- {mh, {["sin"] = 0.6, ["noise_pink"] = 0.3}, 0.0, 0.85, {Pitch = 7, Trebble = 1.0, Length = 0.70}},
 		-- },
-	--//
+	--
 		
 	--\\
 		["жужание"] = {
@@ -512,7 +512,7 @@ local vocals = {
 		["test2"] = {
 			{mh, "noise_pink", 0.1, 25.00, {Pitch = 10, Trebble = 2, Slope = 0}},
 		},
-	--//
+	--
 	-- ["た"] = {
 		-- {0, 0.0, 3.0, 1},
 		-- {0.03, 0.3, 5.0, 2},
@@ -558,7 +558,7 @@ local vocals = {
 	net.Receive("Synthesizer(PlayOnPlayer)", function()
 		PLUGIN.PlayVocalOnPlayer(net.ReadString(), net.ReadEntity())
 	end)
---//
+--
 
 local function vocal_sample_calc(func_name, args, val, current_frequency, work_table)
 	local queue_line = PLUGIN.TTSQueue[PLUGIN.TTSQueueCurrent]
@@ -666,7 +666,7 @@ local function play_vocal(vocal_id, time)
 							current_args[arg_id] = nil
 						end
 					end
-				--//
+				--
 			else
 				vol_mul = freq_info[3]
 				freq_mul = freq_info[4]

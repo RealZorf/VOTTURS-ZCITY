@@ -483,7 +483,7 @@ if(SERVER)then
 		shadowControl = shadowControl or hg.ShadowControl
 		local fakeGun = ragdoll.fakeGun
 
-		//pos:Add(angles:Right() * 5)
+		--pos:Add(angles:Right() * 5)
 		shadowControl(ragdoll, 5, 0.001, angles, 500, 30, pos, 500, 50)
 	end
 end

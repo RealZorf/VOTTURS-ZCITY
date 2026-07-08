@@ -43,8 +43,8 @@ local repeating = {
 	["Р"] = true,
 }
 
-// можно сделать чтобы оно просто брало стринг, текущее местоположение буквы и добавляло ещё сверху
-//
+-- можно сделать чтобы оно просто брало стринг, текущее местоположение буквы и добавляло ещё сверху
+--
 
 
 
@@ -128,7 +128,7 @@ if CLIENT then
 	hook.Add("Player_Death","removeNotifications",function(ply)
 		if ply != lply then return end
 
-		//hg.currentNotification = nil
+		--hg.currentNotification = nil
 		hg.notifications = {}
 	end)
 
@@ -142,7 +142,7 @@ if CLIENT then
 	hook.Add("HG_OnOtrub","removeNotificationsb",function(ply)
 		if ply != lply then return end
 
-		//hg.currentNotification = nil
+		--hg.currentNotification = nil
 		hg.notifications = {}
 	end)
 
@@ -213,7 +213,7 @@ if CLIENT then
 	local time_spent = CurTime()
 	local coloruse = Color(255,255,255,255)
 	local function NotificationsThink()
-		//if hg.currentNotification or #hg.notifications == 0 then return end
+		--if hg.currentNotification or #hg.notifications == 0 then return end
 		if #hg.notifications == 0 then return end
 		if hg.currentNotification then return end
 		if !lply:Alive() then hg.notifications = {} return end
@@ -264,16 +264,16 @@ if CLIENT then
 		lply = LocalPlayer()
 		local org = lply.organism
 		if not org or not org.pain or not org.brain then return end
-		//if org.otrub and !last_message then return end
+		--if org.otrub and !last_message then return end
 
-		//if hg_old_notificate:GetBool() then return end
+		--if hg_old_notificate:GetBool() then return end
 		local tbl = hg.currentNotification
 
 		if tbl and istable(tbl) and not table.IsEmpty(tbl) then
 			local msg, time, timeshow, clr = tbl[1], tbl[2], tbl[3], tbl[4]
 
-			local mul = ((org.brain > 0.1 or org.pulse < 50) and 3 or 1)// * (org.fear > 0 and math.max(1 - org.fear, 0.6) or 1)
-			local time_one_symbol = 0.06 * mul//(lply.organism and lply.organism.fear >= 0.5 and 0.5 or 1)
+			local mul = ((org.brain > 0.1 or org.pulse < 50) and 3 or 1)-- * (org.fear > 0 and math.max(1 - org.fear, 0.6) or 1)
+			local time_one_symbol = 0.06 * mul--(lply.organism and lply.organism.fear >= 0.5 and 0.5 or 1)
 			local time_to_read = (utf8.len(msg) * time_one_symbol)
 			local wait = math.Clamp(time_to_read / 3 * math.Clamp(1 - #hg.notifications / 1, 0.25, 1), 1, 4) + timeshow
 
@@ -289,7 +289,7 @@ if CLIENT then
 
 				if click != oldclick and not last_message then
 					sound.Play("peepsnd", render.GetViewSetup().origin - vector_up * 10)
-					//surface.PlaySound("peepsnd")
+					--surface.PlaySound("peepsnd")
 					oldclick = click
 				end
 
@@ -343,7 +343,7 @@ if CLIENT then
 					cam.PushModelMatrix( m, true )
 					DisableClipping(true)
 						local col2
-						for i = 1, 40 do // erm maybe 40 is too much? idk i don't care :3 :3 :3
+						for i = 1, 40 do -- erm maybe 40 is too much? idk i don't care :3 :3 :3
 							col2 = HSVToColor(350 + (math.sin(SysTime() + i / 50) * 10 * hg.berserkIntensity), 0.8, 0.9)
 							local posX = -math.sin(RealTime() * 7) * i / 2 * hg.berserkIntensity
 							local posY = -math.cos(RealTime() * 7) * i / 2 * hg.berserkIntensity
@@ -371,7 +371,7 @@ if CLIENT then
 
 				local clr = tbl and tbl[4] and IsColor(tbl[4]) and tbl[4] or Color(255, 255, 255, 255)
 				if tbl and clr and tbl[1] then
-					//MsgC(Color(clr.r, clr.g, clr.b, 255), (last_message or tbl[1]).."\n")
+					--MsgC(Color(clr.r, clr.g, clr.b, 255), (last_message or tbl[1]).."\n")
 					chat.AddText(Color(clr.r, clr.g, clr.b, 255), (last_message or tbl[1]).."\n")
 				end
 
@@ -389,7 +389,7 @@ else
 	concommand.Add("hg_notify", function(ply, cmd, args)
 		if not ply:IsAdmin() then return end
 		for i, ply in pairs(player.GetListByName(args[1])) do
-			//(ply, msg, delay, msgKey, showTime, func, clr)
+			--(ply, msg, delay, msgKey, showTime, func, clr)
 			ply:Notify(args[2], 6, nil, 0, nil, Color(args[3] or 255, args[4] or 255, args[5] or 255))
 		end
 	end)

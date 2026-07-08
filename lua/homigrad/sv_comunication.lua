@@ -7,7 +7,7 @@ local chat_dist_whisper = 100
 	net.Receive("ChatWhisper", function(len, ply)
 		ply.ChatWhisper = net.ReadBool()
 	end)
---//
+--
 
 local function ChatLogic(output, input, isChat, teamonly, text)
 

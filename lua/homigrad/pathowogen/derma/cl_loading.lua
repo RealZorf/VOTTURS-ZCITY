@@ -231,9 +231,9 @@ function PANEL:Init()
 		2.2,
 		2.5,
 		2.7,
-		4.2, //memory scan complete
+		4.2, --memory scan complete
 		4.3,
-		4.9, //memory adjustment complete
+		4.9, --memory adjustment complete
 		6.2,
 		6.5
 	}
@@ -445,7 +445,7 @@ function PANEL:Paint()
 	local init = self.initAnim
 	local init2 = self.initAnim2 * 10
 
-	//grid sweep
+	--grid sweep
 	surface.SetDrawColor(0, 0, 0, init * 255)
 	surface.DrawRect(-10, -10, sw + 10, sh + 10)
 

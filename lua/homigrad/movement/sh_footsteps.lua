@@ -73,4 +73,4 @@ local hg_coolcamera = ConVarExists("hg_coolcamera") and GetConVar("hg_coolcamera
 
 		return true
 	end)
---//
+--

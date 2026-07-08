@@ -19,7 +19,7 @@ SWEP.FakeBodyGroups = "000000000"
 SWEP.BarrelLength = 40
 SWEP.SUPBarrelLenght = 47
 SWEP.OpenBolt = true
-SWEP.CantFireFromCollision = false // 2 спусковых крючка все дела
+SWEP.CantFireFromCollision = false -- 2 спусковых крючка все дела
 
 SWEP.FakeViewBobBone = "ValveBiped.Bip01_L_Hand"
 SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"
@@ -127,7 +127,7 @@ SWEP.AnimsEvents = {
 	}
 }
 
---// Custom reload pos
+-- Custom reload pos
 local idlePos, idleAng = Vector(-6, 11, 8), Angle(0, -45.5, 0)
 local reloadPos, reloadAng = Vector(2, 8, 7), Angle(60, 0, 0)
 local restVec = Vector(-12, 0, 8)
@@ -181,7 +181,7 @@ function SWEP:ThinkAdd()
 	end
 end
 
---// Falling on shoot
+-- Falling on shoot
 function SWEP:PrimaryShootPost()
 	if CLIENT then return end
 	if self:IsResting() then return end

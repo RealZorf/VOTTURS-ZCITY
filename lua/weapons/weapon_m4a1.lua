@@ -19,7 +19,7 @@ SWEP.IconOverride = "entities/arc9_eft_m4a1.png"
 SWEP.Primary.Wait = 0.085
 SWEP.Primary.Automatic = true
 
-//SWEP.StartAtt = {"ironsight2", false}
+--SWEP.StartAtt = {"ironsight2", false}
 SWEP.StartAtt = {"ironsight2"}
 
 SWEP.cameraShakeMul = 1

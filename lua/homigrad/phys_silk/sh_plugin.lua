@@ -2,18 +2,18 @@
 	hg.PhysSilk = hg.PhysSilk or {}
 	local PLUGIN = hg.PhysSilk
 	PLUGIN.ID = "PhysSilk"
---//
+--
 
 --\\Литература
 	--; Philip Schneider David Eberly - Geometric Tools for Computer Graphics
---//
+--
 
 --\\
 	--; TODO
 	--; Граплинг хук физика
 	--; Шёлковые ленточки на стрелах
 	--; Шёлковые ленточки на палочках
---//
+--
 
 PLUGIN.Name = "Physics Silk"
 PLUGIN.Description = "Шёлковые ленточки"
@@ -235,7 +235,7 @@ PLUGIN.SilkTableClient = PLUGIN.SilkTableClient or {}
 			}
 		end
 	--=//
---//
+--
 
 --\\Creation
 	function PLUGIN.CreateSilk(silk, client_only)
@@ -271,7 +271,7 @@ PLUGIN.SilkTableClient = PLUGIN.SilkTableClient or {}
 
 		return silk
 	end
---//
+--
 
 PLUGIN.SilkTable = {}
 PLUGIN.SilkTableClient = {}
@@ -332,4 +332,4 @@ PLUGIN.SilkTableClient = {}
 			end
 		end)
 	end
---//
+--

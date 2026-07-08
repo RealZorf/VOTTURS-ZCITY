@@ -1333,7 +1333,7 @@ end
 		net.WriteString("")
 		net.Send(ply)
 	end
---//
+--
 
 hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 	if(MODE.RoleChooseRoundTypes[MODE.Type])then

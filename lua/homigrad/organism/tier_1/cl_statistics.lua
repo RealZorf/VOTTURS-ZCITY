@@ -171,8 +171,8 @@ local list = {
 	{"rleg", 1, true}, 
 	{"larm", 1, true}, 
 	{"rarm", 1, true},
-	//"recoilmul",
-	//"meleespeed",
+	--"recoilmul",
+	--"meleespeed",
 }
 local function LerpColor(lerp, source, set)
 	return Lerp(lerp, source.r, set.r), Lerp(lerp, source.g, set.g), Lerp(lerp, source.b, set.b)

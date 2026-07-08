@@ -95,7 +95,7 @@ net.Receive("hg_bloodimpact", function()
 	local mul = net.ReadFloat()
 	local amt = net.ReadInt(8)
 	amt = math.Clamp(amt,0,32)
-	//debugoverlay.Line(pos, vel, 5, color_white)
+	--debugoverlay.Line(pos, vel, 5, color_white)
 	for i = 1, amt do impact(pos,vel,mul) end
 end)
 
@@ -184,7 +184,7 @@ net.Receive("bloodsquirt", function()
 
 	local ent = hg.RagdollOwner(ent) or ent
 
-	//local mat = ent:GetBoneMatrix(bone)
+	--local mat = ent:GetBoneMatrix(bone)
 	local localPos, localDir = WorldToLocal(pos, dir:Angle(), mat:GetTranslation(), mat:GetAngles())
 
 	local name = "squirtblood"..ent:EntIndex()..dir[1]
@@ -230,14 +230,14 @@ net.Receive("bloodsquirt2", function()
 	local ent = hg.RagdollOwner(ent) or ent
 	local ply = ent
 
-	//local mat = ent:GetBoneMatrix(bone)
+	--local mat = ent:GetBoneMatrix(bone)
 	local localPos, localDir = WorldToLocal(pos, dir:Angle(), mat:GetTranslation(), mat:GetAngles())
 
 	if ply == lply then
 		localPos:Add(-Vector(2,-2,0))
 	end
 
-	local name = "squirtblood2"..ent:EntIndex()//..dir[1]
+	local name = "squirtblood2"..ent:EntIndex()--..dir[1]
 	local i = 50
 	local maxI = i
 	local vechuy = Vector(0,0,0)

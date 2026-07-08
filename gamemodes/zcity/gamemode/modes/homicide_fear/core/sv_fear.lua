@@ -140,10 +140,10 @@ function MODE:Intermission()
 	local traitors = {}
 
 
-	//MODE.NextRoundMainTraitors = MODE.NextRoundMainTraitors or {}
+	--MODE.NextRoundMainTraitors = MODE.NextRoundMainTraitors or {}
 	for i, ply in RandomPairs(player.GetAll()) do
 		if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
-		//if not MODE.NextRoundMainTraitors[ply:SteamID()] then continue end
+		--if not MODE.NextRoundMainTraitors[ply:SteamID()] then continue end
 
 		if traitors_needed > 0 then
 			ply.isTraitor = true
@@ -152,7 +152,7 @@ function MODE:Intermission()
 
 			main_traitor = ply
 			ply.MainTraitor = true
-			//MODE.NextRoundMainTraitors[ply:SteamID()] = nil
+			--MODE.NextRoundMainTraitors[ply:SteamID()] = nil
 		end
 	end
 

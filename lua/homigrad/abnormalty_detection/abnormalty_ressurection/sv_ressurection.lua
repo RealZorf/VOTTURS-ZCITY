@@ -1,12 +1,12 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 --\\
 PLUGIN.Ressurection = PLUGIN.Ressurection or {}
 PLUGIN.Ressurection.ToRessurect = PLUGIN.Ressurection.ToRessurect or {}
---//
+--
 
 --\\
 local function FindBody(zone)
@@ -72,7 +72,7 @@ local function TryRessurect(zone, ply)
 		PLUGIN.ShowMessage(ply, "There is not enough blood in order to reanimate body")
 	end
 end
---//
+--
 
 --\\SpecialEvents
 hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_Ressurection", function(zone_id, abnormalty_name, amt, ply)
@@ -144,4 +144,4 @@ end)
 hook.Add("PostCleanupMap", "Abnormalties_Ressurection", function()
 	PLUGIN.Ressurection.ToRessurect = {}
 end)
---//
+--

@@ -108,7 +108,7 @@ local function GetWorkshopInfo( addon, callback )
 			if not cache then callback( result, nil ) return end
 			local mat = AddonMaterial(cache)
 
-			// Jazztronauts taught me not to trust this little material
+			-- Jazztronauts taught me not to trust this little material
 			local baseTex = ( mat and mat:GetTexture("$basetexture") ) or nil
 			if baseTex == nil then
 				mat = AddonMaterial(cache)
@@ -154,13 +154,13 @@ function wOS.DynaBase:OpenConfigMenu()
 	sheet:SetSize(aw*0.9, ah*0.8)
 	sheet:SetPos(aw*0.05, ah*0.05)
 
-	////////////////////////////////////////////////////////////////// Server Menu
+	------------------------------------------------------------------ Server Menu
 	local scroll = vgui.Create("DScrollPanel", sheet )
 	scroll:SetSize(aw*0.9, ah*0.8)
 	local sw, sh = scroll:GetSize()
 	sheet:AddSheet( "Server Animations", scroll, "icon16/server.png" )
 
-	//placehold
+	--placehold
 	local layout2 
 	local layout = vgui.Create("DListLayout", scroll)
 	layout:SetSize(sw, sh)
@@ -471,7 +471,7 @@ function wOS.DynaBase:OpenConfigMenu()
 	end
 
 
-	////////////////////////////////////////////////////////////////// Local Menu
+	------------------------------------------------------------------ Local Menu
 
 	-- if WOS_DYNABASE_ENFORCECONTENT_CVAR:GetInt() > 0 then
 	-- 	local err = vgui.Create( "DPanel", sheet )
@@ -746,7 +746,7 @@ function wOS.DynaBase:OpenConfigMenu()
 	PopulateEntries()
 
 
-	////////////////////////////////////////////////////////////////// Helper Menu
+	------------------------------------------------------------------ Helper Menu
 	local scroll = vgui.Create("DScrollPanel", sheet )
 	scroll:SetSize(aw*0.9, ah*0.8)
 	scroll.ReloadAddons = function() PopulateEntries() end
@@ -812,5 +812,5 @@ function wOS.DynaBase:OpenConfigMenu()
 	nobutt:SetPos( aw*0.05, ah*0.91 )
 	nobutt:SetText( "Cancel" )
 	nobutt.DoClick = function() self:OpenConfigMenu() end
-	//toggle:SetText( "Cancel" )
+	--toggle:SetText( "Cancel" )
 end

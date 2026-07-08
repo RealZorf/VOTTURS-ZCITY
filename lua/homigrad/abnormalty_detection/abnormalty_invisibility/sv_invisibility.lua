@@ -1,12 +1,12 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 --\\
 PLUGIN.Invisibility = PLUGIN.Invisibility or {}
 PLUGIN.Invisibility.ToInvis = PLUGIN.Invisibility.ToInvis or {}
---//
+--
 
 --\\
 local function recursive_set_prevent_transmit(ent, ply, stop_transmitting)
@@ -51,7 +51,7 @@ local function TryInvis(zone, ply)
 		PLUGIN.ShowMessage(ply, "There is not enough equalizers in order to make someone invisible")
 	end
 end
---//
+--
 
 --\\
 	function PLUGIN.Invisibility.UpdateInvisiblity(ply)
@@ -112,7 +112,7 @@ end
 		
 		ply.Abnormalties_Invisible = state
 	end
---//
+--
 
 --\\SpecialEvents
 hook.Add("Abnormalties_HotZoneAbnormaltyAdded", "Abnormalties_Invisibility", function(zone_id, abnormalty_name, amt, ply)
@@ -214,4 +214,4 @@ hook.Add("PostCleanupMap", "Abnormalties_Invisibility", function()
 		end
 	end
 end)
---//
+--

@@ -217,7 +217,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 		end
 	end
 
-	//hook_Run("radialOptions")
+	--hook_Run("radialOptions")
 	local options1 = options_arg or hg.radialOptions
 
 	hg.radialOptions = options1
@@ -260,7 +260,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 			local functions = hook.GetTable()["radialOptions"]
 			
 			for i, func in SortedPairs(functions) do
-				//if i == "zmeyka_test" then continue end
+				--if i == "zmeyka_test" then continue end
 				func()
 			end
 		end
@@ -275,7 +275,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 		vecXY.x = x
 		vecXY.y = y
 		local deg = (vecXY:GetNormalized() - vecDown):Angle()
-		//deg[2] = deg[2] - 180
+		--deg[2] = deg[2] - 180
 		deg = math.NormalizeAngle((deg[2] - 180) * 2) + 180
 		
 		local options = {}
@@ -301,7 +301,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 			optionSelected[num] = optionSelected[num] or 0
 			optionSelected[num] = LerpFT(0.1, optionSelected[num], isMouseIntersecting and 1 or 0)
 
-			if option[3] then --// Multibutton
+			if option[3] then -- Multibutton
 				surface.SetMaterial(matHuy)
 				surface.SetDrawColor(isMouseIntersecting and colBlack or colBlack)
 				draw.CirclePart(w / 2, h / 2, r, 40, #options, num)
@@ -320,7 +320,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 
 					if paining then
 						math.randomseed(math.Round(CurTime() / 5 + num + i, 0))
-						opt = ""//hg.get_status_message(ply)
+						opt = ""--hg.get_status_message(ply)
 						math.randomseed(os.time())
 					end
 
@@ -332,14 +332,14 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 			
 			--print(options_arg ~= nil and true or false)
 			surface.SetMaterial(matHuy)
-			if option[6] and IsColor(option[6]) then --// Custom color
-				if option[7] and IsColor(option[7]) then --// Custom select color
+			if option[6] and IsColor(option[6]) then -- Custom color
+				if option[7] and IsColor(option[7]) then -- Custom select color
 					surface.SetDrawColor(option[7]:Lerp(option[6], 1 - optionSelected[num]))
 				else
 					surface.SetDrawColor(colWhiteTransparent:Lerp(option[6], 1 - optionSelected[num]))
 				end
 			else
-				if option[7] and IsColor(option[7]) then --// Custom select color
+				if option[7] and IsColor(option[7]) then -- Custom select color
 					surface.SetDrawColor(option[7]:Lerp(options_arg ~= nil and colOption or colBlack, 1 - optionSelected[num]))
 				else
 					surface.SetDrawColor(colWhiteTransparent:Lerp(options_arg ~= nil and colOption or colBlack, 1 - optionSelected[num]))
@@ -351,7 +351,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 			a = math.rad(a) + math.pi
 
 			--PrintTable(option)
-			if option[5] then --// Icon
+			if option[5] then -- Icon
 				local a = -partDeg * num - partDeg / 2
 				a = math.rad(a) + math.pi
 
@@ -362,7 +362,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 		
 				surface.DrawTexturedRect(sizeW, sizeH, scrW * 0.1, scrH * 0.1)
 			else
-				local txt = option[2] --// Text
+				local txt = option[2] -- Text
 				if txt and !options_old then return end
 				if paining then
 					math.randomseed(math.Round(CurTime() / 5 + num, 0))

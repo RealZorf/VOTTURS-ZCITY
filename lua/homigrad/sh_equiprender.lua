@@ -365,7 +365,7 @@ if CLIENT then
 	local hg_gopro = ConVarExists("hg_gopro") and GetConVar("hg_gopro") or CreateClientConVar("hg_gopro", "0", true, false, "Toggle GoPro-like first-person camera view", 0, 1)
 	hook.Add("Post Pre Post Processing", "renderHelmetThingy", function()
 		cam.IgnoreZ(true)
-		//cam.Start2D()
+		--cam.Start2D()
 		local armors = lply.armors
 
 		if lply.soundhuy and not (armors["face"] and hg.armor.face[armors["face"]].loopsound) then
@@ -420,15 +420,15 @@ if CLIENT then
 
 			if hg.armor.face[armors["face"]].loopsound and (lply.organism and lply.organism.pulse <= 85) then
 				if not lply.soundhuy then
-					//lply.soundhuy = lply.organism and lply.organism.pulse > 80 and "scp cb/breath1gas.wav" or hg.armor.face[armors["face"]].loopsound
+					--lply.soundhuy = lply.organism and lply.organism.pulse > 80 and "scp cb/breath1gas.wav" or hg.armor.face[armors["face"]].loopsound
 					lply.soundhuy = hg.armor.face[armors["face"]].loopsound
 					lply:StartLoopingSound(lply.soundhuy)
 				end
 			end
 		end
 		
-		//local shouldplaysnd = lply.organism and lply.organism.pulse > 80 and "scp cb/breath1gas.wav" or hg.armor.face[armors["face"]].loopsound
-		if lply.soundhuy and ((not (armors["face"] and hg.armor.face[armors["face"]].loopsound)) or (lply.organism and lply.organism.pulse > 85)) then// or shouldplaysnd != lply.soundhuy) then
+		--local shouldplaysnd = lply.organism and lply.organism.pulse > 80 and "scp cb/breath1gas.wav" or hg.armor.face[armors["face"]].loopsound
+		if lply.soundhuy and ((not (armors["face"] and hg.armor.face[armors["face"]].loopsound)) or (lply.organism and lply.organism.pulse > 85)) then-- or shouldplaysnd != lply.soundhuy) then
 			lply:StopSound(lply.soundhuy)
 			lply.soundhuy = nil
 		end
@@ -468,7 +468,7 @@ if CLIENT then
 			end)
 		end
 		cam.IgnoreZ(false)
-		//cam.End2D()
+		--cam.End2D()
 	end)
 
 	hook.Add("Player_Death", "stopgasmasksound", function(ply)
@@ -647,7 +647,7 @@ if CLIENT then
 			
 			for k, v in pairs(tblcpy) do
 				if !hg.armorNames[v] and isnumber(k) then continue end
-				//if hg.armor[v][k].nodrop then continue end
+				--if hg.armor[v][k].nodrop then continue end
 				local but = vgui.Create("DButton")
 				local prefix = string.find(k, "_")
 				if prefix then

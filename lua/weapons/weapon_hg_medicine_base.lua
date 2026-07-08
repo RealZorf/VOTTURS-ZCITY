@@ -102,7 +102,7 @@ function SWEP:PrimaryAttack()
 end
 
 
---// i think it's better to rewrite all of ts stuff below..
+-- i think it's better to rewrite all of ts stuff below..
 
 if CLIENT then
 	local colWhite = Color(255, 255, 255, 255)
@@ -143,8 +143,8 @@ if CLIENT then
 		local p,a = mdl:GetPos(), mdl:GetAngles()
 		local pos,ang = LocalToWorld(self.ofsV,self.ofsA,p,a)
 		if self.showstats and self.modeValues and istable(self.modeValues) then
-			//cam.Start3D()
-				//cam.Start3D2D(pos,ang,0.01)
+			--cam.Start3D()
+				--cam.Start3D2D(pos,ang,0.01)
 				render.PushFilterMag( TEXFILTER.LINEAR )
 				render.PushFilterMin( TEXFILTER.LINEAR )
 				local m = Matrix()
@@ -156,7 +156,7 @@ if CLIENT then
 						if not isnumber(i) or not val or not self.modeValuesdef or not self.modeValuesdef[i][1] then continue end
 						local val = math.Round(val / self.modeValuesdef[i][1] * 100)
 						local x,y = 0, i * ScrH() / 20
-						local reveal = 1//math.Clamp(lply:EyeAngles()[1] / 90 - 0.25, 0, 1) * 4 / 3
+						local reveal = 1--math.Clamp(lply:EyeAngles()[1] / 90 - 0.25, 0, 1) * 4 / 3
 						colBrown.a = reveal * 185
 						draw.RoundedBox(2,x,y,x + ScreenScale(210) + ScrW() / 10,ScrH() / 25 + (#self.modeValues > 0 and 0 or 0),colBrown)
 						surface.SetFont("ZCity_Small")
@@ -177,8 +177,8 @@ if CLIENT then
 
 				render.PopFilterMag()
 				render.PopFilterMin()
-				//cam.End3D2D()
-			//cam.End3D()
+				--cam.End3D2D()
+			--cam.End3D()
 		end
 	end
 end

@@ -177,4 +177,4 @@ net.Receive("Abnormalties(SendOpenedPage)", function(len, ply)
 		return false
 	end
 end)
---//
+--

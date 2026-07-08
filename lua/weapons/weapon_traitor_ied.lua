@@ -178,7 +178,7 @@ local function oldExplosionDisorientation(enta, tinnitus, disorientation)
 	enta.organism.owner:AddTinnitus(tinnitus)
 	enta.organism.disorientation = enta.organism.disorientation + (disorientation)
 
-	net.Start("organism_send") // отправляем только дизориентацию (чтобы не нагружать нет), и сразу
+	net.Start("organism_send") -- отправляем только дизориентацию (чтобы не нагружать нет), и сразу
 	local tbl = {}
 	tbl.disorientation = enta.organism.disorientation
 	tbl.shock = enta.organism.shock
@@ -187,7 +187,7 @@ local function oldExplosionDisorientation(enta, tinnitus, disorientation)
 	net.WriteBool(true)
 	net.WriteBool(false)
 	net.WriteBool(false)
-	net.WriteBool(true) // вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
+	net.WriteBool(true) -- вот эта шняга отвечает за то чтобы оно просто мерджнуло и всё
 	net.Send(enta.organism.owner)
 end
 

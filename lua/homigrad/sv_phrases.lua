@@ -289,7 +289,7 @@ end)
 util.AddNetworkString("hg_phrase")
 net.Receive("hg_phrase", function(len, ply)
 	if (ply.phrCld or 0) > CurTime() then return end
-	local result = hook.Run("HG_CanDoPhrase", ply, cmd, args) // return here true to reject phrase 
+	local result = hook.Run("HG_CanDoPhrase", ply, cmd, args) -- return here true to reject phrase 
 	if result then return end
 
 	local playerClass = ply.PlayerClassName
@@ -373,7 +373,7 @@ net.Receive("hg_phrase", function(len, ply)
 		ent:EmitSound(phrase, muffed and 65 or 75,ply.VoicePitch or 100,1,CHAN_AUTO,0, pitch and 56 or muffed and 14 or 0)
 	end
 
-	if string.match( phrase, ".ogg" ) then // ogg doesn't return the right soundduration
+	if string.match( phrase, ".ogg" ) then -- ogg doesn't return the right soundduration
 		ply.phrCld = CurTime() + 1
 	else
 		ply.phrCld = CurTime() + (SoundDuration(phrase) or 0)
@@ -434,7 +434,7 @@ hook.Add("Org Think", "WhatsSoFunny",function(owner, org, timeValue)
 	end
 end)
 
-// Stop it in water
+-- Stop it in water
 hook.Add("OnEntityWaterLevelChanged","StopPhraseInWater",function(ent,old,new)
 	if ent:IsPlayer() or ent:IsRagdoll() then
 		local ply = ent:IsRagdoll() and hg.RagdollOwner(ent) or ent
@@ -446,13 +446,13 @@ hook.Add("OnEntityWaterLevelChanged","StopPhraseInWater",function(ent,old,new)
 	end
 end)
 
-// Context Phrases
+-- Context Phrases
 concommand.Add("hg_phrase_context",function(ply, cmd, args)
 	if !IsValid(ply) then return end
-	local result = hook.Run("HG_CanDoPhrase", ply, cmd, args) // return here true to reject phrase 
+	local result = hook.Run("HG_CanDoPhrase", ply, cmd, args) -- return here true to reject phrase 
 	if result then return end
 
-	result = hook.Run("HG_Phrase_Context", ply, cmd, args) // return here true to reject phrase 
+	result = hook.Run("HG_Phrase_Context", ply, cmd, args) -- return here true to reject phrase 
 	if result then return end
 
 	local phrase = contextPhrases[ThatPlyIsFemale(ply) and 2 or 1][args[1]]
@@ -467,7 +467,7 @@ end)
 
 hook.Add("HG_CanDoPhrase", "Pharse_Check", function(ply, cmd, args)
 	if (ply.phrCld or 0) > CurTime() then return true end
-	if ply.PlayerClassName == "Gordon" then return true end // move it to gordon playerclass soon...
+	if ply.PlayerClassName == "Gordon" then return true end -- move it to gordon playerclass soon...
 	if !IsValid(ply) or !ply:Alive() or ply:WaterLevel() >= 3 then return true end
 	local org = ply.organism
 	if !org then return true end

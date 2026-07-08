@@ -10,7 +10,7 @@ SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_pist_usp.mdl"
 SWEP.WorldModelFake = "models/weapons/zcity/salat/c_px4.mdl" --https://steamcommunity.com/sharedfiles/filedetails/?id=3544105055
-//PrintBones(Entity(1):GetActiveWeapon():GetWM())
+--PrintBones(Entity(1):GetActiveWeapon():GetWM())
 --uncomment for funny
 SWEP.FakePos = Vector(-11.5, 4.1, 5.6)
 SWEP.FakeAng = Angle(0, 0, 0)

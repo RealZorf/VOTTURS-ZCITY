@@ -87,7 +87,7 @@ PrecacheParticleSystem("impact_dirt")
 PrecacheParticleSystem("impact_wood")
 PrecacheParticleSystem("impact_glass")
 
---// Fix for homigrad content breaking impact decals (bruh)
+-- Fix for homigrad content breaking impact decals (bruh)
 if CLIENT then
 	RunConsoleCommand("cl_new_impact_effects", "1")
 end

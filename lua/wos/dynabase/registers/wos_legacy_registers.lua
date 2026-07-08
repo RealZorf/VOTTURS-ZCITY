@@ -1,5 +1,5 @@
-//  These are a bunch of legacy functions to register addons that don't have integrated support for animation management
-// This is not how  you should be doing your registers. See other addons
+--  These are a bunch of legacy functions to register addons that don't have integrated support for animation management
+-- This is not how  you should be doing your registers. See other addons
 
 local function GenericRegister( data )
     wOS.DynaBase:RegisterSource({
@@ -151,11 +151,11 @@ local tbl = {
     },  
 }
 
-// Workshop addon  check  first because that's the most reliable
+-- Workshop addon  check  first because that's the most reliable
 local op_table = table.Copy( tbl )
 for _, addon in ipairs( engine.GetAddons() ) do
     if not addon.mounted then continue  end
-    if addon.wsid == "2247494212" then //have to hardcode this cause Yongli needs to do an update..
+    if addon.wsid == "2247494212" then --have to hardcode this cause Yongli needs to do an update..
         wOS.DynaBase:RegisterSource({
             Name = "Sword Art Extension",
             Type =  WOS_DYNABASE.EXTENSION,
@@ -172,9 +172,9 @@ for _, addon in ipairs( engine.GetAddons() ) do
     op_table[addon.wsid] = nil
 end
 
-// Now for the longer version we have to do for servers.
+-- Now for the longer version we have to do for servers.
 for _, data in pairs( op_table ) do
-    local base_path = "models/xdreanims/f_anm_slot_" .. data.BaseSlot .. ".mdl" //They happen to all have female so we'll use that
+    local base_path = "models/xdreanims/f_anm_slot_" .. data.BaseSlot .. ".mdl" --They happen to all have female so we'll use that
     if !file.Exists(base_path, "GAME") then continue end
     GenericRegister( data )
 end

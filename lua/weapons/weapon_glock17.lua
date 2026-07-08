@@ -33,7 +33,7 @@ SWEP.FakeVPShouldUseHand = true
 
 SWEP.stupidgun = true
 
-SWEP.CantFireFromCollision = true // 2 спусковых крючка все дела
+SWEP.CantFireFromCollision = true -- 2 спусковых крючка все дела
 
 SWEP.AnimList = {
 	["idle"] = "idle",
@@ -109,7 +109,7 @@ if CLIENT then
 			end
 		end,
 		[0.9] = function( self, timeMul )
-			if self:Clip1() >= 1 then//fucking idiot doesnt know how > and < work
+			if self:Clip1() >= 1 then--fucking idiot doesnt know how > and < work
 				self:GetWM():ManipulateBoneScale(46, vector_origin)
 				self:GetOwner():PullLHTowards("ValveBiped.Bip01_L_Thigh", 0.5 * timeMul)
 			end

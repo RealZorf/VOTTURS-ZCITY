@@ -680,7 +680,7 @@ if SERVER then
 		end
 	end, 0}
 
-	--// Aliases
+	-- Aliases
 	COMMANDS.model = COMMANDS.setmodel
 	COMMANDS.playermodel = COMMANDS.setmodel
 	COMMANDS.setplayermodel = COMMANDS.setmodel
@@ -719,7 +719,7 @@ if SERVER then
 
 	end, 1, "[player] [scale: 1 regular, max 10]"}
 
-	--// Aliases
+	-- Aliases
 	COMMANDS.setsize = COMMANDS.setscale
 	COMMANDS.scale = COMMANDS.setscale
 	COMMANDS.size = COMMANDS.setscale

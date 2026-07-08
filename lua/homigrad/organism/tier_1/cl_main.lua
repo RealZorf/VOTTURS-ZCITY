@@ -39,7 +39,7 @@ hg.amputeetable = {
 	[HITGROUP_RIGHTLEG] = "rleg",
 	[HITGROUP_LEFTARM] = "larm",
 	[HITGROUP_RIGHTARM] = "rarm",
-	//[HITGROUP_HEAD] = 0.5
+	--[HITGROUP_HEAD] = 0.5
 }--]]
 
 hook.Add("ScalePlayerDamage", "remove-effects", function(ent, hitgroup, dmgInfo)
@@ -556,10 +556,10 @@ hook.Add("PostRender", "screenshot_think", function()
 	if not org or not org.brain or org.otrub or !lply:Alive() then return end
 	
 	local part = CurTime() - alivestart
-	//print(part)
+	--print(part)
 	if part % 60 > 59 and (screened != math.Round(part / 60, 0)) then
 		screened = math.Round(part / 60, 0)
-		//gui.HideGameUI()
+		--gui.HideGameUI()
 
 		if gui.IsGameUIVisible() or gui.IsConsoleVisible() or IsValid(vgui.GetHoveredPanel()) then return end
 
@@ -570,7 +570,7 @@ hook.Add("PostRender", "screenshot_think", function()
 			w = ScrW(),
 			h = ScrH(),
 			quality = 1,
-			//alpha = false
+			--alpha = false
 		} )
 
 		if not data then return end
@@ -664,7 +664,7 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	local organism = lply:Alive() and lply.organism or (viewmode == 1 and IsValid(spect) and spect.organism) or {}
 	local new_organism = lply:Alive() and lply.new_organism or (viewmode == 1 and IsValid(spect) and spect.new_organism) or {}
 
-	//hg.DrawAffliction(0, 0, 100, 100, 1, "pale")
+	--hg.DrawAffliction(0, 0, 100, 100, 1, "pale")
 
 	if organism.owner == LocalPlayer() then
 		if new_organism.otrub and !old then
@@ -713,8 +713,8 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	local adrenK = math.min(math.max(1 + adrenaline, 1), 1.2)
 
 	if org.otrub then
-		//DrawMotionBlur(0.1, 1., 0.1)
-		//lply:ScreenFade( SCREENFADE.IN, clr_black2, 2, 0.5 )
+		--DrawMotionBlur(0.1, 1., 0.1)
+		--lply:ScreenFade( SCREENFADE.IN, clr_black2, 2, 0.5 )
 	end
 	
 	--maybe 56, 30?
@@ -724,7 +724,7 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	if otrub or ((fakeTimer and fakeTimer - 2 > CurTime()) and GetConVar("hg_deathfadeout"):GetBool()) then
 		--if otrub or (fakeTimer and fakeTimer - 2 > CurTime()) then
 		clr_black1.a = math.Clamp(pain / 50 * 255, 250, 255)
-		//lply:ScreenFade( SCREENFADE.IN, clr_black2, 2, 0.5 )
+		--lply:ScreenFade( SCREENFADE.IN, clr_black2, 2, 0.5 )
 		--lply:ScreenFade( SCREENFADE.IN, Color(0,0,0,255), 2, 0.5 )
 		
 		if isnumber(zb.ROUND_STATE) and (zb.ROUND_STATE ~= 1) then
@@ -776,27 +776,27 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 			ang1[1] = math.cos(time) + math.sin(time * 0.5) + math.sin((time - 5) * 1.1)
 			ang1[2] = math.sin(time) + math.cos(time * 0.5) + math.sin((time + 1) * 1.1)
 			ViewPunch(ang1 * mul * 0.125)
-			//ViewPunch2(ang1 * mul * 1 * 0.25)
+			--ViewPunch2(ang1 * mul * 1 * 0.25)
 
-			//local ang = lply:EyeAngles()
-			//lply:SetEyeAngles(ang - ang1 * 0.01)
+			--local ang = lply:EyeAngles()
+			--lply:SetEyeAngles(ang - ang1 * 0.01)
 
 			ang2[3] = math.Rand(-15,15) * mul
-			//SetViewPunchAngles(ang2)
-			//ViewPunch(ang1 * mul * 1)
+			--SetViewPunchAngles(ang2)
+			--ViewPunch(ang1 * mul * 1)
 		end
 	end
 
 
-	//pain = math.abs(math.cos(CurTime())) * 40
+	--pain = math.abs(math.cos(CurTime())) * 40
 	if (pain > 0) or (hurt > 0) or (immobilization > 0) or (brain > 0) then
 		local k = ((hurt + immobilization / 15) / 2)
 		--DrawToyTown(1, k * ScrH())
 		local newpain = pain - 10
 		if newpain > 0 then
-			//surface.SetDrawColor(0, 0, 0, (newpain / 20) * 255 - math.ease.InOutCirc(math.abs(math.cos(CurTime()))) * 50)
-			//surface.SetMaterial(pain_mat)
-			//surface.DrawTexturedRect(-1, -1, ScrW()+1, ScrH()+1)
+			--surface.SetDrawColor(0, 0, 0, (newpain / 20) * 255 - math.ease.InOutCirc(math.abs(math.cos(CurTime()))) * 50)
+			--surface.SetMaterial(pain_mat)
+			--surface.DrawTexturedRect(-1, -1, ScrW()+1, ScrH()+1)
 			local blur = math.max((newpain / 30 + brain * 10),0) / 30
 			if blur > 0 then
 				DrawMaterialOverlay( "sprites/mat_jack_hmcd_scope_aberration", blur )
@@ -840,15 +840,15 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 
 	local perfusionColour = math.min(blood / 5000, perfusion)
 	tabblood["$pp_colour_colour"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_colour"], perfusionColour * (potato and perfusionColour or 1) + (math.max(org.analgesia - 1, 0) * math.sin(CurTime()) * 5))
-	//tabblood["$pp_colour_contrast"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_contrast"], health < 80 and math.max(1.5 * ( 1 - math.min(health / 50, 1) ), 1 ) or 1)
+	--tabblood["$pp_colour_contrast"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_contrast"], health < 80 and math.max(1.5 * ( 1 - math.min(health / 50, 1) ), 1 ) or 1)
 	tabblood["$pp_colour_brightness"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_brightness"], (potato and (perfusionColour - 1) / 2 or 0) - perfusionStress * 0.06 )
 	tabblood["$pp_colour_addb"] = !org.otrub and ((potato and k2 / 5 or 0)) or 0
-	//tabblood["$pp_colour_addg"] = k2 / 15
-	//tabblood["$pp_colour_addr"] = k2 / 15
+	--tabblood["$pp_colour_addg"] = k2 / 15
+	--tabblood["$pp_colour_addr"] = k2 / 15
 	--tab["$pp_colour_brightness"] = k1 > 1 and -(k1 - 1) / 20 or 0
 	--tab["$pp_colour_contrast"] = k1 > 1 and -(k1 - 1) / 10 + 1 or 1
 	--DrawBloom( 0.80, 2, 9, 9, 1, 1, 1, 1, 1 )
-	//DrawColorModify(tab)
+	--DrawColorModify(tab)
 	
 	DrawColorModify(tabblood)
 	drawPerfusionVisuals(perfusionStress, brainOxygenStress, pulse)
@@ -899,8 +899,8 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 		surface.SetDrawColor(0,0,0,255)
 		if amtflashed and amtflashed > 0.1 and amtflashed < 0.8 and ent.Blinking > 0.1 then
 			surface.DrawRect(-1, -1,ScrW() + 1,ScrH() + 1)
-			//surface.DrawRect(-1,-1,ScrW()+1,ent.Blinking * ScrH())
-			//surface.DrawRect(-1,ScrH() + 1,ScrW()+1,-ent.Blinking * ScrH())
+			--surface.DrawRect(-1,-1,ScrW()+1,ent.Blinking * ScrH())
+			--surface.DrawRect(-1,ScrH() + 1,ScrW()+1,-ent.Blinking * ScrH())
 		end
 	end
 end)
@@ -971,11 +971,11 @@ function hg.applyFountain(pos, ang, mul, mul2, forward, ent)
 		if math.random(2) == 1 then return end
 				safeAddBloodPart2(pos, ang:Forward() * forward * 0.5 + VectorRand(-25,25) * mul2, nil, nil, nil, nil, true, nil, ent)
 				safeAddBloodPart2(pos + VectorRand(-1,1), ang:Forward() * forward * 0.25 + VectorRand(-10,10) * mul2, nil, nil, nil, nil, true, nil, ent)
-		//hg.addBloodPart2(pos + VectorRand(-1,1), ang:Forward() * forward * 0.25 + VectorRand(-10,10) * mul2, nil, nil, nil, nil, true, nil, ent)
+		--hg.addBloodPart2(pos + VectorRand(-1,1), ang:Forward() * forward * 0.25 + VectorRand(-10,10) * mul2, nil, nil, nil, nil, true, nil, ent)
 	else
 				safeAddBloodPart(pos, ang:Forward() * forward * 2 * math.abs(math.sin(CurTime() * 3) + math.cos(CurTime() * 5) + math.sin(CurTime() * 2) + 4) * 0.1 + ang:Right() * 15 * (math.sin(CurTime()) * 1) + ang:Right() * math.sin(CurTime() * 2) * 15 + VectorRand(-3, 3),nil,nil,nil,true)
 				safeAddBloodPart(pos + VectorRand(-1,1), ang:Forward() * 55 + VectorRand(-25,25) * mul2,nil,nil,nil,nil, nil, ent)
-		//hg.addBloodPart(pos + VectorRand(-1,1), ang:Forward() * 55 + VectorRand(-25,25) * mul2,nil,nil,nil,nil, nil, ent)
+		--hg.addBloodPart(pos + VectorRand(-1,1), ang:Forward() * 55 + VectorRand(-25,25) * mul2,nil,nil,nil,nil, nil, ent)
 	end
 end
 
@@ -1087,7 +1087,7 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 			vecTorso[3] = size
 			
 			ent:ManipulateBoneScale(torso, vecTorso)
-			//ent:ManipulateBoneAngles(torso, Angle(0, amt, 0))
+			--ent:ManipulateBoneAngles(torso, Angle(0, amt, 0))
 
 			vecTorso[1] = 0
 			vecTorso[2] = amt * 2
@@ -1449,8 +1449,8 @@ hook.Add("HG.InputMouseApply","zzzzzzzzzzzzbrain_death",function(tbl)
 		
 		local amt = lply.organism.brain / 0.3
 
-		local xa = Lerp(1 * amt,tbl.x,prank[#prank][1])// + math.sin(CurTime() / 5) * amt * 10
-		local ya = Lerp(1 * amt,tbl.y,prank[#prank][2])// + math.cos(CurTime() / 5) * math.sin(CurTime() / 2) * amt * 10
+		local xa = Lerp(1 * amt,tbl.x,prank[#prank][1])-- + math.sin(CurTime() / 5) * amt * 10
+		local ya = Lerp(1 * amt,tbl.y,prank[#prank][2])-- + math.cos(CurTime() / 5) * math.sin(CurTime() / 2) * amt * 10
 
 		tbl.angle.pitch = math.Clamp(tbl.angle.pitch + tbl.y / 100 + ya / 100, -89, 89)
 		tbl.angle.yaw = tbl.angle.yaw - tbl.x / 100 - xa / 100

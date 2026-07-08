@@ -19,7 +19,7 @@ SWEP.AttachmentAng = Angle(0,0,0)
 
 SWEP.FakeVPShouldUseHand = true
 
-SWEP.CantFireFromCollision = true // 2 спусковых крючка все дела
+SWEP.CantFireFromCollision = true -- 2 спусковых крючка все дела
 
 SWEP.AnimList = {
 	["idle"] = "idle_is",
@@ -209,7 +209,7 @@ SWEP.dort = true
 
 if CLIENT then
 	function SWEP:DrawHUDAdd()
-		//self:DoRT()
+		--self:DoRT()
 	end
 
 	function SWEP:ReloadStart()

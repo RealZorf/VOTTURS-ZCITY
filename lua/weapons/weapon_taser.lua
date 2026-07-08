@@ -161,7 +161,7 @@ function SWEP:Shoot(override)
 			if not ent:IsPlayer() and not ent:IsRagdoll() then return end
             if IsValid(ent.FakeRagdoll) then return end
             
-			//if ent == hg.GetCurrentCharacter( self:GetOwner() ) then return end
+			--if ent == hg.GetCurrentCharacter( self:GetOwner() ) then return end
 			local d = DamageInfo()
 			d:SetDamage(5)
 			d:SetAttacker(self:GetOwner())
@@ -221,8 +221,8 @@ function SWEP:Shoot(override)
 						if IsValid(cons) then
 							cons:SetKeyValue("Dangling", 1)
 							cons:SetSaveValue("m_hEndPoint", game.GetWorld())
-							//cons:Remove()
-							//cons = nil
+							--cons:Remove()
+							--cons = nil
 						end
 					end)
 				end

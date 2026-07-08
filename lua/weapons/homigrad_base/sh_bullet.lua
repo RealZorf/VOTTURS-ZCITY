@@ -597,7 +597,7 @@ function SWEP:FireBullet()
     local att = self:GetMuzzleAtt(gun, true)
     if not att then return end
     local pos, ang = att.Pos, att.Ang
-    //if not isply and not owner:IsNPC() then return end
+    --if not isply and not owner:IsNPC() then return end
     local fakeGun = self:GetNWEntity("fakeGun")
 
     local primary = self.Primary
@@ -616,7 +616,7 @@ function SWEP:FireBullet()
 	local trace
 	local dir = ang:Forward()
 	if isply then
-		//print(gun:GetAngles(), dir, owner.offsetView)
+		--print(gun:GetAngles(), dir, owner.offsetView)
 		local dist, point = util.DistanceToLine(pos, pos - dir * 50, owner:EyePos())
 		local tr = {}
 		tr.start = point

@@ -92,7 +92,7 @@ if SERVER then
 
 		local org = ent.organism
 		if not org then return end
-		//if ent ~= self:GetOwner() and not ent.organism.otrub then return end
+		--if ent ~= self:GetOwner() and not ent.organism.otrub then return end
 		if !org.analgesiaAdd or !self.modeValues or !self.modeValues[1] then return end
 
 		local owner = self:GetOwner()

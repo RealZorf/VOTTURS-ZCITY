@@ -233,8 +233,8 @@ else
 
 	hook.Add("PlayerSay", "ZChat", function(ply, text)
  		local txtTbl = {text}
-		hook.Run("HG_PlayerSay", ply, txtTbl, text) // our shit gets called later
-		text = isstring(txtTbl[1]) and txtTbl[1] or text // checks to see if shit hits the ceiling
+		hook.Run("HG_PlayerSay", ply, txtTbl, text) -- our shit gets called later
+		text = isstring(txtTbl[1]) and txtTbl[1] or text -- checks to see if shit hits the ceiling
 
 		if text == "" then return end
 

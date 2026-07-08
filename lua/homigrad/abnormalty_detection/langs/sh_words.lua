@@ -1,7 +1,7 @@
 --\\Перевод плагиновых штук в ваши штуки
 hg.Abnormalties = hg.Abnormalties or {}
 local PLUGIN = hg.Abnormalties
---//
+--
 
 PLUGIN.SpecialWords = PLUGIN.SpecialWords or {}
 local sw = PLUGIN.SpecialWords

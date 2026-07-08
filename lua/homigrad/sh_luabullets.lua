@@ -6,8 +6,8 @@ gs = {
 DEBUG_LENGTH = 3
 
 COORD_EXTENT = 2 * 16384
-// Maximum traceable distance (assumes cubic world and trace from one corner to opposite)
-// COORD_EXTENT * sqrt(3)
+-- Maximum traceable distance (assumes cubic world and trace from one corner to opposite)
+-- COORD_EXTENT * sqrt(3)
 MAX_TRACE_LENGTH = math.sqrt(3) * COORD_EXTENT
 
 SF_BREAK_NO_BULLET_PENETRATION = 0x0800
@@ -27,9 +27,9 @@ do
 	local abs = math.abs
 	local exp = math.exp
 
-	// The four core functions - F1 is optimized somewhat
-	// local function f1(x, y, z) bit.bor(bit.band(x, y), bit.band(bit.bnot(x), z)) end
-	// This is the central step in the MD5 algorithm.
+	-- The four core functions - F1 is optimized somewhat
+	-- local function f1(x, y, z) bit.bor(bit.band(x, y), bit.band(bit.bnot(x), z)) end
+	-- This is the central step in the MD5 algorithm.
 	local function Step1(w, x, y, z, flData, iStep)
 		w = w + bxor(z, band(x, bxor(y, z))) + flData
 		
@@ -151,7 +151,7 @@ do
 	
 	function VECTOR:Right(vUp --[[= Vector(0, 0, 1)]])
 		if (self[1] == 0 and self[2] == 0)then
-			// pitch 90 degrees up/down from identity
+			-- pitch 90 degrees up/down from identity
 			return Vector(0, -1, 0)
 		end
 		
@@ -256,7 +256,7 @@ function PLAYER:ComputeTracerStartPosition(vSrc, vOffset, flForwardMul, flRightM
 		flRightMul = 2
 	end
 	
-	// adjust tracer position for player
+	-- adjust tracer position for player
 	local aEyes = self:ActualEyeAngles()
 	
 	local vForward = aEyes:Forward()
@@ -275,9 +275,9 @@ end
 AMMO_FORCE_DROP_IF_CARRIED = 0x1
 AMMO_INTERPRET_PLRDAMAGE_AS_DAMAGE_TO_PLAYER = 0x2
 
-FIRE_BULLETS_FIRST_SHOT_ACCURATE = 0x1 // Pop the first shot with perfect accuracy
-FIRE_BULLETS_DONT_HIT_UNDERWATER = 0x2 // If the shot hits its target underwater, don't damage it
-FIRE_BULLETS_ALLOW_WATER_SURFACE_IMPACTS = 0x4 // If the shot hits water surface, still call DoImpactEffect
+FIRE_BULLETS_FIRST_SHOT_ACCURATE = 0x1 -- Pop the first shot with perfect accuracy
+FIRE_BULLETS_DONT_HIT_UNDERWATER = 0x2 -- If the shot hits its target underwater, don't damage it
+FIRE_BULLETS_ALLOW_WATER_SURFACE_IMPACTS = 0x4 -- If the shot hits water surface, still call DoImpactEffect
 -- The engine alerts NPCs by pushing a sound onto a static sound manager
 -- However, this cannot be accessed from the Lua state
 --FIRE_BULLETS_TEMPORARY_DANGER_SOUND = 0x8 // Danger sounds added from this impact can be stomped immediately if another is queued
@@ -298,7 +298,7 @@ local function Splash(vHitPos, bStartedInWater, bEndNotWater, vSrc, pWeapon, bFi
 			endpos = vSrc,
 			mask = MASK_WATER
 		})
-	// See if the bullet ended up underwater + started out of the water
+	-- See if the bullet ended up underwater + started out of the water
 	or not (bStartedInWater or bEndNotWater) and
 		util.TraceLine({
 			start = vSrc,
@@ -348,7 +348,7 @@ local function Impact(Weapon, iAmmoDamageType, bFirstTimePredicted, vSrc, tr, sI
 			util.Effect(sImpactEffect, data, true, true)
 		end
 	elseif (bFirstTimePredicted) then
-		// We may not impact, but we DO need to affect ragdolls on the client
+		-- We may not impact, but we DO need to affect ragdolls on the client
 		-- FIXME: Should we?
 		local data = EffectData()
 			data:SetOrigin(tr.HitPos)
@@ -372,7 +372,7 @@ local function Damage(bDoDebugHit, bStartedWater, bEndNotWater, iFlags, iDamage,
 	local vHitPos = tr.HitPos
 	local pEntity = tr.Entity
 	
-	// draw server impact markers
+	-- draw server impact markers
 	if (bDoDebugHit) then
 		debugoverlay.Box(vHitPos, vector_debug_min, vector_debug_max, DEBUG_LENGTH, color_debug)
 	end
@@ -383,8 +383,8 @@ local function Damage(bDoDebugHit, bStartedWater, bEndNotWater, iFlags, iDamage,
 		-- FIXME: Update these typedefs
 		local iActualDamage = iDamage
 		
-		// If we hit a player, and we have player damage specified, use that instead
-		// Adrian: Make sure to use the currect value if we hit a vehicle the player is currently driving.
+		-- If we hit a player, and we have player damage specified, use that instead
+		-- Adrian: Make sure to use the currect value if we hit a vehicle the player is currently driving.
 		-- We don't check for vehicle passengers since GMod has no C++ vehicles with them
 		if (pEntity:IsPlayer()) then
 			if (iPlayerDamage ~= 0) then
@@ -409,7 +409,7 @@ local function Damage(bDoDebugHit, bStartedWater, bEndNotWater, iFlags, iDamage,
 			iActualDamage = iAmmoDamage
 		end
 		
-		// Damage specified by function parameter
+		-- Damage specified by function parameter
 		local info = DamageInfo()
 			info:SetAttacker(IsValid(pAttacker) and pAttacker or game.GetWorld())
 			info:SetInflictor(IsValid(pInflictor) and pInflictor or info:GetAttacker())
@@ -431,7 +431,7 @@ local function Damage(bDoDebugHit, bStartedWater, bEndNotWater, iFlags, iDamage,
 	end
 	
 	if (bDrop and SERVER) then
-		// Make sure if the player is holding this, he drops it
+		-- Make sure if the player is holding this, he drops it
 		DropEntityIfHeld(pEntity)
 	end
 end
@@ -533,7 +533,7 @@ function ENTITY:FireLuaBullets(tInfo)
 	local flDistance = tInfo.Distance or MAX_TRACE_LENGTH
 	local Filter = tInfo.Filter or owner
 	
-	//table.Add(Filter, hg.vehicles)
+	--table.Add(Filter, hg.vehicles)
 
 	local iFlags = tInfo.Flags or 0
 	local flForce = tInfo.Force or 1
@@ -602,7 +602,7 @@ function ENTITY:FireLuaBullets(tInfo)
 	local bFirstTimePredicted = IsFirstTimePredicted()
 	local flSpreadBias, flFlatness, bNegBias, vFireBulletMax, vFireBulletMin, vSpreadRight, vSpreadUp, tEnts, iEntsLen
 	
-	// Wrap it for network traffic so it's the same between client and server
+	-- Wrap it for network traffic so it's the same between client and server
     
 	local iSeed = owner:GetMD5Seed() % 0x100 - 1
 	
@@ -645,8 +645,8 @@ function ENTITY:FireLuaBullets(tInfo)
 	local bDoDebugHit
 	
 	do
-		//Adrian: visualize server/client player positions
-		//This is used to show where the lag compesator thinks the player should be at.
+		--Adrian: visualize server/client player positions
+		--This is used to show where the lag compesator thinks the player should be at.
 		local iHitNum = sv_showplayerhitboxes:GetInt()
 		
 		if (iHitNum > 0) then
@@ -665,10 +665,10 @@ function ENTITY:FireLuaBullets(tInfo)
 
 	for iShot = 1, iNum do
 		local vShotDir
-		iSeed = iSeed + numbullets // use new seed for next bullet
-		gs.random:SetSeed(iSeed) // init random system with this seed
+		iSeed = iSeed + numbullets -- use new seed for next bullet
+		gs.random:SetSeed(iSeed) -- init random system with this seed
 		
-		// If we're firing multiple shots, and the first shot has to be ba on target, ignore spread
+		-- If we're firing multiple shots, and the first shot has to be ba on target, ignore spread
 		if (bFirstShotInaccurate or iShot ~= 1) then
 			local x
 			local y
@@ -699,7 +699,7 @@ function ENTITY:FireLuaBullets(tInfo)
 		
 		repeat
 			local tr = bHullTrace and iShot % 2 == 0 and
-				// Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
+				-- Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
 				util.TraceHull({
 					start = vNewSrc,
 					endpos = vEnd,
@@ -737,7 +737,7 @@ function ENTITY:FireLuaBullets(tInfo)
 				orgPrevBone = tr.PhysicsBone
 
 				tr = bHullTrace and iShot % 2 == 0 and
-					// Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
+					-- Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
 					util.TraceHull({
 						start = tr.HitPos + vShotDir * step,
 						endpos = vEnd,
@@ -786,8 +786,8 @@ function ENTITY:FireLuaBullets(tInfo)
 					end
 				end
 				
-				// Now hit all triggers along the ray that respond to shots...
-				// Clip the ray to the first collided solid returned from traceline
+				-- Now hit all triggers along the ray that respond to shots...
+				-- Clip the ray to the first collided solid returned from traceline
 				-- https://github.com/Facepunch/garrysmod-requests/issues/755
 				local triggerInfo = DamageInfo()
 					triggerInfo:SetAttacker(pAttacker)
@@ -806,18 +806,18 @@ function ENTITY:FireLuaBullets(tInfo)
 			Splash(vHitPos, bStartedInWater, bEndNotWater, vSrc, bWeaponValid and pWeapon, bFirstTimePredicted, iAmmoDamageType, iAmmoMinSplash, iAmmoMaxSplash, sSplashEffect)
 			
 			if (not tr.Hit or tr.HitSky) then
-				break // we didn't hit anything, stop tracing shoot
+				break -- we didn't hit anything, stop tracing shoot
 			end
 			
 			Damage(bDoDebugHit, bStartedWater, bEndNotWater, iFlags, iDamage, iPlayerDamage, iNPCDamage, iAmmoDamage, pAttacker, pInflictor, iAmmoDamageType,
 				tr, bWeaponValid and pWeapon, vShotDir, flAmmoForce, flForce, flPhysPush, iAmmoType, vSrc, fCallback, bFirstTimePredicted, bDrop, sImpactEffect, sRagdollImpactEffect, tInfo)
-			// do damage, paint decals
+			-- do damage, paint decals
 			-- https://github.com/Facepunch/garrysmod-issues/issues/2741
 			local pEntity = tr.Entity
 			bHitGlass = false --tr.MatType == MAT_GLASS and pEntity:IsBreakable() and not pEntity:HasSpawnFlags(SF_BREAK_NO_BULLET_PENETRATION)
 			
-			// See if we hit glass
-			// Query the func_breakable for whether it wants to allow for bullet penetration
+			-- See if we hit glass
+			-- Query the func_breakable for whether it wants to allow for bullet penetration
 			if (bHitGlass) then
 				if (tEnts == nil) then
 					tEnts = ents.GetAll()
@@ -845,7 +845,7 @@ function ENTITY:FireLuaBullets(tInfo)
 					ignoreworld = true,
 					output = tr
 				})
-				// bullet did penetrate object, exit Decal
+				-- bullet did penetrate object, exit Decal
 				Impact(bWeaponValid and pWeapon, iAmmoDamageType, bFirstTimePredicted, vSrc, tr, sImpactEffect, sRagdollImpactEffect)
 				
 				vNewSrc = tr.HitPos
@@ -1034,7 +1034,7 @@ function PLAYER:FireCSSBullets(tInfo)
 	local bFirstTimePredicted = IsFirstTimePredicted()
 	local flSpreadBias, vShootRight, vShootUp, vFireBulletMin, vFireBulletMax, tEnts, iEntsLen
 	
-	// Wrap it for network traffic so it's the same between client and server
+	-- Wrap it for network traffic so it's the same between client and server
 	local iSeed = self:GetMD5Seed() % 0x100
 	
 	-- Don't calculate stuff we won't end up using
@@ -1056,8 +1056,8 @@ function PLAYER:FireCSSBullets(tInfo)
 	local bDoDebugHit
 	
 	do
-		//Adrian: visualize server/client player positions
-		//This is used to show where the lag compesator thinks the player should be at.
+		--Adrian: visualize server/client player positions
+		--This is used to show where the lag compesator thinks the player should be at.
 		local iHitNum = sv_showplayerhitboxes:GetInt()
 		
 		if (iHitNum > 0) then
@@ -1074,18 +1074,18 @@ function PLAYER:FireCSSBullets(tInfo)
 	
 	for iShot = 1, iNum do
 		local vShotDir
-		iSeed = iSeed + 1 // use new seed for next bullet
-		gs.random:SetSeed(iSeed) // init random system with this seed
+		iSeed = iSeed + 1 -- use new seed for next bullet
+		gs.random:SetSeed(iSeed) -- init random system with this seed
 		
 		-- Loop values
-		local flCurrentDamage = iDamage	// damage of the bullet at it's current trajectory
+		local flCurrentDamage = iDamage	-- damage of the bullet at it's current trajectory
 		local flCurrentPlayerDamage = iPlayerDamage
 		local flCurrentNPCDamage = iNPCDamage
-		local flCurrentDistance = 0	// distance that the bullet has traveled so far
+		local flCurrentDistance = 0	-- distance that the bullet has traveled so far
 		local vNewSrc = vSrc
 		local vFinalHit
 		
-		// add the spray 
+		-- add the spray 
 		if (bFirstShotInaccurate or iShot ~= 1) then
 			vShotDir = vDir + vShootRight * (gs.random:RandomFloat(-flSpreadBias, flSpreadBias) + gs.random:RandomFloat(-flSpreadBias, flSpreadBias))
 			+ vShootUp * (gs.random:RandomFloat(-flSpreadBias, flSpreadBias) + gs.random:RandomFloat(-flSpreadBias, flSpreadBias))
@@ -1098,7 +1098,7 @@ function PLAYER:FireCSSBullets(tInfo)
 		
 		repeat
 			local tr = bHullTrace and iShot % 2 == 0 and
-				// Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
+				-- Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
 				util.TraceHull({
 					start = vNewSrc,
 					endpos = vEnd,
@@ -1115,7 +1115,7 @@ function PLAYER:FireCSSBullets(tInfo)
 					filter = Filter
 				})
 			
-			// Check for player hitboxes extending outside their collision bounds
+			-- Check for player hitboxes extending outside their collision bounds
 			--util.ClipTraceToPlayers(tr, vNewSrc, vEnd + vShotDir * flHitboxTolerance, Filter, iMask)
 			
 			local vHitPos = tr.HitPos
@@ -1125,7 +1125,7 @@ function PLAYER:FireCSSBullets(tInfo)
 			Splash(vHitPos, bStartedInWater, bEndNotWater, vSrc, bWeaponValid and pWeapon, bFirstTimePredicted, iAmmoDamageType, iAmmoMinSplash, iAmmoMaxSplash, sSplashEffect)
 			
 			if (not tr.Hit or tr.HitSky) then
-				break // we didn't hit anything, stop tracing shoot
+				break -- we didn't hit anything, stop tracing shoot
 			end
 			
 			/************* MATERIAL DETECTION ***********/
@@ -1133,12 +1133,12 @@ function PLAYER:FireCSSBullets(tInfo)
 			local iEnterMaterial = tr.MatType
 			
 			-- https://github.com/Facepunch/garrysmod-requests/issues/787
-			// since some railings in de_inferno are CONTENTS_GRATE but CHAR_TEX_CONCRETE, we'll trust the
-			// CONTENTS_GRATE and use a high damage modifier.
-			// If we're a concrete grate (TOOLS/TOOLSINVISIBLE texture) allow more penetrating power.
+			-- since some railings in de_inferno are CONTENTS_GRATE but CHAR_TEX_CONCRETE, we'll trust the
+			-- CONTENTS_GRATE and use a high damage modifier.
+			-- If we're a concrete grate (TOOLS/TOOLSINVISIBLE texture) allow more penetrating power.
 			local bHitGrate = iEnterMaterial == MAT_GRATE or bit.band(util.PointContents(vHitPos), CONTENTS_GRATE) ~= 0
 			
-			// calculate the damage based on the distance the bullet travelled.
+			-- calculate the damage based on the distance the bullet travelled.
 			flCurrentDistance = flCurrentDistance + tr.Fraction * flDistance
 			local flDecay = flRangeModifier ^ (flCurrentDistance * flDecayRate)
 			flCurrentDamage = flCurrentDamage * flDecay
@@ -1148,13 +1148,13 @@ function PLAYER:FireCSSBullets(tInfo)
 			Damage(bDoDebugHit, bStartedWater, bEndNotWater, iFlags, flCurrentDamage, flCurrentPlayerDamage, flCurrentNPCDamage, bIsPlayer and iAmmoPlayerDamage or iAmmoNPCDamage, pAttacker,
 				pInflictor, iAmmoDamageType, tr, bWeaponValid and pWeapon, vShotDir, flAmmoForce, flForce, flPhysPush, iAmmoType, vSrc, fCallback, bFirstTimePredicted, bDrop, sImpactEffect, sRagdollImpactEffect)
 			
-			// check if we reach penetration distance, no more penetrations after that
+			-- check if we reach penetration distance, no more penetrations after that
 			if (flCurrentDistance > flPenetrationDistance and iPenetration > 0) then
 				iPenetration = 0
 			end
 			
-			// check if bullet can penetrate another entity
-			// If we hit a grate with iPenetration == 0, stop on the next thing we hit
+			-- check if bullet can penetrate another entity
+			-- If we hit a grate with iPenetration == 0, stop on the next thing we hit
 			if (iPenetration == 0 and not bHitGrate or iPenetration < 0) then
 				break
 			end
@@ -1162,7 +1162,7 @@ function PLAYER:FireCSSBullets(tInfo)
 			local pEntity = tr.Entity
 			
 			if (pEntity:IsBreakable() and pEntity:HasSpawnFlags(SF_BREAK_NO_BULLET_PENETRATION)) then
-				break // no, stop
+				break -- no, stop
 			end
 			
 			if (tEnts == nil) then
@@ -1180,7 +1180,7 @@ function PLAYER:FireCSSBullets(tInfo)
 					output = tr
 				}
 				
-				// try to penetrate object, maximum penetration is 128 inch
+				-- try to penetrate object, maximum penetration is 128 inch
 				while (flExitDistance < flExitMaxDistance) do
 					flExitDistance = math.min(flExitMaxDistance, flExitDistance + flExitStepSize)
 					
@@ -1190,7 +1190,7 @@ function PLAYER:FireCSSBullets(tInfo)
 					util.TraceLine(tTrace)
 					
 					if (not tr.Hit) then
-						// found first free point
+						-- found first free point
 						goto PositionFound
 					end
 				end
@@ -1244,38 +1244,38 @@ function PLAYER:FireCSSBullets(tInfo)
 			local flDamageModifier = bHitGrate and 0.99 or tMatParams and tMatParams.Damage or 0.5
 			local flTraceDistance = (vNewSrc - vHitPos):LengthSqr()
 			
-			// if enter & exit point is wood or metal we assume this is 
-			// a hollow crate or barrel and give a penetration bonus
+			-- if enter & exit point is wood or metal we assume this is 
+			-- a hollow crate or barrel and give a penetration bonus
 			if (bHitGrate and (iExitMaterial == MAT_GRATE or bit.band(util.PointContents(tr.HitPos), CONTENTS_GRATE) ~= 0) or iEnterMaterial == iExitMaterial and tDoublePenetration[iExitMaterial]) then
 				flPenetrationModifier = flPenetrationModifier * 2	
 			end
 
 			local flPenetrationDistance = flPenetrationPower * flPenetrationModifier
 			
-			// check if bullet has enough power to penetrate this distance for this material
+			-- check if bullet has enough power to penetrate this distance for this material
 			if (flTraceDistance > flPenetrationDistance * flPenetrationDistance) then
-				break // bullet hasn't enough power to penetrate this distance
+				break -- bullet hasn't enough power to penetrate this distance
 			end
 			
 			if (bDoDebugHit) then
 				debugoverlay.Box(tr.HitPos, vector_debug_min, vector_debug_max, DEBUG_LENGTH, color_altdebug)
 			end
 			
-			// bullet did penetrate object, exit Decal
+			-- bullet did penetrate object, exit Decal
 			Impact(bWeaponValid and pWeapon, iAmmoDamageType, bFirstTimePredicted, vSrc, tr, sImpactEffect, sRagdollImpactEffect)
 			
-			// penetration was successful
+			-- penetration was successful
 			flTraceDistance = math.sqrt(flTraceDistance)
 			
-			// setup new start end parameters for successive trace
+			-- setup new start end parameters for successive trace
 			flPenetrationPower = flPenetrationPower - flTraceDistance / flPenetrationModifier
 			flCurrentDistance = flCurrentDistance + flTraceDistance
 			
-			// reduce damage power each time we hit something other than a grate
+			-- reduce damage power each time we hit something other than a grate
 			flCurrentDamage = flCurrentDamage * flDamageModifier
 			flDistance = (flDistance - flCurrentDistance) * 0.5
 			
-			// reduce penetration counter
+			-- reduce penetration counter
 			iPenetration = iPenetration - 1
 			
 			-- Can't hit players more than once

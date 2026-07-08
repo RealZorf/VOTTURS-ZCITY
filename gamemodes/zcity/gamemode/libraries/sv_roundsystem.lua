@@ -605,7 +605,7 @@ function zb:RoundStart()
 
 	hook.Run("ZB_StartRound")
 
-	//zb.GetAllPoints(true)
+	--zb.GetAllPoints(true)
 
 	for _, admin in ipairs(zb.GetAllAdmins()) do
 		zb.SendRoundListToClient(admin)

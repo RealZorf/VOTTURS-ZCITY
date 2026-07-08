@@ -42,7 +42,7 @@ function SWEP:InitializeAdd()
 	if SERVER then
 		if math.random(2) == 1 then
 			self.modeValues[1] = 1
-			//local val,index = table.Random(hg.organism.bloodtypes)
+			--local val,index = table.Random(hg.organism.bloodtypes)
 			self.bloodtype = "o-"
 		end
 	end
@@ -259,7 +259,7 @@ else
 	end
 
 	function SWEP:AfterDrawModel(wm,nodraw)
-		local set = (self:GetHasBlood() and 0 or 1)//IsValid(self:GetOwner()) and (self:GetHasBlood() and 0 or 1) or (self:GetHasBlood() and 1 or 0)
+		local set = (self:GetHasBlood() and 0 or 1)--IsValid(self:GetOwner()) and (self:GetHasBlood() and 0 or 1) or (self:GetHasBlood() and 1 or 0)
 		if IsValid(wm) and wm:GetBodygroup(0) != set then
 			wm:SetBodygroup(0, set)
 		end

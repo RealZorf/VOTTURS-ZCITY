@@ -102,14 +102,14 @@ end
 
         return true
     end
---//
+--
 --\\ Use function
     function ENT:Use(entUser)
         if !self:CanWear(entUser) then return end
 
         self:Wear(entUser)
     end
---//
+--
 --\\ Wear Unwear functions
     function ENT:Wear(entUser, bDontChangeMaterials, noChange)
         if !self.Respawned then -- I'M VERRY SORRY FOR THIS SILLY SHIT, BUT GMOD IS BULLSHIT I CAN'T REMOVE ENT FROM PLAYERS CLEANUP ACTUALY I CAN BUT IS MORE JANKY THAN THAT!!!
@@ -164,7 +164,7 @@ end
     end
 
     function ENT:OnWear(entUser)
-		--// Write your code here
+		-- Write your code here
 	end
 ---------------------------------------------------------------
     function ENT:Unwear(entUser, bDontChangeMaterials, noChange)
@@ -215,9 +215,9 @@ end
     end
 
     function ENT:OnUnwear(entUser)
-		--// Write your code here
+		-- Write your code here
 	end
---//
+--
 
 --\\
     function ENT:OnRemove()
@@ -225,7 +225,7 @@ end
 
         self:Unwear(self.WearOwner)
     end
---//
+--
 
 --\\ Render clothes
     local vec = Vector(1,1,1)
@@ -270,7 +270,7 @@ end
 
         model:DrawModel()
     end
---//
+--
 
 --\\ Render hook
     hook.Add("CoolPostDrawAppearance", "ZC_ClothesDraw",function(ent, ply)
@@ -283,7 +283,7 @@ end
             Cloth:RenderOnBody(ent)
         end
     end)
---//
+--
 
 --\\ Transfer items
     hook.Add("ItemsTransfered", "TransferClothes", function(ply, ragdoll)
@@ -299,7 +299,7 @@ end
         ragdoll:SetNetVar("zc_clothes",Clothes)
         ply:SetNetVar("zc_clothes", {})
     end)
---//
+--
 
 --\\ Temperature system
     hook.Add("ZC_BodyTemperature", "ClothesSaveTemp", function(ply, org, timeValue, changeRate, MaxWarmMul, warmLoseMul)
@@ -317,7 +317,7 @@ end
 
         return changeRate, MaxWarmMul, warmLoseMul
     end)
---//
+--
 
 --\\ Clothes drop command
     if SERVER then
@@ -369,4 +369,4 @@ end
             hg.radialOptions[#hg.radialOptions + 1] = tbl
         end
     end)
---//
+--

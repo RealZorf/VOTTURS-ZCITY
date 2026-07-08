@@ -83,7 +83,7 @@ function MODE:FigureOutConsequences()
 			data[ply].now.role = "furry"
 		end
 
-		//it's a hack but whatever :3
+		--it's a hack but whatever :3
 		if data[ply].now.role == "furry" and data[ply].now.escaped then
 			data[ply].now.escaped = false
 			data[ply].now.alive = false
@@ -92,14 +92,14 @@ function MODE:FigureOutConsequences()
 
 	local WinCondition = 0
 	if table.Count(self.saved.Escaped) == 0 and #self.humans == 0 then
-		WinCondition = 1 // furries win
+		WinCondition = 1 -- furries win
 	elseif #self.furries == 0 or table.Count(self.saved.Escaped) > 0 then
-		WinCondition = 2 // humans win
+		WinCondition = 2 -- humans win
 	end
 
 	for k, _ in pairs(self.saved.Escaped) do
 		if self.saved.traitors[k] then
-			WinCondition = 3 // traitor wins
+			WinCondition = 3 -- traitor wins
 		end
 	end
 
@@ -205,7 +205,7 @@ function MODE:GetRandomSpawn(ply)
 	self.spawns[k] = true
 end
 
-function MODE:SetupFur(ply) // unused
+function MODE:SetupFur(ply) -- unused
 	ply:SetPlayerClass("furry", {instant = true})
 
 	ply:Give("weapon_hands_sh")
@@ -214,7 +214,7 @@ function MODE:SetupFur(ply) // unused
 	local furspawns = {}
 
 	if zb.Points["RandomSpawns"] and zb.Points["RandomSpawns"].Points then
-		for _, v2 in ipairs(zb.Points["RandomSpawns"].Points) do // i don't care anymore
+		for _, v2 in ipairs(zb.Points["RandomSpawns"].Points) do -- i don't care anymore
 			table.insert(furspawns, v2.pos)
 		end
 	end
@@ -282,14 +282,14 @@ function MODE:RoundStart()
 	
 	self.saved.ContractorEscapee = nil
 
-	// shitcode, change it later (or not i guess)
+	-- shitcode, change it later (or not i guess)
 	self.RoundState = 0
 
 	self.saved.CloseQuarters = false
 
 	local heliPoints = zb.Points["UWU_GlideHeli"].Points or {}
 	if #heliPoints <= 0 then
-		self.saved.CloseQuarters = true // different game rules without a helicopter
+		self.saved.CloseQuarters = true -- different game rules without a helicopter
 	end
 
 	local points = zb.Points["UWU_DeltaSquad"].Points or {}
@@ -372,12 +372,12 @@ function MODE:RoundStart()
 	local furspawns = {}
 
 	if zb.Points["RandomSpawns"] and zb.Points["RandomSpawns"].Points then
-		for _, v2 in ipairs(zb.Points["RandomSpawns"].Points) do // i don't care anymore
+		for _, v2 in ipairs(zb.Points["RandomSpawns"].Points) do -- i don't care anymore
 			table.insert(furspawns, v2.pos)
 		end
 	end
 
-	for ply, _ in pairs(self.saved.furs) do  // set them up later from everyone else so that they spawn the furthest from everyone
+	for ply, _ in pairs(self.saved.furs) do  -- set them up later from everyone else so that they spawn the furthest from everyone
 		ply:SetPlayerClass("furry", {instant = true})
 
 		ply:Give("weapon_hands_sh")
@@ -417,7 +417,7 @@ end
 
 function MODE:BroadcastCommander(text)
 	local players = table.Copy(self.humans)
-	for ply, _ in pairs(self.saved.traitors or {}) do // it's bad... i guess? >w<
+	for ply, _ in pairs(self.saved.traitors or {}) do -- it's bad... i guess? >w<
 		table.RemoveByValue(players, ply)
 	end
 
@@ -871,7 +871,7 @@ function MODE:SpawnGlideHelicopter()
 		local extracted = false
 		local players = {}
 		--да дурак просто посмотри все сварки и все ентити из сварок удали (ну и проверь там если игрок то екстракт) ок
-		// нет сам я не знаю
+		-- нет сам я не знаю
 		-- for _, seat in Glide.EntityPairs( this.seats ) do
 		-- 	if !IsValid( seat ) then return end
 		-- 	if !seat.GlideSeatIndex then return end
@@ -887,10 +887,10 @@ function MODE:SpawnGlideHelicopter()
 		-- end
 
 		for i, weld in pairs(constraint.FindConstraints(this, "Weld")) do
-			//PrintTable(weld)
+			--PrintTable(weld)
 			if weld.Ent2:IsRagdoll() then
 				local ply = hg.RagdollOwner(weld.Ent2)
-				//ply:ChatPrint("fuckyou")
+				--ply:ChatPrint("fuckyou")
 				if ply and !table.HasValue(players, ply) then
 					if ply.PlayerClassName != "furry" and ply.PlayerClassName != "commanderforces" then
 						extracted = true
@@ -901,7 +901,7 @@ function MODE:SpawnGlideHelicopter()
 			end
 			if weld.Ent1:IsRagdoll() then
 				local ply = hg.RagdollOwner(weld.Ent1)
-				//ply:ChatPrint("fuckyou2")
+				--ply:ChatPrint("fuckyou2")
 
 				if ply and !table.HasValue(players, ply) then
 					if ply.PlayerClassName != "furry" and ply.PlayerClassName != "commanderforces" then
@@ -920,10 +920,10 @@ function MODE:SpawnGlideHelicopter()
 					v.override = false
 					v.FakeRagdoll:Remove()
 				end
-				//v:ChatPrint("You are a stupid furry UwU")
+				--v:ChatPrint("You are a stupid furry UwU")
 				v:KillSilent()
 				timer.Simple(0.1, function()
-					v:KillSilent() // awesomesauce
+					v:KillSilent() -- awesomesauce
 				end)
 
 				self.saved.Escaped[v] = true
@@ -1019,7 +1019,7 @@ function MODE:Think()
 									ply.override = false
 									ply.FakeRagdoll:Remove()
 								end
-								//v:ChatPrint("You are a stupid furry UwU")
+								--v:ChatPrint("You are a stupid furry UwU")
 								ply:KillSilent()
 								self.saved.Escaped[ply] = true
 							end
@@ -1042,7 +1042,7 @@ function MODE:Think()
 									ply.override = false
 									ply.FakeRagdoll:Remove()
 								end
-								//v:ChatPrint("You are a stupid furry UwU")
+								--v:ChatPrint("You are a stupid furry UwU")
 								ply:KillSilent()
 								self.saved.Escaped[ply] = true
 

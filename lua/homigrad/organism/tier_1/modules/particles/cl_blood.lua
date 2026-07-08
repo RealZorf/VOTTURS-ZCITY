@@ -2,7 +2,7 @@
 bloodparticles_hook = bloodparticles_hook or {}
 
 local tr = {
-	//filter = function(ent) return not ent:IsPlayer() and not ent:IsRagdoll() end
+	--filter = function(ent) return not ent:IsPlayer() and not ent:IsRagdoll() end
 }
 
 local col_red_darker = Color(122,0,0)
@@ -192,7 +192,7 @@ local function decalBlood(pos, normal, tr, artery, owner)
 		if !hg_old_blood:GetBool() then
 			local howmuch = 1
 			
-			//timer.Simple(0.1, function()
+			--timer.Simple(0.1, function()
 				hg.bloodpositions[vec] = (hg.bloodpositions[vec] or 0) + 1
 				if hg.bloodpositions[vec] <= BLOOD_DECALS_PER_POS then
 					util.Decal("Arterial.Blood2"..math.Clamp(hg.bloodpositions[vec], 1, 5), pos + normal, pos - normal, owner)
@@ -201,7 +201,7 @@ local function decalBlood(pos, normal, tr, artery, owner)
 				if tr.MatType == MAT_METAL then
 					sound.Play("zbattle/blood_drop_metal.mp3", pos, math.random(10, 40), tr.MatType == MAT_METAL and math.random(100, 120) or math.random(80, 120))
 				end
-			//end)
+			--end)
 		else
 			util.Decal("Arterial.Blood1", pos + normal, pos - normal, owner)
 			sound.Play("homigrad/blooddrip" .. math_random(1, 4) .. ".wav", pos, math.random(10, 60), tr.MatType == MAT_METAL and math.random(100, 120) or math.random(80, 120))
@@ -213,7 +213,7 @@ local function decalBlood(pos, normal, tr, artery, owner)
 		if !hg_old_blood:GetBool() then
 			local howmuch = 1
 			
-			//timer.Simple(0.1, function()
+			--timer.Simple(0.1, function()
 				hg.bloodpositions[vec] = (hg.bloodpositions[vec] or 0) + 1
 				
 				sound.Play("homigrad/blooddrip" .. math_random(1, 4) .. ".wav", pos, math.random(10, 60), tr.MatType == MAT_METAL and math.random(100, 120) or math.random(80, 120))
@@ -229,7 +229,7 @@ local function decalBlood(pos, normal, tr, artery, owner)
 					util.Decal("Blood", pos + normal, pos - normal, owner)
 				end
 
-			//end)
+			--end)
 		else
 			util.Decal("Normal.Blood1", pos + normal, pos - normal, owner)
 			sound.Play("homigrad/blooddrip" .. math_random(1, 4) .. ".wav", pos, math.random(10, 60), tr.MatType == MAT_METAL and math.random(100, 120) or math.random(80, 120))

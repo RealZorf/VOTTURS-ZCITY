@@ -334,4 +334,4 @@ net.Receive("Abnormalties(SendOpenedPage)", function(len, ply)
 	
 	ABNORMALTIESHELP:OpenStats(page)
 end)
---//
+--

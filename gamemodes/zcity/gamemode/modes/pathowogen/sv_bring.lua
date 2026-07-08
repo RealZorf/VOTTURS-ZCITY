@@ -1,4 +1,4 @@
-// ripped straight from ULX :3
+-- ripped straight from ULX :3
 
 local function spiralGrid(rings)
 	local grid = {}
@@ -65,7 +65,7 @@ function MODE:BringPlayers(players, pos, angle)
 		end
   	end
 
-	for _, v in ipairs(teleportable_plys) do // a fallback
+	for _, v in ipairs(teleportable_plys) do -- a fallback
 		v:SetPos(pos)
 	end
 end

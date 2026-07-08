@@ -10,4 +10,4 @@
 		local newbuttons = bit.band( self:GetButtons(), bit.bnot( keys ) )
 		self:SetButtons( newbuttons )
 	end
---//
+--

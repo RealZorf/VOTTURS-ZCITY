@@ -2,7 +2,7 @@ local CurTime, timer, math, table, Angle, Vector, IsValid, LerpAngle, LerpVector
 local math_random, math_Rand = math.random, math.Rand
 
 --\\ Lootable npcs
-	local lootNPCs = { --// Loot goes here (you need to add npc here to enable NPC organism functionality)
+	local lootNPCs = { -- Loot goes here (you need to add npc here to enable NPC organism functionality)
 		["npc_metropolice"] = {
 			"weapon_hg_stunstick",
 			"weapon_medkit_sh",
@@ -23,18 +23,18 @@ local math_random, math_Rand = math.random, math.Rand
 		}
 	}
 
-	local funcspawnNPCs = { --// Custom on NPC spawn function goes here
+	local funcspawnNPCs = { -- Custom on NPC spawn function goes here
 		["npc_combine_s"] = function(ent)
 			ent.organism.CantCheckPulse = true
 
-			--// Armor
+			-- Armor
 			ent.armors = {}
 			ent.armors["torso"] = "cmb_armor"
 			ent.armors["head"] = "cmb_helmet"
 			ent:SyncArmor()
 		end,
 		["npc_metropolice"] = function(ent)
-			--// Armor
+			-- Armor
 			ent.armors = {}
 			ent.armors["torso"] = "metrocop_armor"
 			ent.armors["head"] = "metrocop_helmet"
@@ -42,7 +42,7 @@ local math_random, math_Rand = math.random, math.Rand
 		end
 	}
 
-	local nameNPCs = { --// NPC name and color goes here (visible while looking at & while looting)
+	local nameNPCs = { -- NPC name and color goes here (visible while looking at & while looting)
 		["npc_metropolice"] = {"Metrocop", Vector(0, 100, 255) / 255},
 		["npc_combine_s"] = {"Combine", Vector(0, 180, 180) / 255},
 		["npc_citizen"] = {"Refugee", Vector(255, 155, 0) / 255}
@@ -128,11 +128,11 @@ local math_random, math_Rand = math.random, math.Rand
 			end
 		end
 	end)
---//
+--
 
 --\\ Force enable npc serverside ragdolls
 	RunConsoleCommand("ai_serverragdolls", "1")
---//
+--
 
 --\\ Extract bugbait from dead antlion guards
 	hook.Add("PlayerUse", "extractbugbait", function(ply, ent)
@@ -146,7 +146,7 @@ local math_random, math_Rand = math.random, math.Rand
 			end
 		end
 	end)
---//
+--
 
 --\\ Zombies & barnacles twitching (inspired by workshop addon)
 	-- local ZT_Scale = 0.7
@@ -356,7 +356,7 @@ local math_random, math_Rand = math.random, math.Rand
 			end
 		end)
 	end)
---//
+--
 
 --\\ Fall damage for NPCs
 	local vecforce = Vector(5000, 5000, -30000)
@@ -401,7 +401,7 @@ local math_random, math_Rand = math.random, math.Rand
 			end
 		end
 	end)
---//
+--
 
 --\\ Give our guns to NPCs
 	local function addNPCweps()
@@ -421,4 +421,4 @@ local math_random, math_Rand = math.random, math.Rand
 
 	hook.Add("Initialize", "InitAddNPCweps", addNPCweps)
 	hook.Add("InitPostEntity", "InitPostAddNPCweps", addNPCweps)
---//
+--

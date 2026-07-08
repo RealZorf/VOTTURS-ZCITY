@@ -81,7 +81,7 @@ if CLIENT then
 		end,
 		[0.2] = function( self, timeMul )
 			if self:Clip1() < 1 then
-				self:GetOwner():PullLHTowards("ValveBiped.Bip01_L_Thigh", 1.5 * timeMul)//, self.MagModel, {Vector(0,0,0), Angle(0,0,0), 49, Vector(0,4.8,-1.8), Angle(-15,-90,180)})
+				self:GetOwner():PullLHTowards("ValveBiped.Bip01_L_Thigh", 1.5 * timeMul)--, self.MagModel, {Vector(0,0,0), Angle(0,0,0), 49, Vector(0,4.8,-1.8), Angle(-15,-90,180)})
 			end
 		end,
 		[0.36] = function( self )
@@ -110,7 +110,7 @@ if CLIENT then
 
 		[1.2] = function( self ) 
 			if self:Clip1() >= 1 then
-				//self:PlayAnim("idle",1,false)
+				--self:PlayAnim("idle",1,false)
 			end
 		end,
 	}

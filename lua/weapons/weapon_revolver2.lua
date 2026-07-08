@@ -129,7 +129,7 @@ if CLIENT then
 
 		[1.2] = function( self ) 
 			if self:Clip1() >= 1 then
-				//self:PlayAnim("idle",1,false)
+				--self:PlayAnim("idle",1,false)
 			end
 		end,
 	}

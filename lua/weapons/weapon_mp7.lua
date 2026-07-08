@@ -19,7 +19,7 @@ SWEP.AttachmentAng = Angle(0,0,90)
 
 SWEP.CanEpicRun = true
 SWEP.EpicRunPos = Vector(2,10,7)
-//SWEP.IsPistol = true
+--SWEP.IsPistol = true
 SWEP.FakeReloadSounds = {
 	[0.22] = "weapons/universal/uni_crawl_l_03.wav",
 	[0.4] = "weapons/tfa_ins2/mp7/magout.wav",
@@ -89,7 +89,7 @@ SWEP.WepSelectIcon2 = Material("vgui/hud/tfa_ins2_mp7.png")
 SWEP.IconOverride = "vgui/hud/tfa_ins2_mp7.png"
 
 SWEP.CustomShell = "556x45"
-//SWEP.EjectPos = Vector(-2.5,0,-3)
+--SWEP.EjectPos = Vector(-2.5,0,-3)
 SWEP.EjectAng = Angle(0,40,-15)
 
 SWEP.ShockMultiplier = 2

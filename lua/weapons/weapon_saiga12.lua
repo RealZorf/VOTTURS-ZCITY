@@ -10,7 +10,7 @@ SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_rif_m4a1.mdl"
 SWEP.WorldModelFake = "models/weapons/arc9_fas/shotguns/saiga.mdl"
-//PrintAnims(Entity(1):GetActiveWeapon():GetWM())
+--PrintAnims(Entity(1):GetActiveWeapon():GetWM())
 --uncomment for funny
 SWEP.FakePos = Vector(-24, 5, 11.5)
 SWEP.FakeAng = Angle(1.3, 0, 0)
@@ -21,7 +21,7 @@ SWEP.FakeBodyGroups = "00900080302"
 SWEP.MagIndex = 41
 SWEP.FakeScale = 0.79
 
-//SWEP.ZoomPos = Vector(-5, -0.2, 10)
+--SWEP.ZoomPos = Vector(-5, -0.2, 10)
 
 SWEP.FakeViewBobBone = "CAM_Homefield"
 SWEP.FakeReloadSounds = {

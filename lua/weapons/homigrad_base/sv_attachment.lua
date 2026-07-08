@@ -17,7 +17,7 @@ net.Receive("ZB_AttachAdd", function(len, ply)
 	local att = net.ReadString()
 	local wep = ply:GetActiveWeapon()
 	hg.AddAttachment(ply,wep,att)
-	//ply:SetNetVar("Inventory",ply.inventory)
+	--ply:SetNetVar("Inventory",ply.inventory)
 end)
 
 function hg.AddAttachment(ply,wep,att)

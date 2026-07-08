@@ -631,7 +631,7 @@ function SWEP:OwnerChanged()
 	end
 end
 
---// Booby trap stuff
+-- Booby trap stuff
 SWEP.lpos = Vector(2,0,0)
 SWEP.lang = Angle(0,0,0)
 

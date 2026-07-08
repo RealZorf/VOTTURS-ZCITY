@@ -55,8 +55,8 @@ module[2] = function(owner, org, timeValue)
 	local sub = (add <= 0.2) and (timeValue * 2 * (org.otrub and 2 or 1) + timeValue * (org.painkiller * 2) + timeValue * (org.analgesia * 4)) or (0)
 
 	if adrenaline > 0.5 then
-		sub = sub * math.max(1 - adrenaline, 0.05) / 1.5// / (adrenaline >= 2 and 16 or 8)
-		add = add * math.max(1 - adrenaline, 0.05) / 1.5// / (adrenaline >= 2 and 16 or 8)
+		sub = sub * math.max(1 - adrenaline, 0.05) / 1.5-- / (adrenaline >= 2 and 16 or 8)
+		add = add * math.max(1 - adrenaline, 0.05) / 1.5-- / (adrenaline >= 2 and 16 or 8)
 	end
 
 	if org.pain > 60 and not org.otrub then
@@ -67,7 +67,7 @@ module[2] = function(owner, org, timeValue)
 			sub = sub / 5
 		end
 
-		org.disorientation = math.max(org.pain / 50, org.disorientation)//org.disorientation + add
+		org.disorientation = math.max(org.pain / 50, org.disorientation)--org.disorientation + add
 		org.fearadd = 1
 	end
 
@@ -105,7 +105,7 @@ module[2] = function(owner, org, timeValue)
 
 	org.painadd = min(max(org.painadd - add * analgesiaMul, 0), 150)
 
-	//org.painkiller = Approach(org.painkiller, 0, timeValue / 240 * (org.naloxone * 25 + 1))
+	--org.painkiller = Approach(org.painkiller, 0, timeValue / 240 * (org.naloxone * 25 + 1))
 
 	if hg.organism.paincheck(org) then
 		org.needotrub = true
@@ -153,9 +153,9 @@ module[2] = function(owner, org, timeValue)
 		--org.needfake = true
 	end
 
-	//local tempo = math.Clamp(5 - (org.temperature - 31), 0, 15)
+	--local tempo = math.Clamp(5 - (org.temperature - 31), 0, 15)
 	
-	//org.shock = math.max(org.shock, tempo * 4)
+	--org.shock = math.max(org.shock, tempo * 4)
 	
 	org.disorientation = math.Approach(org.disorientation, 0, timeValue / 5)
 end

@@ -187,7 +187,7 @@ local function HandleInput( ply, button, active, pressed )
         if ply:KeyDown( IN_WALK ) then
             Glide.SwitchSeat( ply, SEAT_SWITCH_BUTTONS[button] )
         end
-        //end
+        --end
 
         return
     end

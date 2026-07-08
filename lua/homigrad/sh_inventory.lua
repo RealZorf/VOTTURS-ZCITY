@@ -289,7 +289,7 @@ if CLIENT then
 			table.sort(keys,function(a,b)
 				local atbl = weapons.Get(a)
 				local wep = atbl and atbl.holsteredBone and not atbl.shouldntDrawHolstered
-				return (ent.foundloot[a] and 1 or 0) > (ent.foundloot[b] and 1 or 0)//(hg.TraitorLoot[a] or 0) < (hg.TraitorLoot[b] or (wep and 1 or 0) or 0)
+				return (ent.foundloot[a] and 1 or 0) > (ent.foundloot[b] and 1 or 0)--(hg.TraitorLoot[a] or 0) < (hg.TraitorLoot[b] or (wep and 1 or 0) or 0)
 			end)
 			
 			for k, i in ipairs(keys) do
@@ -302,7 +302,7 @@ if CLIENT then
 				ent.foundloot = ent.foundloot or {}
 
 				if ent:IsPlayer() and IsValid(ent:GetActiveWeapon()) and ent:GetActiveWeapon():GetClass() == i then continue end
-				count2 = count2 + (!ent.foundloot[i] and 1 or 0)//((ent:IsPlayer() or ent:IsRagdoll()) and ((hg.TraitorLoot[i] and ent:IsPlayer()) and 2 or 0.5) or 1) * (not ent.foundloot[i] and 1 or 0)
+				count2 = count2 + (!ent.foundloot[i] and 1 or 0)--((ent:IsPlayer() or ent:IsRagdoll()) and ((hg.TraitorLoot[i] and ent:IsPlayer()) and 2 or 0.5) or 1) * (not ent.foundloot[i] and 1 or 0)
 
 				local button = vgui.Create("DButton", plyMenu)
 				button:SetText("")

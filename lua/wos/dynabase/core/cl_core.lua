@@ -31,9 +31,9 @@ concommand.Add( "wos_dynabase_reloadmodels", function()
 	wOS.DynaBase.LIVE_RELOAD = false
 end )
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Credits to Starlight (Oliver) for the code snippet and also giving it to me every time
-// I asked, for the last 3 years
+--------------------------------------------------------------------------------------------------/
+-- Credits to Starlight (Oliver) for the code snippet and also giving it to me every time
+-- I asked, for the last 3 years
 local function FindPotentialBases()
 
 	for _ ,addon in pairs( engine.GetAddons() ) do
@@ -47,7 +47,7 @@ local function FindPotentialBases()
 
 	return false
 end
-///////////////////////////////////////////////////////////////////////////////////////////////////
+--------------------------------------------------------------------------------------------------/
 
 concommand.Add( "wos_dynabase_help", function( ply, cmd, args )
 	MsgC( Color( 255, 255, 255 ), "------------------ ", Color( 133, 173, 219 ), "wiltOS HELP PRINT", Color( 255, 255, 255 ), " ----------------------\n" )
@@ -74,7 +74,7 @@ concommand.Add( "wos_dynabase_help", function( ply, cmd, args )
 	end )
 end )
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+--------------------------------------------------------------------------------------------------/
 
 concommand.Add( "wos_dynabase_openconfig", function( ply, cmd, args )
 	wOS.DynaBase:OpenConfigMenu()

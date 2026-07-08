@@ -1,4 +1,4 @@
-// v7 privet
+-- v7 privet
 local hook_Run = hook.Run
 hook.Add( "OnPlayerChat", "HGPlayerChat", function( ply, strText, bTeam, bDead, bWhisper ) 
 	if bWhisper == nil then return true end
@@ -99,7 +99,7 @@ end)
 			buffer[#buffer + 1] = "<color=150,150,150>[whisper]</color> "
 		end
 	end)
---//
+--
 
 -- hook.Add("Player_Death", "ResetChatFont",function()
 -- 	atlaschat.font:SetString("atlaschat.theme.text")

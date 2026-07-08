@@ -13,7 +13,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 			return ply, vel, maxSeqGroundSpeed
 		end
 	end)
---//
+--
 
 --\\ Custom running anim activity
 	local runHoldTypes = {
@@ -51,4 +51,4 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 			return anim, -1
 		end
 	end)
---//
+--
