@@ -332,9 +332,15 @@ local AdminShowVoiceChat = CreateClientConVar(
 	1
 )
 
+local ADMIN_VOICE_PANEL_HANG_TIME = 2
+local ADMIN_VOICE_PANEL_FADE_TIME = 0.5
+
 local adminVoicePanelEligible = {}
 local adminVoicePanelLevels = {}
 local adminVoicePanelSuppressUntil = {}
+local adminVoicePanelSlots = {}
+local adminVoicePanelSlotOwners = {}
+local adminVoicePanelExpiresAt = {}
 local serverAllowsAdminVoicePanels = false
 
 surface.CreateFont("ZB_AdminVoicePanel_Name", {
@@ -396,12 +402,60 @@ local function suppressDefaultVoicePanel(ply, duration)
 	removeDefaultVoicePanel(ply)
 end
 
+local function releaseAdminVoicePanelSlot(ply)
+	local slot = adminVoicePanelSlots[ply]
+	if slot then
+		adminVoicePanelSlotOwners[slot] = nil
+	end
+
+	adminVoicePanelSlots[ply] = nil
+end
+
+local function cleanupAdminVoicePanel(ply)
+	adminVoicePanelEligible[ply] = nil
+	adminVoicePanelLevels[ply] = nil
+	adminVoicePanelExpiresAt[ply] = nil
+	releaseAdminVoicePanelSlot(ply)
+end
+
+local function ensureAdminVoicePanelSlot(ply)
+	if adminVoicePanelSlots[ply] then return adminVoicePanelSlots[ply] end
+
+	local slot = 1
+	while adminVoicePanelSlotOwners[slot] do
+		slot = slot + 1
+	end
+
+	adminVoicePanelSlots[ply] = slot
+	adminVoicePanelSlotOwners[slot] = ply
+
+	return slot
+end
+
+local function scheduleAdminVoicePanelHide(ply)
+	adminVoicePanelExpiresAt[ply] = math.max(adminVoicePanelExpiresAt[ply] or 0, CurTime() + ADMIN_VOICE_PANEL_HANG_TIME)
+end
+
+local function getAdminVoicePanelHangFade(ply)
+	if not adminVoicePanelExpiresAt[ply] then return 1 end
+	if IsValid(ply) and ply:IsSpeaking() then return 1 end
+
+	local remaining = adminVoicePanelExpiresAt[ply] - CurTime()
+	if remaining <= 0 then return 0 end
+	if remaining > ADMIN_VOICE_PANEL_FADE_TIME then return 1 end
+
+	return remaining / ADMIN_VOICE_PANEL_FADE_TIME
+end
+
 local function clearAdminVoicePanels()
 	local lply = LocalPlayer()
 
 	table.Empty(adminVoicePanelEligible)
 	table.Empty(adminVoicePanelLevels)
 	table.Empty(adminVoicePanelSuppressUntil)
+	table.Empty(adminVoicePanelSlots)
+	table.Empty(adminVoicePanelSlotOwners)
+	table.Empty(adminVoicePanelExpiresAt)
 
 	for _, ply in ipairs(player.GetHumans()) do
 		if IsValid(ply) and ply ~= lply then
@@ -420,14 +474,18 @@ net.Receive("ZB_AdminVoicePanelState", function()
 
 	if not IsValid(ply) or not AdminShowVoiceChat:GetBool() then return end
 
-	adminVoicePanelEligible[ply] = isSpeaking and true or nil
-	if not isSpeaking then
-		adminVoicePanelLevels[ply] = nil
-	end
-
 	if isSpeaking then
+		adminVoicePanelEligible[ply] = true
+		adminVoicePanelExpiresAt[ply] = nil
+		ensureAdminVoicePanelSlot(ply)
 		suppressDefaultVoicePanel(ply, 0.35)
 	else
+		adminVoicePanelEligible[ply] = nil
+		if adminVoicePanelSlots[ply] then
+			scheduleAdminVoicePanelHide(ply)
+		else
+			cleanupAdminVoicePanel(ply)
+		end
 		suppressDefaultVoicePanel(ply, 0.1)
 	end
 end)
@@ -447,9 +505,17 @@ function hg.IsAdminVoicePanelActive(ply)
 end
 
 local function adminVoicePanelFill(ply)
-	if not IsValid(ply) or not ply:IsSpeaking() then
+	if not IsValid(ply) then
 		adminVoicePanelLevels[ply] = nil
 		return 0
+	end
+
+	if not ply:IsSpeaking() then
+		local smoothed = adminVoicePanelLevels[ply] or 0
+		smoothed = Lerp(FrameTime() * 8, smoothed, 0)
+		adminVoicePanelLevels[ply] = smoothed > 0.01 and smoothed or nil
+
+		return smoothed
 	end
 
 	local raw = math.Clamp(((ply.VoiceVolume and ply:VoiceVolume()) or 0) * 3, 0, 1)
@@ -461,7 +527,11 @@ local function adminVoicePanelFill(ply)
 end
 
 local function shouldDrawAdminVoicePanel(ply)
-	return IsValid(ply) and adminVoicePanelEligible[ply] and ply:IsSpeaking()
+	if not IsValid(ply) then return false end
+	if adminVoicePanelEligible[ply] and ply:IsSpeaking() then return true end
+
+	local expiresAt = adminVoicePanelExpiresAt[ply]
+	return expiresAt ~= nil and expiresAt > CurTime() and adminVoicePanelSlots[ply] ~= nil
 end
 
 hook.Add("PlayerStartVoice", "ZB_AdminVoicePanelSuppressDefault", function(ply)
@@ -470,6 +540,8 @@ hook.Add("PlayerStartVoice", "ZB_AdminVoicePanelSuppressDefault", function(ply)
 
 	if ply == lply then
 		adminVoicePanelEligible[ply] = true
+		adminVoicePanelExpiresAt[ply] = nil
+		ensureAdminVoicePanelSlot(ply)
 	end
 
 	suppressDefaultVoicePanel(ply, 0.35)
@@ -486,7 +558,9 @@ end)
 hook.Add("PlayerEndVoice", "ZB_AdminVoicePanelSuppressDefault", function(ply)
 	if not IsValid(ply) then return end
 
-	adminVoicePanelLevels[ply] = nil
+	if adminVoicePanelSlots[ply] or adminVoicePanelEligible[ply] then
+		scheduleAdminVoicePanelHide(ply)
+	end
 
 	if not hg.IsAdminVoicePanelActive or not hg.IsAdminVoicePanelActive(ply) then return end
 
@@ -498,15 +572,15 @@ hook.Add("Think", "ZB_AdminVoicePanelClientWatchdog", function()
 	if not IsValid(lply) then return end
 
 	if not canSeeVoicePanelsInRound(lply) then
-		if next(adminVoicePanelEligible) or next(adminVoicePanelSuppressUntil) or next(adminVoicePanelLevels) then
+		if next(adminVoicePanelEligible) or next(adminVoicePanelSuppressUntil) or next(adminVoicePanelLevels) or next(adminVoicePanelSlots) or next(adminVoicePanelExpiresAt) then
 			clearAdminVoicePanels()
 		end
 
 		return
 	end
 
-	for ply in pairs(adminVoicePanelEligible) do
-		if IsValid(ply) then
+	for ply in pairs(adminVoicePanelSlots) do
+		if IsValid(ply) and shouldDrawAdminVoicePanel(ply) then
 			adminVoicePanelFill(ply)
 		end
 	end
@@ -518,11 +592,19 @@ hook.Add("Think", "ZB_AdminVoicePanelClientWatchdog", function()
 	end
 
 	for ply, eligible in pairs(adminVoicePanelEligible) do
-		if not IsValid(ply) or not eligible then
-			adminVoicePanelEligible[ply] = nil
-			adminVoicePanelLevels[ply] = nil
-		elseif ply:IsSpeaking() then
+		if not IsValid(ply) then
+			cleanupAdminVoicePanel(ply)
+		elseif eligible and ply:IsSpeaking() then
 			suppressDefaultVoicePanel(ply, 0.2)
+		end
+	end
+
+	for ply, expiresAt in pairs(adminVoicePanelExpiresAt) do
+		if IsValid(ply) and ply:IsSpeaking() then
+			adminVoicePanelExpiresAt[ply] = nil
+			adminVoicePanelEligible[ply] = true
+		elseif not IsValid(ply) or expiresAt <= CurTime() then
+			cleanupAdminVoicePanel(ply)
 		end
 	end
 
@@ -541,22 +623,16 @@ hook.Add("HUDPaint", "ZB_AdminVoicePanelHUD", function()
 	if not canSeeVoicePanelsInRound(lply) then return end
 
 	local speakers = {}
-	for ply in pairs(adminVoicePanelEligible) do
+	for ply, slot in pairs(adminVoicePanelSlots) do
 		if shouldDrawAdminVoicePanel(ply) then
-			speakers[#speakers + 1] = ply
+			speakers[#speakers + 1] = { ply = ply, slot = slot }
 		end
 	end
 
 	if #speakers <= 0 then return end
 
 	table.sort(speakers, function(a, b)
-		local fillA = adminVoicePanelLevels[a] or 0
-		local fillB = adminVoicePanelLevels[b] or 0
-		if fillA ~= fillB then
-			return fillA > fillB
-		end
-
-		return string.lower(a:Nick() or "") < string.lower(b:Nick() or "")
+		return a.slot < b.slot
 	end)
 
 	local scale = math.Clamp(math.min(ScrW() / 1920, ScrH() / 1080), 0.78, 1)
@@ -567,10 +643,12 @@ hook.Add("HUDPaint", "ZB_AdminVoicePanelHUD", function()
 	local y = math.floor(ScrH() * 0.20)
 	local gap = math.floor(5 * scale)
 
-	for i, ply in ipairs(speakers) do
-		local rowY = y + (i - 1) * (rowH + gap)
+	for displayIndex, entry in ipairs(speakers) do
+		local ply = entry.ply
+		local rowY = y + (displayIndex - 1) * (rowH + gap)
 		local fill = adminVoicePanelLevels[ply] or 0
-		local alpha = math.floor(235 * math.Clamp(fill * 1.15 + 0.35, 0.35, 1))
+		local hangFade = getAdminVoicePanelHangFade(ply)
+		local alpha = math.floor(235 * math.Clamp(fill * 1.15 + 0.35, 0.35, 1) * hangFade)
 		local green = Color(35, 255, 120, alpha)
 		local softGreen = Color(35, 255, 120, math.floor(alpha * 0.13))
 		local textMain = Color(245, 255, 248, alpha)
