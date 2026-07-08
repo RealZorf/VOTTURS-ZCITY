@@ -31,6 +31,44 @@ local function IsHomicideRound(rnd)
     return rnd and (rnd.name == "hmcd" or rnd.name == "fear" or rnd.base == "hmcd")
 end
 
+local function isTraitorSubRole(value)
+    if not isstring(value) then return false end
+
+    value = string.lower(value)
+    return string.sub(value, 1, 8) == "traitor_" and value ~= "traitor_disabled" and value ~= "traitor_disabled_soe"
+end
+
+function zb.IsTraitorLike(ply)
+    if not IsValid(ply) or not ply:IsPlayer() then return false end
+    if ply.isTraitor == true or ply.MainTraitor == true then return true end
+    if isTraitorSubRole(ply.SubRole) then return true end
+
+    if ply.GetNWBool and (ply:GetNWBool("isTraitor", false) or ply:GetNWBool("IsTraitor", false)) then
+        return true
+    end
+
+    return false
+end
+
+function zb.IsHMCDLikeRound(rnd, cround)
+    if not rnd then return false end
+
+    cround = cround or zb.CROUND
+
+    if rnd.name == "hmcd" or cround == "hmcd" then return true end
+    if istable(rnd.Types) and (rnd.Types.standard or rnd.Types.wildwest) then return true end
+
+    return false
+end
+
+local function ShouldSkipHmcdGuiltPenalty(attacker, victim, rnd)
+    if not zb.IsHMCDLikeRound(rnd) then return false end
+    if zb.IsTraitorLike(victim) and not zb.IsTraitorLike(attacker) then return true end
+    if zb.IsTraitorLike(attacker) then return true end
+
+    return false
+end
+
 local function GetPlayerKarmaCap(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return zb.MaxKarma end
 
@@ -66,7 +104,7 @@ local function IsRefundableWrongKill(attacker, victim, rnd)
     if not IsHomicideRound(rnd) then return false end
     if attacker:Team() == TEAM_SPECTATOR or victim:Team() == TEAM_SPECTATOR then return false end
 
-    return not attacker.isTraitor and not victim.isTraitor
+    return not zb.IsTraitorLike(attacker) and not zb.IsTraitorLike(victim)
 end
 
 local function GetBiggestAttacker(victim)
@@ -117,7 +155,7 @@ hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
 		query:Select("value")
 		query:Where("steamid", steamID64)
 		query:Callback(function(result)
-			if (IsValid(ply) and istable(result) and #result > 0 and result[1].value) then
+			if (IsValid(ply) and istable(result) and #result > 0 and result[1].value ~= nil) then
 				local updateQuery = mysql:Update("zb_guilt")
 					updateQuery:Update("steam_name", name)
 					updateQuery:Where("steamid", steamID64)
@@ -131,18 +169,18 @@ hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
                 ply:SetNetVar("Karma", ply.Karma)
 
                 if zb.GuiltSQL.PlayerInstances[steamID64].value < 0 then
-                    ply:guilt_SetValue(10)
+                    local previousKarma = zb.GuiltSQL.PlayerInstances[steamID64].value
 
-                    ply.Karma = 10
-                    ply:SetNetVar("Karma", ply.Karma)
+                    SyncKarmaRuntime(ply, 10)
 
                     timer.Simple(0, function()
                         if not IsValid(ply) then return end
 
                         if IsBanImmune(ply) then return end
 
+                        ply:guilt_SetValue(10)
                         ply:Ban(5, false)
-                        ply:Kick("Your karma is too low: " .. math.Round(ply.Karma, 0) .. ". Try again in 5 minutes.")
+                        ply:Kick("Your karma is too low: " .. math.Round(previousKarma, 0) .. ". Try again in 5 minutes.")
                     end)
                 end
 			else
@@ -185,6 +223,15 @@ function plyMeta:guilt_SetValue( zb_guilt )
 		updateQuery:Update("value", zb_guilt)
 		updateQuery:Where("steamid", steamID64)
 	updateQuery:Execute()
+end
+
+local function SyncKarmaRuntime(ply, karma)
+    ply.Karma = karma
+    ply:SetNetVar("Karma", karma)
+
+    local steamID64 = ply:SteamID64()
+    zb.GuiltSQL.PlayerInstances[steamID64] = zb.GuiltSQL.PlayerInstances[steamID64] or {}
+    zb.GuiltSQL.PlayerInstances[steamID64].value = karma
 end
 
 local function IsLookingAt(ply, targetVec)
@@ -241,7 +288,8 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
         zb.hostageLastTouched = Attacker
     end
 
-    local attackerTeam = dmgInfo:GetInflictor().team or (Attacker:IsPlayer() and Attacker:Team()) or Attacker.team
+    local inflictor = dmgInfo:GetInflictor()
+    local attackerTeam = (IsValid(inflictor) and inflictor.team) or (Attacker:IsPlayer() and Attacker:Team()) or Attacker.team
     zb.HarmDoneDetailed[id][id2] = {
         harm = newharm,
         amt = newharm / maxharm,
@@ -266,7 +314,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
         //Attacker:AddFrags(1) -- better make it a system that counts kills and gives frags at the end of the round
     end
 
-    if rnd.GuiltDisabled or GetConVar("zb_dev"):GetBool() then return end
+    if not rnd or rnd.GuiltDisabled or GetConVar("zb_dev"):GetBool() then return end
 
     if Attacker == Victim then return end
 
@@ -275,11 +323,11 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     
     Attacker.LastAttacked = CurTime()
 
-    if Victim.isTraitor and !Attacker.isTraitor and IsHomicideRound(rnd) and !zb.IsForce(Attacker) then return end
-    if Attacker.isTraitor and !Victim.isTraitor and IsHomicideRound(rnd) then return end
+    if ShouldSkipHmcdGuiltPenalty(Attacker, Victim, rnd) then return end
     
     if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and attackerTeam ~= Victim:Team()) then return end
     if zb.ROUND_STATE != 1 and (rnd.name != "cstrike" or !zb.RoundsLeft) then return end
+    -- Victim.Guilt: skip penalizing attackers for fighting someone who already racked up guilt this life
     if Victim.Guilt and Victim.Guilt > 1 and !zb.IsForce(Attacker) then return end
     if Attacker:IsBerserk() then return end
 
@@ -298,19 +346,24 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     add = add * (Victim:IsPlayer() and Attacker:PlayerClassEvent("Guilt", Victim) or 1)
     add = add * 2
 
-    local mul, shouldBanGuilt
-    
-    if rnd.GuiltCheck then
-        mul, shouldBanGuilt = rnd.GuiltCheck(Attacker, Victim, add, harm, amt)
+    local mul, shouldBanGuilt = 1, false
 
-        add = add * (mul or 1)
+    if rnd.GuiltCheck then
+        local guiltMul, guiltBan = rnd.GuiltCheck(Attacker, Victim, add, harm, amt)
+
+        mul = guiltMul or 1
+        shouldBanGuilt = guiltBan == true
     end
+
+    add = add * mul
     
     local guiltadd = amt * 60
     Attacker.Guilt = (Attacker.Guilt or 0) + guiltadd
-    Attacker.Karma = math.Clamp((Attacker.Karma or 100) - add * math.max(((1 - (zb.GuiltTable[Victim][Attacker] or 0)) / 1),0), -60, GetPlayerKarmaCap(Attacker))
+    local priorGuilt = zb.GuiltTable[Attacker][Victim] or 0
+    local karmaPenalty = add * math.max((1 - priorGuilt / 60), 0)
+    Attacker.Karma = math.Clamp((Attacker.Karma or 100) - karmaPenalty, -60, GetPlayerKarmaCap(Attacker))
 
-    zb.HarmDoneKarma[Victim][Attacker] = zb.HarmDoneKarma[Victim][Attacker] + add
+    zb.HarmDoneKarma[Victim][Attacker] = zb.HarmDoneKarma[Victim][Attacker] + karmaPenalty
 
     if shouldBanGuilt and Attacker.Guilt >= 100 then
         if Attacker.GuiltBanSent then return end 
@@ -330,39 +383,31 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     zb.GuiltTable[Attacker][Victim] = math.Clamp((zb.GuiltTable[Attacker][Victim] or 0) + guiltadd, 0, 200)
 
     if Attacker.Karma <= 0 then
+        if IsBanImmune(Attacker) then return end
+
         local steamID = Attacker:SteamID()
+        local steamID64 = Attacker:SteamID64()
         local name = Attacker:Name()
-        local karma = Attacker.Karma
+        local karmaForBan = Attacker.Karma
+        local banTime = math.max(5, math.Round(60 - karmaForBan * 4, 0))
 
-        Attacker:guilt_SetValue( 10 )
+        timer.Create("simplewaitforkarmadrop"..steamID64, 0, 1, function()
+            if not IsValid(Attacker) then return end
+            if IsBanImmune(Attacker) then return end
 
-        -- we wait one tick to make them pay for all the murders they've done
-        -- also makes sure the message is displayed only once
-        timer.Create("simplewaitforkarmadrop"..Attacker:EntIndex(), 0, 1, function()
-            if IsValid(Attacker) then -- if the player haven't left in that exact tick then we do him dirty
-                karma = Attacker.Karma
-            end
+            ULib.addBan(steamID, banTime, "Kicked and banned for having too low karma.", name, "System")
 
-            local time = math.Round(60 - karma * 4, 0)
-
-			if not IsBanImmune(Attacker) then
-                ULib.addBan(steamID, 60, "Kicked and banned for having too low karma.", name, "System")
-
-                PrintMessage(HUD_PRINTTALK, "Player " .. name .. " has been banned for " .. time .. " minutes for having too low karma.")
-            end
+            PrintMessage(HUD_PRINTTALK, "Player " .. name .. " has been banned for " .. banTime .. " minutes for having too low karma.")
         end)
+
+        SyncKarmaRuntime(Attacker, 10)
     end
 end)
 
 function zb.IsForce(Attacker)
-    return Attacker.PlayerClassName == "police" and Attacker.PlayerClassName == "nationalguard" and Attacker.PlayerClassName == "swat"
+    local class = Attacker.PlayerClassName
+    return class == "police" or class == "nationalguard" or class == "swat"
 end
-
-local function IsLookingAt(ply, targetVec)
-    if not IsValid(ply) or not ply:IsPlayer() then return false end
-    local diff = targetVec - ply:GetShootPos()
-    return true--ply:GetAimVector():Dot(diff) / diff:Length() >= 0.6 
-end -- i dont think it should matter if he looks at you or not. just drop your weapon
 
 function zb.ForcesAttackedInnocent(self, Victim)
     local victimWep = Victim:IsPlayer() and IsValid(Victim:GetActiveWeapon()) and Victim:GetActiveWeapon()
@@ -390,7 +435,7 @@ hook.Add("Player Think", "karmagain", function(ply)
     if (ply.KarmaGainThink or 0) > CurTime() then return end
     ply.KarmaGainThink = CurTime() + 120
 
-    ply.Karma = math.Clamp(ply.Karma + (ply.Karma > 100 and 0.1 or (ply.KarmaGain or 0.75)), 0, GetPlayerKarmaCap(ply))// * (1 + ply:HasPurchase("zpremium")), 0, zb.MaxKarma)
+    ply.Karma = math.Clamp(ply.Karma + (ply.Karma > 100 and 0.1 or (ply.KarmaGain or 0.75)), -60, GetPlayerKarmaCap(ply))// * (1 + ply:HasPurchase("zpremium")), 0, zb.MaxKarma)
     
     ply:SetNetVar("Karma", ply.Karma)
     //ply:guilt_SetValue( ply.Karma or 100 )
@@ -474,6 +519,7 @@ hook.Add("ZB_StartRound","NO_HARM",function()
     
     zb.HarmDone = {}
     zb.HarmDoneKarma = {}
+    zb.GuiltTable = {}
 end)
 
 util.AddNetworkString("get_karma")
@@ -568,20 +614,20 @@ net.Receive("open_guilt_menu",function(len, ply)
 end)
 
 net.Receive("forgive_player", function(len, ply)
+    if ply:Alive() then return end
     local ent = net.ReadEntity()
-    if not IsValid(ent) or not zb.HarmDoneKarma[ply] then return end
+    if not IsValid(ent) or not ent:IsPlayer() or not zb.HarmDoneKarma[ply] then return end
+    if zb.IsTraitorLike(ent) then return end
     local harm = zb.HarmDoneKarma[ply][ent]
-    if not harm then return end
+    if not harm or harm <= 0 then return end
 
     if IsRefundableWrongKill(ent, ply, CurrentRound()) then
         ent.GuiltWrongKillLossThisRound = math.max((ent.GuiltWrongKillLossThisRound or 0) - harm, 0)
     end
 
-    ent.Karma = math.Clamp(ent.Karma + harm, 0, GetPlayerKarmaCap(ent))
-    ent:SetNetVar("Karma",ent.Karma)
-    ent:guilt_SetValue(ent.Karma)
+    SyncKarmaRuntime(ent, math.Clamp(ent.Karma + harm, 0, GetPlayerKarmaCap(ent)))
 
-    zb.HarmDone[ply][ent] = 0
+    if zb.HarmDone[ply] then zb.HarmDone[ply][ent] = 0 end
     zb.HarmDoneKarma[ply][ent] = 0
     net.Start("open_guilt_menu")
     net.WriteTable(zb.HarmDoneKarma[ply])
@@ -617,16 +663,14 @@ end)
 hook.Add("ZC_SomeoneGetFallBy","IdiotsMustBeKilled",function(Attacker,Victim)
     local rnd = CurrentRound()
     
-    if rnd.GuiltDisabled or GetConVar("zb_dev"):GetBool() then return end
+    if not rnd or rnd.GuiltDisabled or GetConVar("zb_dev"):GetBool() then return end
    
     if Attacker == Victim then return end
 
-    if Victim.isTraitor and !Attacker.isTraitor and IsHomicideRound(rnd) and !zb.IsForce(Attacker) then return end
-    if Attacker.isTraitor and !Victim.isTraitor and IsHomicideRound(rnd) then return end
+    if ShouldSkipHmcdGuiltPenalty(Attacker, Victim, rnd) then return end
     if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and Attacker:Team() ~= Victim:Team()) then return end
     if zb.ROUND_STATE != 1 and (rnd.name != "cstrike" or !zb.RoundsLeft) then return end
     if Victim.Guilt and Victim.Guilt > 1 then return end
 
-    Attacker.Guilt = Attacker.Guilt or 0
-    Attacker.Guilt = Attacker.Guilt < 4 and 5 or Attacker.Guilt 
+    Attacker.Guilt = (Attacker.Guilt or 0) + 5
 end)
