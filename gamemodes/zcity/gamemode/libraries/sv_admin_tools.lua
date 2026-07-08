@@ -32,7 +32,7 @@ COMMANDS.give = {
 
 COMMANDS.respawn = {
 	function(ply, args)
-		if not (ply:IsAdmin() or (ply.IsUserGroup and ply:IsUserGroup("moderator") or ply:IsUserGroup("mapper"))) then return end
+		if not ply:IsAdmin() then return end
 		local plya = #args > 0 and args[1] or ply:Name()
 		for i, ply2 in pairs(player.GetListByName(plya)) do
 			ply2:Spawn()
