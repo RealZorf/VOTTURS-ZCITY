@@ -217,7 +217,7 @@ properties.Add( "freeze", {
         ent = hg.RagdollOwner( ent ) or ent
         
 		ent:Freeze(not ent:IsFrozen())
-		print(tostring(ply:Nick() or ply) .. (not ent:IsFrozen() and " has frozen " or " has unfrozen ").. tostring(ent:Nick() or ent))
+		print(tostring(ply:Nick() or ply) .. (ent:IsFrozen() and " has frozen " or " has unfrozen ").. tostring(ent:Nick() or ent))
 	end 
 } )
 
