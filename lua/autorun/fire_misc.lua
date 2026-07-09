@@ -822,23 +822,9 @@ if CLIENT then
 	end
 end
 
-
-
-
-
-
-
-
-
-
-
 --[[-------------------------------------------------------------------------
 Content Loading
----------------------------------------------------------------------------
-
-if SERVER then
-	resource.AddWorkshop("1525218777")
-end]]
+---------------------------------------------------------------------------]]
 
 game.AddParticles("particles/vFire_Base_Tiny.pcf")
 game.AddParticles("particles/vFire_Base_Small.pcf")

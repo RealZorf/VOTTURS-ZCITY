@@ -175,6 +175,12 @@ if CLIENT then
 	function SWEP:DrawWorldModel2()
 		local owner = self:GetOwner()
 
+		if (self.DrawPreWorldModel) then
+			if self:DrawPreWorldModel() == false then
+				return self:DrawPreWorldModel()
+			end
+		end
+
         if not IsValid(self.worldModel) then
             self.worldModel = ClientsideModel(self.WorldModel)
             initializeSequenceState(self.worldModel)
