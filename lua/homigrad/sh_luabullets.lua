@@ -500,6 +500,36 @@ local armsbones = {
 	["ValveBiped.Bip01_R_Hand"] = true,
 }
 
+local ORGANISM_SKIP_MAX = 16
+
+local function addEntityToBulletFilter(Filter, ent)
+	if not IsValid(ent) then return Filter end
+
+	if isentity(Filter) then
+		if Filter == ent then return Filter end
+
+		return {Filter, ent}
+	end
+
+	if istable(Filter) then
+		Filter[#Filter + 1] = ent
+
+		return Filter
+	end
+
+	return {ent}
+end
+
+local function getOrganismSkipTraceStart(tr, vNewSrc, vEnd, vShotDir)
+	local traceLen = vNewSrc:Distance(vEnd)
+
+	if tr.StartSolid and traceLen > 0 then
+		return tr.StartPos + vShotDir * (tr.FractionLeftSolid * traceLen + 1)
+	end
+
+	return tr.HitPos + vShotDir * 1
+end
+
 function ENTITY:FireLuaBullets(tInfo)
     if (hook.Run("EntityFireBullets", self, tInfo) == false) then
 		return
@@ -716,30 +746,36 @@ function ENTITY:FireLuaBullets(tInfo)
 					filter = Filter
 				})
 			
-			local orgBulletIter = 0
-			local orgPrevEnt, orgPrevBone
+			local organismSkipAttempts = 0
+			local lastOrganismSkipKey
+
 			while (IsValid(tr.Entity) and tr.Entity.organism) do
 				local ent = tr.Entity
-
 				local bonename = ent:GetBoneName(ent:TranslatePhysBoneToBone(tr.PhysicsBone))
 				local hitgroup = hg.bonetohitgroup[bonename]--( ent:IsPlayer() and tr.HitGroup or hg.bonetohitgroup[bonename])
 				
 				if !(armsbones[bonename] and hg.RagdollOwner(tr.Entity) == pInflictor:GetOwner()) and !IsValid(tr.Entity.OldRagdoll) and (tr.PhysicsBone != 0 or !tr.StartSolid) and (!hg.amputeetable[bonename] or !ent.organism[hg.amputeetable[bonename].."amputated"]) then break end
 
-				orgBulletIter = orgBulletIter + 1
-				if orgBulletIter >= 16 then break end
+				organismSkipAttempts = organismSkipAttempts + 1
 
-				local step = 1
-				if IsValid(orgPrevEnt) and orgPrevEnt == ent and orgPrevBone == tr.PhysicsBone then
-					step = math.min(2 + orgBulletIter, 16)
+				if organismSkipAttempts > ORGANISM_SKIP_MAX then break end
+
+				local skipKey = ent:EntIndex() .. ":" .. tostring(tr.PhysicsBone)
+
+				if lastOrganismSkipKey == skipKey then break end
+
+				lastOrganismSkipKey = skipKey
+
+				if IsValid(ent.OldRagdoll) then
+					Filter = addEntityToBulletFilter(Filter, ent)
 				end
-				orgPrevEnt = ent
-				orgPrevBone = tr.PhysicsBone
+
+				local traceStart = getOrganismSkipTraceStart(tr, vNewSrc, vEnd, vShotDir)
 
 				tr = bHullTrace and iShot % 2 == 0 and
 					-- Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
 					util.TraceHull({
-						start = tr.HitPos + vShotDir * step,
+						start = traceStart,
 						endpos = vEnd,
 						mins = vFireBulletMin,
 						maxs = vFireBulletMax,
@@ -748,7 +784,7 @@ function ENTITY:FireLuaBullets(tInfo)
 					})
 				or
 					util.TraceLine({
-						start = tr.HitPos + vShotDir * step,
+						start = traceStart,
 						endpos = vEnd,
 						mask = iMask,
 						filter = Filter
