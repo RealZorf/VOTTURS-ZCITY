@@ -1994,6 +1994,7 @@ function MODE:RoundStart()
 	MODE.StartRoundTime = CurTime()
 	MODE.RoleChooseRound = false
 	MODE.HMCDTraitorRoleStatsRecorded = false
+	MODE.HMCDRoundKillStamp = (MODE.HMCDRoundKillStamp or 0) + 1
 	
 
 	self.roundStartType = self.Type
@@ -2001,6 +2002,8 @@ function MODE:RoundStart()
 
 	for _, ply in player.Iterator() do
 		ply.HMCD_TraitorNeutralizedAt = nil
+		ply.HMCDRoundKillCount = 0
+		ply.HMCDRoundWasTraitor = ply.isTraitor == true
 	end
 	
 
@@ -2028,6 +2031,142 @@ function MODE:CanSpawn()
 end
 
 util.AddNetworkString("hmcd_roundend")
+util.AddNetworkString("HMCD_TraitorRoundSummary")
+
+local function HMCDRoundKillPlayer(ent)
+	if IsValid(ent) and ent:IsPlayer() then return ent end
+
+	if IsValid(ent) and hg and hg.RagdollOwner then
+		local owner = hg.RagdollOwner(ent)
+		if IsValid(owner) and owner:IsPlayer() then return owner end
+	end
+
+	if IsValid(ent) and ent.GetOwner then
+		local owner = ent:GetOwner()
+		if IsValid(owner) and owner:IsPlayer() then return owner end
+	end
+
+	if IsValid(ent) and ent.GetParent then
+		local parent = ent:GetParent()
+		if IsValid(parent) and parent:IsPlayer() then return parent end
+	end
+end
+
+local function HMCDResolveExecutionAttacker(victim)
+	for _, ply in player.Iterator() do
+		if ply == victim then continue end
+
+		local neckData = ply.Ability_NeckBreak
+		if not istable(neckData) or neckData.Victim ~= victim then continue end
+
+		local action = tostring(neckData.Action or "neck_break")
+		if action == "neck_break" or action == "saw_head" then
+			return ply
+		end
+	end
+end
+
+local function HMCDResolveHarmAttacker(victim)
+	local bestAttacker
+	local bestHarm = 0
+
+	for attacker, harm in pairs((zb.HarmDone and zb.HarmDone[victim]) or {}) do
+		local playerAttacker = HMCDRoundKillPlayer(attacker)
+		local amount = tonumber(harm) or 0
+
+		if IsValid(playerAttacker) and playerAttacker ~= victim and amount > bestHarm then
+			bestAttacker = playerAttacker
+			bestHarm = amount
+		end
+	end
+
+	return bestAttacker
+end
+
+local function HMCDCreditRoundKill(victim, attacker, roundStamp)
+	attacker = HMCDRoundKillPlayer(attacker)
+	if not IsValid(victim) or not IsValid(attacker) or attacker == victim then return false end
+	if not attacker.HMCDRoundWasTraitor then return false end
+	if victim.HMCDRoundKillRecorded == roundStamp then return false end
+
+	victim.HMCDRoundKillRecorded = roundStamp
+	attacker.HMCDRoundKillCount = math.max(0, attacker.HMCDRoundKillCount or 0) + 1
+
+	return true
+end
+
+hook.Add("PlayerDeath", "HMCD_RoundTraitorKillCount", function(victim, inflictor, attacker)
+	local round = CurrentRound and CurrentRound()
+	if round ~= MODE or zb.ROUND_STATE ~= 1 then return end
+
+	local roundStamp = MODE.HMCDRoundKillStamp or 0
+	local creditedAttacker = HMCDRoundKillPlayer(attacker)
+		or HMCDRoundKillPlayer(inflictor)
+		or HMCDResolveExecutionAttacker(victim)
+		or HMCDResolveHarmAttacker(victim)
+
+	if IsValid(creditedAttacker) then
+		HMCDCreditRoundKill(victim, creditedAttacker, roundStamp)
+		return
+	end
+
+	timer.Simple(0.12, function()
+		if not IsValid(victim) or victim.HMCDRoundKillRecorded == roundStamp then return end
+
+		local delayedAttacker = HMCDResolveExecutionAttacker(victim) or HMCDResolveHarmAttacker(victim)
+		HMCDCreditRoundKill(victim, delayedAttacker, roundStamp)
+	end)
+end)
+
+local function HMCDBuildTraitorRoundSummary(traitors)
+	local summary = {}
+
+	for _, traitor in ipairs(traitors) do
+		if not IsValid(traitor) then continue end
+
+		local subRole = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(traitor.SubRole) or traitor.SubRole
+		local roleInfo = isstring(subRole) and MODE.SubRoles[subRole]
+		local appearance = traitor.CurAppearance or {}
+		local characterName = appearance.AName
+			or (traitor.GetPlayerName and traitor:GetPlayerName())
+			or traitor:Nick()
+			or "Unknown"
+
+		summary[#summary + 1] = {
+			ply = traitor,
+			characterName = tostring(characterName),
+			nick = tostring(traitor:Nick() or "Unknown"),
+			roleKey = isstring(subRole) and subRole or "",
+			roleName = roleInfo and roleInfo.Name or (traitor.MainTraitor and "Traitor" or "Accomplice"),
+			kills = math.Clamp(math.floor(tonumber(traitor.HMCDRoundKillCount) or 0), 0, 4095),
+			alive = traitor:Alive() and not (traitor.organism and (traitor.organism.incapacitated or traitor.organism.otrub)),
+			mainTraitor = traitor.MainTraitor == true
+		}
+	end
+
+	return summary
+end
+
+local function HMCDBroadcastTraitorRoundSummary(summary)
+	summary = summary or {}
+
+	net.Start("HMCD_TraitorRoundSummary")
+		net.WriteUInt(math.min(#summary, 63), 6)
+
+		for index = 1, math.min(#summary, 63) do
+			local info = summary[index]
+			local kills = IsValid(info.ply) and info.ply.HMCDRoundKillCount or info.kills
+			net.WriteEntity(IsValid(info.ply) and info.ply or NULL)
+			net.WriteString(string.sub(info.characterName or "Unknown", 1, 64))
+			net.WriteString(string.sub(info.nick or "Unknown", 1, 64))
+			net.WriteString(string.sub(info.roleKey or "", 1, 64))
+			net.WriteString(string.sub(info.roleName or "Traitor", 1, 64))
+			net.WriteUInt(math.Clamp(math.floor(tonumber(kills) or 0), 0, 4095), 12)
+			net.WriteBool(info.alive == true)
+			net.WriteBool(info.mainTraitor == true)
+		end
+	net.Broadcast()
+end
 
 function MODE:EndRound()
 	timer.Remove("HMCDSpawnSWAT")
@@ -2042,6 +2181,7 @@ function MODE:EndRound()
 
 	local traitors, gunners = {}, {}
 	local traitor_role_results = {}
+	local traitor_round_summary
 	local players_alive = 0
 	local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 
@@ -2075,6 +2215,11 @@ function MODE:EndRound()
 			players_alive = players_alive + 1
 		end
 
+	end
+
+	traitor_round_summary = HMCDBuildTraitorRoundSummary(traitors)
+
+	for _, ply in player.Iterator() do
 		ply.isPolice = false
 		ply.isTraitor = false
 		ply.isGunner = false
@@ -2086,6 +2231,7 @@ function MODE:EndRound()
 	end
 	
 	if(not winner)then
+		HMCDBroadcastTraitorRoundSummary(traitor_round_summary)
 		net.Start("hmcd_roundend")
 			net.WriteUInt(#traitors, MODE.TraitorExpectedAmtBits)
 			
@@ -2175,6 +2321,8 @@ function MODE:EndRound()
 	end
 
 	timer.Simple(2,function()
+		HMCDBroadcastTraitorRoundSummary(traitor_round_summary)
+
 		net.Start("hmcd_roundend")
 			net.WriteUInt(#traitors, MODE.TraitorExpectedAmtBits)
 			

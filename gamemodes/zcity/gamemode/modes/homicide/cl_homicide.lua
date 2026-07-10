@@ -1217,6 +1217,408 @@ function MODE:HUDPaint()
 end
 
 local CreateEndMenu
+local hmcdTraitorRoundSummary = {}
+local hmcdTraitorSummaryPanel
+local HMCD_SUMMARY_BASE_W = 1920
+local HMCD_SUMMARY_BASE_H = 1080
+
+local function HMCDSummaryScale()
+	return math.min(ScrW() / HMCD_SUMMARY_BASE_W, ScrH() / HMCD_SUMMARY_BASE_H)
+end
+
+local function HMCDSummaryUI(value)
+	return math.max(1, math.floor(value * HMCDSummaryScale()))
+end
+
+local function HMCDRebuildSummaryFonts()
+	surface.CreateFont("HMCD_SummaryHeader", {
+		font = "Bahnschrift",
+		size = HMCDSummaryUI(17),
+		weight = 800,
+		antialias = true
+	})
+
+	surface.CreateFont("HMCD_SummaryName", {
+		font = "Bahnschrift",
+		size = HMCDSummaryUI(24),
+		weight = 800,
+		antialias = true
+	})
+
+	surface.CreateFont("HMCD_SummaryRole", {
+		font = "Bahnschrift",
+		size = HMCDSummaryUI(14),
+		weight = 800,
+		antialias = true
+	})
+
+	surface.CreateFont("HMCD_SummarySmall", {
+		font = "Bahnschrift",
+		size = HMCDSummaryUI(12),
+		weight = 700,
+		antialias = true
+	})
+
+	surface.CreateFont("HMCD_ReportTitle", {
+		font = "Bahnschrift",
+		size = HMCDSummaryUI(30),
+		weight = 800,
+		antialias = true
+	})
+
+	surface.CreateFont("HMCD_ReportName", {
+		font = "Bahnschrift",
+		size = HMCDSummaryUI(19),
+		weight = 700,
+		antialias = true
+	})
+
+	surface.CreateFont("HMCD_ReportSmall", {
+		font = "Bahnschrift",
+		size = HMCDSummaryUI(13),
+		weight = 700,
+		antialias = true
+	})
+end
+
+local function HMCDSummaryCutPoints(x, y, w, h, cut)
+	return {
+		{x = x + cut, y = y},
+		{x = x + w - cut, y = y},
+		{x = x + w, y = y + cut},
+		{x = x + w, y = y + h - cut},
+		{x = x + w - cut, y = y + h},
+		{x = x + cut, y = y + h},
+		{x = x, y = y + h - cut},
+		{x = x, y = y + cut}
+	}
+end
+
+local function HMCDDrawSummaryCutBox(x, y, w, h, cut, fill, outline)
+	local points = HMCDSummaryCutPoints(x, y, w, h, cut)
+	draw.NoTexture()
+	surface.SetDrawColor(fill)
+	surface.DrawPoly(points)
+
+	if not outline then return end
+
+	-- VGUI clips coordinates drawn exactly at width/height, so inset the outline only.
+	points = HMCDSummaryCutPoints(x, y, math.max(w - 1, 0), math.max(h - 1, 0), cut)
+	surface.SetDrawColor(outline)
+	for index = 1, #points do
+		local nextIndex = index == #points and 1 or index + 1
+		surface.DrawLine(points[index].x, points[index].y, points[nextIndex].x, points[nextIndex].y)
+	end
+end
+
+local function HMCDFitSummaryText(text, font, maxWidth)
+	text = tostring(text or "")
+	surface.SetFont(font)
+	if surface.GetTextSize(text) <= maxWidth then return text end
+
+	while #text > 1 and surface.GetTextSize(text .. "...") > maxWidth do
+		text = string.sub(text, 1, -2)
+	end
+
+	return text .. "..."
+end
+
+
+local function HMCDSnapshotTraitorPortrait(ply)
+	local snapshot = {
+		model = "models/player/group01/male_07.mdl",
+		skin = 0,
+		modelScale = 1,
+		playerColor = Vector(1, 1, 1),
+		bodygroups = {},
+		subMaterials = {},
+		accessories = {}
+	}
+
+	if not IsValid(ply) then return snapshot end
+
+	snapshot.model = ply:GetModel() or snapshot.model
+	snapshot.skin = ply:GetSkin() or 0
+	snapshot.modelScale = ply:GetModelScale() or 1
+	snapshot.playerColor = ply.GetPlayerColor and ply:GetPlayerColor() or snapshot.playerColor
+
+	local accessories = ply.GetNetVar and ply:GetNetVar("Accessories")
+	if istable(accessories) then
+		snapshot.accessories = table.Copy(accessories)
+	elseif isstring(accessories) and accessories ~= "" then
+		snapshot.accessories = {accessories}
+	end
+
+	for _, bodygroup in ipairs(ply:GetBodyGroups() or {}) do
+		snapshot.bodygroups[bodygroup.id] = ply:GetBodygroup(bodygroup.id)
+	end
+
+	for materialIndex = 0, #(ply:GetMaterials() or {}) - 1 do
+		local subMaterial = ply:GetSubMaterial(materialIndex)
+		if isstring(subMaterial) and subMaterial ~= "" then
+			snapshot.subMaterials[materialIndex] = subMaterial
+		end
+	end
+
+	return snapshot
+end
+
+local summaryPortraitSequences = {
+	"idle_subtle",
+	"idle_all_01",
+	"idle_all",
+	"pose_standing_02",
+	"pose_standing_01",
+	"menu_walk",
+	"idle"
+}
+
+local function HMCDPoseSummaryPortrait(entity)
+	if not IsValid(entity) then return end
+
+	for _, sequenceName in ipairs(summaryPortraitSequences) do
+		local sequence = entity:LookupSequence(sequenceName)
+		if isnumber(sequence) and sequence >= 0 then
+			entity:ResetSequence(sequence)
+			entity:SetCycle(0.08)
+			entity:SetPlaybackRate(0)
+			entity:SetupBones()
+			return
+		end
+	end
+
+	entity:SetSequence(0)
+	entity:SetCycle(0)
+	entity:SetPlaybackRate(0)
+	entity:SetupBones()
+end
+
+local function HMCDFrameSummaryPortrait(panel)
+	if not IsValid(panel) or not IsValid(panel.Entity) then return end
+
+	local entity = panel.Entity
+	entity:SetupBones()
+
+	local headBone = entity:LookupBone("ValveBiped.Bip01_Head1")
+	if headBone then
+		local matrix = entity:GetBoneMatrix(headBone)
+		if matrix then
+			local headPos = matrix:GetTranslation()
+			panel:SetLookAt(headPos + Vector(0, 0, -3))
+			panel:SetCamPos(headPos + Vector(70, 0, 2))
+			return
+		end
+	end
+
+	local mins, maxs = entity:GetRenderBounds()
+	local center = (mins + maxs) * 0.5
+	panel:SetLookAt(center + Vector(0, 0, 12))
+	panel:SetCamPos(center + Vector(74, 0, 12))
+end
+
+local function HMCDCreateSummaryPortrait(parent, snapshot, x, y, width, height)
+	snapshot = snapshot or {}
+	local model = isstring(snapshot.model) and snapshot.model ~= "" and snapshot.model or "models/player/group01/male_07.mdl"
+	local portrait = vgui.Create("DModelPanel", parent)
+	portrait:SetPos(x, y)
+	portrait:SetSize(width, height)
+	portrait:SetModel(model)
+	portrait:SetFOV(27)
+	portrait:SetMouseInputEnabled(false)
+	portrait:SetKeyboardInputEnabled(false)
+	portrait:SetPaintBackground(false)
+	portrait:SetDirectionalLight(BOX_RIGHT, Color(95, 255, 145))
+	portrait:SetDirectionalLight(BOX_LEFT, Color(35, 105, 60))
+	portrait:SetDirectionalLight(BOX_FRONT, Color(185, 235, 200))
+	portrait:SetAmbientLight(Color(48, 72, 56))
+
+	function portrait:LayoutEntity(entity)
+		if not IsValid(entity) then return end
+		entity:SetAngles(Angle(0, 0, 0))
+	end
+
+	function portrait:PostDrawModel(entity)
+		if not IsValid(entity) or not DrawAccesories then return end
+
+		for _, accessory in ipairs(snapshot.accessories or {}) do
+			local accessoryData = hg.Accessories and hg.Accessories[accessory]
+			if accessoryData then
+				DrawAccesories(entity, entity, accessory, accessoryData, false, true)
+			end
+		end
+	end
+
+	local entity = portrait.Entity
+	if IsValid(entity) then
+		entity:SetSkin(snapshot.skin or 0)
+		entity:SetModelScale(snapshot.modelScale or 1, 0)
+		entity:SetNWVector("PlayerColor", snapshot.playerColor or Vector(1, 1, 1))
+
+		for bodygroup, value in pairs(snapshot.bodygroups or {}) do
+			entity:SetBodygroup(bodygroup, value)
+		end
+
+		for materialIndex, materialName in pairs(snapshot.subMaterials or {}) do
+			entity:SetSubMaterial(materialIndex, materialName)
+		end
+
+		HMCDPoseSummaryPortrait(entity)
+		HMCDFrameSummaryPortrait(portrait)
+	end
+
+	return portrait
+end
+
+local function HMCDRemoveTraitorSummary()
+	if IsValid(hmcdTraitorSummaryPanel) then
+		hmcdTraitorSummaryPanel:Remove()
+	end
+
+	hmcdTraitorSummaryPanel = nil
+	timer.Remove("HMCD_TraitorRoundSummary_Remove")
+end
+
+local function HMCDCreateTraitorSummary(summary)
+	HMCDRemoveTraitorSummary()
+	if not istable(summary) or #summary == 0 then return end
+
+	HMCDRebuildSummaryFonts()
+
+	local cardWidth = HMCDSummaryUI(248)
+	local cardHeight = HMCDSummaryUI(218)
+	local cardGap = HMCDSummaryUI(14)
+	local sideMargin = HMCDSummaryUI(28)
+	local bottomMargin = HMCDSummaryUI(20)
+	local headerHeight = HMCDSummaryUI(32)
+	local layoutX = sideMargin
+	local layoutWidth = ScrW() - sideMargin * 2
+
+	local maxPerRow = math.max(1, math.floor((layoutWidth + cardGap) / (cardWidth + cardGap)))
+	local rowCount = math.ceil(#summary / maxPerRow)
+	local startY = ScrH() - bottomMargin - rowCount * cardHeight - (rowCount - 1) * cardGap
+
+	hmcdTraitorSummaryPanel = vgui.Create("EditablePanel")
+	hmcdTraitorSummaryPanel:SetPos(0, 0)
+	hmcdTraitorSummaryPanel:SetSize(ScrW(), ScrH())
+	hmcdTraitorSummaryPanel:SetMouseInputEnabled(false)
+	hmcdTraitorSummaryPanel:SetKeyboardInputEnabled(false)
+	hmcdTraitorSummaryPanel:MoveToFront()
+
+	local headerY = startY - headerHeight
+	local topRowCards = math.min(maxPerRow, #summary)
+	local topRowWidth = topRowCards * cardWidth + (topRowCards - 1) * cardGap
+	local headerCenterX = layoutX + layoutWidth * 0.5
+	hmcdTraitorSummaryPanel.Paint = function()
+		local lineWidth = math.min(topRowWidth, HMCDSummaryUI(600))
+		local lineX = headerCenterX - lineWidth * 0.5
+
+		draw.SimpleTextOutlined(
+			"TRAITOR CELL REVEALED",
+			"HMCD_SummaryHeader",
+			headerCenterX,
+			headerY,
+			Color(35, 255, 105),
+			TEXT_ALIGN_CENTER,
+			TEXT_ALIGN_TOP,
+			math.max(1, HMCDSummaryUI(1)),
+			Color(0, 8, 3, 235)
+		)
+		surface.SetDrawColor(22, 220, 88, 150)
+		surface.DrawRect(lineX, headerY + HMCDSummaryUI(25), lineWidth, 1)
+	end
+
+	for index, info in ipairs(summary) do
+		local row = math.floor((index - 1) / maxPerRow)
+		local firstInRow = row * maxPerRow + 1
+		local cardsInRow = math.min(maxPerRow, #summary - firstInRow + 1)
+		local rowWidth = cardsInRow * cardWidth + (cardsInRow - 1) * cardGap
+		local column = index - firstInRow
+		local rowX = layoutX + (layoutWidth - rowWidth) * 0.5
+		local cardX = math.floor(rowX + column * (cardWidth + cardGap))
+		local cardY = startY + row * (cardHeight + cardGap)
+		local portraitHeight = HMCDSummaryUI(132)
+		local cut = HMCDSummaryUI(10)
+		local roleBranch = string.sub(info.roleKey or "", -4) == "_soe" and "SOE" or ((info.roleKey or "") ~= "" and "STD" or "")
+		local roleText = string.upper(info.roleName or "Traitor") .. (roleBranch ~= "" and " / " .. roleBranch or "")
+		local nameText = HMCDFitSummaryText(info.characterName or "Unknown", "HMCD_SummaryName", cardWidth - HMCDSummaryUI(24))
+		local nickText = HMCDFitSummaryText("PLAYER / " .. (info.nick or "Unknown"), "HMCD_SummarySmall", cardWidth - HMCDSummaryUI(24))
+		local killsText = tostring(info.kills or 0) .. ((info.kills or 0) == 1 and " KILL" or " KILLS")
+		local killsWidth
+		surface.SetFont("HMCD_SummaryRole")
+		killsWidth = surface.GetTextSize(killsText)
+		roleText = HMCDFitSummaryText(roleText, "HMCD_SummaryRole", cardWidth - killsWidth - HMCDSummaryUI(42))
+
+		local card = vgui.Create("DPanel", hmcdTraitorSummaryPanel)
+		card:SetPos(cardX, cardY)
+		card:SetSize(cardWidth, cardHeight)
+		card:SetMouseInputEnabled(false)
+
+		card.Paint = function(_, width, height)
+			HMCDDrawSummaryCutBox(0, 0, width, height, cut, Color(2, 14, 7, 244), Color(22, 220, 88, 230))
+
+			local bandInset = HMCDSummaryUI(2)
+			local bandBottom = height - bandInset
+			local bandCut = math.max(cut - bandInset, 1)
+			draw.NoTexture()
+			surface.SetDrawColor(3, 31, 14, 235)
+			surface.DrawPoly({
+				{x = bandInset, y = portraitHeight},
+				{x = width - bandInset, y = portraitHeight},
+				{x = width - bandInset, y = bandBottom - bandCut},
+				{x = width - bandInset - bandCut, y = bandBottom},
+				{x = bandInset + bandCut, y = bandBottom},
+				{x = bandInset, y = bandBottom - bandCut}
+			})
+
+			local accentY = portraitHeight + HMCDSummaryUI(8)
+			local accentBottom = height - cut - HMCDSummaryUI(3)
+			surface.SetDrawColor(35, 255, 105, 230)
+			surface.DrawRect(HMCDSummaryUI(8), accentY, HMCDSummaryUI(3), math.max(accentBottom - accentY, 0))
+
+			draw.SimpleText(nameText, "HMCD_SummaryName", HMCDSummaryUI(18), portraitHeight + HMCDSummaryUI(8), Color(232, 255, 238), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+			draw.SimpleText(nickText, "HMCD_SummarySmall", HMCDSummaryUI(18), portraitHeight + HMCDSummaryUI(39), Color(148, 205, 165), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+			draw.SimpleText(roleText, "HMCD_SummaryRole", HMCDSummaryUI(18), height - HMCDSummaryUI(25), Color(95, 255, 145), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+			draw.SimpleText(killsText, "HMCD_SummaryRole", width - HMCDSummaryUI(12), height - HMCDSummaryUI(25), Color(35, 255, 105), TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
+		end
+
+		card.PaintOver = function(_, width)
+			local statusText = info.alive and "SURVIVED" or "NEUTRALIZED"
+			local statusColor = info.alive and Color(35, 255, 105) or Color(255, 196, 96)
+			draw.SimpleText("CELL " .. string.format("%02d", index), "HMCD_SummarySmall", HMCDSummaryUI(10), HMCDSummaryUI(8), Color(148, 205, 165), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+			draw.SimpleText(statusText, "HMCD_SummarySmall", width - HMCDSummaryUI(10), HMCDSummaryUI(8), statusColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
+		end
+
+		HMCDCreateSummaryPortrait(card, info.portrait or {}, HMCDSummaryUI(2), HMCDSummaryUI(2), cardWidth - HMCDSummaryUI(4), portraitHeight - HMCDSummaryUI(2))
+	end
+
+	timer.Create("HMCD_TraitorRoundSummary_Remove", 5.5, 1, HMCDRemoveTraitorSummary)
+end
+
+net.Receive("HMCD_TraitorRoundSummary", function()
+	local summary = {}
+	local count = net.ReadUInt(6)
+
+	for index = 1, count do
+		local traitorEntity = net.ReadEntity()
+		summary[index] = {
+			entity = traitorEntity,
+			characterName = net.ReadString(),
+			nick = net.ReadString(),
+			roleKey = net.ReadString(),
+			roleName = net.ReadString(),
+			kills = net.ReadUInt(12),
+			alive = net.ReadBool(),
+			mainTraitor = net.ReadBool(),
+			portrait = HMCDSnapshotTraitorPortrait(traitorEntity)
+		}
+	end
+
+	hmcdTraitorRoundSummary = summary
+
+	if IsValid(hmcdEndMenu) then
+		HMCDCreateTraitorSummary(hmcdTraitorRoundSummary)
+	end
+end)
 
 net.Receive("hmcd_roundend", function()
 	local traitors, gunners = {}, {}
@@ -1258,24 +1660,34 @@ net.Receive("hmcd_announce_traitor_lose", function()
 	end
 end)
 
-local colGray = Color(85,85,85)
-local colRed = Color(130,10,10)
-local colRedUp = Color(160,30,30)
+local hmcdReportGreen = Color(35, 255, 105)
+local hmcdReportText = Color(232, 255, 238)
+local hmcdReportMuted = Color(148, 205, 165)
+local hmcdReportWarning = Color(189, 44, 0)
+local hmcdReportBlue = Color(105, 180, 255)
+local hmcdReportDead = Color(135, 150, 140)
 
-local colBlue = Color(10,10,160)
-local colBlueUp = Color(40,40,160)
-local col = Color(255,255,255,255)
+local function HMCDGetRoundReportStatus(info)
+	if info.isTraitor then
+		local state = not info.alive and "DEAD" or (info.incapacitated and "DOWN" or "ALIVE")
+		return "TRAITOR / " .. state, hmcdReportWarning, 0
+	end
 
-local colSpect1 = Color(75,75,75,255)
-local colSpect2 = Color(255,255,255)
+	if info.isGunner then
+		local state = not info.alive and "DEAD" or (info.incapacitated and "DOWN" or "ALIVE")
+		return "GUNNER / " .. state, hmcdReportBlue, 1
+	end
 
-local colorBG = Color(55,55,55,255)
-local colorBGBlacky = Color(40,40,40,255)
+	if info.alive and not info.incapacitated then
+		return "SURVIVED", hmcdReportGreen, 2
+	end
 
-local blurMat = Material("pp/blurscreen")
-local Dynamic = 0
+	if info.alive then
+		return "INCAPACITATED", hmcdReportWarning, 3
+	end
 
-BlurBackground = BlurBackground or hg.DrawBlur
+	return "DEAD", hmcdReportDead, 4
+end
 
 if IsValid(hmcdEndMenu) then
 	hmcdEndMenu:Remove()
@@ -1288,139 +1700,167 @@ CreateEndMenu = function(traitor)
 		hmcdEndMenu = nil
 	end
 
-	Dynamic = 0
+	HMCDRebuildSummaryFonts()
 	hmcdEndMenu = vgui.Create("ZFrame")
 
 	if !IsValid(hmcdEndMenu) then return end
 
 	local players = {}
+	local traitorCount = 0
+	local survivorCount = 0
 
-	local traitorName = IsValid(traitor) and traitor:GetPlayerName() or "unknown"
-	local traitorNick = IsValid(traitor) and traitor:Nick() or "unknown"
-
-	for i, ply in player.Iterator() do
+	for _, ply in player.Iterator() do
 		if ply:Team() == TEAM_SPECTATOR then continue end
-		if !IsValid(ply) then return end
-		
-		players[#players + 1] = {
+
+		local playerColor = ply:GetPlayerColor():ToColor()
+		local info = {
 			nick = ply:Nick(),
 			name = ply:GetPlayerName(),
 			isTraitor = ply.isTraitor,
 			isGunner = ply.isGunner,
-			incapacitated = ply.organism and ply.organism.otrub,
+			incapacitated = ply.organism and (ply.organism.incapacitated or ply.organism.otrub),
 			alive = ply:Alive(),
-			col = ply:GetPlayerColor():ToColor(),
-			frags = ply:Frags(),
-			steamid = ply:IsBot() and "BOT" or ply:SteamID64(),
+			col = Color(playerColor.r, playerColor.g, playerColor.b),
+			steamid = ply:IsBot() and "BOT" or ply:SteamID64()
 		}
+
+		info.status, info.statusColor, info.sortRank = HMCDGetRoundReportStatus(info)
+		players[#players + 1] = info
+
+		if info.isTraitor then traitorCount = traitorCount + 1 end
+		if info.alive and not info.incapacitated then survivorCount = survivorCount + 1 end
 	end
+
+	table.sort(players, function(left, right)
+		if left.sortRank ~= right.sortRank then return left.sortRank < right.sortRank end
+		return string.lower(left.name or left.nick or "") < string.lower(right.name or right.nick or "")
+	end)
 
 	surface.PlaySound("ambient/alarms/warningbell1.wav")
 
-	local sizeX,sizeY = ScrW() / 2.5, ScrH() / 1.2
-	local posX,posY = ScrW() / 1.3 - sizeX / 2, ScrH() / 2 - sizeY / 2
+	local margin = HMCDSummaryUI(24)
+	local sizeX = math.min(HMCDSummaryUI(640), ScrW() - margin * 2)
+	local sizeY = math.min(HMCDSummaryUI(680), ScrH() - HMCDSummaryUI(270))
+	sizeY = math.max(HMCDSummaryUI(390), sizeY)
+	local posX = ScrW() - sizeX - margin
+	local posY = HMCDSummaryUI(32)
 
 	hmcdEndMenu:SetPos(posX, posY)
 	hmcdEndMenu:SetSize(sizeX, sizeY)
+	hmcdEndMenu:SetDraggable(false)
+	hmcdEndMenu:SetColorBG(Color(2, 14, 7, 238))
+	hmcdEndMenu:SetColorBR(Color(22, 220, 88, 230))
+	hmcdEndMenu:SetBlurStrengh(1.5)
 	hmcdEndMenu:MakePopup()
 	hmcdEndMenu:SetKeyboardInputEnabled(false)
 	hmcdEndMenu:ShowCloseButton(false)
 
 	local closebutton = vgui.Create("DButton", hmcdEndMenu)
-	closebutton:SetPos(5, 5)
-	closebutton:SetSize(ScrW() / 20, ScrH() / 30)
+	local closeSize = HMCDSummaryUI(34)
+	closebutton:SetPos(sizeX - closeSize - HMCDSummaryUI(14), HMCDSummaryUI(14))
+	closebutton:SetSize(closeSize, closeSize)
 	closebutton:SetText("")
+	closebutton:SetTooltip("Close round report")
 
 	closebutton.DoClick = function()
 		if IsValid(hmcdEndMenu) then
-			hmcdEndMenu:Close()
+			local menu = hmcdEndMenu
 			hmcdEndMenu = nil
+			menu:Close()
 		end
+
+		HMCDRemoveTraitorSummary()
 	end
 
-	closebutton.Paint = function(self,w,h)
-		surface.SetDrawColor(122, 122, 122, 255)
-		surface.DrawOutlinedRect(0, 0, w, h, 2.5)
-		surface.SetFont("ZB_InterfaceMedium")
-		surface.SetTextColor(col.r, col.g, col.b, col.a)
-		local lengthX, lengthY = surface.GetTextSize("Close")
-		surface.SetTextPos(lengthX - lengthX / 1.1, 4)
-		surface.DrawText("Close")
+	closebutton.Paint = function(self, width, height)
+		local outline = self:IsHovered() and hmcdReportGreen or Color(22, 220, 88, 150)
+		HMCDDrawSummaryCutBox(0, 0, width, height, HMCDSummaryUI(5), Color(2, 25, 11, 240), outline)
+		draw.SimpleText("X", "HMCD_ReportName", width * 0.5, height * 0.5, hmcdReportText, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
-	hmcdEndMenu.PaintOver = function(self,w,h)
-		surface.SetFont( "ZB_InterfaceMediumLarge" )
-		surface.SetTextColor(col.r,col.g,col.b,col.a)
-		local lengthX, lengthY = surface.GetTextSize(traitorName .. " was a traitor ("..traitorNick..")")
-		surface.SetTextPos(w / 2 - lengthX / 2, 20)
-		surface.DrawText(traitorName .. " was a traitor ("..traitorNick..")")
+	hmcdEndMenu.PaintOver = function(_, width)
+		draw.SimpleText("ROUND REPORT", "HMCD_ReportTitle", HMCDSummaryUI(20), HMCDSummaryUI(15), hmcdReportGreen, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+		draw.SimpleText("HOMICIDE", "HMCD_ReportSmall", HMCDSummaryUI(21), HMCDSummaryUI(54), hmcdReportMuted, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+
+		surface.SetDrawColor(22, 220, 88, 140)
+		surface.DrawRect(HMCDSummaryUI(18), HMCDSummaryUI(79), width - HMCDSummaryUI(36), 1)
+
+		local traitorText = traitorCount == 1 and "1 TRAITOR IDENTIFIED" or traitorCount .. " TRAITORS IDENTIFIED"
+		local survivorText = survivorCount == 1 and "1 SURVIVOR" or survivorCount .. " SURVIVORS"
+		draw.SimpleText(traitorText, "HMCD_ReportSmall", HMCDSummaryUI(20), HMCDSummaryUI(89), hmcdReportWarning, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+		draw.SimpleText(survivorText, "HMCD_ReportSmall", width - HMCDSummaryUI(20), HMCDSummaryUI(89), hmcdReportGreen, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
+
 	end
 
-	-- PLAYERS
 	local DScrollPanel = vgui.Create("DScrollPanel", hmcdEndMenu)
-	DScrollPanel:SetPos(10, 80)
-	DScrollPanel:SetSize(sizeX - 20, sizeY - 90)
+	DScrollPanel:Dock(FILL)
+	DScrollPanel:DockMargin(HMCDSummaryUI(16), HMCDSummaryUI(104), HMCDSummaryUI(16), HMCDSummaryUI(16))
 
-	for i, info in ipairs(players) do
-		local but = vgui.Create("DButton",DScrollPanel)
+	local vbar = DScrollPanel:GetVBar()
+	vbar:SetWide(HMCDSummaryUI(6))
+	vbar.Paint = function(_, width, height)
+		surface.SetDrawColor(2, 25, 11, 210)
+		surface.DrawRect(0, 0, width, height)
+	end
+	vbar.btnGrip.Paint = function(_, width, height)
+		surface.SetDrawColor(35, 255, 105, 185)
+		surface.DrawRect(0, 0, width, height)
+	end
+	vbar.btnUp:SetTall(0)
+	vbar.btnDown:SetTall(0)
+	vbar.btnUp.Paint = function() end
+	vbar.btnDown.Paint = function() end
 
-		but:SetSize(100,50)
+	local rowWidth = sizeX - HMCDSummaryUI(44)
+	local rowHeight = HMCDSummaryUI(50)
+
+	for _, info in ipairs(players) do
+		local but = vgui.Create("DButton")
+		DScrollPanel:AddItem(but)
+
+		but:SetTall(rowHeight)
 		but:Dock(TOP)
-		but:DockMargin( 8, 6, 8, -1 )
+		but:DockMargin(0, 0, HMCDSummaryUI(6), HMCDSummaryUI(5))
 		but:SetText("")
+		but:SetCursor(info.steamid == "BOT" and "arrow" or "hand")
 
-		but.Paint = function(self,w,h)
-			local col1 = (info.isTraitor and colRed) or (info.alive and colBlue) or colGray
-			local col2 = info.isTraitor and (info.alive and colRedUp or colSpect1) or ((info.alive and !info.incapacitated) and colBlueUp) or colSpect1
-			local name = info.nick
-			surface.SetDrawColor(col1.r, col1.g, col1.b, col1.a)
-			surface.DrawRect(0, 0, w, h)
-			surface.SetDrawColor(col2.r, col2.g, col2.b, col2.a)
-			surface.DrawRect(0, h / 2, w, h / 2)
+		local nameText = HMCDFitSummaryText(info.name or "Unknown", "HMCD_ReportName", rowWidth * 0.40)
+		local nickText = HMCDFitSummaryText(info.nick or "Unknown", "HMCD_ReportName", rowWidth * 0.25)
+		local statusText = HMCDFitSummaryText(info.status or "UNKNOWN", "HMCD_ReportSmall", rowWidth * 0.30)
 
-			local col = info.col
-			surface.SetFont("ZB_InterfaceMediumLarge")
-			local lengthX, lengthY = surface.GetTextSize(name)
+		but.Paint = function(self, width, height)
+			local fill = self:IsHovered() and Color(8, 62, 28, 235) or Color(3, 31, 14, 225)
+			local outline = self:IsHovered() and Color(35, 255, 105, 210) or Color(22, 220, 88, 80)
+			HMCDDrawSummaryCutBox(0, 0, width, height, HMCDSummaryUI(7), fill, outline)
 
-			surface.SetTextColor(0, 0, 0, 255)
-			surface.SetTextPos(w / 2 + 1, h / 2 - lengthY / 2 + 1)
-			surface.DrawText(name)
+			surface.SetDrawColor(info.statusColor)
+			surface.DrawRect(0, HMCDSummaryUI(7), HMCDSummaryUI(4), height - HMCDSummaryUI(14))
 
-			surface.SetTextColor(col.r, col.g, col.b, col.a)
-			surface.SetTextPos(w / 2, h / 2 - lengthY / 2)
-			surface.DrawText(name)
-
-
-			local col = colSpect2
-			surface.SetFont("ZB_InterfaceMediumLarge")
-			surface.SetTextColor(col.r,col.g,col.b,col.a)
-			local lengthX, lengthY = surface.GetTextSize(info.name)
-			surface.SetTextPos(15, h / 2 - lengthY / 2)
-			surface.DrawText(info.name .. ((!info.alive and " - died") or (info.incapacitated and " - incapacitated") or ""))
-
-			surface.SetFont("ZB_InterfaceMediumLarge")
-			surface.SetTextColor(col.r, col.g, col.b, col.a)
-			local lengthX, lengthY = surface.GetTextSize(info.frags)
-			surface.SetTextPos(w - lengthX -15,h/2 - lengthY/2)
-			surface.DrawText(info.frags)
+			draw.SimpleText(nameText, "HMCD_ReportName", HMCDSummaryUI(16), height * 0.5 + 1, Color(0, 0, 0, 220), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(nameText, "HMCD_ReportName", HMCDSummaryUI(15), height * 0.5, info.col, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(nickText, "HMCD_ReportName", width * 0.47, height * 0.5, hmcdReportText, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText(statusText, "HMCD_ReportSmall", width - HMCDSummaryUI(15), height * 0.5, info.statusColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
 		end
 
 		function but:DoClick()
 			if info.steamid == "BOT" then chat.AddText(Color(255, 0, 0), "That's a bot.") return end
 			gui.OpenURL("https://steamcommunity.com/profiles/"..info.steamid)
 		end
-
-		DScrollPanel:AddItem(but)
 	end
+
+	HMCDCreateTraitorSummary(hmcdTraitorRoundSummary)
 
 	return true
 end
 
 function MODE:RoundStart()
-	-- if IsValid(hmcdEndMenu) then
-	-- 	hmcdEndMenu:Remove()
-	-- 	hmcdEndMenu = nil
-	-- end
+	HMCDRemoveTraitorSummary()
+	hmcdTraitorRoundSummary = {}
+
+	if IsValid(hmcdEndMenu) then
+		hmcdEndMenu:Remove()
+		hmcdEndMenu = nil
+	end
 end
 
 --\\
