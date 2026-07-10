@@ -451,6 +451,10 @@ local function send_organism(org, ply)
 	sendtable.rarm = org.rarm
 	sendtable.larm = org.larm
 	sendtable.pelvis = org.pelvis
+	sendtable.skull = org.skull
+	sendtable.chest = org.chest
+	sendtable.internalBleed = org.internalBleed
+	sendtable.internalBleedHeal = org.internalBleedHeal
 	sendtable.disorientation = org.disorientation
 	sendtable.brain = org.brain
 	sendtable.brainFrontal = org.brainFrontal
