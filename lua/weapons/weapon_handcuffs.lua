@@ -137,11 +137,19 @@ function SWEP:Tie(tr)
     local ent = tr.Entity
 	--self:EmitSound()
 	--timer.Simple(1,function()
-		if IsValid(ent) and IsValid(self) and IsValid(self:GetOwner()) and self:GetOwner():Alive() and self:GetOwner():GetPos():Distance(ent:GetPos()) < 500 then 
+		if IsValid(ent) and IsValid(self) and IsValid(self:GetOwner()) and self:GetOwner():Alive() and self:GetOwner():GetPos():Distance(ent:GetPos()) < 500 then
 			if IsValid(ent) and (ent:IsRagdoll() or (ent:IsPlayer() and ent:GetVelocity():Length() < 1)) and hg.RagdollOwner(ent) ~= self:GetOwner() then
 				--if ent.handcuffed then return end
+				local criswat = zb and zb.CROUND == "criresp" and self:GetOwner():Team() == 0
+
+				local victim = hg.RagdollOwner(ent)
+				if criswat and IsValid(victim) and victim:IsPlayer() and victim:Team() == 0 then
+					self:GetOwner():ChatPrint("You cant handcuff your buddies >:(")
+					return
+				end
+
 				self:GetOwner():ChatPrint("Threat handcuffed.")
-				
+
 				if ent:IsRagdoll() then handcuff(ent) end
 
 				ent:EmitSound("weapons/357/357_reload3.wav")
@@ -153,12 +161,15 @@ function SWEP:Tie(tr)
 					ply:SelectWeapon("weapon_hands_sh")
 					ply:SetNetVar("handcuffed",true)
 				end
-				
+
 				self:GetOwner():SelectWeapon("weapon_hands_sh")
 
 				org.handcuffed = true
 				ent:SetNetVar("handcuffed",true)
-				self:Remove()
+
+				if not criswat then
+					self:Remove()
+				end
 			end
 		end
 	--end)
