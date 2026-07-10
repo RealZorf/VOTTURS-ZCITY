@@ -192,6 +192,7 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		end
 
 		if ply:GetNetVar("handcuffed", false) and fullPoseRender then hg.CuffedAnim(ent, ply) end
+		if fullPoseRender and hg.ApplyVisibleDislocations then hg.ApplyVisibleDislocations(ent, ply) end
 		if fullPoseRender then applyBoneRenderScale(ent, renderModelScale) end
 
 		if fullPoseRender and IsValid(wep) then

@@ -116,7 +116,11 @@ local function legs(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		--broken
 	else
 		--org[key] = 0.5
+		local wasDislocated = org[key.."dislocation"]
 		org[key.."dislocation"] = true
+		if not wasDislocated and hg.ApplyPhysicalDislocationForOwner then
+			hg.ApplyPhysicalDislocationForOwner(org.owner, key)
+		end
 
 		org.painadd = org.painadd + 35
 		org.owner:AddNaturalAdrenaline(0.5)
@@ -177,7 +181,11 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		org.owner:EmitSound("bones/bone"..math.random(8)..".mp3", 75, 100, 1, CHAN_AUTO)
 		--broken
 	else
+		local wasDislocated = org[key.."dislocation"]
 		org[key.."dislocation"] = true
+		if not wasDislocated and hg.ApplyPhysicalDislocationForOwner then
+			hg.ApplyPhysicalDislocationForOwner(org.owner, key)
+		end
 		--org[key] = 0.5
 
 		org.painadd = org.painadd + (climbGrip and 20 or 35)

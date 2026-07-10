@@ -457,6 +457,211 @@ concommand.Add("hg_debug_hallucination", function(_, _, args)
 	end
 end)
 
+local dislocationPoses = {
+	larm = {
+		{"ValveBiped.Bip01_L_UpperArm", Angle(14, -17, -46), Vector(-2.6, 0.8, -3.8)},
+		{"ValveBiped.Bip01_L_Forearm", Angle(3, -10, -22)}
+	},
+	rarm = {
+		{"ValveBiped.Bip01_R_UpperArm", Angle(14, 17, 46), Vector(2.6, 0.8, -3.8)},
+		{"ValveBiped.Bip01_R_Forearm", Angle(3, 10, 22)}
+	},
+	lleg = {
+		{"ValveBiped.Bip01_L_Thigh", Angle(-12, -17, -34), Vector(-1.9, 0.5, -1.4)},
+		{"ValveBiped.Bip01_L_Calf", Angle(22, -4, -12)},
+		{"ValveBiped.Bip01_L_Foot", Angle(3, -30, -18)}
+	},
+	rleg = {
+		{"ValveBiped.Bip01_R_Thigh", Angle(-12, 17, 34), Vector(1.9, 0.5, -1.4)},
+		{"ValveBiped.Bip01_R_Calf", Angle(22, 4, 12)},
+		{"ValveBiped.Bip01_R_Foot", Angle(3, 30, 18)}
+	},
+	jaw = {
+		{"ValveBiped.Bip01_Jaw", Angle(14, 0, 0), Vector(0, 0.35, -0.7)},
+		{"ValveBiped.Bip01_Jawbone", Angle(14, 0, 0), Vector(0, 0.35, -0.7)},
+		{"Bip01_Jaw", Angle(14, 0, 0), Vector(0, 0.35, -0.7)}
+	}
+}
+
+local dislocationOrder = {"larm", "rarm", "lleg", "rleg", "jaw"}
+local standingDislocationScale = {
+	larm = 0.55,
+	rarm = 0.55,
+	lleg = 0.38,
+	rleg = 0.38,
+	jaw = 0.8
+}
+local physicalRagdollDislocationScale = {
+	larm = 0.28,
+	rarm = 0.28,
+	lleg = 0.32,
+	rleg = 0.32,
+	jaw = 1
+}
+
+local function getDislocationBoneCache(ent)
+	local model = ent:GetModel() or ""
+	if ent.ZCDislocationBoneModel == model and ent.ZCDislocationBones then
+		return ent.ZCDislocationBones
+	end
+
+	local cache = {}
+	for key, transforms in pairs(dislocationPoses) do
+		cache[key] = {}
+		local usedRoots = {}
+
+		for _, transform in ipairs(transforms) do
+			local bone = ent:LookupBone(transform[1])
+			if bone and not usedRoots[bone] then
+				cache[key][#cache[key] + 1] = {bone = bone, offset = transform[2], position = transform[3]}
+				usedRoots[bone] = true
+
+				-- Jaw aliases describe the same optional bone; only use the first match.
+				if key == "jaw" then break end
+			end
+		end
+	end
+
+	cache.body = {
+		pelvis = ent:LookupBone("ValveBiped.Bip01_Pelvis"),
+		head = ent:LookupBone("ValveBiped.Bip01_Head1"),
+		larm = ent:LookupBone("ValveBiped.Bip01_L_UpperArm"),
+		rarm = ent:LookupBone("ValveBiped.Bip01_R_UpperArm")
+	}
+
+	ent.ZCDislocationBoneModel = model
+	ent.ZCDislocationBones = cache
+	return cache
+end
+
+local function getDislocationBodyFrame(ent, cache)
+	local bones = cache.body or {}
+	local pelvis = bones.pelvis and ent:GetBoneMatrix(bones.pelvis)
+	local head = bones.head and ent:GetBoneMatrix(bones.head)
+	local larm = bones.larm and ent:GetBoneMatrix(bones.larm)
+	local rarm = bones.rarm and ent:GetBoneMatrix(bones.rarm)
+
+	local up = pelvis and head and (head:GetTranslation() - pelvis:GetTranslation()) or ent:GetUp()
+	local right = larm and rarm and (rarm:GetTranslation() - larm:GetTranslation()) or ent:GetRight()
+	if up:LengthSqr() < 0.01 then up = ent:GetUp() end
+	if right:LengthSqr() < 0.01 then right = ent:GetRight() end
+	up = up:GetNormalized()
+	right = right:GetNormalized()
+
+	local forward = right:Cross(up)
+	if forward:LengthSqr() < 0.01 then forward = ent:GetForward() end
+	forward = forward:GetNormalized()
+
+	return right, forward, up
+end
+
+local function rotateBoneBranch(ent, data, weight, bodyRight, bodyForward, bodyUp)
+	if not hg.bone_apply_matrix then return end
+
+	local rootMatrix = ent:GetBoneMatrix(data.bone)
+	if not rootMatrix then return end
+
+	local pivot = rootMatrix:GetTranslation()
+	local rootAngles = rootMatrix:GetAngles()
+	local offset = data.offset
+	local _, displacedAngles = LocalToWorld(vector_origin, Angle(offset.p * weight, offset.y * weight, offset.r * weight), pivot, rootAngles)
+	local position = data.position
+	if position then
+		rootMatrix:SetTranslation(pivot + (bodyRight * position.x + bodyForward * position.y + bodyUp * position.z) * weight)
+	end
+	rootMatrix:SetAngles(displacedAngles)
+	hg.bone_apply_matrix(ent, data.bone, rootMatrix)
+end
+
+local function getDislocationState(ent, ply)
+	local org = IsValid(ply) and (ply.new_organism or ply.organism) or nil
+	if not org and IsValid(ent) then org = ent.new_organism or ent.organism end
+	return org
+end
+
+local function applyDislocatedJawFlex(ent, ply, weight)
+	if not ent.GetFlexIDByName or not ent.SetFlexWeight then return end
+
+	local model = ent:GetModel() or ""
+	if ent.ZCDislocationFlexModel ~= model then
+		ent.ZCDislocationFlexModel = model
+		ent.ZCDislocationJawFlex = ent:GetFlexIDByName("jaw_drop") or false
+	end
+
+	local flex = ent.ZCDislocationJawFlex
+	if flex == false then return end
+
+	local voiceWeight = 0
+	if IsValid(ply) and ply:IsPlayer() and ply:IsSpeaking() then
+		voiceWeight = math.Clamp(ply:VoiceVolume() * 5, 0, 2)
+	end
+
+	ent:SetFlexWeight(flex, math.max(voiceWeight, weight * 0.85))
+end
+
+function hg.ApplyVisibleDislocations(ent, ply)
+	if not IsValid(ent) or not ent.GetBoneMatrix or not ent.SetBoneMatrix then return end
+
+	local org = getDislocationState(ent, ply)
+	if not org and not ent.ZCDislocationWeights then return end
+
+	local frame = FrameNumber()
+	local weights = ent.ZCDislocationWeights or {}
+	ent.ZCDislocationWeights = weights
+	local shouldAdvance = ent.ZCDislocationWeightFrame ~= frame
+	ent.ZCDislocationWeightFrame = frame
+
+	local cache = getDislocationBoneCache(ent)
+	local bodyRight, bodyForward, bodyUp = getDislocationBodyFrame(ent, cache)
+	local ragdollPose = ent:IsRagdoll()
+	local active = false
+	for _, key in ipairs(dislocationOrder) do
+		local amputated = org and org[key .. "amputated"]
+		local wanted = not amputated and org and org[key .. "dislocation"] and 1 or 0
+		local current = weights[key] or 0
+
+		if shouldAdvance then
+			local speed = wanted == 1 and 9 or 5
+			current = math.Approach(current, wanted, FrameTime() * speed)
+			weights[key] = current
+		end
+
+		if current > 0.001 then
+			active = true
+			local physicalRagdollPose = ragdollPose and ent:GetNWBool("ZCPhysicalDislocation_" .. key, false)
+			local visualScale = physicalRagdollPose and physicalRagdollDislocationScale[key] or (ragdollPose and 1 or standingDislocationScale[key])
+			local visualWeight = current * visualScale
+			for _, transform in ipairs(cache[key] or {}) do
+				rotateBoneBranch(ent, transform, visualWeight, bodyRight, bodyForward, bodyUp)
+			end
+		end
+	end
+
+	applyDislocatedJawFlex(ent, ply, (weights.jaw or 0) * (ragdollPose and 1 or standingDislocationScale.jaw))
+
+	if not active and not org then
+		ent.ZCDislocationWeights = nil
+	end
+end
+
+concommand.Add("hg_debug_dislocation", function(_, _, args)
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:IsAdmin() then
+		print("hg_debug_dislocation is restricted to admins.")
+		return
+	end
+
+	local command = string.lower(args[1] or "")
+	local targetMode = string.lower(args[2] or "look")
+
+	if not dislocationPoses[command] and command ~= "all" and command ~= "clear" then
+		print("Usage: hg_debug_dislocation <larm|rarm|lleg|rleg|jaw|all|clear> [look|self]")
+		return
+	end
+
+	RunConsoleCommand("hg_debug_dislocation_physics", command, targetMode)
+end)
+
 hook.Add("radialOptions", "DislocatedJoint", function()
     if !lply:Alive() or !lply.organism or lply.organism.otrub then return end
 	if (lply.tried_fixing_limb or 0) > CurTime() then return end

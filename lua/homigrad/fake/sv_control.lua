@@ -58,6 +58,31 @@ local left_arm = {
 	["ValveBiped.Bip01_L_Hand"] = true,
 }
 
+local dislocationPhysicsBones = {
+	["ValveBiped.Bip01_L_UpperArm"] = "larm",
+	["ValveBiped.Bip01_L_Forearm"] = "larm",
+	["ValveBiped.Bip01_L_Hand"] = "larm",
+	["ValveBiped.Bip01_R_UpperArm"] = "rarm",
+	["ValveBiped.Bip01_R_Forearm"] = "rarm",
+	["ValveBiped.Bip01_R_Hand"] = "rarm",
+	["ValveBiped.Bip01_L_Thigh"] = "lleg",
+	["ValveBiped.Bip01_L_Calf"] = "lleg",
+	["ValveBiped.Bip01_L_Foot"] = "lleg",
+	["ValveBiped.Bip01_R_Thigh"] = "rleg",
+	["ValveBiped.Bip01_R_Calf"] = "rleg",
+	["ValveBiped.Bip01_R_Foot"] = "rleg"
+}
+
+local function isDislocatedPhysicsBone(ragdoll, physNumber, org)
+	if not org then return false end
+
+	local bone = ragdoll:TranslatePhysBoneToBone(physNumber)
+	if not bone or bone < 0 then return false end
+
+	local key = dislocationPhysicsBones[ragdoll:GetBoneName(bone)]
+	return key and org[key .. "dislocation"] or false
+end
+
 hg.cachedmodels = hg.cachedmodels or {}
 
 local function realPhysNum(ragdoll, physNumber)
@@ -78,6 +103,8 @@ hg.realPhysNum = realPhysNum
 local oldtime
 function hg.ShadowControl(ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp)
 	physNumber = realPhysNum(ragdoll, physNumber) or 0
+	local owner = ragdoll.ply
+	if IsValid(owner) and isDislocatedPhysicsBone(ragdoll, physNumber, owner.organism) then return end
 	local phys = ragdoll:GetPhysicsObjectNum(physNumber)
 
 	shadowparams.secondstoarrive = ss
@@ -155,6 +182,163 @@ local function getCachedHeadPhys(ragdoll)
 
 	return ragdoll:GetPhysicsObjectNum(physBone)
 end
+
+local physicalDislocationPoses = {
+	larm = {
+		root = "ValveBiped.Bip01_L_UpperArm",
+		bones = {"ValveBiped.Bip01_L_UpperArm", "ValveBiped.Bip01_L_Forearm", "ValveBiped.Bip01_L_Hand"},
+		angle = Angle(14, -17, -46)
+	},
+	rarm = {
+		root = "ValveBiped.Bip01_R_UpperArm",
+		bones = {"ValveBiped.Bip01_R_UpperArm", "ValveBiped.Bip01_R_Forearm", "ValveBiped.Bip01_R_Hand"},
+		angle = Angle(14, 17, 46)
+	},
+	lleg = {
+		root = "ValveBiped.Bip01_L_Thigh",
+		bones = {"ValveBiped.Bip01_L_Thigh", "ValveBiped.Bip01_L_Calf", "ValveBiped.Bip01_L_Foot"},
+		angle = Angle(-4, -10, -22)
+	},
+	rleg = {
+		root = "ValveBiped.Bip01_R_Thigh",
+		bones = {"ValveBiped.Bip01_R_Thigh", "ValveBiped.Bip01_R_Calf", "ValveBiped.Bip01_R_Foot"},
+		angle = Angle(-4, 10, 22)
+	}
+}
+
+local dislocationTraceMins = Vector(-2, -2, -2)
+local dislocationTraceMaxs = Vector(2, 2, 2)
+
+function hg.ApplyPhysicalRagdollDislocation(ragdoll, key, force)
+	if not IsValid(ragdoll) or not ragdoll:IsRagdoll() then return false end
+
+	local pose = physicalDislocationPoses[key]
+	if not pose then return false end
+
+	ragdoll.ZCPhysicalDislocations = ragdoll.ZCPhysicalDislocations or {}
+	if ragdoll.ZCPhysicalDislocations[key] and not force then return true end
+
+	local rootBone = cachedLookupBone(ragdoll, pose.root)
+	if not rootBone then return false end
+	local pivot, rootAngles = ragdoll:GetBonePosition(rootBone)
+	if not pivot or not rootAngles then return false end
+	local _, displacedAngles = LocalToWorld(vector_origin, pose.angle, pivot, rootAngles)
+
+	for _, boneName in ipairs(pose.bones) do
+		local bone = cachedLookupBone(ragdoll, boneName)
+		local physBone = bone and ragdoll:TranslateBoneToPhysBone(bone) or -1
+		local phys = physBone >= 0 and ragdoll:GetPhysicsObjectNum(physBone) or nil
+		if not IsValid(phys) then continue end
+
+		local oldPos = phys:GetPos()
+		local localPos, localAngles = WorldToLocal(oldPos, phys:GetAngles(), pivot, rootAngles)
+		local worldPos, worldAngles = LocalToWorld(localPos, localAngles, pivot, displacedAngles)
+		if key == "lleg" or key == "rleg" then
+			local tr = util.TraceHull({
+				start = oldPos,
+				endpos = worldPos,
+				mins = dislocationTraceMins,
+				maxs = dislocationTraceMaxs,
+				filter = ragdoll,
+				mask = MASK_SOLID_BRUSHONLY
+			})
+
+			if tr.StartSolid then
+				worldPos = oldPos
+			elseif tr.Hit then
+				worldPos = tr.HitPos + tr.HitNormal * 2
+			end
+		end
+		phys:SetPos(worldPos)
+		phys:SetAngles(worldAngles)
+		phys:Wake()
+	end
+
+	ragdoll.ZCPhysicalDislocations[key] = true
+	ragdoll:SetNWBool("ZCPhysicalDislocation_" .. key, true)
+	return true
+end
+
+function hg.ApplyPhysicalDislocationForOwner(owner, key)
+	if not IsValid(owner) then return end
+
+	local ragdoll = owner:IsRagdoll() and owner or owner.FakeRagdoll
+	if not IsValid(ragdoll) and owner.GetNWEntity then
+		ragdoll = owner:GetNWEntity("FakeRagdoll")
+	end
+	if not IsValid(ragdoll) then return end
+
+	timer.Simple(0, function()
+		if IsValid(ragdoll) then hg.ApplyPhysicalRagdollDislocation(ragdoll, key, true) end
+	end)
+end
+
+hook.Add("Ragdoll_Create", "VisiblePhysicalDislocations", function(ply, ragdoll)
+	timer.Simple(0, function()
+		if not IsValid(ply) or not IsValid(ragdoll) or not ply.organism then return end
+
+		for key in pairs(physicalDislocationPoses) do
+			if ply.organism[key .. "dislocation"] then
+				hg.ApplyPhysicalRagdollDislocation(ragdoll, key)
+			end
+		end
+	end)
+end)
+
+concommand.Add("hg_debug_dislocation_physics", function(ply, _, args)
+	if IsValid(ply) and not ply:IsAdmin() then return end
+
+	local command = string.lower(args[1] or "all")
+	local target
+	if IsValid(ply) then
+		target = string.lower(args[2] or "look") == "self" and ply or hg.eyeTrace(ply).Entity
+		if not IsValid(target) then target = ply end
+	else
+		print("hg_debug_dislocation_physics must be run by a player so a target can be selected.")
+		return
+	end
+
+	local owner = target:IsRagdoll() and (hg.RagdollOwner(target) or target:GetNWEntity("ply")) or target
+	local org = IsValid(owner) and owner.organism or target.organism
+	local ragdoll = target:IsRagdoll() and target or (IsValid(owner) and owner.FakeRagdoll)
+	if not org then
+		ply:ChatPrint("No organism found on that target.")
+		return
+	end
+
+	local keys = {"larm", "rarm", "lleg", "rleg", "jaw"}
+	if command == "clear" then
+		for _, key in ipairs(keys) do
+			org[key .. "dislocation"] = false
+			if IsValid(ragdoll) then
+				ragdoll:SetNWBool("ZCPhysicalDislocation_" .. key, false)
+				if ragdoll.ZCPhysicalDislocations then ragdoll.ZCPhysicalDislocations[key] = nil end
+			end
+		end
+	elseif command == "all" then
+		for _, key in ipairs(keys) do
+			org[key .. "dislocation"] = true
+			if IsValid(ragdoll) then hg.ApplyPhysicalRagdollDislocation(ragdoll, key) end
+		end
+	elseif physicalDislocationPoses[command] or command == "jaw" then
+		local state = not org[command .. "dislocation"]
+		org[command .. "dislocation"] = state
+		if IsValid(ragdoll) and physicalDislocationPoses[command] then
+			if state then
+				hg.ApplyPhysicalRagdollDislocation(ragdoll, command)
+			else
+				ragdoll:SetNWBool("ZCPhysicalDislocation_" .. command, false)
+				if ragdoll.ZCPhysicalDislocations then ragdoll.ZCPhysicalDislocations[command] = nil end
+			end
+		end
+	else
+		ply:ChatPrint("Usage: hg_debug_dislocation_physics <larm|rarm|lleg|rleg|jaw|all|clear> [look|self]")
+		return
+	end
+
+	if IsValid(org.owner) then org.owner.fullsend = true end
+	ply:ChatPrint("Physical dislocation test applied to " .. tostring(IsValid(owner) and owner or target) .. ".")
+end)
 
 hook.Add("Fake", "Contorl", function(ply, ragdoll)
 	ragdoll.cooldownLH = 0
@@ -278,6 +462,11 @@ hook.Add("Think", "Fake", function()
 					local name = ragdoll:GetBoneName(bone)
 
 					if IsValid(physobj) then
+						if isDislocatedPhysicsBone(ragdoll, i, org) then
+							physobj:Wake()
+							continue
+						end
+
 						local bone_impulse = ply.HitBones and ply.HitBones[bonename] or CurTime()
 						local amt_impulse = (2 - math.Clamp(bone_impulse - CurTime(),0,2)) / 2
 						
