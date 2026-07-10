@@ -67,6 +67,9 @@ function SWEP:OwnerChanged()
 end
 
 if SERVER then
+	local FENTANYL_GUILT_THRESHOLD = 0.3
+	local FENTANYL_THRESHOLD_HARM = 5
+
 	function SWEP:Heal(ent, mode)
 		if ent:IsNPC() then
 			self:SpawnGarbage()
@@ -91,14 +94,20 @@ if SERVER then
 		org.analgesiaAdd = math.min(org.analgesiaAdd + injected * 2, 4)
 		self.modeValues[1] = math.max(self.modeValues[1] - injected, 0)
 
-		owner.injectedinto = owner.injectedinto or {}
-		owner.injectedinto[org.owner] = owner.injectedinto[org.owner] or 0
-		owner.injectedinto[org.owner] = owner.injectedinto[org.owner] + injected
+		owner.ZCFentanylInjectedInto = owner.ZCFentanylInjectedInto or setmetatable({}, {__mode = "k"})
+		local previousDose = math.max(0, tonumber(owner.ZCFentanylInjectedInto[org]) or 0)
+		local totalDose = previousDose + injected
+		owner.ZCFentanylInjectedInto[org] = totalDose
 
-		if owner.injectedinto[org.owner] > 1 and injected > 0 then
+		if owner ~= org.owner and injected > 0 and totalDose > FENTANYL_GUILT_THRESHOLD then
+			local harmfulDose = math.max(0, totalDose - math.max(previousDose, FENTANYL_GUILT_THRESHOLD))
+			local thresholdCrossed = previousDose <= FENTANYL_GUILT_THRESHOLD
+			local harm = harmfulDose * ((zb and zb.MaximumHarm) or 10) + (thresholdCrossed and FENTANYL_THRESHOLD_HARM or 0)
 			local dmgInfo = DamageInfo()
 			dmgInfo:SetAttacker(owner)
-			hook.Run("HomigradDamage", org.owner, dmgInfo, HITGROUP_RIGHTARM, hg.GetCurrentCharacter(org.owner), injected * (zb.MaximumHarm or 10))
+			dmgInfo:SetInflictor(self)
+			dmgInfo:SetDamageCustom(9203)
+			hook.Run("HomigradDamage", org.owner, dmgInfo, HITGROUP_RIGHTARM, hg.GetCurrentCharacter(org.owner), harm)
 		end
 
 		if self.poisoned2 then

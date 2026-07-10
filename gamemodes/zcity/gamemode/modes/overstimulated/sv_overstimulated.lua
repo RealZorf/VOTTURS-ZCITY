@@ -6,6 +6,8 @@ MODE.ForBigMaps = false
 MODE.ROUND_TIME = 900
 MODE.LootSpawn = true
 MODE.Chance = 0.1
+MODE.GuiltPunishable = true
+MODE.GuiltPostRound = true
 
 local START_SCREEN_DELAY = 10
 local SHOOTER_COUNTDOWN_DELAY = 60
