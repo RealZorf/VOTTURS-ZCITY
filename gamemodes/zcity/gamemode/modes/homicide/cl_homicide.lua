@@ -1867,7 +1867,7 @@ end
 net.Receive("HMCD(StartPlayersRoleSelection)", function()
 	local role = net.ReadString()
 
-	hg.SelectPlayerRole(role)
+	hg.SelectPlayerRole(role, MODE.Type)
 end)
 
 function hg.SelectPlayerRole(role, mode, parent)
@@ -1918,6 +1918,8 @@ net.Receive("HMCD(EndPlayersRoleSelection)", function()
 	if(IsValid(VGUI_HMCD_TraitorTileMenu))then
 		VGUI_HMCD_TraitorTileMenu:Remove()
 	end
+
+	MODE.RoleEndedChosingState = true
 end)
 
 net.Receive("HMCD(SetSubRole)", function(len, ply)
