@@ -171,14 +171,13 @@ hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
                 if zb.GuiltSQL.PlayerInstances[steamID64].value < 0 then
                     local previousKarma = zb.GuiltSQL.PlayerInstances[steamID64].value
 
-                    SyncKarmaRuntime(ply, 10)
+                    SyncKarmaRuntime(ply, 30)
 
                     timer.Simple(0, function()
                         if not IsValid(ply) then return end
-
                         if IsBanImmune(ply) then return end
 
-                        ply:guilt_SetValue(10)
+                        ply:guilt_SetValue(30)
                         ply:Ban(5, false)
                         ply:Kick("Your karma is too low: " .. math.Round(previousKarma, 0) .. ". Try again in 5 minutes.")
                     end)
