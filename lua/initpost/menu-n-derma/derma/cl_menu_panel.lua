@@ -211,6 +211,7 @@ function PANEL:Init()
 	self:SetColorBG(COL.bg)
 	self:ShowCloseButton(false)
 	curent_panel = nil
+	self.ShowIcon = math.random(1, 1000) == 1
 
 	self.SplashText = splasheh[math.random(#splasheh)]
 	self.Title, self.TitleShadow = self:InitializeMarkup()
@@ -294,11 +295,21 @@ function PANEL:Init()
 	bottomDock.Paint = function(this, w, h) end
 
 	local contentX = sidebarX + sidebarW + MenuScale(20)
+	local TraitorIcon = Material("sprites/meen.png")
+
 	self.ContentPanelPaint = function(this, w, h)
 		local r = MenuScale(6)
 		draw.RoundedBox(r, 0, 0, w, h, COL.surface)
 		surface.SetDrawColor(COL.border)
 		surface.DrawOutlinedRect(0, 0, w, h, 1)
+
+		if self.ShowIcon then
+			local iconW = TraitorIcon:Width()
+			local iconH = TraitorIcon:Height()
+			surface.SetDrawColor(255, 255, 255)
+			surface.SetMaterial(TraitorIcon)
+			surface.DrawTexturedRect((w - iconW) / 2, h - iconH, iconW, iconH)
+		end
 	end
 
 	self.panelparrent = vgui.Create("DPanel", self)
