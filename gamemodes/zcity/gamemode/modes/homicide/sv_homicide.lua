@@ -2086,13 +2086,25 @@ end
 local function HMCDCreditRoundKill(victim, attacker, roundStamp)
 	attacker = HMCDRoundKillPlayer(attacker)
 	if not IsValid(victim) or not IsValid(attacker) or attacker == victim then return false end
-	if not attacker.HMCDRoundWasTraitor then return false end
+	if not attacker.HMCDRoundWasTraitor and attacker.isTraitor ~= true then return false end
 	if victim.HMCDRoundKillRecorded == roundStamp then return false end
 
+	attacker.HMCDRoundWasTraitor = true
 	victim.HMCDRoundKillRecorded = roundStamp
 	attacker.HMCDRoundKillCount = math.max(0, attacker.HMCDRoundKillCount or 0) + 1
 
 	return true
+end
+
+local function HMCDTryCreditRoundKill(victim, roundStamp, ...)
+	for index = 1, select("#", ...) do
+		local candidate = select(index, ...)
+		if HMCDCreditRoundKill(victim, candidate, roundStamp) then
+			return true
+		end
+	end
+
+	return false
 end
 
 hook.Add("PlayerDeath", "HMCD_RoundTraitorKillCount", function(victim, inflictor, attacker)
@@ -2100,22 +2112,41 @@ hook.Add("PlayerDeath", "HMCD_RoundTraitorKillCount", function(victim, inflictor
 	if round ~= MODE or zb.ROUND_STATE ~= 1 then return end
 
 	local roundStamp = MODE.HMCDRoundKillStamp or 0
-	local creditedAttacker = HMCDRoundKillPlayer(attacker)
-		or HMCDRoundKillPlayer(inflictor)
-		or HMCDResolveExecutionAttacker(victim)
-		or HMCDResolveHarmAttacker(victim)
-
-	if IsValid(creditedAttacker) then
-		HMCDCreditRoundKill(victim, creditedAttacker, roundStamp)
+	if HMCDTryCreditRoundKill(
+		victim,
+		roundStamp,
+		attacker,
+		inflictor,
+		HMCDResolveExecutionAttacker(victim),
+		HMCDResolveHarmAttacker(victim)
+	) then
 		return
 	end
 
 	timer.Simple(0.12, function()
 		if not IsValid(victim) or victim.HMCDRoundKillRecorded == roundStamp then return end
 
-		local delayedAttacker = HMCDResolveExecutionAttacker(victim) or HMCDResolveHarmAttacker(victim)
-		HMCDCreditRoundKill(victim, delayedAttacker, roundStamp)
+		HMCDTryCreditRoundKill(
+			victim,
+			roundStamp,
+			HMCDResolveExecutionAttacker(victim),
+			HMCDResolveHarmAttacker(victim)
+		)
 	end)
+end)
+
+hook.Add("Player_Death", "HMCD_RoundTraitorKillCountHomigrad", function(victim, attacker)
+	local round = CurrentRound and CurrentRound()
+	if round ~= MODE or zb.ROUND_STATE ~= 1 then return end
+
+	local roundStamp = MODE.HMCDRoundKillStamp or 0
+	HMCDTryCreditRoundKill(
+		victim,
+		roundStamp,
+		attacker,
+		HMCDResolveExecutionAttacker(victim),
+		HMCDResolveHarmAttacker(victim)
+	)
 end)
 
 local function HMCDBuildTraitorRoundSummary(traitors)
