@@ -188,7 +188,7 @@ function SWEP:RestedAnim(pos, ang, dtime)
     return pos, ang
 end
 
-local hg_gary = CreateClientConVar("hg_gary", "0", false, true, "center weapon in fake", 0, 1)
+local hg_gary = CreateClientConVar("hg_gary", "0", false, true, "Center weapon in fake", 0, 1)
 
 function SWEP:PosAngChanges(ply, desiredPos, desiredAng, bNoAdditional, closeanim, dtime)
 	desiredPos = desiredPos or vecZero

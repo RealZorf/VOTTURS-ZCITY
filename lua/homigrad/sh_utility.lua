@@ -1698,8 +1698,25 @@ duplicator.Allow( "homigrad_base" )
 --\\ Just shared freelook limits
 	hg.MaxLookX,hg.MinLookX = 55,-55 
 	hg.MaxLookY,hg.MinLookY = 45,-45
---
+--//
+--\\ Give ammo on weapon spawn
+	local hg_giveammomul = CreateConVar("hg_giveammomul", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Multiply given ammo for weapon spawned from spawnmenu")
+	hook.Add("PlayerGiveSWEP", "hg_giveammo", function(ply, class, tbl)
+		if hg_giveammomul:GetInt() <= 0 then return end
 
+		if not class then return end
+
+		local wep = weapons.Get(class)
+		if not wep then return end
+
+		if not wep.Category or not string.find(wep.Category, "Weapons - ") then return end
+
+		local ammoType = wep.Primary.Ammo
+		if ammoType and ammoType ~= nil and ammoType ~= "none" then
+			ply:GiveAmmo(wep.Primary.ClipSize * hg_giveammomul:GetInt(), ammoType, true)
+		end
+	end)
+--//
 --\\ Screen Capture
 	if CLIENT then
 		local tex = GetRenderTargetEx("rt_hg_screencapture_1",

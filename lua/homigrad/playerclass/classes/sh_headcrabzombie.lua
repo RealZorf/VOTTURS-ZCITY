@@ -470,7 +470,9 @@ else
 					
 					mdl:DrawModel()
 
-					DrawBokehDOF(26, 0.93, 15)
+					if not hg.ConVars.potatopc:GetBool() then
+						DrawBokehDOF(26, 0.93, 15)
+					end
 					-- Let everything render normally again
 					render.SetStencilEnable(false)
 				render.SetColorModulation(1, 1, 1)

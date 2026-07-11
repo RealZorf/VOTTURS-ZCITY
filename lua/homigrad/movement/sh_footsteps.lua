@@ -37,9 +37,10 @@ local hg_coolcamera = ConVarExists("hg_coolcamera") and GetConVar("hg_coolcamera
 				footcl = 1
 			end
 			local mul = 1 * len / 300 * math_max((350 - ply.move) / 50, 0.4)
-			local org = ply.organism or {}
-			local legsDamaged = (org.rleg or 0) + (org.lleg or 0)
-			local mul2 = ((org.lleg or 0) * 3 + 1) * ((org.rleg or 0) * 3 + 1) * (hg_coolcamera:GetBool() and legsDamaged < 0.2 and 1.5 or 0.5)
+
+			if not ply.organism then return end
+			local legsDamaged = ply.organism.rleg + ply.organism.lleg
+			local mul2 = ((ply.organism.lleg or 0) * 3 + 1) * ((ply.organism.rleg or 0) * 3 + 1) * (hg_coolcamera:GetBool() and legsDamaged < 0.2 and 1.5 or 0.5)
 
 			ViewPunch(Angle((hg_gopro:GetBool() and 5 or 1) * len / 200 * math_max((350 - ply.move) / 50, 1) * mul2, footcl * mul * mul2, footcl * mul * mul2))
 		end
