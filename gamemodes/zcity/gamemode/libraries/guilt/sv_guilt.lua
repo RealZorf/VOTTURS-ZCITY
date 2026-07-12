@@ -6,12 +6,15 @@ zb.HarmDone = zb.HarmDone or {}
 zb.HarmDoneKarma = zb.HarmDoneKarma or {}
 zb.HarmDoneDetailed = zb.HarmDoneDetailed or {}
 zb.HarmAttacked = zb.HarmAttacked or {}
+zb.GuiltCombatHistory = zb.GuiltCombatHistory or {}
+zb.GuiltThreatStates = zb.GuiltThreatStates or {}
 zb.GuiltSQL = zb.GuiltSQL or {}
 zb.GuiltSQL.PlayerInstances = zb.GuiltSQL.PlayerInstances or {}
 
 local hg_developer = ConVarExists("hg_developer") and GetConVar("hg_developer") or CreateConVar("hg_developer",0,FCVAR_SERVER_CAN_EXECUTE,"Toggle developer mode (enables damage traces)",0,1)
 local KARMA_SUICIDE_REFUND_RATE = 0.1
 local KARMA_SUICIDE_REFUND_WINDOW = 30
+local GUILT_THREAT_WINDOW = 15
 local PLAYER_KARMA_CAPS = {
     superadmin = 99999,
     owner = 99999,
@@ -133,6 +136,99 @@ local function ResetRoundRefundState(ply)
     ply.GuiltSuicideDamageAt = 0
 end
 
+local function GetGuiltDamageSource(attacker, dmgInfo)
+    local custom = dmgInfo and dmgInfo.GetDamageCustom and dmgInfo:GetDamageCustom() or 0
+
+    if custom == 9203 then return "fentanyl" end
+    if custom == 9202 then return "jumpkick" end
+    if custom == 9201 then return "kick" end
+
+    if IsValid(attacker) and attacker:IsPlayer() then
+        if (attacker.PAT_JumpKickActiveUntil or 0) > CurTime() then return "jumpkick" end
+        if attacker:GetNWFloat("InLegKick", 0) > CurTime() or (attacker.InLegKick or 0) > CurTime() then return "kick" end
+    end
+
+    return "damage"
+end
+
+
+local function RecordGuiltCombatHarm(victim, attacker, amount, source)
+    if not IsValid(victim) or not IsValid(attacker) then return end
+
+    amount = math.max(0, tonumber(amount) or 0)
+    if amount <= 0 then return end
+
+    local now = CurTime()
+    zb.GuiltCombatHistory[victim] = zb.GuiltCombatHistory[victim] or {}
+
+    local entry = zb.GuiltCombatHistory[victim][attacker]
+    if not istable(entry) or now - (tonumber(entry.last) or 0) > GUILT_THREAT_WINDOW then
+        entry = { harm = 0 }
+    end
+
+    entry.harm = math.min((tonumber(entry.harm) or 0) + amount, zb.MaximumHarm or 10)
+    entry.last = now
+    entry.source = tostring(source or "damage")
+    zb.GuiltCombatHistory[victim][attacker] = entry
+end
+
+
+function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
+    local state = {
+        score = 0,
+        karmaMul = 1,
+        incomingHarm = 0,
+        responseRatio = 0,
+        source = tostring(source or "damage"),
+        reasons = { "No recent incoming harm from the victim." }
+    }
+
+    if not IsValid(victim) or not IsValid(attacker) then return state end
+
+    local reciprocal = zb.GuiltCombatHistory[attacker] and zb.GuiltCombatHistory[attacker][victim]
+    if not istable(reciprocal) then return state end
+
+    local age = CurTime() - (tonumber(reciprocal.last) or 0)
+    if age < 0 or age > GUILT_THREAT_WINDOW then
+        zb.GuiltCombatHistory[attacker][victim] = nil
+        return state
+    end
+
+    local maxHarm = math.max(tonumber(zb.MaximumHarm) or 10, 1)
+    local incomingHarm = math.Clamp(tonumber(reciprocal.harm) or 0, 0, maxHarm)
+    if incomingHarm <= 0 then return state end
+
+    local nativeResponse = zb.HarmDone[victim] and zb.HarmDone[victim][attacker] or 0
+    local response = math.Clamp(tonumber(responseHarm) or tonumber(nativeResponse) or 0, 0, maxHarm)
+    local ratio = response / math.max(incomingHarm, 0.01)
+    local recency = 1 - math.Clamp(age / GUILT_THREAT_WINDOW, 0, 1)
+    local severity = math.Clamp(incomingHarm / maxHarm, 0, 1)
+
+    state.score = math.Clamp(0.15 + recency * 0.45 + severity * 0.4, 0, 1)
+    state.incomingHarm = incomingHarm
+    state.responseRatio = ratio
+    state.source = tostring(source or reciprocal.source or "damage")
+
+    if ratio <= 1.25 then
+        state.karmaMul = 0.15
+    elseif ratio <= 2 then
+        state.karmaMul = 0.45
+    else
+        state.karmaMul = 0.8
+    end
+
+    state.reasons = {
+        "Victim recently harmed attacker for " .. math.Round(incomingHarm, 1) .. " harm.",
+        ratio <= 1.25 and "Response appears proportional to the incoming harm." or "Response exceeded the incoming harm.",
+        "Threat was active " .. math.Round(age, 1) .. " seconds before this response."
+    }
+
+    return state
+end
+
+
+local SyncKarmaRuntime
+
 hook.Add("DatabaseConnected", "GuiltCreateData", function()
 	local query
 
@@ -228,7 +324,7 @@ function plyMeta:guilt_SetValue( zb_guilt )
 	updateQuery:Execute()
 end
 
-local function SyncKarmaRuntime(ply, karma)
+SyncKarmaRuntime = function(ply, karma)
     ply.Karma = karma
     ply:SetNetVar("Karma", karma)
 
@@ -339,6 +435,12 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     local newharm = math.min(harm + oldharmdone, maxharm)
     local harm = newharm - oldharmdone
     local amt = harm / maxharm
+    local damageSource = GetGuiltDamageSource(Attacker, dmgInfo)
+
+    RecordGuiltCombatHarm(Victim, Attacker, harm, damageSource)
+    zb.GuiltThreatStates[Victim] = zb.GuiltThreatStates[Victim] or {}
+    local threatState = zb.GetGuiltThreatState(Victim, Attacker, damageSource, newharm)
+    zb.GuiltThreatStates[Victim][Attacker] = threatState
     
     if amt > 0.2 or newharm / maxharm > 0.8 then
         --print("Player "..Attacker:Name().." harmed player "..(Victim:IsPlayer() and Victim:Name() or (tostring(Victim))).." with "..harm.." points.")
@@ -418,6 +520,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     end
 
     add = add * mul
+    add = add * math.Clamp(tonumber(threatState.karmaMul) or 1, 0, 1)
     
     local guiltadd = amt * 60
     Attacker.Guilt = (Attacker.Guilt or 0) + guiltadd
@@ -583,6 +686,8 @@ hook.Add("ZB_StartRound","NO_HARM",function()
     zb.HarmDone = {}
     zb.HarmDoneKarma = {}
     zb.GuiltTable = {}
+    zb.GuiltCombatHistory = {}
+    zb.GuiltThreatStates = {}
 end)
 
 util.AddNetworkString("get_karma")
