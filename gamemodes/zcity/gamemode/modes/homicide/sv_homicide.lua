@@ -1863,7 +1863,7 @@ local gaymaps = {
 	["gm_sirenmine_v2"] = true,
 }
 
-function MODE.StartPlayersRoleSelection()
+function MODE:StartPlayersRoleSelection()
 	MODE.RoleChooseRound = true
 	MODE.StartRoundTime = MODE.StartRoundTime + MODE.RoleChooseRoundStartTime
 
@@ -2094,7 +2094,7 @@ function MODE:RoundStart()
 	timer.Remove("HMCDSpawnSWAT")
 	
 	if(roles_choose)then
-		MODE.StartPlayersRoleSelection()
+		self:StartPlayersRoleSelection()
 		PrintMessage(HUD_PRINTTALK, "Traitor is choosing roles for " .. MODE.RoleChooseRoundStartTime ..  " seconds")
 	else
 		MODE.ChoosingPlayersList = {}
