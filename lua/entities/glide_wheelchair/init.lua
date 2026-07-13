@@ -13,9 +13,19 @@ local BitBand = bit.band
 local ExpDecay = Glide.ExpDecay
 local TraceLine = util.TraceLine
 local ZERO_ANGLE = Angle( 0, 0, 0 )
+local GetWheelchairFromEntity
 
 local GROUND_OFFSET = Vector( 0, 0, 3 )
 local GROUND_DEPTH = Vector( 0, 0, 10 )
+local WORLD_DOWN = Vector( 0, 0, -1 )
+local HILL_ROLL_START_NORMAL = 0.94
+local HILL_ROLL_FULL_NORMAL = 0.58
+local HILL_ROLL_MIN_ALIGNMENT = 0.2
+local HILL_ROLL_MIN_SPEED = 190
+local HILL_ROLL_MAX_SPEED = 820
+local HILL_ROLL_MIN_ACCEL = 100
+local HILL_ROLL_MAX_ACCEL = 1050
+local HILL_ROLL_COAST_TIME = 1.25
 local ROLLOVER_UP = Vector( 0, 0, 1 )
 local ROLLOVER_DOT_LIMIT = 0.65
 local ROLLOVER_ANGLE_LIMIT = 50
@@ -447,6 +457,28 @@ function ENT:SetFakeOccupantRagdoll( ragdoll )
     self.wheelchairFakeMaterials = materials
 end
 
+function ENT:IsOccupantTaped( driver )
+    if not IsValid( driver ) or not driver:Alive() then return false end
+
+    local ragdoll = driver.FakeRagdoll
+    if not IsValid( ragdoll ) or not ragdoll.DuctTape then return false end
+
+    for _, tape in pairs( ragdoll.DuctTape ) do
+        local weld = istable( tape ) and tape[1]
+
+        if IsValid( weld ) then
+            local ent1 = weld.Ent1
+            local ent2 = weld.Ent2
+
+            if GetWheelchairFromEntity( ent1 ) == self or GetWheelchairFromEntity( ent2 ) == self then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 local function DetachRolloverRagdoll( seat, ragdoll )
     if not IsValid( ragdoll ) then return end
 
@@ -591,6 +623,11 @@ function ENT:UpdateRolloverEjection( driver )
         return false
     end
 
+    if self:IsOccupantTaped( driver ) then
+        self.upsideDownSince = nil
+        return false
+    end
+
     local angles = self:GetAngles()
     local pitch = Abs( math.NormalizeAngle( angles[1] ) )
     local roll = Abs( math.NormalizeAngle( angles[3] ) )
@@ -656,11 +693,6 @@ function ENT:OnSimulatePhysics( phys, dt, outLin, outAng )
     local driver = self:GetDriver()
     local pusher = self.wheelchairPusher
 
-    if self.wheelchairBroken or ( not IsValid( driver ) and not IsValid( pusher ) ) then
-        self.isGrounded = false
-        return
-    end
-
     local origin = phys:GetPos()
 
     traceData.start = origin + GROUND_OFFSET
@@ -686,6 +718,41 @@ function ENT:OnSimulatePhysics( phys, dt, outLin, outAng )
     local velocity = phys:GetVelocity()
     local forwardSpeed = velocity:Dot( forward )
     local sideSpeed = velocity:Dot( right )
+    local downhill = WORLD_DOWN - normal * WORLD_DOWN:Dot( normal )
+    local rollingDownhill = false
+    local slopeAmount = Clamp(
+        ( HILL_ROLL_START_NORMAL - normal[3] ) / ( HILL_ROLL_START_NORMAL - HILL_ROLL_FULL_NORMAL ),
+        0,
+        1
+    )
+
+    if slopeAmount > 0 and downhill:LengthSqr() > 0.001 and self:GetUp():Dot( normal ) > 0.62 then
+        downhill:Normalize()
+
+        local alignment = Clamp(
+            ( forward:Dot( downhill ) - HILL_ROLL_MIN_ALIGNMENT ) / ( 1 - HILL_ROLL_MIN_ALIGNMENT ),
+            0,
+            1
+        )
+
+        if alignment > 0 then
+            rollingDownhill = true
+            self.hillCoastUntil = CurTime() + HILL_ROLL_COAST_TIME
+
+            local speedLimit = Lerp( slopeAmount, HILL_ROLL_MIN_SPEED, HILL_ROLL_MAX_SPEED )
+            local speedRoom = Clamp( 1 - math.max( forwardSpeed, 0 ) / speedLimit, 0, 1 )
+            local acceleration = Lerp( slopeAmount, HILL_ROLL_MIN_ACCEL, HILL_ROLL_MAX_ACCEL )
+
+            outLin:Add( forward * phys:GetMass() * acceleration * alignment * speedRoom )
+
+            if phys:IsAsleep() then
+                phys:Wake()
+            end
+        end
+    end
+
+    if self.wheelchairBroken or ( not IsValid( driver ) and not IsValid( pusher ) ) then return end
+
     local isAttendantPush = IsValid( pusher )
     local input = isAttendantPush and self:GetWheelchairPushInput( pusher )
         or self:GetWheelchairDriveInput( driver )
@@ -720,6 +787,11 @@ function ENT:OnSimulatePhysics( phys, dt, outLin, outAng )
         forwardForce = 0
     else
         forwardForce = ( targetSpeed - forwardSpeed ) * mass * response
+    end
+
+    if input >= -0.05 and forwardForce < 0
+        and ( rollingDownhill or CurTime() < ( self.hillCoastUntil or 0 ) ) then
+        forwardForce = 0
     end
 
     forwardForce = Clamp( forwardForce, -forceLimit, forceLimit ) * driveMultiplier
@@ -834,6 +906,7 @@ function ENT:OnDriverExit()
 end
 
 function ENT:OnRemove()
+    self.allowTapedExit = true
     self:StopWheelchairPush()
     self:RestoreFakeOccupantMass()
     BaseClass.OnRemove( self )
@@ -939,7 +1012,7 @@ hook.Add( "FinishMove", "GlideWheelchair.AttendantHandlePosition", function( ply
     end
 end )
 
-local function GetWheelchairFromEntity( ent )
+GetWheelchairFromEntity = function( ent )
     if not IsValid( ent ) then return end
     if ent.IsGlideWheelchair then return ent end
 
@@ -948,6 +1021,20 @@ local function GetWheelchairFromEntity( ent )
         return parent
     end
 end
+
+hook.Add( "CanExitVehicle", "GlideWheelchair.DuctTapeRestraint", function( ply, seat )
+    local wheelchair = GetWheelchairFromEntity( seat )
+
+    if not IsValid( wheelchair ) or wheelchair.allowTapedExit then return end
+    if not wheelchair:IsOccupantTaped( ply ) then return end
+
+    if CurTime() >= ( ply.NextWheelchairTapeNotice or 0 ) then
+        ply.NextWheelchairTapeNotice = CurTime() + 1
+        ply:PrintMessage( HUD_PRINTCENTER, "You are duct-taped to the wheelchair." )
+    end
+
+    return false
+end )
 
 local function FindFakeEntryWheelchair( ply, ragdoll )
     if hg and hg.eyeTrace then
