@@ -50,11 +50,14 @@ MODE.ManiacFurySecondWindStaminaFraction = 0.65
 MODE.ManiacFurySecondWindOxygen = 30
 MODE.ManiacFurySecondWindPainCap = 12
 MODE.ManiacFuryNoFlinchDuration = 5
-MODE.ManiacBloodFrenzyDuration = 4
-MODE.ManiacBloodFrenzyMaxStacks = 3
+MODE.ManiacBloodFrenzyDuration = MODE.ManiacRampageDuration or 15
+MODE.ManiacBloodFrenzyMaxStacks = MODE.ManiacRampageMaxStacks or 5
 MODE.ManiacBloodFrenzyStaminaRegenPerStack = 12
 MODE.ManiacBloodFrenzyImmediateStamina = 9
 MODE.ManiacBloodFrenzyImmobilizationRelief = 4
+MODE.ManiacRampageMinHarm = 4
+MODE.ManiacRampageHitCooldown = 0.18
+MODE.ManiacRampageNoFlinchRefresh = 0.7
 MODE.ManiacPainConversionStaminaPerHarm = 1.3
 MODE.ManiacPainConversionShockRelief = 0.55
 MODE.ManiacPainConversionPainRelief = 0.65
@@ -154,10 +157,6 @@ function MODE.ResetShadowCamouflage(ply)
 	ply:SetNWFloat("HMCD_ShadowCamouflageReadyAt", 0)
 
 	MODE.SetShadowCamouflageActive(ply, false)
-end
-
-function MODE.IsManiacRole(subrole)
-	return subrole == "traitor_maniac" or subrole == "traitor_maniac_soe"
 end
 
 local function isStalkerRoundActive()
@@ -546,8 +545,23 @@ function MODE.ResetManiacFury(ply)
 	ply.Ability_ManiacFury_NoFlinchUntil = nil
 	ply.Ability_ManiacBloodFrenzyUntil = nil
 	ply.Ability_ManiacBloodFrenzyStacks = nil
+	ply.Ability_ManiacRampageExpiries = nil
+	ply.Ability_ManiacRampageHitCooldowns = nil
+	ply.Ability_ManiacRampageIncapacitatedVictims = nil
+	if ply.HMCDManiacRampageModifiersApplied then
+		ply.MeleeDamageMul = ply.HMCDManiacBaseMeleeDamageMul
+		ply.MeleeSpeedMul = ply.HMCDManiacBaseMeleeSpeedMul
+	end
+	ply.HMCDManiacRampageModifiersApplied = nil
+	ply.HMCDManiacBaseMeleeDamageMul = nil
+	ply.HMCDManiacBaseMeleeSpeedMul = nil
+	if ply.organism then
+		ply.organism.injuryDefianceGripFloor = nil
+	end
 	ply:SetNWBool("HMCD_ManiacFuryActive", false)
 	ply:SetNWFloat("HMCD_ManiacFuryStartedAt", 0)
+	ply:SetNWInt("HMCD_ManiacRampageStacks", 0)
+	ply:SetNWFloat("HMCD_ManiacRampageNextDecay", 0)
 end
 
 function MODE.ActivateManiacFury(ply)
@@ -558,6 +572,9 @@ function MODE.ActivateManiacFury(ply)
 	ply.Ability_ManiacFury_Active = true
 	ply.Ability_ManiacFury_LastThink = now
 	ply.Ability_ManiacFury_NoFlinchUntil = now + (MODE.ManiacFuryNoFlinchDuration or 5)
+	ply.HMCDManiacRampageModifiersApplied = true
+	ply.HMCDManiacBaseMeleeDamageMul = ply.MeleeDamageMul or 1
+	ply.HMCDManiacBaseMeleeSpeedMul = ply.MeleeSpeedMul or 1
 	ply:SetNWBool("HMCD_ManiacFuryActive", true)
 	ply:SetNWFloat("HMCD_ManiacFuryStartedAt", now)
 	MODE.ApplyManiacSecondWind(ply)
@@ -574,36 +591,89 @@ function MODE.ActivateManiacFury(ply)
 end
 
 function MODE.GetManiacBloodFrenzyStacks(ply)
-	if not IsValid(ply) or not ply.Ability_ManiacBloodFrenzyUntil or ply.Ability_ManiacBloodFrenzyUntil <= CurTime() then
-		return 0
+	if not IsValid(ply) then return 0 end
+
+	local now = CurTime()
+	local expiries = ply.Ability_ManiacRampageExpiries or {}
+	for index = #expiries, 1, -1 do
+		if expiries[index] <= now then
+			table.remove(expiries, index)
+		end
 	end
 
-	return math.Clamp(ply.Ability_ManiacBloodFrenzyStacks or 0, 0, MODE.ManiacBloodFrenzyMaxStacks or 3)
+	table.sort(expiries)
+	ply.Ability_ManiacRampageExpiries = expiries
+
+	local stacks = math.Clamp(#expiries, 0, MODE.ManiacBloodFrenzyMaxStacks or 5)
+	local next_decay = expiries[1] or 0
+	ply.Ability_ManiacBloodFrenzyStacks = stacks
+	ply.Ability_ManiacBloodFrenzyUntil = expiries[#expiries]
+
+	if ply:GetNWInt("HMCD_ManiacRampageStacks", 0) ~= stacks then
+		ply:SetNWInt("HMCD_ManiacRampageStacks", stacks)
+	end
+	if ply:GetNWFloat("HMCD_ManiacRampageNextDecay", 0) ~= next_decay then
+		ply:SetNWFloat("HMCD_ManiacRampageNextDecay", next_decay)
+	end
+
+	return stacks
 end
 
-function MODE.AddManiacBloodFrenzy(ply, harm)
+function MODE.AddManiacBloodFrenzy(ply, harm, victim)
 	if not IsValid(ply) or not ply.Ability_ManiacFury_Active then return end
 
 	local org = ply.organism
 	if not org then return end
+	local amount = math.max(tonumber(harm) or 0, 0)
+	if amount < (MODE.ManiacRampageMinHarm or 4) then return end
 
 	local now = CurTime()
-	local old_stacks = MODE.GetManiacBloodFrenzyStacks(ply)
-	local gain = (harm or 0) >= 12 and 2 or 1
-	local stacks = math.Clamp(old_stacks + gain, 1, MODE.ManiacBloodFrenzyMaxStacks or 3)
+	local target = IsValid(victim) and (hg.RagdollOwner and (hg.RagdollOwner(victim) or victim) or victim) or nil
+	if IsValid(target) then
+		ply.Ability_ManiacRampageHitCooldowns = ply.Ability_ManiacRampageHitCooldowns or {}
+		if (ply.Ability_ManiacRampageHitCooldowns[target] or 0) > now then return end
+		ply.Ability_ManiacRampageHitCooldowns[target] = now + (MODE.ManiacRampageHitCooldown or 0.18)
+	end
 
-	ply.Ability_ManiacBloodFrenzyStacks = stacks
-	ply.Ability_ManiacBloodFrenzyUntil = now + (MODE.ManiacBloodFrenzyDuration or 4)
+	local gain = 1
+	if IsValid(target) and target:IsPlayer() then
+		local target_org = target.organism
+		local incapacitated = not target:Alive() or (target_org and (target_org.otrub or target_org.needotrub or (target_org.consciousness or 1) <= 0.2))
+		ply.Ability_ManiacRampageIncapacitatedVictims = ply.Ability_ManiacRampageIncapacitatedVictims or {}
+
+		if incapacitated and not ply.Ability_ManiacRampageIncapacitatedVictims[target] then
+			gain = 2
+			ply.Ability_ManiacRampageIncapacitatedVictims[target] = true
+		elseif not incapacitated then
+			ply.Ability_ManiacRampageIncapacitatedVictims[target] = nil
+		end
+	end
+
+	local expiries = ply.Ability_ManiacRampageExpiries or {}
+	local max_stacks = MODE.ManiacBloodFrenzyMaxStacks or 5
+	local expires_at = now + (MODE.ManiacBloodFrenzyDuration or 15)
+	for _ = 1, gain do
+		if #expiries < max_stacks then
+			expiries[#expiries + 1] = expires_at
+		else
+			table.sort(expiries)
+			expiries[1] = expires_at
+		end
+	end
+
+	ply.Ability_ManiacRampageExpiries = expiries
+	local stacks = MODE.GetManiacBloodFrenzyStacks(ply)
+	ply.Ability_ManiacFury_NoFlinchUntil = math.max(ply.Ability_ManiacFury_NoFlinchUntil or 0, now + (MODE.ManiacRampageNoFlinchRefresh or 0.7))
 
 	local stamina = org.stamina
 	if stamina then
 		local max_stamina = stamina.max or stamina.range or 0
 		if max_stamina > 0 then
-			stamina[1] = math.min(max_stamina, (stamina[1] or 0) + (MODE.ManiacBloodFrenzyImmediateStamina or 9) * stacks)
+			stamina[1] = math.min(max_stamina, (stamina[1] or 0) + (MODE.ManiacBloodFrenzyImmediateStamina or 9) * gain)
 		end
 	end
 
-	org.immobilization = math.max((org.immobilization or 0) - (MODE.ManiacBloodFrenzyImmobilizationRelief or 4) * stacks, 0)
+	org.immobilization = math.max((org.immobilization or 0) - (MODE.ManiacBloodFrenzyImmobilizationRelief or 4) * gain, 0)
 end
 
 function MODE.ApplyManiacPainConversion(ply, harm)
@@ -706,6 +776,11 @@ function MODE.ApplyManiacFury(ply)
 	org.analgesia = math.Clamp(org.analgesia or 0, MODE.ManiacFuryAnalgesia, MODE.ManiacFuryAnalgesiaMax)
 	org.analgesiaAdd = math.min(org.analgesiaAdd or 0, 0)
 	org.heartstop = false
+	if not org.larmamputated and not org.rarmamputated then
+		org.injuryDefianceGripFloor = MODE.ManiacInjuryDefianceGripFloor or 0.70
+	else
+		org.injuryDefianceGripFloor = nil
+	end
 
 	org.avgpain = math.min(org.avgpain or 0, MODE.ManiacFuryPainCap)
 	org.pain = math.min(org.pain or 0, MODE.ManiacFuryPainCap)
@@ -722,10 +797,12 @@ function MODE.ApplyManiacFury(ply)
 	end
 
 	local stamina = org.stamina
+	local frenzy_stacks = MODE.GetManiacBloodFrenzyStacks(ply)
+	ply.MeleeDamageMul = (ply.HMCDManiacBaseMeleeDamageMul or 1) * (1 + frenzy_stacks * (MODE.ManiacRampageMeleeDamagePerStack or 0.06))
+	ply.MeleeSpeedMul = (ply.HMCDManiacBaseMeleeSpeedMul or 1) * (1 + frenzy_stacks * (MODE.ManiacRampageMeleeSpeedPerStack or 0.04))
 	if stamina then
 		local max_stamina = stamina.max or stamina.range or 0
 		if max_stamina > 0 then
-			local frenzy_stacks = MODE.GetManiacBloodFrenzyStacks(ply)
 			local frenzy_regen = frenzy_stacks * (MODE.ManiacBloodFrenzyStaminaRegenPerStack or 12)
 			stamina[1] = math.min(max_stamina, (stamina[1] or max_stamina) + (MODE.ManiacFuryStaminaRegenPerSecond + frenzy_regen) * delta)
 		end
@@ -1483,12 +1560,8 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 				end
 			end
 
-			if(MODE.IsManiacRole(ply.SubRole))then
-				if(ply.Ability_ManiacFury_Active)then
-					MODE.ApplyManiacFury(ply)
-				end
-			elseif(ply.Ability_ManiacFury_Active or ply.Ability_ManiacFury_Triggered)then
-				MODE.ResetManiacFury(ply)
+			if(ply.Ability_ManiacFury_Active)then
+				MODE.ApplyManiacFury(ply)
 			end
 
 			if(MODE.IsStalkerRole and MODE.IsStalkerRole(ply.SubRole))then
@@ -1629,7 +1702,7 @@ hook.Add("HomigradDamage", "HMCD_SubRoles_ManiacFuryTrigger", function(victim, d
 	local melee_damage = dmgInfo:IsDamageType(DMG_CLUB) or dmgInfo:IsDamageType(DMG_SLASH)
 	if not melee_damage then return end
 
-	MODE.AddManiacBloodFrenzy(attacker, harm)
+	MODE.AddManiacBloodFrenzy(attacker, harm, ply)
 end)
 
 hook.Add("HG_PlayerFootstep", "HMCD_SubRoles_StalkerSilentPursuit", function(ply, pos, foot, sound, volume, rf)
@@ -1677,7 +1750,9 @@ end)
 hook.Add("PlayerSpawn", "HMCD_SubRoles_ShadowCamouflage", function(ply)
 	ply.HMCD_JuggernautBlackoutUntil = nil
 	MODE.ResetShadowCamouflage(ply)
-	MODE.ResetManiacFury(ply)
+	if not OverrideSpawn then
+		MODE.ResetManiacFury(ply)
+	end
 	MODE.ResetStalkerTracking(ply)
 	MODE.StopCannibalConsume(ply)
 	MODE.ResetJuggernaut(ply)

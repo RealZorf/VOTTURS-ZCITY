@@ -302,7 +302,8 @@ function hg.organism.UpdatePerfusion(owner, org, timeValue)
 	org.neckBrainOxygenPenalty = math.Approach(neckBrainOxygenPenalty, 0, (timeValue or engine.TickInterval()) * 1.5)
 
 	org.perfusionMoveMul = math.Clamp(math.Remap(org.peripheralperfusion, 0.22, 0.75, 0.25, 1), 0.25, 1)
-	org.perfusionGripMul = math.Clamp(math.Remap(org.peripheralperfusion, 0.18, 0.7, 0.35, 1), 0.35, 1)
+	local gripFloor = math.Clamp(org.injuryDefianceGripFloor or 0.35, 0.35, 1)
+	org.perfusionGripMul = math.Clamp(math.Remap(org.peripheralperfusion, 0.18, 0.7, 0.35, 1), gripFloor, 1)
 
 	local dt = timeValue or engine.TickInterval()
 	local badHypoxia = org.brainoxygen < 0.45 or org.perfusion < 0.35

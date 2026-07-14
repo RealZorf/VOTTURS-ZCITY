@@ -384,8 +384,12 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 		k = k * math.Clamp((org.blood or 0) / 5000, 0, 1)
 		k = k * math.Clamp(10 / ((org.shock or 0) + 1), 0.25, 1)
 		k = k * (math.min(math.Round((org.adrenaline or 0), 1) / 24, 0.3) + 1)
-		k = k * math.Clamp((org.lleg and org.lleg >= 0.5 and math.max(1 - org.lleg, 0.6) or 1) * (org.lleg and org.rleg >= 0.5 and math.max(1 - org.rleg, 0.6) or 1) * ((org.analgesia * 1 + 1)), 0, 1)
-		k = k * (org.llegdislocation and 0.75 or 1) * (org.rlegdislocation and 0.75 or 1)
+		local limbMoveMul = math.Clamp((org.lleg and org.lleg >= 0.5 and math.max(1 - org.lleg, 0.6) or 1) * (org.lleg and org.rleg >= 0.5 and math.max(1 - org.rleg, 0.6) or 1) * ((org.analgesia * 1 + 1)), 0, 1)
+		limbMoveMul = limbMoveMul * (org.llegdislocation and 0.75 or 1) * (org.rlegdislocation and 0.75 or 1)
+		if ply:GetNWBool("HMCD_ManiacFuryActive", false) and not org.llegamputated and not org.rlegamputated then
+			limbMoveMul = math.max(limbMoveMul, 0.65)
+		end
+		k = k * limbMoveMul
 		k = k * (org.pelvis == 1 and 0.4 or 1)
 		k = k * ((IsValid(ply:GetNetVar("carryent")) or IsValid(ply:GetNetVar("carryent2"))) and math.Clamp(50 / math.max(ply:GetNetVar("carrymass", 0) + ply:GetNetVar("carrymass2", 0), 1), 0.5, 1) or 1)
 		k = k * math.Clamp(20 / ((org.pain or 0) + 1), 0.01, 1)
