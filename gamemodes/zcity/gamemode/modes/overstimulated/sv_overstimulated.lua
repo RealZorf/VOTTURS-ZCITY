@@ -5,7 +5,7 @@ MODE.PrintName = "Overstimulated"
 MODE.ForBigMaps = false
 MODE.ROUND_TIME = 900
 MODE.LootSpawn = true
-MODE.Chance = 0.1
+MODE.Chance = 0.02
 MODE.GuiltPunishable = true
 MODE.GuiltPostRound = true
 

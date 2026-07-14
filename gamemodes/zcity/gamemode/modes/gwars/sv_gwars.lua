@@ -3,7 +3,7 @@ MODE.PrintName = "Gang Wars"
 
 MODE.ROUND_TIME = 180
 
-MODE.Chance = 0.02
+MODE.Chance = 0.04
 
 MODE.OverideSpawnPos = true
 MODE.LootSpawn = false

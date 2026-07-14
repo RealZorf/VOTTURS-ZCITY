@@ -4,7 +4,7 @@ MODE.name = "assassinsgreed"
 MODE.PrintName = "Assassin's Greed"
 MODE.Description = "Every player is both hunter and hunted. Eliminate your assigned targets to survive to the end."
 
-MODE.Chance = 0.09
+MODE.Chance = 0.03
 MODE.ROUND_TIME = 900
 MODE.start_time = 1
 MODE.end_time = 7

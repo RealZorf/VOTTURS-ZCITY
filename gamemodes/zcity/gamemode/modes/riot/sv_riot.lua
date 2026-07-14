@@ -3,7 +3,7 @@ MODE.PrintName = "Riot"
 
 MODE.OverideSpawnPos = true
 MODE.LootSpawn = false
-MODE.Chance = 0.03
+MODE.Chance = 0.04
 
 local riotWeapons = {
     "weapon_leadpipe",
