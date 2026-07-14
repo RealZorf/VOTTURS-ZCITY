@@ -1533,6 +1533,7 @@ function SWEP:CustomThink()
                 if owner.organism and owner.organism.stamina and owner.organism.stamina[1] then
                     mul = 1 / math.Clamp((180 - owner.organism.stamina[1]) / 90, 1, 2)
                 end
+				mul = mul * (owner.MeleeSpeedMul or 1)
 
                 self:PlayAnim(self.Attack_Charge_End, self.HeavyAttackAnimTimeEnd / mul, false, nil, false, true)
 
@@ -1589,6 +1590,7 @@ function SWEP:CustomThink()
                 if owner.organism and owner.organism.stamina and owner.organism.stamina[1] then
                     mul = 1 / math.Clamp((180 - owner.organism.stamina[1]) / 90, 1, 2)
                 end
+				mul = mul * (owner.MeleeSpeedMul or 1)
                 
                 self.HitEnts = nil
                 self.FirstAttackTick = false
@@ -2210,6 +2212,7 @@ function SWEP:PrimaryAttack()
     if ply.organism and ply.organism.stamina and ply.organism.stamina[1] then
         mul = 1 / math.Clamp((180 - ply.organism.stamina[1]) / 90, 1, 2)
     end
+	mul = mul * (ply.MeleeSpeedMul or 1)
 
     
     self.HitEnts = nil
@@ -2327,6 +2330,7 @@ function SWEP:SecondaryAttack(override)
     if ply.organism and ply.organism.stamina and ply.organism.stamina[1] then
         mul = 1 / math.Clamp((180 - ply.organism.stamina[1]) / 90, 1, 2)
     end
+	mul = mul * (ply.MeleeSpeedMul or 1)
 
     self.HitEnts = nil
     self.FirstAttackTick = false

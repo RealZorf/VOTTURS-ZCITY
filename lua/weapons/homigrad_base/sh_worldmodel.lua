@@ -338,6 +338,10 @@ local lpos2, lang2 = Vector(0,5,0), Angle(0,0,0)
 local reloadlerp = 0
 SWEP.GetDebug = false
 
+local function shouldHideHolstered(self)
+	return self.shouldntDrawHolstered or self:GetNWBool("ZCityPocketHolster", false)
+end
+
 local function DrawWorldModel(self, force)
 	if RENDERING_SCOPE == self then return end
 	if not IsValid(self) or not self.WorldModel_Transform then return end
@@ -361,7 +365,7 @@ local function DrawWorldModel(self, force)
 	
 	if not localdraw then
 		if IsValid(owner) and (owner.GetActiveWeapon and (owner:GetActiveWeapon() ~= self) or owner:IsRagdoll()) then
-			if not self.shouldntDrawHolstered then
+			if not shouldHideHolstered(self) then
 				self:WorldModel_Transform_Holstered()
 				willdraw = true
 			else
@@ -947,7 +951,7 @@ hook.Add("PostDrawTranslucentRenderables", "huyCock333", function()
 	for i=1, #hg.weapons do
 		self = hg.weapons[i]
 		if not IsValid(self) then table.remove(hg.weapons,i) continue end
-		if IsValid(self:GetOwner()) and self:GetOwner().GetActiveWeapon and self:GetOwner():GetActiveWeapon() ~= self and self.shouldntDrawHolstered then removeFlashlights(self) continue end
+		if IsValid(self:GetOwner()) and self:GetOwner().GetActiveWeapon and self:GetOwner():GetActiveWeapon() ~= self and shouldHideHolstered(self) then removeFlashlights(self) continue end
 		if not self.attachments then continue end
 		if not self.lasertoggle then removeFlashlights(self) end
 		if self:GetPos():DistToSqr(eyePos) > LASER_RENDER_DIST_SQR then

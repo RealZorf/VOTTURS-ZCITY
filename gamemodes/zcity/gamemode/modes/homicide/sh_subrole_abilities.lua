@@ -36,6 +36,13 @@ MODE.StalkerIsolatedFirstHitDamageMultiplier = 1.4
 MODE.StalkerPursuitRadius = 1750
 MODE.StalkerPursuitStaminaRegen = 14
 MODE.StalkerPursuitFootstepVolume = 0.18
+MODE.ManiacRampageMaxStacks = 5
+MODE.ManiacRampageDuration = 15
+MODE.ManiacRampageMoveSpeedPerStack = 0.03
+MODE.ManiacRampageMeleeDamagePerStack = 0.06
+MODE.ManiacRampageMeleeSpeedPerStack = 0.04
+MODE.ManiacInjuryDefianceMoveFloor = 0.65
+MODE.ManiacInjuryDefianceGripFloor = 0.70
 MODE.CannibalConsumeTime = 4.5
 MODE.CannibalCleaverConsumeTime = 3
 MODE.CannibalConsumeReach = 95
@@ -69,6 +76,10 @@ end
 
 function MODE.IsStalkerRole(subrole)
 	return subrole == "traitor_stalker" or subrole == "traitor_stalker_soe"
+end
+
+function MODE.IsManiacRole(subrole)
+	return subrole == "traitor_maniac" or subrole == "traitor_maniac_soe"
 end
 
 function MODE.IsCannibalRole(subrole)
@@ -568,6 +579,25 @@ hook.Add("HG_MovementCalc_2", "HMCD_SubRole_Abilities", function(mul, ply, cmd)
 
 	if(ply.Ability_JuggernautStrangle)then
 		mul[1] = mul[1] * 0.45
+	end
+
+	if(ply:GetNWBool("HMCD_ManiacFuryActive", false))then
+		if not ply.HMCDManiacRampageModifiersApplied then
+			ply.HMCDManiacRampageModifiersApplied = true
+			ply.HMCDManiacBaseMeleeDamageMul = ply.MeleeDamageMul or 1
+			ply.HMCDManiacBaseMeleeSpeedMul = ply.MeleeSpeedMul or 1
+		end
+
+		local stacks = math.Clamp(ply:GetNWInt("HMCD_ManiacRampageStacks", 0), 0, MODE.ManiacRampageMaxStacks or 5)
+		ply.MeleeDamageMul = ply.HMCDManiacBaseMeleeDamageMul * (1 + stacks * (MODE.ManiacRampageMeleeDamagePerStack or 0.06))
+		ply.MeleeSpeedMul = ply.HMCDManiacBaseMeleeSpeedMul * (1 + stacks * (MODE.ManiacRampageMeleeSpeedPerStack or 0.04))
+		mul[1] = mul[1] * (1 + stacks * (MODE.ManiacRampageMoveSpeedPerStack or 0.03))
+	elseif ply.HMCDManiacRampageModifiersApplied then
+		ply.MeleeDamageMul = ply.HMCDManiacBaseMeleeDamageMul
+		ply.MeleeSpeedMul = ply.HMCDManiacBaseMeleeSpeedMul
+		ply.HMCDManiacRampageModifiersApplied = nil
+		ply.HMCDManiacBaseMeleeDamageMul = nil
+		ply.HMCDManiacBaseMeleeSpeedMul = nil
 	end
 end)
 --

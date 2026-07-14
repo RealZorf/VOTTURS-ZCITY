@@ -470,7 +470,8 @@ For those who prefer to kill from the shadows.]],
 		Description = [[A blood-crazed butcher who lives for close-range slaughter.
 Armed with a vicious fire axe and brutal backup weapons, you thrive in chaos and panic.
 You have massively increased stamina and extra health, allowing you to keep pushing long after others would fall.
-The first serious wound you take triggers permanent adrenaline and fentanyl-like pain suppression without overdose risk.]],
+The first serious wound you take triggers permanent adrenaline and fentanyl-like pain suppression without overdose risk.
+Melee attacks build Rampage, increasing your speed, damage and attack rate. Fury lets attached injured limbs keep functioning.]],
 		Objective = "You are a Maniac. Charge into the chaos, survive your first serious wound, and butcher your victims up close.",
 		SpawnFunction = function(ply)
 			-- Axe that will be poisonous and holsterable
@@ -505,7 +506,8 @@ The first serious wound you take triggers permanent adrenaline and fentanyl-like
 		Description = [[A blood-crazed butcher who lives for close-range slaughter.
 Armed with a vicious fire axe and brutal backup weapons, you thrive in chaos and panic.
 You have massively increased stamina and extra health, allowing you to keep pushing long after others would fall.
-The first serious wound you take triggers permanent adrenaline and fentanyl-like pain suppression without overdose risk.]],
+The first serious wound you take triggers permanent adrenaline and fentanyl-like pain suppression without overdose risk.
+Melee attacks build Rampage, increasing your speed, damage and attack rate. Fury lets attached injured limbs keep functioning.]],
 		Objective = "You are a Maniac. Charge into the chaos, survive your first serious wound, and butcher your victims up close.",
 		SpawnFunction = function(ply)
 			local axe = ply:Give("weapon_hg_fireaxe")
@@ -694,12 +696,14 @@ Perfect for aggressive players who want to spread chaos and kill as many people 
 	["traitor_lastmanstanding"] = {
 		Name = "Last Man Standing",
 		Description = [[A relentless killer who is ready to outlive everyone else.
-Armed with a Kar98, a sling and brass knuckles, you are built for a brutal final showdown.
+Armed with a concealed De Lisle and brass knuckles, you are built for a brutal final showdown.
 Pick your shots carefully, stay calm under pressure and make sure you are the only one left standing.]],
 		Objective = "You are the last man standing. Hunt everyone down and be the only survivor.",
 		SpawnFunction = function(ply)
-			local gun = ply:Give("weapon_kar98")
+			local gun = ply:Give("weapon_delisle")
 			if IsValid(gun) then
+				gun.shouldntDrawHolstered = true
+				gun:SetNWBool("ZCityPocketHolster", true)
 				ply:GiveAmmo(20, gun:GetPrimaryAmmoType(), true)
 			else
 				ply:GiveAmmo(20, "7.62x51mm", true)
@@ -716,12 +720,14 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 	["traitor_lastmanstanding_soe"] = {
 		Name = "Last Man Standing",
 		Description = [[A relentless killer who is ready to outlive everyone else.
-Armed with a Kar98, a sling and brass knuckles, you are built for a brutal final showdown.
+Armed with a concealed De Lisle, a sling and brass knuckles, you are built for a brutal final showdown.
 Pick your shots carefully, stay calm under pressure and make sure you are the only one left standing.]],
 		Objective = "You are the last man standing. Hunt everyone down and be the only survivor.",
 		SpawnFunction = function(ply)
-			local gun = ply:Give("weapon_kar98")
+			local gun = ply:Give("weapon_delisle")
 			if IsValid(gun) then
+				gun.shouldntDrawHolstered = true
+				gun:SetNWBool("ZCityPocketHolster", true)
 				ply:GiveAmmo(20, gun:GetPrimaryAmmoType(), true)
 			else
 				ply:GiveAmmo(20, "7.62x51mm", true)

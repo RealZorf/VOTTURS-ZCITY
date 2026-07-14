@@ -838,3 +838,35 @@ hook.Add("Think", "RequestTraitorStatus", function()
 		net.SendToServer()
 	end
 end)
+
+hook.Add("HUDPaint", "HMCD_ManiacRampage", function()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() then return end
+	if not ply:GetNWBool("HMCD_ManiacFuryActive", false) then return end
+
+	local max_stacks = MODE.ManiacRampageMaxStacks or 5
+	local stacks = math.Clamp(ply:GetNWInt("HMCD_ManiacRampageStacks", 0), 0, max_stacks)
+	local segment_w = math.max(ScreenScale(10), 16)
+	local segment_h = math.max(ScreenScale(3), 5)
+	local gap = math.max(ScreenScale(1), 2)
+	local total_w = segment_w * max_stacks + gap * (max_stacks - 1)
+	local x = math.floor((ScrW() - total_w) * 0.5)
+	local y = math.floor(ScrH() * 0.78)
+	local next_decay = ply:GetNWFloat("HMCD_ManiacRampageNextDecay", 0)
+	local decay_fraction = math.Clamp((next_decay - CurTime()) / (MODE.ManiacRampageDuration or 15), 0, 1)
+
+	draw.SimpleText("RAMPAGE", "HomigradFontSmall", ScrW() * 0.5 + 1, y - ScreenScale(9) + 1, Color(0, 0, 0, 220), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	draw.SimpleText("RAMPAGE", "HomigradFontSmall", ScrW() * 0.5, y - ScreenScale(9), Color(235, 55, 42, 235), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+	for index = 1, max_stacks do
+		local sx = x + (index - 1) * (segment_w + gap)
+		surface.SetDrawColor(8, 5, 5, 205)
+		surface.DrawRect(sx, y, segment_w, segment_h)
+
+		if index <= stacks then
+			local intensity = index == 1 and math.max(decay_fraction, 0.35) or 1
+			surface.SetDrawColor(235, 42 + 45 * intensity, 30, 235)
+			surface.DrawRect(sx + 1, y + 1, segment_w - 2, segment_h - 2)
+		end
+	end
+end)
