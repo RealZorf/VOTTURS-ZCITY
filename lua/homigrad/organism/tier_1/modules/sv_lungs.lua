@@ -232,7 +232,8 @@ module[2] = function(owner, org, timeValue)
 		org.is_sprayed_at = nil
 
 		local positionBreathingMul = math.Clamp(org.bodyPositionBreathingMul or 1, 0.65, 1.12)
-		local regenerate = regen * timeValue * 4 * (org.stamina[1] / org.stamina.max) * (mask_blevota and 0 or 1) * ((org.temperature > 38) and math.Clamp(math.Remap(org.temperature, 38, 41, 1, 0.1), 0.1, 1) or 1) * positionBreathingMul
+		local breathingRegenMul = math.Clamp(org.cigaretteOxygenRegenMul or 1, 0, 1)
+		local regenerate = regen * timeValue * 4 * (org.stamina[1] / org.stamina.max) * (mask_blevota and 0 or 1) * ((org.temperature > 38) and math.Clamp(math.Remap(org.temperature, 38, 41, 1, 0.1), 0.1, 1) or 1) * positionBreathingMul * breathingRegenMul
 		o2[1] = min(o2[1] + regenerate * math.Clamp(org.o2[1] / 30, 0.25, 1) * (org.holdingbreath and 0 or 1) * (sprayed and 0 or 1) * min((10 / max(org.CO,1)),1), o2.range * math.max(1 - org.pneumothorax * org.pneumothorax, 0.1) * math.min(org.blood / 4500, 1) * math.max(1 - (org.lungsL[1] + org.lungsR[1]) / 2, 0.5))
 
 		o2.curregen = regenerate

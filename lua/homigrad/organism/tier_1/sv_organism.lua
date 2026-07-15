@@ -394,6 +394,7 @@ local function send_organism(org, ply)
 	sendtable.holdingbreath = org.holdingbreath
 	sendtable.arteria = org.arteria
 	sendtable.recoilmul = org.recoilmul
+	sendtable.cigaretteAimMul = org.cigaretteAimMul or 1
 	sendtable.meleespeed = org.meleespeed
 	sendtable.temperature = org.temperature
 	sendtable.canmove = org.canmove

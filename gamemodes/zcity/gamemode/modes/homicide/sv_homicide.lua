@@ -29,6 +29,7 @@ MODE.LootTable = {
 		{12,"weapon_bigconsumable"},
 		{8,"weapon_tourniquet"},
 		{8,"weapon_bandage_sh"},
+		{8,"weapon_hg_cigarette"},
 		{3,"weapon_ducttape"},
 		{6,"weapon_painkillers"},
 		{5,"weapon_bloodbag"},
@@ -150,6 +151,7 @@ MODE.LootTableStandard = {
 	{65, {
 		{15,"weapon_smallconsumable"},
 		{12,"weapon_bigconsumable"},
+		{8,"weapon_hg_cigarette"},
 		{8,"weapon_tourniquet"},
 		{8,"weapon_bandage_sh"},
 		{3,"weapon_ducttape"},

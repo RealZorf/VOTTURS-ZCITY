@@ -46,6 +46,7 @@ local function AddItemToBUY(ItemName, Type, ItemClass, Price, Category, Attachme
 end
 
 -- MEDICAL
+AddItemToBUY( "Cigarettes", "Weapon", "weapon_hg_cigarette", 20, "Medical", {} )
 AddItemToBUY( "Decompression Needle", "Weapon", "weapon_needle", 50, "Medical", {} )
 AddItemToBUY( "Naloxone", "Weapon", "weapon_naloxone", 100, "Medical", {} )
 AddItemToBUY( "Tourniquet", "Weapon", "weapon_tourniquet", 150, "Medical", {} )
@@ -59,6 +60,7 @@ AddItemToBUY( "Medkit", "Weapon", "weapon_medkit_sh", 650, "Medical", {} )
 AddItemToBUY( "Epipen", "Weapon", "weapon_adrenaline", 800, "Medical", {} )
 AddItemToBUY( "Morphine", "Weapon", "weapon_morphine", 1000, "Medical", {} )
 AddItemToBUY( "Fentanyl", "Weapon", "weapon_fentanyl", 2000, "Medical", {} )
+
 
 -- ARMOR
 AddItemToBUY( "ACH III Helmet", "Armor", "ent_armor_helmet1", 350, "Equipment", {} )

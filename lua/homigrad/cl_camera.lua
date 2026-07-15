@@ -255,7 +255,7 @@ function HGAddView(ply, origin, angles, velLen)
 		ang[1] = ang[1] + breathing_amount
 		ang[3] = 0
 
-		lerped_ang = LerpFT(0.2, lerped_ang, ang * (inSight and 1 or 1) * math.max(org.recoilmul or 1, 0.1))
+		lerped_ang = LerpFT(0.2, lerped_ang, ang * (inSight and 1 or 1) * math.max((org.recoilmul or 1) * (org.cigaretteAimMul or 1), 0.1))
 		--local tmpmul = math.max(36.6 - temp, 0)
 		--ang[1] = math.Rand(-tmpmul, tmpmul) / 155
 		--ang[2] = math.Rand(-tmpmul, tmpmul) / 155
