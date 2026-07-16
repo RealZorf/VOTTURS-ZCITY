@@ -563,10 +563,6 @@ local randomGestures = {
 	{"thumb_up", function() RunConsoleCommand("hg_hand_gesture" , "thumb_up") end},
 }
 
-concommand.Add("hg_randomgesture",function()
-	randomGesture()
-end)
-
 hook.Add("radialOptions", "7", function()
     local ply = LocalPlayer()
     local organism = ply.organism or {}
