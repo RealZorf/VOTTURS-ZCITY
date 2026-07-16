@@ -386,7 +386,7 @@ local traitorLoadoutText = {
 	traitor_terrorist = "Bomb vest\nMatches\nClaymore, grenade\nIED, Buck 200 knife\nFlashlight",
 	traitor_terrorist_soe = "Bomb vest\nMatches\nClaymore, grenade\nIED, SOG knife\nFlashlight",
 	traitor_lastmanstanding = "Concealed De Lisle + 20 rounds\nBrass knuckles\nFlashlight",
-	traitor_lastmanstanding_soe = "Kar98 + 20 rounds\nSling\nBrass knuckles\nFlashlight, SOE recoil control",
+	traitor_lastmanstanding_soe = "Concealed De Lisle + 20 rounds\nNail gun\nSling\nBrass knuckles\nFlashlight, SOE recoil control",
 	traitor_stalker = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nFaster sonar marking with wider aim assist\nPrey Sense sharpens isolated marked victims\nSilent Pursuit makes your steps very quiet near isolated prey\nFirst hit staggers, drains stamina and deals bonus damage",
 	traitor_stalker_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nFaster sonar marking with wider aim assist\nPrey Sense sharpens isolated marked victims\nSilent Pursuit makes your steps very quiet near isolated prey\nFirst hit staggers, drains stamina and deals bonus damage"
 }

@@ -720,7 +720,7 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 	["traitor_lastmanstanding_soe"] = {
 		Name = "Last Man Standing",
 		Description = [[A relentless killer who is ready to outlive everyone else.
-Armed with a concealed De Lisle, a sling and brass knuckles, you are built for a brutal final showdown.
+Armed with a concealed De Lisle, a sling, brass knuckles and a nail gun, you are built for a brutal final showdown.
 Pick your shots carefully, stay calm under pressure and make sure you are the only one left standing.]],
 		Objective = "You are the last man standing. Hunt everyone down and be the only survivor.",
 		SpawnFunction = function(ply)
@@ -732,7 +732,7 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 			else
 				ply:GiveAmmo(20, "7.62x51mm", true)
 			end
-
+			ply:Give("weapon_nailgun")
 			ply.organism.recoilmul = 1
 			local inv = ply:GetNetVar("Inventory", {})
 			inv["Weapons"]["hg_sling"] = true

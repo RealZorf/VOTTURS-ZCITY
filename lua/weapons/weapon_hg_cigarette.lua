@@ -1,5 +1,16 @@
+local sendCigaretteNotice
+
+local function getCigaretteDisplayName(ply)
+	if not IsValid(ply) then return "the other player" end
+
+	local characterName = ply.GetPlayerName and ply:GetPlayerName()
+	return characterName and characterName ~= "" and characterName or ply:Nick()
+end
+
 if SERVER then
 	AddCSLuaFile()
+	util.AddNetworkString("pat_cigarette_offer")
+	util.AddNetworkString("pat_cigarette_offer_response")
 
 	local requiredFiles = {
 		"models/props/cigarettes/cigarettebox.mdl",
@@ -30,12 +41,70 @@ if SERVER then
 	for _, path in ipairs(requiredFiles) do
 		resource.AddFile(path)
 	end
+
+	sendCigaretteNotice = function(ply, code, other)
+		if not IsValid(ply) or not ply:IsPlayer() or not isfunction(ply.Notify) then return end
+
+		local name = getCigaretteDisplayName(other)
+		local messages = {
+			[1] = "I offered a cigarette to " .. name .. ".",
+			[2] = name .. " accepted my cigarette.",
+			[3] = name .. " declined my cigarette.",
+			[4] = name .. " cannot carry another cigarette.",
+			[5] = "I received a cigarette from " .. name .. ".",
+			[6] = "That cigarette offer is no longer valid.",
+			[7] = name .. " is already considering another offer."
+		}
+
+		local message = messages[code]
+		if message then
+			ply:Notify(message, 0, "cigarette_offer_notice_" .. code, 0)
+		end
+	end
+
+	net.Receive("pat_cigarette_offer_response", function(_, recipient)
+		local accepted = net.ReadBool()
+		local offer = recipient.PAT_CigaretteOffer
+		recipient.PAT_CigaretteOffer = nil
+
+		if not offer or offer.expires < CurTime() then
+			sendCigaretteNotice(recipient, 6)
+			return
+		end
+
+		local giver = offer.giver
+		local cigarette = offer.weapon
+		if not accepted then
+			sendCigaretteNotice(giver, 3, recipient)
+			return
+		end
+
+		if not IsValid(giver) or not giver:IsPlayer() or not giver:Alive()
+			or not IsValid(cigarette) or cigarette:GetOwner() ~= giver
+			or giver:GetActiveWeapon() ~= cigarette
+			or not recipient:Alive()
+			or giver:GetPos():DistToSqr(recipient:GetPos()) > (cigarette.OfferRange or 100) ^ 2
+			or cigarette:GetLit() or cigarette:GetLighting()
+			or cigarette:GetPackCount() <= 0 then
+			sendCigaretteNotice(recipient, 6, giver)
+			sendCigaretteNotice(giver, 6, recipient)
+			return
+		end
+
+		if not cigarette:TransferCigaretteTo(recipient) then
+			sendCigaretteNotice(giver, 4, recipient)
+			return
+		end
+
+		sendCigaretteNotice(giver, 2, recipient)
+		sendCigaretteNotice(recipient, 5, giver)
+	end)
 end
 
 SWEP.Base = "weapon_tpik_base"
-SWEP.PrintName = "Cigarette"
+SWEP.PrintName = "Cigarettes"
 SWEP.Category = "ZCity Other"
-SWEP.Instructions = "Hold LMB: Light / smoke\nRMB: Extinguish"
+SWEP.Instructions = "Hold LMB: Light / smoke\nRMB: Extinguish / offer\nRELOAD: New cigarette"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
 
@@ -104,7 +173,7 @@ SWEP.HoldClampMin = -50
 SWEP.HoldClampMax = 50
 
 SWEP.DeploySnd = "physics/cardboard/cardboard_box_impact_soft1.wav"
-SWEP.BurnDuration = 180
+SWEP.BurnDuration = 30
 SWEP.DragDelay = 3.2
 SWEP.InhaleLeadTime = 0.65
 SWEP.TipUsesPositiveEnd = true
@@ -124,6 +193,12 @@ SWEP.SmokeAimPuffWindow = 35
 SWEP.SmokeAimDuration = 25
 SWEP.SmokeAimMul = 0.94
 SWEP.MinimumBurnLengthScale = 0.42
+SWEP.PackCapacity = 20
+SWEP.OfferRange = 100
+SWEP.OfferDuration = 8
+SWEP.OfferCooldown = 1.25
+SWEP.OilIgnitionRange = 90
+SWEP.OilIgnitionRadius = 38
 
 SWEP.AnimList = {
 	["deploy"] = {"idle", 1, false},
@@ -141,6 +216,7 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Float", 1, "BurnRemaining")
 	self:NetworkVar("Float", 2, "PuffAt")
 	self:NetworkVar("Int", 0, "PuffSerial")
+	self:NetworkVar("Int", 1, "PackCount")
 end
 
 function SWEP:GetStateSkin()
@@ -156,6 +232,32 @@ function SWEP:ApplyServerVisual()
 	self:SetSkin(0)
 end
 
+function SWEP:NotifyPackCount(ply)
+	if CLIENT then return end
+
+	ply = IsValid(ply) and ply or self:GetOwner()
+	if not IsValid(ply) or not ply:IsPlayer() or not isfunction(ply.Notify) then return end
+
+	local count = math.max(self:GetPackCount(), 0)
+	local recipient = ply:SteamID64()
+	if self.LastNotifiedPackCount == count and self.LastPackNotificationRecipient == recipient then return end
+
+	self.LastNotifiedPackCount = count
+	self.LastPackNotificationRecipient = recipient
+	local message = count == 1 and "1 cigarette left." or count .. " cigarettes left."
+	ply:Notify(message, 0, "cigarette_pack_count", 0)
+end
+
+function SWEP:SetPackCountNotified(count, ply)
+	if CLIENT then return end
+
+	count = math.Clamp(math.floor(tonumber(count) or 0), 0, self.PackCapacity)
+	if count == self:GetPackCount() then return end
+
+	self:SetPackCount(count)
+	self:NotifyPackCount(ply)
+end
+
 function SWEP:InitAdd()
 	if SERVER then
 		self:SetModel(self.WorldModel)
@@ -168,6 +270,7 @@ function SWEP:InitAdd()
 		self:SetBurnRemaining(self.BurnDuration)
 		self:SetPuffAt(0)
 		self:SetPuffSerial(0)
+		self:SetPackCount(self.PackCapacity)
 		self:ApplyServerVisual()
 	else
 		self.ClientPuffSerial = 0
@@ -183,6 +286,7 @@ end
 function SWEP:BurnOut()
 	if CLIENT then return end
 
+	local owner = self:GetOwner()
 	self:StopSmoking()
 	self:SetLighting(false)
 	self:SetLit(false)
@@ -193,11 +297,88 @@ function SWEP:BurnOut()
 	self:ApplyServerVisual()
 
 	self:EmitSound("ambient/fire/mtov_flame2.wav", 45, 120, 0.25, CHAN_ITEM)
+	if self:GetPackCount() > 0 and IsValid(owner) and owner:IsPlayer() and isfunction(owner.Notify) then
+		owner:Notify("Press R for a new cigarette", 0, "cigarette_reload_prompt", 0)
+	end
+end
+
+function SWEP:GetIgnitableOilPuddle(owner)
+	if not self:GetLit() or not IsValid(owner) or owner:GetActiveWeapon() ~= self then return end
+	if not hg or not istable(hg.gasolinePath) then return false end
+
+	local start = owner:GetShootPos()
+	local trace = util.TraceLine({
+		start = start,
+		endpos = start + owner:GetAimVector() * self.OilIgnitionRange,
+		filter = owner,
+		mask = MASK_SOLID
+	})
+	if not trace.Hit then return end
+
+	local closest
+	local closestDistance = self.OilIgnitionRadius * self.OilIgnitionRadius
+	for _, pathData in ipairs(hg.gasolinePath) do
+		local pathPosition = pathData[1]
+		if not isvector(pathPosition) or pathData[2] ~= false then continue end
+
+		local distance = pathPosition:DistToSqr(trace.HitPos)
+		if distance > closestDistance then continue end
+
+		closest = pathData
+		closestDistance = distance
+	end
+
+	return closest, trace
+end
+
+function SWEP:TryIgniteOilPuddle(owner)
+	if CLIENT then return false end
+
+	local closest = self:GetIgnitableOilPuddle(owner)
+	if not closest then return false end
+
+	closest[2] = CurTime()
+	closest[3] = owner
+	self:EmitSound("weapons/molotov/handling/molotov_ignite.wav", 55, 112, 0.45, CHAN_ITEM)
+	return true
+end
+
+if CLIENT then
+	function SWEP:DrawHUD()
+		local owner = self:GetOwner()
+		if not self:GetLit() or owner ~= LocalPlayer() or owner:GetActiveWeapon() ~= self then
+			self.OilPromptTrace = nil
+			return
+		end
+
+		if (self.NextOilPromptCheck or 0) <= CurTime() then
+			self.NextOilPromptCheck = CurTime() + 0.08
+			local puddle, trace = self:GetIgnitableOilPuddle(owner)
+			self.OilPromptTrace = puddle and trace or nil
+		end
+
+		local trace = self.OilPromptTrace
+		if not trace then return end
+
+		local screenPosition = trace.HitPos:ToScreen()
+		draw.SimpleTextOutlined(
+			"ALT + E to ignite",
+			"HomigradFontMedium",
+			screenPosition.x,
+			screenPosition.y + ScreenScale(12),
+			Color(80, 255, 120),
+			TEXT_ALIGN_CENTER,
+			TEXT_ALIGN_CENTER,
+			1,
+			Color(0, 0, 0, 230)
+		)
+	end
 end
 
 function SWEP:LightCigarette()
 	if CLIENT or self:GetLighting() or self:GetLit() or self:GetSpent() then return end
 	if not self:CanUseCigarette() or self:GetBurnRemaining() <= 0 then return end
+	if not self:GetHasBurned() and self:GetPackCount() <= 0 then return end
 
 	local owner = self:GetOwner()
 	self:SetLighting(true)
@@ -220,6 +401,15 @@ function SWEP:LightCigarette()
 			self:BurnOut()
 			return
 		end
+		if not self:GetHasBurned() then
+			local count = self:GetPackCount()
+			if count <= 0 then
+				self:SetLighting(false)
+				return
+			end
+
+			self:SetPackCountNotified(count - 1, owner)
+		end
 
 		self:SetLighting(false)
 		self:SetLit(true)
@@ -227,6 +417,136 @@ function SWEP:LightCigarette()
 		self:SetBurnEnd(CurTime() + remaining)
 		self:ApplyServerVisual()
 		self:EmitSound("weapons/molotov/handling/molotov_ignite.wav", 52, 118, 0.35, CHAN_ITEM)
+	end)
+end
+
+function SWEP:PrepareFreshCigarette()
+	if CLIENT or self:GetLit() or self:GetLighting() or self:GetPackCount() <= 0 then return false end
+
+	self:StopSmoking()
+	self:SetSpent(false)
+	self:SetHasBurned(false)
+	self:SetBurnEnd(0)
+	self:SetBurnRemaining(self.BurnDuration)
+	self:SetPuffAt(0)
+	self:ApplyServerVisual()
+
+	return true
+end
+
+function SWEP:GetOfferTarget()
+	local owner = self:GetOwner()
+	if not IsValid(owner) or not owner:IsPlayer() then return nil end
+
+	local trace = hg and hg.eyeTrace and hg.eyeTrace(owner) or owner:GetEyeTrace()
+	if not trace or not IsValid(trace.Entity) then return nil end
+
+	local target = trace.Entity
+	if not target:IsPlayer() and hg and hg.RagdollOwner then
+		target = hg.RagdollOwner(target)
+	end
+
+	if not IsValid(target) or not target:IsPlayer() or target == owner or not target:Alive() then return nil end
+	if owner:GetShootPos():DistToSqr(trace.HitPos or target:WorldSpaceCenter()) > self.OfferRange ^ 2 then return nil end
+
+	return target
+end
+
+function SWEP:CanTransferCigaretteTo(target)
+	if CLIENT or not IsValid(target) or not target:IsPlayer() or not target:Alive() then return false end
+	if self:GetPackCount() <= 0 then return false end
+
+	local targetWeapon = target:GetWeapon(self:GetClass())
+	if IsValid(targetWeapon) and targetWeapon:GetPackCount() >= (targetWeapon.PackCapacity or self.PackCapacity) then
+		return false
+	end
+
+	return true, targetWeapon
+end
+
+function SWEP:TransferCigaretteTo(target)
+	if CLIENT then return false end
+
+	local allowed, targetWeapon = self:CanTransferCigaretteTo(target)
+	if not allowed then return false end
+
+	if not IsValid(targetWeapon) then
+		targetWeapon = target:Give(self:GetClass(), true)
+		if not IsValid(targetWeapon) then return false end
+
+		targetWeapon:SetPackCount(1)
+		targetWeapon:SetLit(false)
+		targetWeapon:SetSpent(false)
+		targetWeapon:SetHasBurned(false)
+		targetWeapon:SetLighting(false)
+		targetWeapon:SetSmoking(false)
+		targetWeapon:SetBurnEnd(0)
+		targetWeapon:SetBurnRemaining(targetWeapon.BurnDuration)
+		targetWeapon:SetPuffAt(0)
+		targetWeapon:ApplyServerVisual()
+		targetWeapon:NotifyPackCount(target)
+	else
+		local previousCount = targetWeapon:GetPackCount()
+		targetWeapon:SetPackCountNotified(math.min(previousCount + 1, targetWeapon.PackCapacity or self.PackCapacity), target)
+
+		if previousCount <= 0 and targetWeapon:GetSpent() and not targetWeapon:GetLit() then
+			targetWeapon:PrepareFreshCigarette()
+		end
+	end
+
+	local giver = self:GetOwner()
+	self:SetPackCountNotified(math.max(self:GetPackCount() - 1, 0), giver)
+	local shouldRemove = self:GetPackCount() <= 0 and (self:GetSpent() or not self:GetHasBurned())
+	if shouldRemove and IsValid(giver) then
+		local class = self:GetClass()
+		timer.Simple(0, function()
+			if IsValid(giver) and giver:GetWeapon(class) == self then
+				giver:StripWeapon(class)
+			end
+		end)
+	end
+
+	return true
+end
+
+function SWEP:BeginCigaretteOffer()
+	if CLIENT then return end
+
+	local owner = self:GetOwner()
+	if self:GetPackCount() <= 0 then return end
+
+	local target = self:GetOfferTarget()
+	if not IsValid(target) then return end
+
+	local allowed = self:CanTransferCigaretteTo(target)
+	if not allowed then
+		sendCigaretteNotice(owner, 4, target)
+		return
+	end
+	if target.PAT_CigaretteOffer and target.PAT_CigaretteOffer.expires > CurTime() then
+		sendCigaretteNotice(owner, 7, target)
+		return
+	end
+
+	local offer = {
+		giver = owner,
+		weapon = self,
+		expires = CurTime() + self.OfferDuration
+	}
+	target.PAT_CigaretteOffer = offer
+
+	net.Start("pat_cigarette_offer")
+	net.WriteEntity(owner)
+	net.WriteUInt(math.Clamp(math.ceil(self.OfferDuration), 1, 15), 4)
+	net.Send(target)
+	sendCigaretteNotice(owner, 1, target)
+
+	self.NextCigaretteOffer = CurTime() + self.OfferCooldown
+
+	timer.Simple(self.OfferDuration, function()
+		if IsValid(target) and target.PAT_CigaretteOffer == offer then
+			target.PAT_CigaretteOffer = nil
+		end
 	end)
 end
 
@@ -336,11 +656,29 @@ function SWEP:SecondaryAttack()
 		return
 	end
 
-	if not self:GetLit() then return end
+	if not self:GetLit() then
+		if (self.NextCigaretteOffer or 0) <= CurTime() then
+			self:BeginCigaretteOffer()
+		end
+		return
+	end
 
 	self:SetNextPrimaryFire(CurTime() + 0.5)
 	self:SetNextSecondaryFire(CurTime() + 0.5)
 	self:ExtinguishCigarette(true)
+end
+
+function SWEP:Reload()
+	if CLIENT or self:GetLit() or self:GetLighting() then return end
+	if not self:GetSpent() and not self:GetHasBurned() then return end
+
+	self:SetNextPrimaryFire(CurTime() + 0.6)
+	self:SetNextSecondaryFire(CurTime() + 0.6)
+
+	if not self:PrepareFreshCigarette() then return end
+
+	self:EmitSound("physics/cardboard/cardboard_box_impact_soft2.wav", 48, 110, 0.45, CHAN_ITEM)
+	self:PlayAnim("deploy")
 end
 
 function SWEP:Holster(nextWeapon)
@@ -395,6 +733,19 @@ function SWEP:ThinkAdd()
 end
 
 if SERVER then
+	hook.Add("KeyPress", "PAT_Cigarette_IgniteOil", function(owner, key)
+		if key ~= IN_USE or not owner:KeyDown(IN_WALK) or not owner:Alive() then return end
+
+		local cigarette = owner:GetActiveWeapon()
+		if not IsValid(cigarette) or cigarette:GetClass() ~= "weapon_hg_cigarette" then return end
+		if (cigarette.NextOilIgnition or 0) > CurTime() then return end
+
+		cigarette.NextOilIgnition = CurTime() + 0.5
+		if cigarette:TryIgniteOilPuddle(owner) and isfunction(owner.Notify) then
+			owner:Notify("The oil catches fire.", 0, "cigarette_oil_ignited", 0)
+		end
+	end)
+
 	hook.Add("HomigradCigarettePuff", "PAT_Cigarette_OrganismPuff", function(owner, cigarette)
 		if not IsValid(owner) or not owner:IsPlayer() or not owner:Alive() then return end
 		if not IsValid(cigarette) then return end
@@ -447,13 +798,64 @@ if SERVER then
 end
 
 if CLIENT then
+	local activeOffer
+
+	local function sendOfferResponse(accepted)
+		if not activeOffer then return end
+
+		activeOffer = nil
+		net.Start("pat_cigarette_offer_response")
+		net.WriteBool(accepted)
+		net.SendToServer()
+	end
+
+	net.Receive("pat_cigarette_offer", function()
+		local giver = net.ReadEntity()
+		local duration = net.ReadUInt(4)
+		if not IsValid(giver) then return end
+
+		local offer = {
+			giver = giver,
+			expires = CurTime() + duration
+		}
+		activeOffer = offer
+
+		local useKey = string.upper(input.LookupBinding("+use") or "E")
+		local reloadKey = string.upper(input.LookupBinding("+reload") or "R")
+		LocalPlayer():Notify(
+			getCigaretteDisplayName(giver) .. " offers me a cigarette. [" .. useKey .. "] accept, [" .. reloadKey .. "] decline.",
+			0
+		)
+
+		timer.Simple(duration, function()
+			if activeOffer == offer then
+				activeOffer = nil
+			end
+		end)
+	end)
+
+	hook.Add("PlayerBindPress", "PAT_Cigarette_OfferControls", function(ply, bind, pressed)
+		if ply ~= LocalPlayer() or not pressed or not activeOffer then return end
+
+		bind = string.lower(bind)
+		if string.StartWith(bind, "+use") then
+			sendOfferResponse(true)
+			return true
+		end
+
+		if string.StartWith(bind, "+reload") then
+			sendOfferResponse(false)
+			return true
+		end
+	end)
+
 	local cigaretteFingerPose = {
 		{"ValveBiped.Bip01_L_Finger0", Angle(2, 0, 0)},
 		{"ValveBiped.Bip01_L_Finger1", Angle(1, 7, 7)},
 		{"ValveBiped.Bip01_L_Finger11", Angle(4, 0, -3)},
-		{"ValveBiped.Bip01_L_Finger2", Angle(-5, -25, -5)},
-		{"ValveBiped.Bip01_L_Finger21", Angle(4, -5, 0)},
-		{"ValveBiped.Bip01_L_Finger3", Angle(3, -25, 2)},
+		{"ValveBiped.Bip01_L_Finger2", Angle(-5, -15, -5)},
+		{"ValveBiped.Bip01_L_Finger21", Angle(4, 2, 0)},
+		{"ValveBiped.Bip01_L_Finger3", Angle(3, -20, 2)},
 		{"ValveBiped.Bip01_L_Finger31", Angle(3, -22, 0)},
 		{"ValveBiped.Bip01_L_Finger4", Angle(2, -32, 0)},
 		{"ValveBiped.Bip01_L_Finger41", Angle(2, -28, 0)}
