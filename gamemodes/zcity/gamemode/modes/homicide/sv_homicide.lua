@@ -1865,9 +1865,8 @@ local gaymaps = {
 	["gm_sirenmine_v2"] = true,
 }
 
-function MODE:StartPlayersRoleSelection()
-	MODE.RoleChooseRound = true
-	MODE.StartRoundTime = MODE.StartRoundTime + MODE.RoleChooseRoundStartTime
+function MODE:PrepareTraitorRoleSelections()
+	MODE.ChoosingPlayersList = {}
 
 	for _, ply in player.Iterator() do
 		if(ply.isTraitor and ply.MainTraitor)then	--; REDO
@@ -1875,12 +1874,6 @@ function MODE:StartPlayersRoleSelection()
 			if isstring(preferred_sub_role) and preferred_sub_role ~= "" then
 				HMCDStorePlayerTraitorSubRoleSelection(ply, preferred_sub_role, self.Type)
 			end
-
-			net.Start("HMCD(StartPlayersRoleSelection)")
-				net.WriteString("Traitor")
-			net.Send(ply)
-
-			MODE.ChoosingPlayersList[ply] = true
 		end
 	end
 end
@@ -1893,15 +1886,6 @@ net.Receive("HMCD(SubmitTraitorSubRole)", function(_, ply)
 	HMCDStorePlayerTraitorSubRoleSelection(ply, net.ReadString(), MODE.Type)
 end)
 
-net.Receive("HMCD(StartPlayersRoleSelection)", function(len, ply)
-	if(MODE.ChoosingPlayersList[ply])then
-		MODE.ChoosingPlayersList[ply] = nil
-
-		if(table.IsEmpty(MODE.ChoosingPlayersList))then
-			MODE.StartRoundTime = 0
-		end
-	end
-end)
 -- ...
 
 
@@ -2045,35 +2029,23 @@ function MODE:TraitorNeutralizedDelayActive()
 end
 
 function MODE:ShouldRoundEnd()
-	if(MODE.StartRoundTime and MODE.RoleChooseRound)then
-		if(MODE.StartRoundTime > CurTime())then
-			return false
-		else
-			MODE.StartRoundTime = nil
+	local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
 
-			net.Start("HMCD(EndPlayersRoleSelection)")
-			net.Broadcast()
-			MODE.SpawnPlayers(true)
-		end
-	else
-		local endround, winner = zb:CheckWinner(self:CheckAlivePlayers())
-
-		if endround and winner == 0 and self:RoundHasTraitors() and self:TraitorNeutralizedDelayActive() then
-			return false
-		end
-
-		if(endround)then
-			MODE.ChoosingPlayersList = {}
-		end
-
-		return endround
+	if endround and winner == 0 and self:RoundHasTraitors() and self:TraitorNeutralizedDelayActive() then
+		return false
 	end
+
+	if(endround)then
+		MODE.ChoosingPlayersList = {}
+	end
+
+	return endround
 end
 
 function MODE:RoundStart()
 	local roles_choose = MODE.ShouldStartRoleRound()
-	MODE.StartRoundTime = CurTime()
-	MODE.RoleChooseRound = false
+	MODE.StartRoundTime = nil
+	MODE.RoleChooseRound = roles_choose and true or false
 	MODE.HMCDTraitorRoleStatsRecorded = false
 	MODE.HMCDRoundKillStamp = (MODE.HMCDRoundKillStamp or 0) + 1
 	
@@ -2095,14 +2067,12 @@ function MODE:RoundStart()
 
 	timer.Remove("HMCDSpawnSWAT")
 	
-	if(roles_choose)then
-		self:StartPlayersRoleSelection()
-		PrintMessage(HUD_PRINTTALK, "Traitor is choosing roles for " .. MODE.RoleChooseRoundStartTime ..  " seconds")
-	else
-		MODE.ChoosingPlayersList = {}
-
-		MODE.SpawnPlayers(true)
+	MODE.ChoosingPlayersList = {}
+	if roles_choose then
+		self:PrepareTraitorRoleSelections()
 	end
+
+	MODE.SpawnPlayers(true)
 end
 
 function MODE:GiveEquipment()

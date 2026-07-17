@@ -1195,6 +1195,21 @@ end
 
 local trMins, trMaxs = Vector(-5, -5, -5), Vector(5, 5, 5)
 local trMinsClaws, trMaxsClaws = Vector(-8, -8, -8), Vector(8, 8, 8)
+local smallCarryMaxSize = 20
+local smallCarryMaxMass = 35
+local smallCarryAngleDamping = 0.35
+local swingSampleFractions = {0.55, 0.8, 1.05}
+local swingYawOffsets = {6, 2.5, 0}
+local swingPitchOffsets = {1.5, 0, -1.5}
+local uppercutPitchOffsets = {4, 0, -4}
+
+local function shouldCenterCarry(ent, phys)
+	if not IsValid(ent) or ent:GetClass() == "prop_ragdoll" or not IsValid(phys) then return false end
+
+	local size = ent:OBBMaxs() - ent:OBBMins()
+	return math.max(size[1], size[2], size[3]) <= smallCarryMaxSize and phys:GetMass() <= smallCarryMaxMass
+end
+
 function SWEP:SecondaryAttack()
 	local owner = self:GetOwner()
 	if owner:InVehicle() then return end
@@ -1559,7 +1574,7 @@ function SWEP:ApplyForce()
 			end
 		end
 
-		if self.CarryPos then
+		if self.CarryPos and not self.CarryCentered then
 			phys:ApplyForceOffset(Force, TargetPos)
 		else
 			phys:ApplyForceCenter(Force)
@@ -1583,7 +1598,7 @@ function SWEP:ApplyForce()
 		end
 
 		phys:ApplyForceCenter(Vector(0, 0, mul))
-		phys:AddAngleVelocity(-phys:GetAngleVelocity() / 10)
+		phys:AddAngleVelocity(-phys:GetAngleVelocity() * (self.CarryCentered and smallCarryAngleDamping or 0.1))
 	end
 end
 
@@ -1601,9 +1616,10 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		self.CarryDist = dist
 
 		local phys = self.CarryEnt:GetPhysicsObjectNum(self.CarryBone)
+		self.CarryCentered = shouldCenterCarry(ent, phys)
 
 		if ent:GetClass() ~= "prop_ragdoll" then
-			self.CarryPos = ent:WorldToLocal(pos)
+			self.CarryPos = self.CarryCentered and ent:OBBCenter() or ent:WorldToLocal(pos)
 		else
 			self.CarryPos = WorldToLocal(pos, angle_zero, phys:GetPos(), phys:GetAngles())
 		end
@@ -1651,6 +1667,7 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		self.CarryBone = nil
 		self.CarryPos = nil
 		self.CarryDist = nil
+		self.CarryCentered = nil
 	end
 end
 
@@ -1987,15 +2004,34 @@ function SWEP:PrimaryAttack(forcespecial)
 		local attackTime = self.AttackTime or 0
 		if attackTime > 0 then
 			local attackOwner = owner
-			timer.Simple(attackTime, function()
-				if not IsValid(self) then return end
-				if not IsValid(attackOwner) then return end
-				if self:GetOwner() ~= attackOwner then return end
-				if attackOwner:GetActiveWeapon() ~= self then return end
-				self:AttackFront(special_attack, rand)
-			end)
+			local ownerAim = owner:GetAimVector()
+			local attackAim = Vector(ownerAim.x, ownerAim.y, ownerAim.z)
+			local swingSerial = (self.SwingTraceSerial or 0) + 1
+			self.SwingTraceSerial = swingSerial
+
+			for sampleIndex, fraction in ipairs(swingSampleFractions) do
+				local currentSample = sampleIndex
+				local sampleDelay = attackTime * fraction
+
+				timer.Simple(sampleDelay, function()
+					if not IsValid(self) or self.SwingTraceSerial ~= swingSerial or self.SwingTraceResolved == swingSerial then return end
+					if not IsValid(attackOwner) or self:GetOwner() ~= attackOwner then return end
+					if attackOwner:GetActiveWeapon() ~= self then return end
+
+					local aimAngle = attackAim:Angle()
+					local side = rand and -1 or 1
+					local pitchOffsets = special_attack and uppercutPitchOffsets or swingPitchOffsets
+					aimAngle.y = aimAngle.y + swingYawOffsets[currentSample] * side
+					aimAngle.p = aimAngle.p + pitchOffsets[currentSample]
+
+					local finalSample = currentSample == #swingSampleFractions
+					if self:AttackFront(special_attack, rand, aimAngle:Forward(), not finalSample) then
+						self.SwingTraceResolved = swingSerial
+					end
+				end)
+			end
 		else
-			self:AttackFront(special_attack, rand)
+			self:AttackFront(special_attack, rand, owner:GetAimVector())
 		end
 	end
 
@@ -2028,46 +2064,55 @@ addHandsGestureSafe = function(owner, sequenceName)
 	owner:AddVCDSequenceToGestureSlot(GESTURE_SLOT_ATTACK_AND_RELOAD, seqID, 0, true)
 end
 
-function SWEP:AttackFront(special_attack, rand)
+function SWEP:AttackFront(special_attack, rand, swingDirection, onlyIfHit)
 	if CLIENT then return end
 	local owner = self:GetOwner()
+	if not IsValid(owner) then return false end
+
+	if isvector(swingDirection) then
+		swingDirection = Vector(swingDirection.x, swingDirection.y, swingDirection.z)
+	else
+		swingDirection = owner:GetAimVector()
+	end
+	swingDirection:Normalize()
+
 	--self.PenetrationCopy = -(-self.Penetration) -- this is how
 	owner:LagCompensation(true)
-	local Ent, HitPos, _, physbone, trace = WhomILookinAt(owner, .3, special_attack and 35 or 45)
-	if useClawHandsVisual(owner) then
-		local pos = hg.eye(owner)
-		trace = util.TraceHull({
-			start = pos,
-			endpos = pos + owner:GetAimVector() * self.ReachDistance,
-			filter = {owner, hg.GetCurrentCharacter(owner)},
-			mins = trMinsClaws,
-			maxs = trMaxsClaws,
-		})
-		Ent = trace.Entity
-		HitPos = trace.HitPos
-	else
-		local pos = hg.eye(owner)
-		trace = util.TraceHull({
-			start = pos,
-			endpos = pos + owner:GetAimVector() * self.ReachDistance,
-			filter = {owner, hg.GetCurrentCharacter(owner)},
-			mins = trMins,
-			maxs = trMaxs,
-		})
-		Ent = trace.Entity
-		HitPos = trace.HitPos
+
+	local pos = hg.eye(owner, nil, nil, swingDirection)
+	if not isvector(pos) then
+		owner:LagCompensation(false)
+		return false
+	end
+
+	local clawHands = useClawHandsVisual(owner)
+	local trace = util.TraceHull({
+		start = pos,
+		endpos = pos + swingDirection * self.ReachDistance,
+		filter = {owner, hg.GetCurrentCharacter(owner)},
+		mins = clawHands and trMinsClaws or trMins,
+		maxs = clawHands and trMaxsClaws or trMaxs,
+	})
+	local Ent = trace.Entity
+	local HitPos = trace.HitPos
+	local physbone = trace.PhysicsBone
+	local hitSomething = IsValid(Ent) or (Ent and Ent.IsWorld and Ent:IsWorld())
+
+	if onlyIfHit and not hitSomething then
+		owner:LagCompensation(false)
+		return false
 	end
 
 	local isZomb = isZombieHands(owner)
-	local AimVec = owner:GetAimVector()
+	local AimVec = swingDirection
 	if IsValid(Ent) or (Ent and Ent.IsWorld and Ent:IsWorld()) then
 		local inv = owner:GetNetVar("Inventory",{})
 		local havekastet = inv["Weapons"] and inv["Weapons"]["hg_brassknuckles"]
 		local SelfForce, Mul = 150, 1 * (havekastet and 1.7 or 1)
 
-		if useClawHandsVisual(owner) and hgIsDoor(Ent) then
+		if clawHands and hgIsDoor(Ent) then
 			if (Ent.Clawed or 0) > (isZomb and math.random(6, 12) or math.random(15, 30)) then
-				hgBlastThatDoor(Ent,self:GetOwner():GetAimVector() * 50 + self:GetOwner():GetVelocity())
+				hgBlastThatDoor(Ent, AimVec * 50 + owner:GetVelocity())
 			else
 				sound.Play(vent[math.random(#vent)], HitPos, 90, math.random(90, 110), 1)
 				sound.Play("physics/wood/wood_crate_impact_hard" .. math.random(4) .. ".wav", HitPos, 90, math.random(90, 110), 1)
@@ -2098,12 +2143,12 @@ function SWEP:AttackFront(special_attack, rand)
 					sound.Play("zbattle/berserk/unarmed" .. math.random(1, 9) .. ".wav", HitPos, 90, math.random(90, 110), 0.1 + owner.organism.berserk / 2)
 				end
 			end
-			if useClawHandsVisual(owner) then
-				util.Decal("Blood",HitPos + owner:EyeAngles():Forward() * -1,HitPos - owner:EyeAngles():Forward() * -1)
+			if clawHands then
+				util.Decal("Blood", HitPos - AimVec, HitPos + AimVec, Ent)
 				timer.Simple(0,function()
 					local effectdata2 = EffectData()
-					effectdata2:SetNormal(owner:EyeAngles():Forward() * -1)
-					effectdata2:SetStart(HitPos + owner:EyeAngles():Forward() * -1)
+					effectdata2:SetNormal(-AimVec)
+					effectdata2:SetStart(HitPos - AimVec)
 					effectdata2:SetMagnitude(1)
 					util.Effect("zippy_impact_flesh",effectdata2)
 					Mul = Mul + 7.5
@@ -2173,9 +2218,9 @@ function SWEP:AttackFront(special_attack, rand)
 		local Dam = DamageInfo()
 		Dam:SetAttacker(owner)
 		Dam:SetInflictor(self)
-		Dam:SetDamage(DamageAmt * Mul * 0.75 * (useClawHandsVisual(owner) and 5 or 1))
+		Dam:SetDamage(DamageAmt * Mul * 0.75 * (clawHands and 5 or 1))
 		Dam:SetDamageForce(AimVec * Mul ^ 2)
-		Dam:SetDamageType((useClawHandsVisual(owner) or (Ent:GetClass() == "func_breakable_surf")) and DMG_SLASH or DMG_CLUB)
+		Dam:SetDamageType((clawHands or (Ent:GetClass() == "func_breakable_surf")) and DMG_SLASH or DMG_CLUB)
 		Dam:SetDamagePosition(HitPos)
 		Ent:TakeDamageInfo(Dam)
 
@@ -2203,6 +2248,7 @@ function SWEP:AttackFront(special_attack, rand)
 	end
 
 	owner:LagCompensation(false)
+	return true
 end
 
 heldents = heldents or {}
@@ -2470,11 +2516,14 @@ function SWEP:DoBFSAnimation(anim,time)
 		self.animtime = CurTime() + time
 	end
 	if SERVER then
+		local owner = self:GetOwner()
+		if not IsValid(owner) then return end
+
 		net.Start("play_anim")
 		net.WriteEntity(self)
 		net.WriteString(anim)
 		net.WriteFloat(time)
-		net.SendPVS(self:GetOwner():GetPos())
+		net.SendPVS(owner:GetPos())
 	end
 end
 
