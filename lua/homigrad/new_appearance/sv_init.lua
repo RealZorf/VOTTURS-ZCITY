@@ -440,6 +440,31 @@ end
 
 local tWaitResponse = {}
 
+local function RoundAllowsRandomAppearance()
+    local round = CurrentRound and CurrentRound()
+    return round and round.name == "assassinsgreed"
+end
+
+local function GetStableAppearance(client, preferred)
+    if istable(preferred) and APmodule.AppearanceValidater(preferred) then
+        return table.Copy(preferred)
+    end
+    if istable(client.CachedAppearance) and APmodule.AppearanceValidater(client.CachedAppearance) then
+        return table.Copy(client.CachedAppearance)
+    end
+    if istable(client.CurAppearance) and APmodule.AppearanceValidater(client.CurAppearance) then
+        return table.Copy(client.CurAppearance)
+    end
+end
+
+local function ApplyStableAppearance(client, preferred)
+    local appearance = GetStableAppearance(client, preferred)
+    if not appearance then return false end
+
+    WearAppearance(client, appearance)
+    return true
+end
+
 function ApplyAppearance(Client,tAppearance,bRandom,bResponeIsValid,bUseCahsed)
     if not IsValid(Client) then return end
     if APmodule.IsPermamodelEnabled(Client) then
@@ -447,20 +472,32 @@ function ApplyAppearance(Client,tAppearance,bRandom,bResponeIsValid,bUseCahsed)
         return
     end
 
-    if bRandom or (Client.IsBot and Client:IsBot()) or (Client.IsRagdoll and Client:IsRagdoll()) then
+    local isBot = Client.IsBot and Client:IsBot()
+    local isRagdoll = Client.IsRagdoll and Client:IsRagdoll()
+
+    if isRagdoll or ((isBot or bRandom) and RoundAllowsRandomAppearance()) then
         ClearLateReplayState(Client)
         tAppearance = APmodule.GetRandomAppearance()
         WearAppearance(Client,tAppearance)
         return
     end
-    if bUseCahsed then
+    if isBot then
+        if ApplyStableAppearance(Client, tAppearance) then return end
+
         tAppearance = APmodule.GetRandomAppearance()
-        tAppearance = Client.CachedAppearance or tAppearance
-        --Client:ChatPrint(tAppearance.AModel)
-        if !APmodule.AppearanceValidater(tAppearance) then tAppearance = APmodule.GetRandomAppearance() end
+        Client.CachedAppearance = table.Copy(tAppearance)
+        WearAppearance(Client, tAppearance)
+        return
+    end
+    if bRandom then
+        ApplyStableAppearance(Client, tAppearance)
+        return
+    end
+    if bUseCahsed then
         net.Start("OnlyGet_Appearance")
         net.Send(Client)
-        WearAppearance(Client,tAppearance)
+
+        ApplyStableAppearance(Client, tAppearance)
         Client.ZCLateAppearanceReplayState = CaptureLateReplayState(Client)
         Client.ZCLateAppearanceReplayExpires = CurTime() + 5
         return
@@ -471,15 +508,19 @@ function ApplyAppearance(Client,tAppearance,bRandom,bResponeIsValid,bUseCahsed)
         net.Start("Get_Appearance")
         net.Send(Client)
     return end
-    if !tWaitResponse[Client] then return end
-    if tWaitResponse[Client] > CurTime() then
-        ApplyAppearance(Client,nil,true)
-    return end
+    local responseDeadline = tWaitResponse[Client]
+    if !responseDeadline then return end
+    tWaitResponse[Client] = nil
 
-    if !tAppearance then ApplyAppearance(Client,nil,true) return end
-    if !APmodule.AppearanceValidater(tAppearance) then ApplyAppearance(Client,nil,true) return end
+    if responseDeadline < CurTime() then return end
+
+    if !istable(tAppearance) or !APmodule.AppearanceValidater(tAppearance) then
+        ApplyStableAppearance(Client)
+        return
+    end
 
     ClearLateReplayState(Client)
+    Client.CachedAppearance = table.Copy(tAppearance)
     WearAppearance(Client,tAppearance)
 end
 
@@ -493,19 +534,21 @@ end)
 
 net.Receive("OnlyGet_Appearance",function(len,client)
     local tAppearance = net.ReadTable()
-    local bRandom = !tAppearance or table.IsEmpty(tAppearance)
-    --client:ChatPrint(bRandom)
-    client.CachedAppearance = bRandom and APmodule.GetRandomAppearance() or tAppearance
+    if istable(tAppearance) and APmodule.AppearanceValidater(tAppearance) then
+        client.CachedAppearance = table.Copy(tAppearance)
+    elseif !GetStableAppearance(client) then
+        client.CachedAppearance = nil
+    end
 
     if !ShouldLateReplayCachedAppearance(client) then return end
-    if !APmodule.AppearanceValidater(client.CachedAppearance) then
+    if !istable(client.CachedAppearance) or !APmodule.AppearanceValidater(client.CachedAppearance) then
         ClearLateReplayState(client)
         return
     end
 
     timer.Simple(0, function()
         if !ShouldLateReplayCachedAppearance(client) then return end
-        if !APmodule.AppearanceValidater(client.CachedAppearance) then
+        if !istable(client.CachedAppearance) or !APmodule.AppearanceValidater(client.CachedAppearance) then
             ClearLateReplayState(client)
             return
         end
