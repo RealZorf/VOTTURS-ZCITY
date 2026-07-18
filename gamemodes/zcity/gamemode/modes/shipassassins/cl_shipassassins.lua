@@ -659,6 +659,11 @@ local function openBuyMenu()
 	buyMenu:SetTitle("")
 	buyMenu:ShowCloseButton(false)
 	buyMenu:MakePopup()
+	if hg.AddSpaceCloseFooter then
+		hg.AddSpaceCloseFooter(buyMenu, function()
+			closeBuyMenu()
+		end, {accent = frameGreen})
+	end
 	buyMenu.ItemRows = {}
 	applyBuyMenuLayout(buyMenu)
 

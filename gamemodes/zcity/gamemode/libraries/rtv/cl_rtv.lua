@@ -24,6 +24,10 @@ function zb.RTVMenu()
     RTVMenu:MakePopup()
     RTVMenu:SetKeyboardInputEnabled(false)
 
+    if hg.AddSpaceCloseFooter then
+        hg.AddSpaceCloseFooter(RTVMenu)
+    end
+
     local MAPSPanel = vgui.Create("DPanel", RTVMenu)
     MAPSPanel:Dock(FILL)
     MAPSPanel:DockMargin(5, ScrH() * 0.04, 5, ScrH() * 0.01)

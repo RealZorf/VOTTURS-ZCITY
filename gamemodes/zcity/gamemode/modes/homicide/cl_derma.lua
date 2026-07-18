@@ -668,6 +668,9 @@ function PANEL:Init()
 		self:SetSize(math.min(ScrW() * 0.86, traitor_ui(1500)), math.min(ScrH() * 0.82, traitor_ui(860)))
 		self:Center()
 		self:MakePopup()
+		if hg.AddSpaceCloseFooter then
+			hg.AddSpaceCloseFooter(self)
+		end
 	end
 
 	self:SetKeyboardInputEnabled(false)
