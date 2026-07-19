@@ -1,259 +1,279 @@
 local CurTime, IsValid = CurTime, IsValid
-local math_min, math_clamp, math_rand, math_random, math_sin = math.min, math.Clamp, math.Rand, math.random, math.sin
-local VectorRand = VectorRand
+local math_max, math_clamp, math_rand, math_random = math.max, math.Clamp, math.Rand, math.random
 
-local CHANCE, FORCE, VIBRATION = 0.95, 1200, 150
-local extendDur, rigorDur, flexionDur = {4, 10}, {10, 20}, {6, 12}
-local RIGOR_DAMP, FLEXION_FORCE = 8, 400
+hook.Remove("Should Fake Up", "BrainfuckFencing")
+hook.Remove("Fake", "BrainfuckFencing")
+hook.Remove("HG_OnOtrub", "BrainfuckFencing")
+hook.Remove("RagdollDeath", "BrainfuckStart")
+hook.Remove("Org Clear", "BrainfuckClear")
+hook.Remove("Org Think", "BrainfuckThink")
+hook.Remove("HomigradDamage", "BrainfuckFencing")
 
-local spasmTypes = {[1] = {35, "extend"}, [2] = {25, "rigor"}, [3] = {15,"flexion"}} --;; Add or change anything you want
+hg.applySpasm = nil
+hg.getRandomSpasm = nil
 
-local extendBones = {
-	["ValveBiped.Bip01_R_Hand"] = true, ["ValveBiped.Bip01_L_Hand"] = true,
-	["ValveBiped.Bip01_R_Foot"] = true, ["ValveBiped.Bip01_L_Foot"] = true,
-	["ValveBiped.Bip01_R_Forearm"] = true, ["ValveBiped.Bip01_L_Forearm"] = true,
-	["ValveBiped.Bip01_R_Calf"] = true, ["ValveBiped.Bip01_L_Calf"] = true,
-	["ValveBiped.Bip01_R_UpperArm"] = true, ["ValveBiped.Bip01_L_UpperArm"] = true,
-	["ValveBiped.Bip01_R_Thigh"] = true, ["ValveBiped.Bip01_L_Thigh"] = true,
+local FENCING_DURATION = 3.8
+local FENCING_FADE = 0.45
+local FENCING_RECENT_DAMAGE = 1.5
+local FENCING_HEAVY_DURATION = 0.18
+local FENCING_HEAVY_FORCE = 15
+local SHAKE_REFRESH_MIN = 0.035
+local SHAKE_REFRESH_MAX = 0.095
+
+local fencingOffsets = {
+	["male"] = {
+		[1] = Angle(6.540, 90.000, 90.000),
+		[2] = Angle(-37.045, -105.045, -85.963),
+		[3] = Angle(-44.859, -61.829, -55.931),
+		[4] = Angle(-25.275, -157.402, -8.719),
+		[5] = Angle(18.369, 160.064, 98.145),
+		[6] = Angle(-28.958, 53.028, 34.571),
+		[7] = Angle(-1.339, -1.693, 74.846),
+		[8] = Angle(-14.129, -96.146, -48.883),
+		[9] = Angle(-8.891, -78.821, -46.443),
+		[10] = Angle(12.777, 89.905, -90.156),
+		[11] = Angle(-31.164, -86.388, -52.031),
+		[12] = Angle(38.609, -100.609, -77.015),
+		[13] = Angle(-5.608, -92.318, -84.065),
+		[14] = Angle(-30.825, -75.116, -60.820)
+	},
+	["female"] = {
+		[1] = Angle(11.243, 90.000, 90.000),
+		[2] = Angle(-33.726, -98.938, -84.097),
+		[3] = Angle(-41.284, -68.324, -56.945),
+		[4] = Angle(-25.633, -164.044, -9.989),
+		[5] = Angle(16.043, 150.152, 101.607),
+		[6] = Angle(-30.158, 60.254, 34.493),
+		[7] = Angle(-4.705, 9.362, 72.585),
+		[8] = Angle(-13.971, -93.535, -48.900),
+		[9] = Angle(-8.086, -76.238, -46.278),
+		[10] = Angle(12.777, 90.000, -90.000),
+		[11] = Angle(-31.007, -89.000, -52.020),
+		[12] = Angle(39.416, -103.343, -77.216),
+		[13] = Angle(-5.209, -92.337, -84.082),
+		[14] = Angle(-30.571, -75.143, -60.742)
+	}
 }
 
-local flexionBones = {
-	{"ValveBiped.Bip01_R_Hand", "ValveBiped.Bip01_Spine2", 1.2},
-	{"ValveBiped.Bip01_L_Hand", "ValveBiped.Bip01_Spine2", 1.2},
-	{"ValveBiped.Bip01_R_Forearm", "ValveBiped.Bip01_Spine2", 1.0},
-	{"ValveBiped.Bip01_L_Forearm", "ValveBiped.Bip01_Spine2", 1.0},
-	{"ValveBiped.Bip01_Head1", "ValveBiped.Bip01_Spine2", 0.6},
-}
+local armBones = {[2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7] = true}
+local spineBones = {[1] = 0.18}
 
-local rigorBones = {
-	"ValveBiped.Bip01_R_Hand", "ValveBiped.Bip01_L_Hand",
-	"ValveBiped.Bip01_R_Foot", "ValveBiped.Bip01_L_Foot",
-	"ValveBiped.Bip01_R_Forearm", "ValveBiped.Bip01_L_Forearm",
-	"ValveBiped.Bip01_R_Calf", "ValveBiped.Bip01_L_Calf",
-	"ValveBiped.Bip01_R_UpperArm", "ValveBiped.Bip01_L_UpperArm",
-	"ValveBiped.Bip01_R_Thigh", "ValveBiped.Bip01_L_Thigh",
-	"ValveBiped.Bip01_Head1", "ValveBiped.Bip01_Spine", "ValveBiped.Bip01_Spine1", "ValveBiped.Bip01_Spine2",
-}
-
-
-
-local fencingArmBones = {
-	{"ValveBiped.Bip01_R_Hand", "ValveBiped.Bip01_R_UpperArm", 1.0},     
-	{"ValveBiped.Bip01_L_Hand", "ValveBiped.Bip01_L_UpperArm", 1.0},
-	{"ValveBiped.Bip01_R_Forearm", "ValveBiped.Bip01_Spine2", 0.8},       
-	{"ValveBiped.Bip01_L_Forearm", "ValveBiped.Bip01_Spine2", 0.8},
-	{"ValveBiped.Bip01_R_UpperArm", "ValveBiped.Bip01_Spine2", 0.5},      
-	{"ValveBiped.Bip01_L_UpperArm", "ValveBiped.Bip01_Spine2", 0.5},
-}
-local fencingLegBones = {
-	{"ValveBiped.Bip01_R_Foot", "ValveBiped.Bip01_R_Thigh", 0.6},         
-	{"ValveBiped.Bip01_R_Calf", "ValveBiped.Bip01_R_Thigh", 0.4},         
-}
-
-local function getRandomSpasm()
-	local _, stype = hg.WeightedRandomSelect(spasmTypes, 1)
-
-	return stype
+local function hasNoHead(owner, rag, org)
+	return org.noHead or org.headamputated
+		or IsValid(owner) and (owner.noHead or owner.headamputated)
+		or IsValid(rag) and (rag.noHead or rag.headamputated)
 end
 
-hg.getRandomSpasm = getRandomSpasm
+local function getRagdoll(owner)
+	if not IsValid(owner) then return end
+	if owner:GetClass() == "prop_ragdoll" then return owner end
+	if not owner:IsPlayer() then return end
 
-local function applySpasm(rag, stype)
-	if not IsValid(rag) then return end
-	local dur = stype == "extend" and extendDur or stype == "rigor" and rigorDur or flexionDur
-	dur = math_rand(dur[1], dur[2])
-	
-	rag.spasm, rag.spasmType, rag.spasmDur, rag.spasmForce = true, stype, dur, FORCE
-	rag.spasmEnd, rag.spasmStart = CurTime() + dur, CurTime()
-	
-	if stype == "rigor" then
-		rag.rigorActive = true
+	if IsValid(owner.FakeRagdoll) then return owner.FakeRagdoll end
+
+	local fakeRag = owner:GetNWEntity("FakeRagdoll")
+	if IsValid(fakeRag) then return fakeRag end
+
+	local deathRag = owner:GetNWEntity("RagdollDeath")
+	if IsValid(deathRag) then return deathRag end
+end
+
+local function getBrainSeverity(org)
+	local lobes = math.min(org.brainFrontal or 0, 0.2)
+		+ math.min(org.brainParietal or 0, 0.2)
+		+ math.min(org.brainTemporal or 0, 0.2)
+		+ math.min(org.brainOccipital or 0, 0.2)
+
+	return math_clamp(math_max(org.brain or 0, lobes), 0, 1)
+end
+
+local function startFencing(org, duration, strength)
+	if not org then return end
+
+	local time = CurTime()
+	if not org.fencingEnd or time >= org.fencingEnd then
+		org.fencingHeavyEnd = time + FENCING_HEAVY_DURATION
 	end
-	--rag:EmitSound("physics/body/body_medium_break" .. math_random(2, 4) .. ".wav", 60, math_random(70, 90), 0.4)
+
+	org.fencingStart = time
+	org.fencingEnd = time + (duration or FENCING_DURATION)
+	org.fencingStrength = math_clamp(strength or 0.75, 0.55, 1)
 end
 
-hg.applySpasm = applySpasm
+function hg.applyFencingToPlayer(ply, durationOrOrg)
+	if not IsValid(ply) then return end
 
-local function processExtend(rag, fade)
-	local force, pulse = rag.spasmForce or FORCE, 0.7 + math_sin(CurTime() * 8) * 0.3
-	local pelvis = rag:LookupBone("ValveBiped.Bip01_Pelvis")
-	if not pelvis then return end
-	local pelvisPos = rag:GetBonePosition(pelvis)
-	
-	for name in pairs(extendBones) do
-		local bone = rag:LookupBone(name)
-		if not bone then continue end
-		local phys = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(bone))
+	local org = istable(durationOrOrg) and durationOrOrg or ply.organism
+	if not org then return end
+
+	local duration = isnumber(durationOrOrg) and durationOrOrg or FENCING_DURATION
+	startFencing(org, duration, 0.75 + getBrainSeverity(org) * 0.25)
+end
+
+local function clearFencing(org, rag)
+	if org then
+		org.fencingStart = nil
+		org.fencingEnd = nil
+		org.fencingHeavyEnd = nil
+		org.fencingStrength = nil
+	end
+
+	if IsValid(rag) then rag.fencingShake = nil end
+end
+
+local function getShake(rag, physBone, scale, seizure)
+	local time = CurTime()
+	rag.fencingShake = rag.fencingShake or {}
+
+	local shake = rag.fencingShake[physBone]
+	if not shake or time >= shake.next then
+		local amplitude = seizure and (armBones[physBone] and 2.2 or 0.65) or (armBones[physBone] and 0.45 or 0.09)
+		local burst = math_random(100) <= (seizure and 28 or 14) and math_rand(1.35, seizure and 3.4 or 2.8) or 1
+
+		shake = {
+			next = time + math_rand(seizure and 0.025 or SHAKE_REFRESH_MIN, seizure and 0.065 or SHAKE_REFRESH_MAX),
+			p = shake and shake.p or 0,
+			y = shake and shake.y or 0,
+			r = shake and shake.r or 0,
+			tp = math_rand(-amplitude, amplitude) * burst * scale,
+			ty = math_rand(-amplitude, amplitude) * burst * scale,
+			tr = math_rand(-amplitude * 0.35, amplitude * 0.35) * burst * scale
+		}
+
+		rag.fencingShake[physBone] = shake
+	end
+
+	shake.p = shake.p + (shake.tp - shake.p) * 0.38
+	shake.y = shake.y + (shake.ty - shake.y) * 0.38
+	shake.r = shake.r + (shake.tr - shake.r) * 0.38
+
+	return shake.p, shake.y, shake.r
+end
+
+local function processFencing(rag, org, scale, seizure)
+	if not IsValid(rag) or not hg.ShadowControl then return end
+
+	local reference = rag:GetPhysicsObjectNum(0)
+	if not IsValid(reference) then return end
+
+	local model = string.lower(rag:GetModel() or "")
+	local offsets = string.find(model, "female", 1, true) and fencingOffsets.female or fencingOffsets.male
+	local referenceAng = reference:GetAngles()
+	local force = (seizure and 900 or 450) + (seizure and 1100 or 750) * scale
+	local damping = (seizure and 28 or 18) + (seizure and 55 or 42) * scale
+
+	for physBone, baseAngle in pairs(offsets) do
+		local realPhysBone = hg.realPhysNum and hg.realPhysNum(rag, physBone) or physBone
+		local phys = rag:GetPhysicsObjectNum(realPhysBone or physBone)
 		if not IsValid(phys) then continue end
-		local dir = (rag:GetBonePosition(bone) - pelvisPos):GetNormalized()
-		phys:ApplyForceCenter((dir * force * fade * pulse) + VectorRand(-VIBRATION, VIBRATION) * fade)
-	end
-end
 
-local function processRigor(rag, fade)
-	if not rag.rigorActive then return end
-	local damp = RIGOR_DAMP * fade + 0.5
-	
-	for i = 1, #rigorBones do
-		local bone = rag:LookupBone(rigorBones[i])
-		if not bone then continue end
-		local phys = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(bone))
-		if not IsValid(phys) then continue end
-		--phys:SetDamping(damp, damp * 2)
-		if fade > 0.3 then phys:ApplyForceCenter(VectorRand(-45, 45) * fade) end
-	end
-end
+		local boneForce = force
+		local boneDamping = damping
+		local spineMultiplier = spineBones[physBone]
 
-local function processFlexion(rag, fade)
-	local force, pulse = FLEXION_FORCE, 0.8 + math_sin(CurTime() * 5) * 0.2
-	for i = 1, #flexionBones do
-		local d = flexionBones[i]
-		local bone, targetBone = rag:LookupBone(d[1]), rag:LookupBone(d[2])
-		if not bone or not targetBone then continue end
-		local phys = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(bone))
-		if not IsValid(phys) then continue end
-		local dir = (rag:GetBonePosition(targetBone) - rag:GetBonePosition(bone)):GetNormalized()
-		phys:ApplyForceCenter((dir * force * d[3] * fade * pulse) + VectorRand(-30, 30) * fade)
-	end
-end
-
---;; when furfag
-local function applyFencingToPlayer(ply, org)
-	if not IsValid(ply) or not ply:Alive() then return end
-	if org.fencing then return end 
-	
-	local dur = math_rand(3, 8) 
-	org.fencing = true
-	org.fencingEnd = CurTime() + dur
-	org.fencingDur = dur
-	
-
-	if ply.FakeRagdoll and IsValid(ply.FakeRagdoll) then
-		local rag = ply.FakeRagdoll
-		rag.fencing = true
-		rag.fencingEnd = org.fencingEnd
-		rag.fencingDur = dur
-	end
-end
-
-hg.applyFencingToPlayer = applyFencingToPlayer
-
-local function processFencing(rag, fade)
-	local org = rag.organism
-	local force = 350 * fade
-	local pulse = 0.85 + math_sin(CurTime() * 4) * 0.15
-
-	if org.spine2 < hg.organism.fake_spine2 and org.spine3 < hg.organism.fake_spine3 then
-		for i = 1, #fencingArmBones do
-			local d = fencingArmBones[i]
-			local bone, targetBone = rag:LookupBone(d[1]), rag:LookupBone(d[2])
-			if not bone or not targetBone then continue end
-			local phys = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(bone))
-			if not IsValid(phys) then continue end
-			local bonePos, targetPos = rag:GetBonePosition(bone), rag:GetBonePosition(targetBone)
-			local dir = (targetPos - bonePos):GetNormalized()
-			phys:ApplyForceCenter((dir * force * d[3] * pulse) + VectorRand(-15, 15) * fade)
+		if spineMultiplier then
+			boneForce = boneForce * spineMultiplier
+			boneDamping = boneDamping * 0.35
+		elseif not armBones[physBone] then
+			boneForce = boneForce * 0.65
+			boneDamping = boneDamping * 0.65
 		end
+
+		local shakeP, shakeY, shakeR = getShake(rag, physBone, scale, seizure)
+		local targetLocal = Angle(baseAngle.p + shakeP, baseAngle.y + shakeY, baseAngle.r + shakeR)
+		local _, targetWorld = LocalToWorld(vector_origin, targetLocal, vector_origin, referenceAng)
+
+		hg.ShadowControl(rag, physBone, 0.07, targetWorld, boneForce, boneDamping, vector_origin, 0, 0)
 	end
-	
-	if org.spine2 < hg.organism.fake_spine2 and org.spine3 < hg.organism.fake_spine3 and org.spine1 < hg.organism.fake_spine1 then
-		for i = 1, #fencingLegBones do
-			local d = fencingLegBones[i]
-			local bone, targetBone = rag:LookupBone(d[1]), rag:LookupBone(d[2])
-			if not bone or not targetBone then continue end
-			local phys = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(bone))
-			if not IsValid(phys) then continue end
-			local bonePos, targetPos = rag:GetBonePosition(bone), rag:GetBonePosition(targetBone)
-			local dir = (targetPos - bonePos):GetNormalized()
-			phys:ApplyForceCenter((dir * force * d[3] * pulse) + VectorRand(-10, 10) * fade)
+
+	if org.fencingHeavyEnd and CurTime() < org.fencingHeavyEnd then
+		for i = 0, rag:GetPhysicsObjectCount() - 1 do
+			local phys = rag:GetPhysicsObjectNum(i)
+			if IsValid(phys) then
+				phys:ApplyForceCenter(Vector(0, 0, -phys:GetMass() * FENCING_HEAVY_FORCE))
+			end
 		end
+	else
+		org.fencingHeavyEnd = nil
 	end
 end
 
-local function clearFencing(rag)
-	rag.fencing, rag.fencingEnd, rag.fencingDur = nil, nil, nil
+local function shouldStartFromTrauma(org)
+	if not org then return false end
+
+	local recentHeadDamage = org.fencingBrainDamage
+		and CurTime() - org.fencingBrainDamage <= FENCING_RECENT_DAMAGE
+
+	return recentHeadDamage or ((org.consciousness or 1) <= 0.4 and getBrainSeverity(org) > 0.01)
 end
 
-local function clearSpasm(rag)
-	if rag.spasmType == "rigor" and rag.rigorActive then
-		for i = 1, #rigorBones do
-			local bone = rag:LookupBone(rigorBones[i])
-			if not bone then continue end
-			local phys = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(bone))
-			if IsValid(phys) then phys:SetDamping(0.5, 1) end
-		end
-	end
-	rag.spasm, rag.spasmEnd, rag.spasmStart, rag.spasmDur, rag.spasmForce, rag.spasmType, rag.rigorActive = nil, nil, nil, nil, nil, nil, nil
-end
+hook.Add("HomigradDamage", "BrainfuckFencing", function(victim, dmgInfo, hitgroup)
+	local ply = IsValid(victim) and victim:IsPlayer() and victim or hg.RagdollOwner and hg.RagdollOwner(victim)
+	if not IsValid(ply) or hitgroup ~= HITGROUP_HEAD or not dmgInfo or dmgInfo:GetDamage() <= 0 then return end
 
-hook.Add("Should Fake Up", "BrainfuckFencing", function(ply)
 	local org = ply.organism
-	if org and org.fencing and org.fencingEnd and CurTime() < org.fencingEnd then
-		return false
-	end
-	local rag = ply.FakeRagdoll
-	if IsValid(rag) and rag.fencing and rag.fencingEnd and CurTime() < rag.fencingEnd then
-		return false
-	end
+	if not org then return end
+
+	org.fencingBrainDamage = CurTime()
+end)
+
+hook.Add("HG_OnOtrub", "BrainfuckFencing", function(ply)
+	if not IsValid(ply) or not shouldStartFromTrauma(ply.organism) then return end
+	hg.applyFencingToPlayer(ply)
+end)
+
+hook.Add("Fake", "BrainfuckFencing", function(ply)
+	if not IsValid(ply) or not shouldStartFromTrauma(ply.organism) then return end
+	hg.applyFencingToPlayer(ply)
 end)
 
 hook.Add("RagdollDeath", "BrainfuckStart", function(ply, rag)
-	timer.Simple(0.1, function()
-		if not IsValid(ply) or not IsValid(rag) then return end
-		local org = ply.organism
-		if not org then return end
-		if rag.noHead or org.noHead or ply.noHead then return end
-		
-		local hadBrainDamage = org.brain and org.brain > 0
-		local hadSkullDamage = org.skull and org.skull > 0
-		local hadHeadDamage = org.dmgstack and org.dmgstack[HITGROUP_HEAD] and (org.dmgstack[HITGROUP_HEAD][1] or 0) > 0
-		local headshot = hadBrainDamage or hadSkullDamage or hadHeadDamage
-		
-		if headshot and math_random() < CHANCE then
-			local stype = "rigor"--getRandomSpasm()
-			applySpasm(rag, stype)
-			if rag.organism then rag.organism.spasm, rag.organism.spasmType = true, stype end
-		end
-	end)
+	if not IsValid(rag) then return end
+
+	local org = rag.organism or IsValid(ply) and ply.organism
+	if not org or hasNoHead(ply, rag, org) then return end
+
+	local headDamage = shouldStartFromTrauma(org)
+		or (org.brain or 0) > 0.01
+		or (org.skull or 0) > 0.05
+		or org.dmgstack and org.dmgstack[HITGROUP_HEAD]
+
+	if headDamage then
+		startFencing(org, FENCING_DURATION, 0.75 + getBrainSeverity(org) * 0.25)
+	end
 end)
 
-hook.Add("Org Think", "BrainfuckThink", function(owner)
+hook.Add("Org Think", "BrainfuckThink", function(owner, passedOrg)
 	if not IsValid(owner) then return end
-	local org = owner.organism or owner
-	
-	if org.fencing and org.fencingEnd then
-		local rag = owner.FakeRagdoll
-		if IsValid(rag) then
-			if CurTime() > org.fencingEnd then
-				clearFencing(rag)
-				org.fencing, org.fencingEnd, org.fencingDur = nil, nil, nil
-			else
-				local fade = math_clamp((org.fencingEnd - CurTime()) / (org.fencingDur or 5), 0.1, 1)
-				processFencing(rag, fade)
-			end
-		end
-	end
-	
-	local deathRag = owner.FakeRagdoll
-	if IsValid(deathRag) and deathRag.spasm and deathRag.spasmEnd then
-		if CurTime() > deathRag.spasmEnd then
-			clearSpasm(deathRag)
-		else
-			local fade = math_clamp((deathRag.spasmEnd - CurTime()) / (deathRag.spasmDur or 5), 0.1, 1)
-			local stype = deathRag.spasmType or "extend"
 
-			if stype == "extend" then processExtend(deathRag, fade)
-			elseif stype == "rigor" then processRigor(deathRag, fade)
-			elseif stype == "flexion" then processFlexion(deathRag, fade) end
-		end
+	local org = passedOrg or owner.organism
+	if not org then return end
+
+	local rag = getRagdoll(owner)
+	if org.seizureActive and CurTime() < (org.seizureEnd or 0) then
+		if hasNoHead(owner, rag, org) or not IsValid(rag) then return end
+		processFencing(rag, org, 1, true)
+		return
 	end
+
+	if not org.fencingEnd then return end
+
+	if hasNoHead(owner, rag, org) or CurTime() >= org.fencingEnd then
+		clearFencing(org, rag)
+		return
+	end
+
+	if not IsValid(rag) then return end
+
+	local remaining = org.fencingEnd - CurTime()
+	local scale = org.fencingStrength or 0.75
+	if remaining < FENCING_FADE then scale = scale * math_clamp(remaining / FENCING_FADE, 0, 1) end
+
+	processFencing(rag, org, scale, false)
 end)
 
 hook.Add("Org Clear", "BrainfuckClear", function(org)
-	if not org or not org.owner then return end
-	if IsValid(org.owner) then 
-		clearSpasm(org.owner)
-		clearFencing(org.owner)
-	end
-	org.fencing, org.fencingEnd = nil, nil
+	if not org then return end
+	clearFencing(org, IsValid(org.owner) and getRagdoll(org.owner) or nil)
+	org.fencingBrainDamage = nil
 end)

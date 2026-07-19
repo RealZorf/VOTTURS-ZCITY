@@ -237,6 +237,22 @@ local PainLerp = 0
 local O2Lerp = 0
 local assimilatedLerp = 0
 local tempLerp = 36.6
+local brainFrontalLerp = 0
+local brainParietalLerp = 0
+local brainTemporalLerp = 0
+local brainOccipitalLerp = 0
+local brainHemorrhageLerp = 0
+local brainLobeColor = {
+	["$pp_colour_addr"] = 0,
+	["$pp_colour_addg"] = 0,
+	["$pp_colour_addb"] = 0,
+	["$pp_colour_brightness"] = 0,
+	["$pp_colour_contrast"] = 1,
+	["$pp_colour_colour"] = 1,
+	["$pp_colour_mulr"] = 0,
+	["$pp_colour_mulg"] = 0,
+	["$pp_colour_mulb"] = 0
+}
 
 local show_image_time = 0
 local show_some_images_time = 0
@@ -258,6 +274,11 @@ local function stopthings()
 	assimilatedLerp = 0
 	tempLerp = 36.6
 	consciousnessLerp = 1
+	brainFrontalLerp = 0
+	brainParietalLerp = 0
+	brainTemporalLerp = 0
+	brainOccipitalLerp = 0
+	brainHemorrhageLerp = 0
 
 	lply.tinnitus = 0
 	
@@ -566,7 +587,8 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	end
 
 	--if brain > 0.1 and not org.otrub and show_some_images_time > 0 and false then
-	if lply.tinnitus and lply.tinnitus > CurTime() and lply:Alive() then
+	local temporalTinnitus = math.Clamp((brainTemporalLerp - 0.08) / 0.72, 0, 1)
+	if ((lply.tinnitus and lply.tinnitus > CurTime()) or temporalTinnitus > 0.01) and lply:Alive() then
 		if !IsValid(Tinnitus) or Tinnitus:GetState() != GMOD_CHANNEL_PLAYING  then
 			sound.PlayFile("sound/zcitysnd/real_sonar/tinnitus"..math.random(3)..".mp3", "noblock noplay", function(station, err)
 				if IsValid(station) then
@@ -579,7 +601,8 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		end
 
 		if IsValid(Tinnitus) then
-			Tinnitus:SetVolume(math.min(math.max(lply.tinnitus - CurTime(), 0) / 10, 1))
+			local timedTinnitus = lply.tinnitus and math.max(lply.tinnitus - CurTime(), 0) / 10 or 0
+			Tinnitus:SetVolume(math.Clamp(math.max(timedTinnitus, temporalTinnitus * 0.45), 0, 1))
 		end
 	else
 		if IsValid(Tinnitus) then
@@ -734,4 +757,52 @@ hook.Add("PreDrawOpaqueRenderables", "renderblindnessflash", function()
 	lply.blindflash:SetPos(view.origin)
 	lply.blindflash:SetAngles(Ang)
 	lply.blindflash:Update()
+end)
+
+hook.Add("Post Post Pre Post Processing", "BrainLobeEffects", function()
+	local spect = IsValid(lply:GetNWEntity("spect")) and lply:GetNWEntity("spect")
+	if not lply:Alive() and (not IsValid(spect) or viewmode ~= 1) then return end
+
+	local org = lply:Alive() and lply.organism or IsValid(spect) and spect.organism
+	if not org or org.otrub then return end
+
+	local lerp = math.Clamp(FrameTime() * 4, 0, 1)
+	brainFrontalLerp = Lerp(lerp, brainFrontalLerp, org.brainFrontal or 0)
+	brainParietalLerp = Lerp(lerp, brainParietalLerp, org.brainParietal or 0)
+	brainTemporalLerp = Lerp(lerp, brainTemporalLerp, org.brainTemporal or 0)
+	brainOccipitalLerp = Lerp(lerp, brainOccipitalLerp, org.brainOccipital or 0)
+	brainHemorrhageLerp = Lerp(lerp, brainHemorrhageLerp, org.brainHemorrhage or 0)
+
+	local frontal = math.Clamp(brainFrontalLerp, 0, 1)
+	local parietal = math.Clamp(brainParietalLerp, 0, 1)
+	local occipital = math.Clamp(brainOccipitalLerp, 0, 1)
+	local hemorrhage = math.Clamp(brainHemorrhageLerp, 0, 1)
+	local visualLoss = math.Clamp(occipital * 0.85 + hemorrhage * 0.35, 0, 1)
+
+	if frontal > 0.01 or visualLoss > 0.01 then
+		brainLobeColor["$pp_colour_brightness"] = -visualLoss * 0.08
+		brainLobeColor["$pp_colour_contrast"] = 1 - frontal * 0.12 - visualLoss * 0.18
+		brainLobeColor["$pp_colour_colour"] = 1 - frontal * 0.55 - visualLoss * 0.25
+		brainLobeColor["$pp_colour_mulr"] = hemorrhage * 0.035
+		brainLobeColor["$pp_colour_mulg"] = 0
+		brainLobeColor["$pp_colour_mulb"] = frontal * 0.025
+		DrawColorModify(brainLobeColor)
+	end
+
+	if parietal > 0.05 or visualLoss > 0.08 then
+		DrawMotionBlur(0.02, math.Clamp(parietal * 0.28 + visualLoss * 0.18, 0, 0.38), 0.015)
+	end
+
+	if visualLoss > 0.03 then
+		render.UpdateScreenEffectTexture()
+		vignetteMat:SetFloat("$c2_x", CurTime() + 10000)
+		vignetteMat:SetFloat("$c0_z", visualLoss * 1.4)
+		vignetteMat:SetFloat("$c1_y", visualLoss * 6)
+		render.SetMaterial(vignetteMat)
+		render.DrawScreenQuad()
+	end
+
+	if org.seizureActive then
+		DrawMotionBlur(0.08, 0.58, 0.01)
+	end
 end)
