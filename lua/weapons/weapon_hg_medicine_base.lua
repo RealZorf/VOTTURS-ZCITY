@@ -486,7 +486,7 @@ if SERVER then
 						self:PoisonKCNOrganism(org)
 					end
 					
-					NetworkChemicalResistanceOfPlayer(organism_owner)
+					MODE.NetworkChemicalResistanceOfPlayer(organism_owner)
 					
 					organism_owner.PassiveAbility_ChemicalAccumulation_NextNetworkTime = CurTime() + 1
 				end
