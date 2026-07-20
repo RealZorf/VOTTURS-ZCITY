@@ -457,9 +457,18 @@ local function GetStableAppearance(client, preferred)
     end
 end
 
-local function ApplyStableAppearance(client, preferred)
+local function GetOrCreateStableAppearance(client, preferred)
     local appearance = GetStableAppearance(client, preferred)
-    if not appearance then return false end
+    if appearance then return appearance end
+
+    appearance = APmodule.GetRandomAppearance()
+    client.CachedAppearance = table.Copy(appearance)
+
+    return appearance
+end
+
+local function ApplyStableAppearance(client, preferred)
+    local appearance = GetOrCreateStableAppearance(client, preferred)
 
     WearAppearance(client, appearance)
     return true
@@ -482,11 +491,7 @@ function ApplyAppearance(Client,tAppearance,bRandom,bResponeIsValid,bUseCahsed)
         return
     end
     if isBot then
-        if ApplyStableAppearance(Client, tAppearance) then return end
-
-        tAppearance = APmodule.GetRandomAppearance()
-        Client.CachedAppearance = table.Copy(tAppearance)
-        WearAppearance(Client, tAppearance)
+        ApplyStableAppearance(Client, tAppearance)
         return
     end
     if bRandom then
