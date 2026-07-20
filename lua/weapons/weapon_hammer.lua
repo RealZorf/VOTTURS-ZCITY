@@ -97,7 +97,7 @@ SWEP.StaminaPrimary = 25
 
 local setmodevpang = Angle(0, 0, 5)
 
-local weppos1, wepang1, weppos2, wepang2 = Vector(-2, 4.5, -11), Angle(14, -90, 90), Vector(0.7, -0.5, -12), Angle(-15, 90, 96)
+local weppos1, wepang1, weppos2, wepang2 = Vector(0, 3.4, -3), Angle(-10, -90, 0), Vector(0.7, -0.5, -12), Angle(-15, 90, 96)
 function SWEP:ThinkAdd()
 	local ply = self:GetOwner()
 	if SERVER and ply.suiciding then
@@ -440,28 +440,41 @@ function SWEP:CustomAttack2()
     return true
 end
 
-if CLIENT then
-	function SWEP:DrawHUD()
-		if GetViewEntity() ~= LocalPlayer() then return end
-		if LocalPlayer():InVehicle() then return end
+function SWEP:DrawHUD()
+	if GetViewEntity() ~= LocalPlayer() then return end
+	if LocalPlayer():InVehicle() then return end
 
-		local Owner = self:GetOwner()
-		if not IsValid(Owner) then return end
+	local Owner = self:GetOwner()
+	if not IsValid(Owner) then return end
 
-		if self:GetNetVar("AttackMode", 1) == 2 then return end
+	if self:GetNetVar("AttackMode", 1) == 2 then return end
 
-		local Tr = hg.eyeTrace(Owner)
-		if not Tr then return end
+	if Owner:GetAmmoCount(self.Ammo) <= 0 then return end
 
-		if self:CanNail(Tr) then
-			local AimVec = Owner:GetAimVector()
-			local NewTr = util.QuickTrace(Tr.HitPos, AimVec * 10, {Owner, Tr.Entity})
-			
-			if self:CanNail(NewTr) or (hgIsDoor and hgIsDoor(Tr.Entity)) then
-				local toScreen = Tr.HitPos:ToScreen()
-				draw.SimpleText("RMB to Nail", "HomigradFont", toScreen.x + 3, toScreen.y + 27, color_black, TEXT_ALIGN_CENTER)
-				draw.SimpleText("RMB to Nail", "HomigradFont", toScreen.x, toScreen.y + 25, color_white, TEXT_ALIGN_CENTER)
-			end
+	local Tr = hg.eyeTrace(Owner)
+	if not Tr or not Tr.Hit then return end
+
+	local AimVec = Owner:GetAimVector()
+	local NewTr = util.QuickTrace(Tr.HitPos, AimVec * 10, {Owner, Tr.Entity})
+
+	local canNail = false
+
+	-- Normal objects
+	if self:CanNail(Tr) and self:CanNail(NewTr) then
+		if NewTr.Entity ~= Tr.Entity then
+			canNail = true
 		end
+	end
+
+	-- Doors
+	if hgIsDoor and hgIsDoor(Tr.Entity) then
+		canNail = true
+	end
+
+	if canNail then
+		local toScreen = Tr.HitPos:ToScreen()
+
+		draw.SimpleText("RMB to Nail","HomigradFont",toScreen.x + 3,toScreen.y + 27,color_black,TEXT_ALIGN_CENTER)
+		draw.SimpleText("RMB to Nail","HomigradFont",toScreen.x,toScreen.y + 25,color_white,TEXT_ALIGN_CENTER)
 	end
 end
