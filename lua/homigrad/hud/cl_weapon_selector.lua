@@ -114,32 +114,26 @@ function WS.WeaponSelectorDraw( ply )
                 boxY,
                 sizeX,
                 sizeH,
-                ColorAlpha(selectorBgAlt, WS.Transparent * 215)
+                ColorAlpha(color_black, WS.Transparent * 205)
             )
+
             draw.RoundedBox(
                 0,
                 position,
                 boxY + sizeH - 2,
                 sizeX,
                 2,
-                ColorAlpha(selectorBg, WS.Transparent * 235)
+                ColorAlpha(color_black, WS.Transparent * 205)
             )
-            surface.SetDrawColor(
-                selectorAccentSoft.r,
-                selectorAccentSoft.g,
-                selectorAccentSoft.b,
-                WS.Transparent * (isSelected and 165 or 45)
-            )
-            surface.SetMaterial( gradient_u )
-            surface.DrawTexturedRect( position, boxY, sizeX, sizeH )
 
-            surface.SetDrawColor(
-                selectorAccent.r,
-                selectorAccent.g,
-                selectorAccent.b,
-                WS.Transparent * (isSelected and 185 or 110)
-            )
-	        surface.DrawOutlinedRect( position, boxY, sizeX, sizeH, isSelected and 2 or 1 )
+            if SelectedWep == wep then
+                surface.SetDrawColor(35, 225, 110, WS.Transparent * 200)
+                surface.SetMaterial(gradient_u)
+                surface.DrawTexturedRect(position, boxY, sizeX, sizeH)
+
+                surface.SetDrawColor(35, 225, 110, WS.Transparent * 155)
+                surface.DrawOutlinedRect(position, boxY, sizeX, sizeH, 2)
+            end
 
             local sizeHi = boxY
             sizeHi = sizeHi + 2.5
@@ -326,14 +320,3 @@ local tHideElements = {
 hook.Add("HUDShouldDraw", "WeaponSelector_HUDShouldDraw", function(sElementName)
     if tHideElements[sElementName] then return false end
 end)
-
---I'M SO SICK JUST KILL ME HAHAHAHAHAHAHAHAHAHAHAHAHAHAHAHAHAHA
---FOR HALF AN HOUR I TRIED TO DO A NORMAL SHIT SWITCH!!!
---BUT IT WORKED!!!!
---UEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
---[[
-    /\_/\
-    |_ _|
-    |   |__
-   /_|_____\ -- IT'S SO OVER
---]]
