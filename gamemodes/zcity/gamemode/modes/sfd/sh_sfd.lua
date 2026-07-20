@@ -9,7 +9,7 @@ hook.Add( "StartCommand", "DisallowShoting", function( ply, mv )
 end)
 
 function MODE:PlayerCanLegAttack( ply )
-	if zb.CROUND == "superfighters" and (zb.ROUND_START or 0) + 5 > CurTime() then
+	if (zb.ROUND_START or 0) + 5 > CurTime() then
 		return false
 	end
 end
