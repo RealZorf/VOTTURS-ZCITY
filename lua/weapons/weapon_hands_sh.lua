@@ -1052,6 +1052,9 @@ local function buildPerfusionDiagnosis(org, countedBPM)
 	local venousBleed = tonumber(org.venousBleed) or tonumber(org.bleed) or 0
 	local blood = tonumber(org.blood) or 5000
 	local bodyposition = tostring(org.bodyposition or "")
+	local intracranialPressure = math.Clamp(tonumber(org.intracranialPressure) or 0, 0, 1)
+	local cerebralPerfusion = math.Clamp(tonumber(org.cerebralPerfusion) or perfusion, 0, 1)
+	local icpPositionModifier = math.Clamp(tonumber(org.bodyPositionICPModifier) or 0, -0.1, 0.18)
 
 	if pulse >= 105 and (bloodpressure < 0.55 or perfusion < 0.5 or shock > 20) then
 		messages[#messages + 1] = "Pulse is fast and weak."
@@ -1075,6 +1078,22 @@ local function buildPerfusionDiagnosis(org, countedBPM)
 
 	if bloodpressure < 0.25 or perfusion < 0.22 or arterialBleed > 3 or venousBleed > 12 then
 		messages[#messages + 1] = "Blood pressure is crashing."
+	end
+
+	if intracranialPressure >= 0.72 then
+		messages[#messages + 1] = "Signs suggest critically raised pressure inside the skull."
+	elseif intracranialPressure >= 0.45 then
+		messages[#messages + 1] = "Their neurological responses suggest rising pressure inside the skull."
+	end
+
+	if cerebralPerfusion < 0.35 then
+		messages[#messages + 1] = "Their brain is being poorly perfused."
+	end
+
+	if intracranialPressure > 0.25 and icpPositionModifier > 0.06 then
+		messages[#messages + 1] = "Their head is positioned low, worsening cranial pressure."
+	elseif intracranialPressure > 0.25 and icpPositionModifier < -0.05 then
+		messages[#messages + 1] = "Their elevated head is helping reduce cranial pressure."
 	end
 
 	if bodyposition == "recovery" then

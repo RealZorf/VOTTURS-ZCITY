@@ -409,7 +409,7 @@ module[2] = function(owner, org, timeValue)
 		end
 	end
 
-	org.brain = max(org.brain - timeValue / 400 * ((org.mannitol > 0 and org.brain < 0.6) and 1 or (org.brain > 0.1 and 0.1 or 0)), 0)
+	org.brain = max(org.brain - timeValue / 400 * (org.brain > 0.1 and 0.1 or 0), 0)
 	org.mannitol = math.Approach(org.mannitol, 0, timeValue / 200)
 	
 	if k < 0.25 and (hypoxiaTime >= 30 or severeHypoxiaTime >= 12 or org.skull > 0) then

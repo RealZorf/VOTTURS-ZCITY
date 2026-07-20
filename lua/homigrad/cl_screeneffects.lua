@@ -242,6 +242,9 @@ local brainParietalLerp = 0
 local brainTemporalLerp = 0
 local brainOccipitalLerp = 0
 local brainHemorrhageLerp = 0
+local brainSwellingLerp = 0
+local intracranialPressureLerp = 0
+local cerebralPerfusionLerp = 1
 local brainLobeColor = {
 	["$pp_colour_addr"] = 0,
 	["$pp_colour_addg"] = 0,
@@ -279,6 +282,9 @@ local function stopthings()
 	brainTemporalLerp = 0
 	brainOccipitalLerp = 0
 	brainHemorrhageLerp = 0
+	brainSwellingLerp = 0
+	intracranialPressureLerp = 0
+	cerebralPerfusionLerp = 1
 
 	lply.tinnitus = 0
 	
@@ -772,25 +778,33 @@ hook.Add("Post Post Pre Post Processing", "BrainLobeEffects", function()
 	brainTemporalLerp = Lerp(lerp, brainTemporalLerp, org.brainTemporal or 0)
 	brainOccipitalLerp = Lerp(lerp, brainOccipitalLerp, org.brainOccipital or 0)
 	brainHemorrhageLerp = Lerp(lerp, brainHemorrhageLerp, org.brainHemorrhage or 0)
+	brainSwellingLerp = Lerp(lerp, brainSwellingLerp, org.brainSwelling or 0)
+	intracranialPressureLerp = Lerp(lerp, intracranialPressureLerp, org.intracranialPressure or 0)
+	cerebralPerfusionLerp = Lerp(lerp, cerebralPerfusionLerp, org.cerebralPerfusion or 1)
 
 	local frontal = math.Clamp(brainFrontalLerp, 0, 1)
 	local parietal = math.Clamp(brainParietalLerp, 0, 1)
 	local occipital = math.Clamp(brainOccipitalLerp, 0, 1)
 	local hemorrhage = math.Clamp(brainHemorrhageLerp, 0, 1)
-	local visualLoss = math.Clamp(occipital * 0.85 + hemorrhage * 0.35, 0, 1)
+	local swelling = math.Clamp(brainSwellingLerp, 0, 1)
+	local pressureStress = math.Clamp((intracranialPressureLerp - 0.2) / 0.65, 0, 1)
+	local cerebralLoss = math.Clamp((0.65 - cerebralPerfusionLerp) / 0.55, 0, 1)
+	local pulseRate = math.max(tonumber(org.pulse) or tonumber(org.heartbeat) or 70, 30) / 60
+	local pressurePulse = 0.72 + 0.28 * ((math.sin(CurTime() * pulseRate * math.pi * 2) + 1) * 0.5)
+	local visualLoss = math.Clamp(occipital * 0.85 + hemorrhage * 0.25 + cerebralLoss * 0.42 + pressureStress * pressurePulse * 0.22, 0, 1)
 
-	if frontal > 0.01 or visualLoss > 0.01 then
-		brainLobeColor["$pp_colour_brightness"] = -visualLoss * 0.08
-		brainLobeColor["$pp_colour_contrast"] = 1 - frontal * 0.12 - visualLoss * 0.18
-		brainLobeColor["$pp_colour_colour"] = 1 - frontal * 0.55 - visualLoss * 0.25
+	if frontal > 0.01 or visualLoss > 0.01 or swelling > 0.05 then
+		brainLobeColor["$pp_colour_brightness"] = -visualLoss * 0.09
+		brainLobeColor["$pp_colour_contrast"] = 1 - frontal * 0.12 - visualLoss * 0.2
+		brainLobeColor["$pp_colour_colour"] = 1 - frontal * 0.55 - visualLoss * 0.28 - swelling * 0.06
 		brainLobeColor["$pp_colour_mulr"] = hemorrhage * 0.035
 		brainLobeColor["$pp_colour_mulg"] = 0
 		brainLobeColor["$pp_colour_mulb"] = frontal * 0.025
 		DrawColorModify(brainLobeColor)
 	end
 
-	if parietal > 0.05 or visualLoss > 0.08 then
-		DrawMotionBlur(0.02, math.Clamp(parietal * 0.28 + visualLoss * 0.18, 0, 0.38), 0.015)
+	if parietal > 0.05 or visualLoss > 0.08 or pressureStress > 0.2 then
+		DrawMotionBlur(0.02, math.Clamp(parietal * 0.28 + visualLoss * 0.18 + pressureStress * 0.08, 0, 0.42), 0.015)
 	end
 
 	if visualLoss > 0.03 then

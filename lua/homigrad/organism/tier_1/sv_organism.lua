@@ -21,6 +21,9 @@ hook.Add("Org Clear", "Main", function(org)
 	org.brainOccipital = 0
 	org.brainHemorrhage = 0
 	org.brainBleedRate = 0
+	org.brainSwelling = 0
+	org.intracranialPressure = 0
+	org.cerebralPerfusion = 1
 	org.seizure = 0
 	org.seizureActive = false
 	org.seizureStart = 0
@@ -100,6 +103,7 @@ hook.Add("Org Clear", "Main", function(org)
 	org.bodyPositionBleedMul = 1
 	org.bodyPositionBreathingMul = 1
 	org.bodyPositionThroatDrainMul = 1
+	org.bodyPositionICPModifier = -0.035
 
 	org.assimilated = 0
 	org.berserk = 0
@@ -164,6 +168,10 @@ local function approachVitals(current, target, timeValue)
 	return math.Approach(current, target, (timeValue or engine.TickInterval()) * rate)
 end
 
+local function getMaxLobeDamage(org)
+	return math.max(org.brainFrontal or 0, org.brainParietal or 0, org.brainTemporal or 0, org.brainOccipital or 0)
+end
+
 local function getBonePositionSafe(ent, boneName)
 	if not IsValid(ent) or not ent.LookupBone then return nil end
 
@@ -201,11 +209,13 @@ function hg.organism.UpdateBodyPosition(owner, org, timeValue)
 	local breathingMul = 1
 	local throatDrainMul = 1
 	local shockRelief = 0
+	local icpModifier = -0.035
 
 	if owner:IsPlayer() and not isRagdoll and not org.fake and not org.otrub then
 		if speed > 125 then
 			position = "walking"
 			bleedMul = 1.18
+			icpModifier = -0.01
 		else
 			position = "standing"
 			bleedMul = 1.07
@@ -226,10 +236,19 @@ function hg.organism.UpdateBodyPosition(owner, org, timeValue)
 
 		local headZ = headPos and headPos.z or pelvisPos.z
 		local torsoZ = pelvisPos.z
+		local headDelta = headZ - torsoZ
 		local legsElevated = footZ and footZ > math.max(headZ, torsoZ) + 8
 		local lyingFlat = math.abs(headZ - torsoZ) < 22 or isRagdoll
 		local faceDown = sideZ < -0.35
 		local onSide = math.abs(sideZ) <= 0.35
+
+		if headDelta > 12 then
+			icpModifier = -0.08
+		elseif headDelta < -8 then
+			icpModifier = 0.12
+		else
+			icpModifier = 0.015
+		end
 
 		if legsElevated then
 			pressureBonus = 0.035
@@ -238,18 +257,21 @@ function hg.organism.UpdateBodyPosition(owner, org, timeValue)
 
 		if faceDown then
 			position = "face_down"
+			icpModifier = icpModifier + 0.04
 			pressureBonus = math.max(pressureBonus, 0.015)
 			bleedMul = 0.97
 			breathingMul = org.otrub and 0.74 or 0.86
 			throatDrainMul = 0.75
 		elseif onSide then
 			position = "recovery"
+			icpModifier = icpModifier - 0.01
 			pressureBonus = math.max(pressureBonus, 0.03)
 			bleedMul = 0.95
 			breathingMul = 1.06
 			throatDrainMul = 0.55
 		elseif legsElevated then
 			position = "legs_elevated"
+			icpModifier = icpModifier + 0.02
 			pressureBonus = 0.075
 			bleedMul = 0.96
 			breathingMul = 1
@@ -273,10 +295,63 @@ function hg.organism.UpdateBodyPosition(owner, org, timeValue)
 	org.bodyPositionBleedMul = bleedMul
 	org.bodyPositionBreathingMul = breathingMul
 	org.bodyPositionThroatDrainMul = throatDrainMul
+	org.bodyPositionICPModifier = math.Clamp(icpModifier, -0.1, 0.18)
 
 	if shockRelief > 0 and (org.shock or 0) > 0 then
 		org.shock = math.max((org.shock or 0) - (timeValue or engine.TickInterval()) * shockRelief, 0)
 	end
+end
+
+function hg.organism.UpdateIntracranialPressure(org, bloodPressure, timeValue)
+	if not org then return math.Clamp(bloodPressure or 1, 0, 1) end
+
+	local dt = timeValue or engine.TickInterval()
+	local hemorrhage = math.Clamp(org.brainHemorrhage or 0, 0, 1)
+	local bleedStress = math.Clamp((org.brainBleedRate or 0) / 0.0035, 0, 1)
+	local lobeTrauma = getMaxLobeDamage(org)
+	local permanentTrauma = math.Clamp(org.brain or 0, 0, 1)
+	local skullTrauma = math.Clamp(org.skull or 0, 0, 1)
+	local hypoxiaEdema = math.max(
+		math.Clamp(((org.hypoxiaTime or 0) - 25) / 50, 0, 1),
+		math.Clamp(((org.severeHypoxiaTime or 0) - 8) / 20, 0, 1)
+	) * 0.16
+	local mannitolRelief = math.Clamp((org.mannitol or 0) / 2, 0, 1)
+
+	local swellingTarget = math.Clamp(
+		hemorrhage * 0.62 + bleedStress * 0.18 + lobeTrauma * 0.28 +
+		permanentTrauma * 0.18 + skullTrauma * 0.06 + hypoxiaEdema,
+		0,
+		1
+	)
+	local structuralFloor = math.Clamp(lobeTrauma * 0.12 + permanentTrauma * 0.08 + hemorrhage * 0.2, 0, 0.65)
+	swellingTarget = math.max(swellingTarget - mannitolRelief * 0.22, structuralFloor)
+
+	local swelling = math.Clamp(org.brainSwelling or 0, 0, 1)
+	local swellingRate
+	if swellingTarget > swelling then
+		swellingRate = 0.006 + bleedStress * 0.018 + lobeTrauma * 0.008
+	else
+		local drainage = math.max(-(org.bodyPositionICPModifier or 0), 0)
+		swellingRate = 0.0007 + mannitolRelief * 0.006 + drainage * 0.012
+	end
+	org.brainSwelling = math.Approach(swelling, swellingTarget, dt * swellingRate)
+
+	local pressureModifier = math.Clamp(org.bodyPositionICPModifier or 0, -0.1, 0.18)
+	local icpTarget = math.Clamp(
+		org.brainSwelling * 0.78 + hemorrhage * 0.24 + bleedStress * 0.12 +
+		pressureModifier - mannitolRelief * 0.08,
+		0,
+		1
+	)
+	local icp = math.Clamp(org.intracranialPressure or 0, 0, 1)
+	local icpRate = icpTarget > icp and 0.08 or (0.025 + mannitolRelief * 0.045)
+	org.intracranialPressure = math.Approach(icp, icpTarget, dt * icpRate)
+
+	local pressurePenalty = math.Clamp(math.Remap(org.intracranialPressure, 0.15, 0.85, 0, 0.9), 0, 0.9)
+	local cerebralTarget = math.Clamp((bloodPressure or 1) - pressurePenalty, 0, 1)
+	org.cerebralPerfusion = approachVitals(org.cerebralPerfusion, cerebralTarget, dt)
+
+	return org.cerebralPerfusion
 end
 
 function hg.organism.UpdatePerfusion(owner, org, timeValue)
@@ -302,13 +377,12 @@ function hg.organism.UpdatePerfusion(owner, org, timeValue)
 	local positionPressureBonus = math.Clamp(org.bodyPositionPressureBonus or 0, 0, 0.1)
 	local pressureTarget = math.Clamp(bloodFrac * heartFunc * pulseFunc - bleedPenalty - shockPenalty * 0.45 - throatCutPenalty * 0.22 + positionPressureBonus, 0, 1)
 	local perfusionTarget = math.Clamp(pressureTarget * Lerp(oxygen, 0.55, 1), 0, 1)
-	local mannitolRelief = math.Clamp(org.mannitol or 0, 0, 1)
-	local hemorrhagePenalty = math.Clamp(org.brainHemorrhage or 0, 0, 1) * Lerp(mannitolRelief, 1, 0.55)
-	local brainTarget = math.Clamp(perfusionTarget * Lerp(oxygen, 0.35, 1) * Lerp(throatCutPenalty, 1, 0.45) * Lerp(neckBrainOxygenPenalty, 1, 0.05) * Lerp(hemorrhagePenalty, 1, 0.68), 0, 1)
 	local peripheralTarget = math.Clamp(perfusionTarget - shockPenalty * 0.35 - arterialPressurePenalty * 0.35 - venousPressurePenalty * 0.15 - throatCutPenalty * 0.2, 0, 1)
 
 	org.bloodpressure = approachVitals(org.bloodpressure, pressureTarget, timeValue)
 	org.perfusion = approachVitals(org.perfusion, perfusionTarget, timeValue)
+	local cerebralPerfusion = hg.organism.UpdateIntracranialPressure(org, org.bloodpressure, timeValue)
+	local brainTarget = math.Clamp(cerebralPerfusion * Lerp(oxygen, 0.35, 1) * Lerp(throatCutPenalty, 1, 0.45) * Lerp(neckBrainOxygenPenalty, 1, 0.05), 0, 1)
 	org.brainoxygen = approachVitals(org.brainoxygen, brainTarget, timeValue)
 	org.peripheralperfusion = approachVitals(org.peripheralperfusion, peripheralTarget, timeValue)
 	org.neckBrainOxygenPenalty = math.Approach(neckBrainOxygenPenalty, 0, (timeValue or engine.TickInterval()) * 1.5)
@@ -318,8 +392,8 @@ function hg.organism.UpdatePerfusion(owner, org, timeValue)
 	org.perfusionGripMul = math.Clamp(math.Remap(org.peripheralperfusion, 0.18, 0.7, 0.35, 1), gripFloor, 1)
 
 	local dt = timeValue or engine.TickInterval()
-	local badHypoxia = org.brainoxygen < 0.45 or org.perfusion < 0.35
-	local severeHypoxia = org.brainoxygen < 0.22 or org.perfusion < 0.16
+	local badHypoxia = org.brainoxygen < 0.45 or org.cerebralPerfusion < 0.4 or org.perfusion < 0.35
+	local severeHypoxia = org.brainoxygen < 0.22 or org.cerebralPerfusion < 0.18 or org.perfusion < 0.16
 
 	if badHypoxia then
 		org.hypoxiaTime = math.min((org.hypoxiaTime or 0) + dt * (severeHypoxia and 2.25 or 1), 120)
@@ -385,6 +459,9 @@ local function send_organism(org, ply)
 	sendtable.brainOccipital = org.brainOccipital
 	sendtable.brainHemorrhage = org.brainHemorrhage
 	sendtable.brainBleedRate = org.brainBleedRate
+	sendtable.brainSwelling = org.brainSwelling
+	sendtable.intracranialPressure = org.intracranialPressure
+	sendtable.cerebralPerfusion = org.cerebralPerfusion
 	sendtable.seizure = org.seizure
 	sendtable.seizureActive = org.seizureActive
 	sendtable.seizureStart = org.seizureStart
@@ -407,6 +484,7 @@ local function send_organism(org, ply)
 	sendtable.throatCutUntil = org.throatCutUntil
 	sendtable.throatCutSeverity = org.throatCutSeverity
 	sendtable.bodyposition = org.bodyposition
+	sendtable.bodyPositionICPModifier = org.bodyPositionICPModifier
 	sendtable.hurt = org.hurt
 	sendtable.pain = org.pain
 	sendtable.shock = org.shock
@@ -488,6 +566,9 @@ local function send_bareinfo(org)
 	sendtable.brainOccipital = org.brainOccipital
 	sendtable.brainHemorrhage = org.brainHemorrhage
 	sendtable.brainBleedRate = org.brainBleedRate
+	sendtable.brainSwelling = org.brainSwelling
+	sendtable.intracranialPressure = org.intracranialPressure
+	sendtable.cerebralPerfusion = org.cerebralPerfusion
 	sendtable.seizure = org.seizure
 	sendtable.seizureActive = org.seizureActive
 	sendtable.seizureStart = org.seizureStart
@@ -496,6 +577,7 @@ local function send_bareinfo(org)
 	sendtable.throatCutUntil = org.throatCutUntil
 	sendtable.throatCutSeverity = org.throatCutSeverity
 	sendtable.bodyposition = org.bodyposition
+	sendtable.bodyPositionICPModifier = org.bodyPositionICPModifier
 	sendtable.analgesia = org.analgesia
 	sendtable.o2 = org.o2
 	sendtable.timeValue = org.timeValue
@@ -539,10 +621,6 @@ hg.send_bareinfo = send_bareinfo
 
 local SEIZURE_DURATION_MIN = 15
 local SEIZURE_DURATION_MAX = 30
-
-local function getMaxLobeDamage(org)
-	return math.max(org.brainFrontal or 0, org.brainParietal or 0, org.brainTemporal or 0, org.brainOccipital or 0)
-end
 
 function hg.organism.AddSeizure(org, amount)
 	if not org or not isnumber(amount) or amount <= 0 then return org and (org.seizure or 0) or 0 end
@@ -588,11 +666,13 @@ function hg.organism.UpdateNeurology(owner, org, timeValue)
 	local occipital = math.Clamp(org.brainOccipital or 0, 0, 1)
 	local hemorrhage = math.Clamp(org.brainHemorrhage or 0, 0, 1)
 	local bleedRate = math.Clamp(org.brainBleedRate or 0, 0, 0.008)
-	local pressureHemorrhage = hemorrhage * Lerp(math.Clamp(org.mannitol or 0, 0, 1), 1, 0.55)
+	local intracranialPressure = math.Clamp(org.intracranialPressure or 0, 0, 1)
+	local cerebralPerfusion = math.Clamp(org.cerebralPerfusion or org.perfusion or 1, 0, 1)
+	local pressureStress = math.max(intracranialPressure, math.Clamp((0.55 - cerebralPerfusion) / 0.45, 0, 1))
 
-	org.disorientation = math.max(org.disorientation or 0, frontal * 0.35 + parietal * 0.65 + temporal * 0.25 + occipital * 0.2 + pressureHemorrhage * 0.75)
+	org.disorientation = math.max(org.disorientation or 0, frontal * 0.35 + parietal * 0.65 + temporal * 0.25 + occipital * 0.2 + pressureStress * 1.15)
 	org.immobilization = math.max(org.immobilization or 0, parietal * 5)
-	org.consciousness = math.min(org.consciousness or 1, math.Clamp(1 - frontal * 0.35 - temporal * 0.15 - pressureHemorrhage * 0.4, 0.05, 1))
+	org.consciousness = math.min(org.consciousness or 1, math.Clamp(1 - frontal * 0.35 - temporal * 0.15 - pressureStress * 0.55, 0.05, 1))
 
 	if bleedRate > 0 then
 		org.brainHemorrhage = math.Clamp(hemorrhage + dt * bleedRate * 0.35, 0, 1)
@@ -604,6 +684,24 @@ function hg.organism.UpdateNeurology(owner, org, timeValue)
 		org.painadd = math.max(org.painadd or 0, hemorrhage * 20)
 		if hemorrhage > 0.12 then
 			hg.organism.AddSeizure(org, dt * hemorrhage / 75)
+		end
+	end
+
+	if intracranialPressure > 0.25 then
+		org.painadd = math.max(org.painadd or 0, intracranialPressure * 28)
+		if intracranialPressure > 0.55 then
+			org.wantToVomit = math.max(org.wantToVomit or 0, intracranialPressure * 0.35)
+			hg.organism.AddSeizure(org, dt * intracranialPressure / 100)
+		end
+	end
+
+	if org.isPly and IsValid(owner) and owner.Notify then
+		if intracranialPressure >= 0.72 then
+			owner:Notify("My head feels like it is going to burst.", true, "intracranialpressure", 4)
+		elseif intracranialPressure >= 0.45 then
+			owner:Notify("There is crushing pressure behind my eyes.", true, "intracranialpressure", 4)
+		else
+			owner:ResetNotification("intracranialpressure")
 		end
 	end
 

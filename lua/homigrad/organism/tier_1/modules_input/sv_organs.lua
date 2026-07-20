@@ -92,6 +92,7 @@ local function addBrainHemorrhage(org, amount, rate)
 
 	org.brainHemorrhage = math.Clamp((org.brainHemorrhage or 0) + amount, 0, 1)
 	org.brainBleedRate = math.Clamp((org.brainBleedRate or 0) + (rate or amount * 0.0015), 0, 0.008)
+	org.brainSwelling = math.Clamp((org.brainSwelling or 0) + amount * 0.15, 0, 1)
 
 	if IsValid(org.owner) then org.owner.fullsend = true end
 end
@@ -106,6 +107,8 @@ local function damageBrainLobe(org, bone, dmg, dmgInfo, key)
 	local oldDmg = org[key] or 0
 	local result = damageOrgan(org, dmg, dmgInfo, key)
 	local delta = math.max((org[key] or 0) - oldDmg, 0)
+	local penetrating = dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT + DMG_SLASH)
+	org.brainSwelling = math.Clamp((org.brainSwelling or 0) + delta * (penetrating and 0.12 or 0.08), 0, 1)
 
 	if delta >= 0.35 then
 		local permanentGain = math.Clamp(math.Remap(delta, 0.35, 1, 0.05, 0.75), 0.05, 0.75)
@@ -118,7 +121,6 @@ local function damageBrainLobe(org, bone, dmg, dmgInfo, key)
 
 	hg.AddHarmToAttacker(dmgInfo, delta * 15, key .. " damage harm")
 
-	local penetrating = dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT + DMG_SLASH)
 	local impact = dmgInfo:IsDamageType(DMG_CLUB + DMG_BLAST + DMG_CRUSH)
 	local hemorrhageChance = penetrating and math.Clamp(0.25 + delta * 1.6, 0, 0.95)
 		or impact and math.Clamp(0.03 + delta * profile.hemorrhage, 0, 0.6)
