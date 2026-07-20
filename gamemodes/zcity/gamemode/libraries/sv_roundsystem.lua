@@ -213,7 +213,13 @@ hook.Add("Think", "zb-think", function() zb:Think(CurTime()) end)
 function zb:KillPlayers()
 	local mode = CurrentRound()
 	for i, ply in player.Iterator() do
-		if ply:Team() == TEAM_SPECTATOR then continue end
+		if ply:Team() == TEAM_SPECTATOR then
+			if ply.PlayerClassName ~= "none" then
+				ply:SetPlayerClass()
+			end
+
+			continue
+		end
 
 		ply:GiveExp(math.random(4,15))
 
@@ -227,8 +233,10 @@ function zb:KillPlayers()
 		if ply:FlashlightIsOn() then ply:Flashlight(false) end
 
 		ply:KillSilent()
+		if ply.PlayerClassName ~= "none" then
+			ply:SetPlayerClass()
+		end
 		ply:Spawn()
-		ply:SetPlayerClass()
 	end
 end
 
