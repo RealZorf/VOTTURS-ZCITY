@@ -359,8 +359,9 @@ function SWEP:IsZoom()
 		return false
 	end
 
-	local rightarm = owner.organism.rarm and (owner.organism.larm > 0.99 or owner.organism.rarm > 0.99)
-	if owner.organism and (owner.organism.larm and not self:IsPistolHoldType()) and rightarm then
+	local org = owner.organism
+	local rightarm = org and org.rarm and (org.larm > 0.99 or org.rarm > 0.99)
+	if org and org.larm and not self:IsPistolHoldType() and rightarm then
 		return false
 	end
 
