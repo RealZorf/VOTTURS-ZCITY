@@ -320,18 +320,18 @@ function hg.Ragdoll_Create(ply)
 						if IsValid(ply) then ply:ExitVehicle() end
 
 						table.RemoveByValue(veh.rags, ragdoll)
-
-					timer.Simple(0.1, function()
-						if IsValid(ragdoll) then
-							if hg.ApplyRagdollPhysicsScale then
-								hg.ApplyRagdollPhysicsScale(ragdoll, ragdoll:GetNWFloat("ZCModelScale", 1))
-							else
-								for physNum = 0, ragdoll:GetPhysicsObjectCount() - 1 do
-									local phys = ragdoll:GetPhysicsObjectNum(physNum)
-									local bone = ragdoll:TranslatePhysBoneToBone(physNum)
-									phys:SetMass(IdealMassPlayer[ragdoll:GetBoneName(bone)] or 4)
-								end
-							end
+						timer.Simple(0.1, function()
+    						if IsValid(ragdoll) then
+        						if hg.ApplyRagdollPhysicsScale then
+            						hg.ApplyRagdollPhysicsScale(ragdoll, ragdoll:GetNWFloat("ZCModelScale", 1))
+        						else
+            						for physNum = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+                						local phys = ragdoll:GetPhysicsObjectNum(physNum)
+                						local bone = ragdoll:TranslatePhysBoneToBone(physNum)
+                						phys:SetMass(IdealMassPlayer[ragdoll:GetBoneName(bone)] or 4)
+            						end
+        						end
+    						end
 						end)
 
 						if ragdoll.welds then
