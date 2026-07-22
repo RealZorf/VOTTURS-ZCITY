@@ -81,7 +81,7 @@ function hgCheckBindObjects(ent1)
 end
 
 function SWEP:CanPrimaryAttack()
-	return not hg.KeyDown(self:GetOwner(), IN_RELOAD) and self:GetNextPrimaryFire() < CurTime()
+	return not hg.KeyDown(self:GetOwner(), IN_RELOAD)
 end
 
 SWEP.BlockTier = 2
@@ -94,10 +94,6 @@ SWEP.MaxPenLen = 1
 SWEP.PainMultiplier = 1.65
 SWEP.PenetrationSizePrimary = 1
 SWEP.StaminaPrimary = 25
-
-local setmodevpang = Angle(0, 0, 5)
-
-local weppos1, wepang1, weppos2, wepang2 = Vector(0, 3.4, -3), Angle(-10, -90, 0), Vector(0.7, -0.5, -12), Angle(-15, 90, 96)
 function SWEP:ThinkAdd()
 	local ply = self:GetOwner()
 	if SERVER and ply.suiciding then
@@ -107,8 +103,8 @@ function SWEP:ThinkAdd()
 	if self:GetNetVar("AttackMode", 1) == 1 then
 		self.DamagePrimary = 13
 		self.DamageType = DMG_CLUB
-		self.weaponPos = LerpFT(0.4, self.weaponPos, weppos1)
-		self.weaponAng = LerpFT(0.3, self.weaponAng, wepang1)
+		self.weaponPos = Vector(0, 4, -3)
+		self.weaponAng = Angle(-5, -90, 0)
 		self.PenetrationPrimary = 2
 		self.MaxPenLen = 1
 		self.PainMultiplier = 1.15
@@ -117,8 +113,8 @@ function SWEP:ThinkAdd()
 	else
 		self.DamagePrimary = 11
 		self.DamageType = DMG_SLASH
-		self.weaponPos = LerpFT(0.4, self.weaponPos, weppos2)
-		self.weaponAng = LerpFT(0.3, self.weaponAng, wepang2)
+		self.weaponPos = Vector(-0.5, -3, -6.5)
+		self.weaponAng = Angle(-55, 90, 0)
 		self.PenetrationPrimary = 4
 		self.PainMultiplier = 1
 		self.MaxPenLen = 4
@@ -126,18 +122,12 @@ function SWEP:ThinkAdd()
 		self.StaminaPrimary = 25
 	end
 
-	--if CLIENT then return end
+	if CLIENT then return end
 	if IsValid(ply) then
-		if hg.KeyDown(ply, IN_ATTACK) and hg.KeyDown(ply, IN_RELOAD) and self:GetNextPrimaryFire() < CurTime() and not self:GetInAttack() and (self:GetAttackTime() - CurTime()) < 0 and ((self:GetLastBlocked() + 3) < CurTime()) then
+		if hg.KeyDown(ply, IN_ATTACK) and hg.KeyDown(ply, IN_RELOAD) then
 			if not self.setmode then
 				local int = self:GetNetVar("AttackMode", 1)
-				if SERVER then
-					self:SetNetVar("AttackMode", int >= 2 and 1 or (int + 1))
-				elseif CLIENT and lply == ply then
-					ViewPunch2(Angle(1, int >= 2 and -2 or 2, -1))
-				end
-				ply:EmitSound("player/clothes_generic_foley_0"..math.random(5)..".wav", 55, math.random(110, 120), 0.3, CHAN_BODY)
-				self:SetNextPrimaryFire(CurTime() + 0.5)
+				self:SetNetVar("AttackMode", int >= 2 and 1 or (int + 1))
 				self.setmode = true
 			end
 		else
@@ -440,41 +430,28 @@ function SWEP:CustomAttack2()
     return true
 end
 
-function SWEP:DrawHUD()
-	if GetViewEntity() ~= LocalPlayer() then return end
-	if LocalPlayer():InVehicle() then return end
+if CLIENT then
+	function SWEP:DrawHUD()
+		if GetViewEntity() ~= LocalPlayer() then return end
+		if LocalPlayer():InVehicle() then return end
 
-	local Owner = self:GetOwner()
-	if not IsValid(Owner) then return end
+		local Owner = self:GetOwner()
+		if not IsValid(Owner) then return end
 
-	if self:GetNetVar("AttackMode", 1) == 2 then return end
+		if self:GetNetVar("AttackMode", 1) == 2 then return end
 
-	if Owner:GetAmmoCount(self.Ammo) <= 0 then return end
+		local Tr = hg.eyeTrace(Owner)
+		if not Tr then return end
 
-	local Tr = hg.eyeTrace(Owner)
-	if not Tr or not Tr.Hit then return end
-
-	local AimVec = Owner:GetAimVector()
-	local NewTr = util.QuickTrace(Tr.HitPos, AimVec * 10, {Owner, Tr.Entity})
-
-	local canNail = false
-
-	-- Normal objects
-	if self:CanNail(Tr) and self:CanNail(NewTr) then
-		if NewTr.Entity ~= Tr.Entity then
-			canNail = true
+		if self:CanNail(Tr) then
+			local AimVec = Owner:GetAimVector()
+			local NewTr = util.QuickTrace(Tr.HitPos, AimVec * 10, {Owner, Tr.Entity})
+			
+			if self:CanNail(NewTr) or (hgIsDoor and hgIsDoor(Tr.Entity)) then
+				local toScreen = Tr.HitPos:ToScreen()
+				draw.SimpleText("RMB to Nail", "HomigradFont", toScreen.x + 3, toScreen.y + 27, color_black, TEXT_ALIGN_CENTER)
+				draw.SimpleText("RMB to Nail", "HomigradFont", toScreen.x, toScreen.y + 25, color_white, TEXT_ALIGN_CENTER)
+			end
 		end
-	end
-
-	-- Doors
-	if hgIsDoor and hgIsDoor(Tr.Entity) then
-		canNail = true
-	end
-
-	if canNail then
-		local toScreen = Tr.HitPos:ToScreen()
-
-		draw.SimpleText("RMB to Nail","HomigradFont",toScreen.x + 3,toScreen.y + 27,color_black,TEXT_ALIGN_CENTER)
-		draw.SimpleText("RMB to Nail","HomigradFont",toScreen.x,toScreen.y + 25,color_white,TEXT_ALIGN_CENTER)
 	end
 end

@@ -91,48 +91,27 @@ function ENT:Use(ply)
 end
 
 
-function ENT:StopMatchFlame()
-	if not CLIENT then return end
-	if self.eff and self.eff.IsValid and self.eff:IsValid() then
-		self.eff:StopEmissionAndDestroyImmediately()
-	end
-	self.eff = nil
-end
-
-function ENT:EnsureEffectAttachment()
-	if not CLIENT or IsValid(self.effectAttachment) then return end
-
-	self.effectAttachment = ClientsideModel("models/hunter/plates/plate.mdl")
-	self.effectAttachment:SetNoDraw(true)
-	self:CallOnRemove("RemoveEffect", function(ent)
-		ent:StopMatchFlame()
-		if IsValid(ent.effectAttachment) then
-			ent.effectAttachment:Remove()
-		end
-	end)
-end
-
-function ENT:UpdateMatchFlame()
-	if not CLIENT then return end
-
-	self:EnsureEffectAttachment()
-	if not IsValid(self.effectAttachment) then return end
-
-	local pos = self:GetPos() + self:GetForward() * -1.3 + self:GetUp() * (2 * self:GetFireLeft())
-	self.effectAttachment:SetPos(pos)
-
-	if self:GetFireLeft() > 0 then
-		if not self.eff or not self.eff.IsValid or not self.eff:IsValid() then
-			self.eff = CreateParticleSystem(self.effectAttachment, "Lighter_flame", PATTACH_POINT_FOLLOW, 1, vector_origin)
-		end
-	else
-		self:StopMatchFlame()
-	end
-end
-
 function ENT:Draw()
-	self:UpdateMatchFlame()
-	self:DrawModel()
+    if not IsValid(self.effectAttachment) then
+        self.effectAttachment = ClientsideModel("models/hunter/plates/plate.mdl")
+        self.effectAttachment:SetNoDraw(true)
+        --print("WHY")
+        self:CallOnRemove("RemoveEffect",function(ent)
+            if IsValid(ent.effectAttachment) then
+                ent.effectAttachment:Remove()
+            end
+        end)
+    end
+
+    local attach = self.effectAttachment
+
+    if not self.eff and self:GetFireLeft() > 0 then
+        self.eff = CreateParticleSystem(attach,"Lighter_flame",PATTACH_POINT_FOLLOW,1,Vector(0,0,0))
+        eff = self.eff
+    end
+    local pos = self:GetPos() + self:GetForward() * -1.3 + self:GetUp() * (2 * self:GetFireLeft())
+    attach:SetPos(pos)
+    self:DrawModel()
 end
 
 local color_b = Color(255,255,255)
@@ -142,8 +121,6 @@ function ENT:Think()
     end
 
     if CLIENT then
-        self:UpdateMatchFlame()
-
         if self:GetFireLeft() > 0 and IsValid(self.effectAttachment) then
             local dlight = DynamicLight( self:EntIndex() )
             if ( dlight ) then
@@ -166,5 +143,10 @@ function ENT:Think()
 		end
         self:SetColor(color_b)
         self.ColorCD = CurTime() + 0.1
+
+        if self:GetFireLeft() <= 0 and self.eff then
+            self.eff:StopEmissionAndDestroyImmediately()
+            self.eff = nil
+        end
     end
 end

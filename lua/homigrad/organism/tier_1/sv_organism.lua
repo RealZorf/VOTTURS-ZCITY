@@ -451,10 +451,6 @@ local function send_organism(org, ply)
 	sendtable.rarm = org.rarm
 	sendtable.larm = org.larm
 	sendtable.pelvis = org.pelvis
-	sendtable.skull = org.skull
-	sendtable.chest = org.chest
-	sendtable.internalBleed = org.internalBleed
-	sendtable.internalBleedHeal = org.internalBleedHeal
 	sendtable.disorientation = org.disorientation
 	sendtable.brain = org.brain
 	sendtable.brainFrontal = org.brainFrontal
@@ -1376,7 +1372,7 @@ end
 concommand.Add("hg_fixdislocation", function(ply, cmd, args)
 	local fixer = ply
 
-	if args and args[2] and math.Round(tonumber(args[2])) == 1 then
+	if math.Round(tonumber(args[2])) == 1 then
 		ply = hg.eyeTrace(fixer).Entity
 	end
 

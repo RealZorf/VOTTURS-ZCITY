@@ -22,6 +22,7 @@ function Glide.GetCameraAimPos()
 end
 
 local Config = Glide.Config
+local hg_no_camera_in_cars = CreateConVar("hg_no_camera_in_cars","0",FCVAR_ARCHIVE + FCVAR_REPLICATED, "disables camera in cars", 0, 1)
 function Camera:Activate( vehicle, seatIndex )
     Config = Glide.Config
 
@@ -53,7 +54,7 @@ function Camera:Activate( vehicle, seatIndex )
     end )
 
     hook.Add( "PostPostHGCalcView", "GlideCamera.CalcView", function()
-        if hg.NoCameraInCar(self.vehicle) and !self.isInFirstPerson then return self:CalcView() end
+        if hg_no_camera_in_cars:GetBool() and !self.isInFirstPerson then return self:CalcView() end
     end, HOOK_HIGH )
 
     hook.Add( "CreateMove", "GlideCamera.CreateMove", function( cmd )
@@ -61,7 +62,7 @@ function Camera:Activate( vehicle, seatIndex )
     end, HOOK_HIGH )
 
     hook.Add( "InputMouseApply", "GlideCamera.InputMouseApply", function( tbl, x, y, ang )
-        if hg.NoCameraInCar(self.vehicle) then self:InputMouseApply( {x = x,y = y} ) end
+        if hg_no_camera_in_cars:GetBool() then self:InputMouseApply( {x = x,y = y} ) end
     end, HOOK_HIGH )
 
     hook.Add( "PlayerBindPress", "GlideCamera.PlayerBindPress", function( ply, bind )

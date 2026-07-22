@@ -441,9 +441,7 @@ function SWEP:SpawnGarbage(mdl_custom, skin_custom, snd_custom, clr_custom, bgs_
 	ent:Activate()
 	ent:Spawn()
 	ent:SetOwner(owner)
-	if snd_custom or self.FallSnd then
-		ent.FallSnd = Sound((snd_custom and snd_custom ~= nil) and snd_custom or self.FallSnd)
-	end
+	ent.FallSnd = Sound((snd_custom and snd_custom ~= nil) and snd_custom or self.FallSnd)
 
 	if clr_custom and clr_custom ~= nil and IsColor(clr_custom) then
 		ent:SetColor(clr_custom)
@@ -693,7 +691,7 @@ if SERVER then
 						self:PoisonKCNOrganism(org)
 					end
 					
-					MODE.NetworkChemicalResistanceOfPlayer(organism_owner)
+					NetworkChemicalResistanceOfPlayer(organism_owner)
 					
 					organism_owner.PassiveAbility_ChemicalAccumulation_NextNetworkTime = CurTime() + 1
 				end

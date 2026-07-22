@@ -192,13 +192,10 @@ function SWEP:Shoot(override)
                 org.tasered = CurTime() + time
             end
 
+            ent:EmitSound("tazer.wav")
             local ragdoll = (IsValid(ply) and ply:Alive()) and ply.FakeRagdoll or ent
             local tasered =  CurTime() + time
 			local cons1, cons2
-            ragdoll:EmitSound("tazer.wav")
-			ragdoll:CallOnRemove("stoptazersnd", function(ent)
-				ent:StopSound("tazer.wav")
-			end)
 			timer.Simple(0.1,function()
 				for i = 0, 1 do
 					if not IsValid(ent) then return end
@@ -294,6 +291,8 @@ function SWEP:Shoot(override)
                     if IsValid(ragdoll) then
                         ragdoll:StopSound("tazer.wav")
                     end
+
+                    ent:StopSound("tazer.wav")
                 end
             end)
             return

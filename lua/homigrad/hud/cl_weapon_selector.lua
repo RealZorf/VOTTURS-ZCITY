@@ -116,7 +116,6 @@ function WS.WeaponSelectorDraw( ply )
                 sizeH,
                 ColorAlpha(color_black, WS.Transparent * 205)
             )
-
             draw.RoundedBox(
                 0,
                 position,
@@ -125,8 +124,7 @@ function WS.WeaponSelectorDraw( ply )
                 2,
                 ColorAlpha(color_black, WS.Transparent * 205)
             )
-
-            if SelectedWep == wep then
+	        if SelectedWep == wep then
                 surface.SetDrawColor(35, 225, 110, WS.Transparent * 200)
                 surface.SetMaterial(gradient_u)
                 surface.DrawTexturedRect(position, boxY, sizeX, sizeH)

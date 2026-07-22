@@ -232,7 +232,7 @@ hook.Add("HG.InputMouseApply", "fakeCameraAngles2", function(tbl)
 		follow = follow or lply
 	end]]
 
-	if lply:InVehicle() and not IsValid(follow) and !(hg.NoCameraInCar(lply:GetVehicle()) or hg.NoFakeInCar(lply:GetVehicle())) then
+	if lply:InVehicle() and not IsValid(follow) then
 		tbl.override_angle = true
 		tbl.angle = angle_zero
 		return true
@@ -314,8 +314,6 @@ local CalcView
 local angleZero = Angle(0,0,0)
 
 local tblfollow = {}
-local lerpasad = 0
-local hg_allow_gopro = GetConVar("hg_allow_gopro_pos")
 CalcView = function(ply, origin, angles, fov, znear, zfar)
 	if GetViewEntity() ~= (ply or LocalPlayer()) then return end
 	local oldorigin = -(-origin)
@@ -509,8 +507,8 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	
 	if ply.organism and ply.organism.otrub then view.angles = att_Ang end
 
-	if hg_gopro:GetBool() and hg_allow_gopro:GetBool() then
-		return GoProCam(follow, origin, angles, fov, znear, zfar)
+	if hg_gopro:GetBool() then
+		return SpecCam(follow, origin, angles, fov, znear, zfar)
 	end
 
 	hook.Run("PostHGCalcView", ply, view)

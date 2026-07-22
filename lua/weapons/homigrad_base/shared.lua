@@ -37,43 +37,12 @@ SWEP.AmmoTypes2 = {
 	["9x19 mm Parabellum"] = {
 		[1] = {"9x19 mm Parabellum"},
 		[2] = {"9x19 mm Green Tracer"},
-		[3] = {"9x19 mm QuakeMaker"},
-		[4] = {"9x19 mm PBP gzh"}
-	}, 
-	["9x18 mm"] = {
-		[1] = {"9x18 mm"},
-		[2] = {"9x18 mm PBM"}
-	}, 
-	[".366 TKM"] = {
-		[1] = {".366 TKM"},
-		[2] = {".366 TKM 'Geksa'"}
-	}, 
-	["7.62x54 mm"] = {
-		[1] = {"7.62x54 mm"},
-		[2] = {"7.62x54 mm 7N26"}
-	}, 
-	["4.6x30 mm"] = {
-		[1] = {"4.6x30 mm"},
-		[2] = {"4.6x30 mm AP SX"}
-	}, 
-	["5.7x28 mm"] = {
-		[1] = {"5.7x28 mm"},
-		[2] = {"5.7x28 mm SS190"}
-	}, 
-	["5.45x39 mm"] = {
-		[1] = {"5.45x39 mm"},
-		[2] = {"5.45x39 mm BP 7N22"},
-		[3] = {"5.45x39 mm PPBS 7N39"}
-	}, 
-	["9x39 mm"] = {
-		[1] = {"9x39 mm"},
-		[2] = {"9x39 mm SP-6"}
+		[3] = {"9x19 mm QuakeMaker"}
 	}, 
 	["5.56x45 mm"] = {
 		[1] = {"5.56x45 mm"},
-		[2] = {"5.56x45 mm M855"},
-		[3] = {"5.56x45 mm M855A1"},
-		[4] = {"5.56x45 mm M995"}	
+		[2] = {"5.56x45 mm M856"},
+		[3] = {"5.56x45 mm AP"}
 	},
 	["7.62x39 mm"] = {
 		[1] = {"7.62x39 mm"},
@@ -91,7 +60,6 @@ SWEP.AmmoTypes2 = {
 	[".45 ACP"] = {
 		[1] = {".45 ACP"},
 		[2] = {".45 ACP Hydro Shock"},
-		[3] = {".45 ACP +P"}
 	},
 	[".50 Action Express"] = {
 		[1] = {".50 Action Express"},
@@ -100,11 +68,11 @@ SWEP.AmmoTypes2 = {
 	},
 	["9mm PAK Blank"] = {
 		[1] = {"9mm PAK Blank"},
-		[2] = {"9mm PAK Flash Defense"}
+		[2] = {"9mm PAK Flash Defense"},
 	},
 	["18x45mm Traumatic"] = {
 		[1] = {"18x45mm Traumatic"}, -- T
-		[2] = {"18x45mm Flash Defense"} -- LAS
+		[2] = {"18x45mm Flash Defense"}, -- LAS
 	},
 	["23x75 SH10"] = {
 		[1] = {"23x75 SH10"},
@@ -116,7 +84,7 @@ SWEP.AmmoTypes2 = {
 	["20/70 gauge"] = {
 		[1] = {"20/70 gauge"},
 		[2] = {"20/70 Slug"},
-		[3] = {"20/70 Flechette"}
+		[3] = {"20/70 Flechette"},
 	},
 }
 
@@ -319,97 +287,40 @@ function SWEP:OnRemove()
 	end
 end
 
-local hg_aimtoshoot = ConVarExists("hg_aimtoshoot") and GetConVar("hg_aimtoshoot") or CreateConVar("hg_aimtoshoot", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Toggle DarkRP-like shooting system (aim to shoot): 0 - disabled; 1 - hipfire only; 2 - aiming only", 0, 2)
+local hg_aimtoshoot = ConVarExists("hg_aimtoshoot") and GetConVar("hg_aimtoshoot") or CreateConVar("hg_aimtoshoot", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Toggle DarkRP-like shooting system (aim to shoot)", 0, 1)
+
 local owner
 local CurTime = CurTime
 function SWEP:IsZoom()
 	local owner = self:GetOwner()
-
-	if not self:CanUse() then
-		return false
-	end
-
-	local aimtoshoot = hg_aimtoshoot:GetInt() == 0 or hg_aimtoshoot:GetInt() == 2 or self:GetNWBool("aiming")
-	if not aimtoshoot then
-		return false
-	end
-
-	if self:GetButtstockAttack() - CurTime() >= -1 then
-		return false
-	end
-
-	local attacking = owner:IsPlayer() and self:KeyDown(IN_ATTACK2) and not self:IsSprinting()
-	if not attacking then
-		return false
-	end
-
-	local validrag = IsValid(owner.FakeRagdoll)
-
-	if self:IsSprinting() and validrag then
-		return false
-	end
-
-	if owner.suiciding then
-		return false
-	end
-
-	local canzoom = validrag and (self:KeyDown(IN_USE) or hg.RagdollCombatInUse(owner)) or (owner:IsOnGround() or owner:InVehicle())
-
-	if not canzoom then
-		return false
-	end
-
-	local org = owner.organism
-	local rightarm = org and org.rarm and (org.larm > 0.99 or org.rarm > 0.99)
-	if org and org.larm and not self:IsPistolHoldType() and rightarm then
-		return false
-	end
-
-	return true
+	--print( (owner.armors and (hg.armor.head[owner.armors["head"]] and not hg.armor.head[owner.armors["head"]].cantsight)))
+	return self:CanUse() and
+		(!hg_aimtoshoot:GetBool() or self:GetNWBool("aiming")) and
+		(self:GetButtstockAttack() - CurTime() < -1) and 
+		(self:GetOwner():IsPlayer() and self:KeyDown(IN_ATTACK2) and not self:IsSprinting()) and
+		!(self:IsSprinting() and !IsValid(owner.FakeRagdoll)) and
+		((IsValid(owner.FakeRagdoll) and (self:KeyDown(IN_USE) or hg.RagdollCombatInUse(owner))) or
+		(owner:IsOnGround() or owner:InVehicle())) and 
+		not owner.suiciding and !(owner.organism and (owner.organism.larm and !self:IsPistolHoldType())
+		and owner.organism.rarm and (owner.organism.larm > 0.99 or owner.organism.rarm > 0.99))
+		
+		-- and owner.posture ~= 1 and owner.posture ~= 3-- and (not IsValid(owner.FakeRagdoll) or self:KeyDown(IN_JUMP))
 end
 
-
 function SWEP:CanUse()
-	local owner = self:GetOwner()
-
-	if not IsValid(owner) then
-		return true
-	end
-
-	if owner:IsNPC() then
-		return true
-	end
-
-	local hasAmputatedArm = owner.organism and owner.organism.rarmamputated and not self:IsPistolHoldType()
-	if hasAmputatedArm then
-		return false
-	end
-
-	local sprinting = owner:IsPlayer() and self:IsSprinting()
-	local otrub = owner.organism and owner.organism.otrub
-
-	local blockedState = self.reload or self.deploy or sprinting or otrub
-
-	return not blockedState
+    local owner = self:GetOwner()
+	if not IsValid(owner) then return true end
+    if owner:IsNPC() then return true end
+	if owner.organism and owner.organism.rarmamputated and !self:IsPistolHoldType() then return false end
+	return not (self.reload or self.deploy or (owner:IsPlayer() and (self:IsSprinting() or (owner.organism and owner.organism.otrub))))
 end
 
 function SWEP:IsSprinting()
 	local ply = self:GetOwner()
-
-	if ply:IsNPC() then
-		return false
-	end
-
-	local isfast = ply:GetVelocity():LengthSqr() > 150 * 150
-	local sprinting = self:KeyDown(IN_SPEED)
-	local validrag = IsValid(ply.FakeRagdoll)
-
-	if hg_aimtoshoot:GetInt() > 0 then
-		local sprintCondition = sprinting and isfast
-		local aimCondition = not self:KeyDown(IN_ATTACK2) and not validrag
-		return sprintCondition or aimCondition
+	if hg_aimtoshoot:GetBool() then
+		return not ply:IsNPC() and (self:KeyDown(IN_SPEED) and ply:GetVelocity():LengthSqr() > 150 * 150) or not self:KeyDown(IN_ATTACK2) and not IsValid(ply.FakeRagdoll)
 	else
-		return sprinting and isfast and not validrag
+		return not ply:IsNPC() and self:KeyDown(IN_SPEED) and ply:GetVelocity():LengthSqr() > 150 * 150 and not IsValid(ply.FakeRagdoll)
 	end
 end
 
@@ -1644,7 +1555,7 @@ hg.postureFunctions2 = {
 		local epicRunY = self.EpicRunPos and self.EpicRunPos[2]
 		local epicRunX = self.EpicRunPos and self.EpicRunPos[1]
 
-		local posturehold = !self:IsSprinting() or (hg_aimtoshoot:GetInt() >= 1 and not self:GetNWBool("aiming"))
+		local posturehold = !self:IsSprinting()
 		local running = posturehold or ply:GetVelocity():LengthSqr() > 150 * 150
 		
 		if !running then return end

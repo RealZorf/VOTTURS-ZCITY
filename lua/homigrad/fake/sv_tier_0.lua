@@ -311,49 +311,49 @@ function hg.Ragdoll_Create(ply)
 
 				ragdoll.welds = ragdoll.welds or {}
 				table.insert(ragdoll.welds, weld)
-				if IsValid(weld) then
-					weld:CallOnRemove("removeOwO", function()
-						if ragdoll.removingwelds then return end
-						--hook.Run("CanExitVehicle", ply, veh)
-						if !hg.leaveveh then hg.fallfromveh = true end
-						hg.leaveveh = true
-						if IsValid(ply) then ply:ExitVehicle() end
+				weld:CallOnRemove("removeOwO", function()
+					if ragdoll.removingwelds then return end
+					--hook.Run("CanExitVehicle", ply, veh)
+					if !hg.leaveveh then hg.fallfromveh = true end
+					hg.leaveveh = true
+					if IsValid(ply) then ply:ExitVehicle() end
 
-						table.RemoveByValue(veh.rags, ragdoll)
-						timer.Simple(0.1, function()
-    						if IsValid(ragdoll) then
-        						if hg.ApplyRagdollPhysicsScale then
-            						hg.ApplyRagdollPhysicsScale(ragdoll, ragdoll:GetNWFloat("ZCModelScale", 1))
-        						else
-            						for physNum = 0, ragdoll:GetPhysicsObjectCount() - 1 do
-                						local phys = ragdoll:GetPhysicsObjectNum(physNum)
-                						local bone = ragdoll:TranslatePhysBoneToBone(physNum)
-                						phys:SetMass(IdealMassPlayer[ragdoll:GetBoneName(bone)] or 4)
-            						end
-        						end
-    						end
-						end)
+					table.RemoveByValue(veh.rags, ragdoll)
 
-						if ragdoll.welds then
-							for i, weld in pairs(ragdoll.welds) do
-								if IsValid(weld) then weld:Remove() end
+					timer.Simple(0.1, function()
+						if IsValid(ragdoll) then
+							if hg.ApplyRagdollPhysicsScale then
+								hg.ApplyRagdollPhysicsScale(ragdoll, ragdoll:GetNWFloat("ZCModelScale", 1))
+							else
+								for physNum = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+									local phys = ragdoll:GetPhysicsObjectNum(physNum)
+									local bone = ragdoll:TranslatePhysBoneToBone(physNum)
+									phys:SetMass(IdealMassPlayer[ragdoll:GetBoneName(bone)] or 4)
+								end
 							end
-							
-							ragdoll.welds = nil
-						end
-
-						if IsValid(ply.nocollide1) then
-							ply.nocollide1:Remove()
-							ply.nocollide1 = nil
-						end
-
-						if IsValid(ply.nocollide2) then
-							ply.nocollide2:Remove()
-							ply.nocollide2 = nil
 						end
 					end)
-				end
+
+					if ragdoll.welds then
+						for i, weld in pairs(ragdoll.welds) do
+							if IsValid(weld) then weld:Remove() end
+						end
+						
+						ragdoll.welds = nil
+					end
+
+					if IsValid(ply.nocollide1) then
+						ply.nocollide1:Remove()
+						ply.nocollide1 = nil
+					end
+
+					if IsValid(ply.nocollide2) then
+						ply.nocollide2:Remove()
+						ply.nocollide2 = nil
+					end
+				end)
 			end
+
 		end
 
 		phys:SetPos(matrix:GetTranslation() + (ply:InVehicle() and vector_origin or offset))
@@ -828,7 +828,7 @@ function hg.Fake(ply, huyragdoll, no_freemove, force)
 	end
 end
 
-local hg_ragdollcombat = ConVarExists("hg_ragdollcombat") and GetConVar("hg_ragdollcombat") or CreateConVar("hg_ragdollcombat", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Toggle ragdoll combat-like ragdoll mode (walking, running in ragdoll, etc.)", 0, 1)
+local hg_ragdollcombat = ConVarExists("hg_ragdollcombat") and GetConVar("hg_ragdollcombat") or CreateConVar("hg_ragdollcombat", 0, FCVAR_REPLICATED, "Toggle ragdoll combat-like ragdoll mode (walking, running in ragdoll, etc.)", 0, 1)
 
 local veczero = Vector(0,0,0)
 function hg.SetFreemove(ply, set)
@@ -1178,10 +1178,9 @@ hook.Add("CanPlayerEnterVehicle","fake_enterveh",function(ply, veh)
 	
 	return true--not IsValid(ply.FakeRagdoll)-- or IsValid(ply.wasveh)
 end)
-
+local hg_no_fake_in_cars = CreateConVar("hg_no_fake_in_cars","0",FCVAR_ARCHIVE + FCVAR_REPLICATED, "disables fake in cars", 0, 1)
 hook.Add("PlayerEnteredVehicle","allowweapons",function(ply,veh,role)
-	ply:SetAllowWeaponsInVehicle(true)
-	if hg.NoFakeInCar(veh) then return end
+	if hg_no_fake_in_cars:GetBool() then return end
 	ply:SetEyeAngles(angle_zero)
 	--local veh2 = veh:GetParent()
 

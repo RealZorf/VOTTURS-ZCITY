@@ -1,7 +1,6 @@
 AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
-
 local color_white = Color(255, 255, 255)
 function ENT:Initialize()
 	self:SetModel(self.Model)

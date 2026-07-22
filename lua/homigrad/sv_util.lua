@@ -425,7 +425,7 @@ end)
 util.AddNetworkString( "DoPlayerFlinch" )
 
 hook.Add( "ScalePlayerDamage", "FlinchPlayersOnHit", function(ply, grp)
-	if IsValid(ply) and ply:Alive() then
+	if ply:IsPlayer() then
 		--could maybe return end,
 		--but would that override other Scale hooks? -- no.
 		local group = nil
@@ -869,7 +869,7 @@ hook.Add( "OnEntityCreated", "VechicleChairs", function( ent )
 			
 			ent:SetModel("models/props_junk/PopCan01a.mdl")
 			ent:SetAngles(ent:LocalToWorldAngles(UwU and Angle(0, -1, 0) or Angle(0,90,0)))
-			ent:SetPos(ent:GetPos() + vector_up * 1)
+			ent:SetPos(ent:GetPos() + vector_up * 3 + ent:GetAngles():Forward() * 5)
 		end
 	end)
 	

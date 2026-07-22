@@ -1382,10 +1382,6 @@ function SWEP:ApplyForce()
 			mul = mul * (1 + ply.organism.berserk / 5)
 		end
 
-		if (ply.organism and ply.organism.noradrenaline >= 0.5) then
-			mul = mul * (1 + ply.organism.noradrenaline / 5)
-		end
-
 		local avec = vec * len * 8 - phys:GetVelocity()
 
 		local Force = avec * mul
@@ -1394,9 +1390,7 @@ function SWEP:ApplyForce()
 
 		Force = Force:GetNormalized() * ForceMagnitude
 
-		local maxlen = juggernautOverpowering and 145 or (self.ReachDistance * 2.5 * (ply.organism.superfighter and 2 or 1) * (1 + ply.organism.berserk) * (1 + ply.organism.noradrenaline))
-
-		if len > maxlen then
+		if len > (juggernautOverpowering and 145 or 100) then
 			self:SetCarrying()
 			return
 		end
@@ -2438,6 +2432,7 @@ if SERVER then
 			end
 
 			local TargetPos = phys:GetPos()
+
 			if ent:IsRagdoll() then
 				TargetPos = LocalToWorld(pos, angle_zero, phys:GetPos(), phys:GetAngles())
 			else
@@ -2447,30 +2442,30 @@ if SERVER then
 			local target,_ = LocalToWorld(target,angle_zero,ply:EyePos(),(ent.rememberedang or ply:EyeAngles()) - (not ply:KeyDown(IN_USE) and ent.addang or ent.oldaddang or angle_zero))
 			local vec = target - TargetPos
 			local len, mul = vec:Length(), phys:GetMass()
-
+	
 			vec:Normalize()
-
+	
 			if (ply.organism and ply.organism.superfighter) then
 				mul = mul * 5
 			end
-
+	
 			if (ply.organism and ply:IsBerserk()) then
 				mul = mul * (1 + ply.organism.berserk / 5)
 			end
-
+	
 			local avec = vec * len * 8 - phys:GetVelocity()
-
+	
 			local Force = avec * mul
 			local ForceMagnitude = math.min(Force:Length(), 3000) * (1 / math.max(phys:GetVelocity():Dot(vec) / 25, 1))
-
+	
 			Force = Force:GetNormalized() * ForceMagnitude
+
 			phys:Wake()
 
-			local maxlen = 100 * (ply.organism.superfighter and 2 or 1) * (1 + ply.organism.berserk) * (1 + ply.organism.noradrenaline)
-			if len > maxlen then
+			if len > 100 then
 				hg.SetCarryEnt2(ply)
 				heldents[i] = nil
-
+				
 				continue
 			end
 	

@@ -1097,8 +1097,7 @@ function hg.DoTPIK(ply, ent)
     if !ply_l_hand_index then return end
     if !ply_r_hand_index then return end
 
-    local _, angarrws = LocalToWorld(vector_origin, ply:InVehicle() and LerpAngle(0.5, ply:EyeAngles(), angle_zero) or ply:EyeAngles(), vector_origin, (IsValid(ply:GetVehicle()) and hg.IsLocal(ply) and ply:GetVehicle():GetAngles() or angle_zero))
-    local eyepos, eyeang = ply:EyePos(), angarrws//ply:GetAimVector():Angle()
+    local eyepos, eyeang = ply:EyePos(), ply:EyeAngles() + (IsValid(ply:GetVehicle()) and hg.IsLocal(ply) and ply:GetVehicle():GetAngles() or angle_zero)--ply:GetAimVector():Angle()
     local headpos = ply_head_matrix:GetTranslation()
 
     local origin = ent:GetPos()

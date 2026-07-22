@@ -525,13 +525,11 @@ net.Receive("event_loot_sync", function()
     if IsValid(LootPollingMenu) then
         LootPollingMenu:RefreshItems()
     end
-end) 
+end)
 
-concommand.Add("zb_event_loot_menu", function(ply)
-	if not ply:IsAdmin() then
-		return
-	end
 
+
+concommand.Add("zb_event_loot_menu", function()
     RunConsoleCommand("zb_event_lootpoll")
 end)
 

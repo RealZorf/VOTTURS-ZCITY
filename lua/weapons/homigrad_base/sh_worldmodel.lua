@@ -188,7 +188,7 @@ function SWEP:RestedAnim(pos, ang, dtime)
     return pos, ang
 end
 
-local hg_gary = CreateClientConVar("hg_gary", "0", false, true, "Center weapon in fake", 0, 1)
+local hg_gary = CreateClientConVar("hg_gary", "0", false, true, "center weapon in fake", 0, 1)
 
 function SWEP:PosAngChanges(ply, desiredPos, desiredAng, bNoAdditional, closeanim, dtime)
 	desiredPos = desiredPos or vecZero
@@ -357,7 +357,7 @@ local function DrawWorldModel(self, force)
 
 	local willdraw = false
 	
-	local localdraw = (self:IsLocal2() and (owner:GetActiveWeapon() == self) and !owner:InVehicle()) and not force
+	local localdraw = (self:IsLocal2() and (owner:GetActiveWeapon() == self)) and not force
 	
 	if not owner:IsNPC() then self:DrawPost() end
 	--self.worldModel:SetRenderOrigin(self:GetPos())
@@ -376,7 +376,7 @@ local function DrawWorldModel(self, force)
 				self:ClearAttModels()
 				return
 			end
-		elseif owner:IsNPC() or (owner.GetActiveWeapon and owner:GetActiveWeapon() == self) then
+		elseif owner:IsNPC() or owner.GetActiveWeapon and owner:GetActiveWeapon() == self then
 			self:WorldModel_Transform()
 			
 			if self.deploy then
