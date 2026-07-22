@@ -357,8 +357,8 @@ hook.Add("HomigradDamage", "ZCity_BluntFaceNosebleed", function(ent, dmgInfo, hi
 	applyNosebleed(ent, harm)
 end)
 
-local THROAT_CUT_MIN_DAMAGE = 5
-local THROAT_CUT_NECK_DIST_SQR = 22 * 22
+local THROAT_CUT_MIN_DAMAGE = 6
+local THROAT_CUT_NECK_DIST_SQR = 15 * 15
 
 local function isSharpMeleeInflictor(dmgInfo)
 	local inflictor = dmgInfo and dmgInfo.GetInflictor and dmgInfo:GetInflictor() or nil
