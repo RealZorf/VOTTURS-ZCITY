@@ -8,6 +8,23 @@ function zb.AddFade()
 	net.Broadcast()
 end
 
+local hasChangeLevel
+
+local function CacheChangeLevel()
+	hasChangeLevel = IsValid(ents.FindByClass("trigger_changelevel")[1])
+end
+
+local function HasChangeLevel()
+	if hasChangeLevel == nil then
+		CacheChangeLevel()
+	end
+
+	return hasChangeLevel
+end
+
+hook.Add("InitPostEntity", "ZB_CacheChangeLevel", CacheChangeLevel)
+hook.Add("PostCleanupMap", "ZB_CacheChangeLevel", CacheChangeLevel)
+
 local forcemodeconvar = CreateConVar("zb_forcemode", "random", nil, "Set force mode (set to 'random' to disable)")
 forcemodeconvar:SetString("random")
 function zb:GetMode(round)
@@ -21,7 +38,7 @@ function zb:GetMode(round)
 end
 
 function CurrentRound()
-	if IsValid(ents.FindByClass( "trigger_changelevel" )[1]) then
+	if HasChangeLevel() then
 		zb.nextround = "coop"
 		zb.CROUND = zb.CROUND or "coop"
 		return zb.modes["coop"]
@@ -39,7 +56,7 @@ function CurrentRound()
 end
 
 function NextRound(round)
-	if IsValid(ents.FindByClass( "trigger_changelevel" )[1]) then
+	if HasChangeLevel() then
 		zb.nextround = "coop"
 	else
 		zb.nextround = round
@@ -63,7 +80,8 @@ end
 
 function zb:RoundThink()
 	if zb.ROUND_STATE == 1 then
-		if CurrentRound().RoundThink then CurrentRound():RoundThink(CurrentRound()) end
+		local round = CurrentRound()
+		if round.RoundThink then round:RoundThink(round) end
 	end
 end
 

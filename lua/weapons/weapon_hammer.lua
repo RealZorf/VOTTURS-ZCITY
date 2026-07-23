@@ -1,4 +1,13 @@
-if SERVER then AddCSLuaFile() end
+if SERVER then
+	AddCSLuaFile()
+	resource.AddFile("models/w_nail.mdl")
+	resource.AddFile("models/w_nail.vvd")
+	resource.AddFile("models/w_nail.dx80.vtx")
+	resource.AddFile("models/w_nail.dx90.vtx")
+	resource.AddFile("models/w_nail.sw.vtx")
+	resource.AddFile("materials/models/weapons/nail/nail.vtf")
+	resource.AddFile("materials/models/weapons/nail/nail.vmt")
+end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Hammer"
 SWEP.Instructions = "A regular household hammer, which has a blunt and a sharp side. Use it to block off paths or restrict someone from moving.\n\nLMB to attack.\nR + LMB to change attack mode.\nRMB to block.\nRMB + LMB to nail or throw."
@@ -75,6 +84,18 @@ SWEP.SwingAng2 = 0
 SWEP.AttackPos = Vector(0, 0, 0)
 SWEP.UnNailables = {MAT_METAL, MAT_SAND, MAT_SLOSH, MAT_GLASS}
 game.AddDecal("hmcd_jackanail", "decals/mat_jack_hmcd_nailhead")
+
+local hammerDoorClasses = {
+	["prop_door"] = true,
+	["prop_door_rotating"] = true,
+	["func_door"] = true,
+	["func_door_rotating"] = true
+}
+
+local function IsHammerDoor(ent)
+	return IsValid(ent) and hammerDoorClasses[ent:GetClass()] == true
+end
+
 function hgCheckBindObjects(ent1)
 	if not ent1.Nails then return end
 	return (ent1.Nails and ent1.Nails[0] and #ent1.Nails[0]) or 0
@@ -136,6 +157,94 @@ function SWEP:ThinkAdd()
 	end
 end
 
+local function UpdateNailNetworkState(ent)
+	if not SERVER or not IsValid(ent) then return end
+
+	local hasNails = ent.LockedDoorNail == true
+	if not hasNails and ent.Nails then
+		for _, entry in pairs(ent.Nails) do
+			if istable(entry) and (entry[2] or 0) > 0 then
+				hasNails = true
+				break
+			end
+		end
+	end
+
+	ent:SetNWBool("HasHammerNails", hasNails)
+end
+
+local function RemoveOneNailVisual(entry)
+	local visuals = entry and entry.NailVisuals
+	if not visuals then return end
+
+	while #visuals > 0 do
+		local visual = table.remove(visuals)
+		if IsValid(visual) then
+			visual:Remove()
+			return
+		end
+	end
+end
+
+local function RemoveAllNailVisuals(entry)
+	local visuals = entry and entry.NailVisuals
+	if not visuals then return end
+
+	for _, visual in ipairs(visuals) do
+		if IsValid(visual) then visual:Remove() end
+	end
+	table.Empty(visuals)
+end
+
+local function CreateNailVisual(ent, pos, direction, physicsBone)
+	if not SERVER or not IsValid(ent) then return end
+
+	direction = direction:GetNormalized()
+	local visualPos = pos + direction * 0.05
+	local visualAng = direction:Angle()
+	local visual = ents.Create("prop_dynamic")
+	if not IsValid(visual) then return end
+
+	visual:SetModel("models/w_nail.mdl")
+	visual:SetPos(visualPos)
+	visual:SetAngles(visualAng)
+	visual:SetKeyValue("solid", "0")
+	visual:Spawn()
+	visual:SetMoveType(MOVETYPE_NONE)
+	visual:SetSolid(SOLID_NONE)
+	visual:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
+	visual:DrawShadow(false)
+
+	local modelBone = ent:IsRagdoll() and ent:TranslatePhysBoneToBone(physicsBone or 0) or -1
+	local boneMatrix = modelBone >= 0 and ent:GetBoneMatrix(modelBone)
+	if boneMatrix then
+		local localPos, localAng = WorldToLocal(visualPos, visualAng, boneMatrix:GetTranslation(), boneMatrix:GetAngles())
+		visual:FollowBone(ent, modelBone)
+		visual:SetLocalPos(localPos)
+		visual:SetLocalAngles(localAng)
+	else
+		visual:SetParent(ent)
+		visual:SetLocalPos(ent:WorldToLocal(visualPos))
+		visual:SetLocalAngles(ent:WorldToLocalAngles(visualAng))
+	end
+
+	ent:DeleteOnRemove(visual)
+
+	return visual
+end
+
+local function TrackNailVisual(ent1, bone1, ent2, bone2, visual)
+	if not IsValid(visual) then return end
+
+	local entry1 = ent1.Nails and ent1.Nails[bone1]
+	local entry2 = not ent2:IsWorld() and ent2.Nails and ent2.Nails[bone2] or nil
+	local visuals = entry1 and entry1.NailVisuals or entry2 and entry2.NailVisuals or {}
+
+	if entry1 then entry1.NailVisuals = visuals end
+	if entry2 then entry2.NailVisuals = visuals end
+	table.insert(visuals, visual)
+end
+
 local function BindObjects(ent1, pos1, ent2, pos2, power, bone1, bone2)
 	ent1.Nails = ent1.Nails or {}
 	ent2.Nails = ent2.Nails or {}
@@ -150,18 +259,22 @@ local function BindObjects(ent1, pos1, ent2, pos2, power, bone1, bone2)
 				and constraint.Ballsocket(ent1, ent2, bone1 or 0, bone2 or 0, ent1:WorldToLocal(pos1), (500 + 1 * 100) * 5)
 			)
 			or constraint.Weld(ent1, ent2, bone1 or 0, bone2 or 0, (500 + 1 * 100) * 15, false, false)
-			print(weld)
 		if weld then
-			ent1.Nails[bone1] = {weld, 1}
-			weld:CallOnRemove("removefromtbl", function() ent1.Nails[bone1] = nil end)
+			local entry = {weld, 1}
+			ent1.Nails[bone1] = entry
+			weld:CallOnRemove("removefromtbl", function()
+				if ent1.Nails and ent1.Nails[bone1] == entry then
+					ent1.Nails[bone1] = nil
+				end
+				RemoveAllNailVisuals(entry)
+				UpdateNailNetworkState(ent1)
+			end)
 		end
 	else
-		if not ent1:IsRagdoll() and not ent2:IsRagdoll() then 
-			local weld = constraint.Ballsocket(ent1, ent2, bone1 or 0, bone2 or 0, ent2:WorldToLocal(pos2), (500 + 1 * 100) * 5)
-		end
 		local weld = ent1.Nails[bone1][1]
-		if IsValid(weld) and (ent2:IsRagdoll() or ent1:IsRagdoll()) then
-			weld:SetKeyValue("forcelimit", tostring( tonumber(weld:GetInternalVariable("forcelimit")) + ((500 + 1 * 100) * 5) ))
+		if IsValid(weld) then
+			local forceLimit = tonumber(weld:GetInternalVariable("forcelimit")) or 3000
+			weld:SetKeyValue("forcelimit", tostring(forceLimit + 3000))
 		end
 		ent1.Nails[bone1][2] = ent1.Nails[bone1][2] + 1
 	end
@@ -174,16 +287,21 @@ local function BindObjects(ent1, pos1, ent2, pos2, power, bone1, bone2)
 			)
 			or constraint.Weld(ent1, ent2, bone1 or 0, bone2 or 0, (500 + 1 * 100) * 15, false, false)
 		if weld then
-			ent2.Nails[bone2] = {weld, 1}
-			weld:CallOnRemove("removefromtbl", function() ent2.Nails[bone2] = nil end)
+			local entry = {weld, 1}
+			ent2.Nails[bone2] = entry
+			weld:CallOnRemove("removefromtbl", function()
+				if ent2.Nails and ent2.Nails[bone2] == entry then
+					ent2.Nails[bone2] = nil
+				end
+				RemoveAllNailVisuals(entry)
+				UpdateNailNetworkState(ent2)
+			end)
 		end
 	else
-		if not ent1:IsRagdoll() and not ent2:IsRagdoll() then 
-			local weld = constraint.Ballsocket(ent1, ent2, bone1 or 0, bone2 or 0, ent2:WorldToLocal(pos2), (500 + 1 * 100) * 5)
-		end
 		local weld = ent2.Nails[bone2][1]
-		if IsValid(weld) and (ent2:IsRagdoll() or ent1:IsRagdoll()) then
-			weld:SetKeyValue("forcelimit", tostring( tonumber(weld:GetInternalVariable("forcelimit")) + ((500 + 1 * 100) * 5) ))
+		if IsValid(weld) then
+			local forceLimit = tonumber(weld:GetInternalVariable("forcelimit")) or 3000
+			weld:SetKeyValue("forcelimit", tostring(forceLimit + 3000))
 		end
 		ent2.Nails[bone2][2] = ent2.Nails[bone2][2] + 1
 		
@@ -191,6 +309,10 @@ local function BindObjects(ent1, pos1, ent2, pos2, power, bone1, bone2)
 
 	if ent2.Nails[bone2] then ent2.Nails[bone2][3] = ent1.Nails[bone1] and ent1.Nails[bone1][1] end
 	if ent1.Nails[bone1] then ent1.Nails[bone1][3] = ent2.Nails[bone2] and ent2.Nails[bone2][1] end
+	if ent1.Nails[bone1] then ent1.Nails[bone1].NailPos = pos1 end
+	if ent2.Nails[bone2] then ent2.Nails[bone2].NailPos = pos2 end
+	UpdateNailNetworkState(ent1)
+	UpdateNailNetworkState(ent2)
 	return ent1:IsWorld() and ((ent2.Nails[bone2] and ent2.Nails[bone2][2]) or 1) or ((ent1.Nails[bone1] and ent1.Nails[bone1][2]) or 1)
 end
 
@@ -236,6 +358,8 @@ if SERVER then
 					ply.fakecd = CurTime() + 1
 					return false
 				end
+
+				UpdateNailNetworkState(ply.FakeRagdoll)
 			end
 		end
 	end)
@@ -245,6 +369,10 @@ local vec1, vec2, vec3 = Vector(0, 0, .15), Vector(0, .15, 0), Vector(.15, 0, 0)
 function SWEP:SprayDecals()
 	local Owner = self:GetOwner()
 	local Tr = util.QuickTrace(Owner:GetShootPos(), Owner:GetAimVector() * 70, {Owner})
+	if IsValid(Tr.Entity) then
+		return CreateNailVisual(Tr.Entity, Tr.HitPos, Tr.HitPos - Owner:EyePos(), Tr.PhysicsBone or 0)
+	end
+
 	util.Decal("hmcd_jackanail", Tr.HitPos + Tr.HitNormal, Tr.HitPos - Tr.HitNormal)
 end
 
@@ -262,7 +390,62 @@ end
 
 function SWEP:CanNail(Tr)
 	local Owner = self:GetOwner()
-	return (Owner:GetAmmoCount(self.Ammo) > 0) and Tr.Hit and Tr.Entity and (IsValid(Tr.Entity) or Tr.Entity:IsWorld()) and not (Tr.Entity:IsPlayer() or Tr.Entity:IsNPC()) and not table.HasValue(self.UnNailables, Tr.MatType)
+	return IsValid(Owner) and Tr and (Owner:GetAmmoCount(self.Ammo) > 0) and Tr.Hit and not Tr.HitSky and Tr.Entity and (IsValid(Tr.Entity) or Tr.Entity:IsWorld()) and not (Tr.Entity:IsPlayer() or Tr.Entity:IsNPC()) and not table.HasValue(self.UnNailables, Tr.MatType)
+end
+
+local nailHullMins = Vector(-2, -2, -2)
+local nailHullMaxs = Vector(2, 2, 2)
+
+function SWEP:GetNailTraces(Owner)
+	local firstTrace = hg.eyeTrace(Owner)
+	if not self:CanNail(firstTrace) then return firstTrace end
+
+	local aimVector = Owner:GetAimVector()
+	local secondTrace = util.TraceHull({
+		start = firstTrace.HitPos + aimVector * 0.5,
+		endpos = firstTrace.HitPos + aimVector * 28,
+		mins = nailHullMins,
+		maxs = nailHullMaxs,
+		mask = MASK_SHOT,
+		filter = {Owner, firstTrace.Entity}
+	})
+
+	if not self:CanNail(secondTrace) or secondTrace.Entity == firstTrace.Entity then
+		return firstTrace
+	end
+
+	return firstTrace, secondTrace
+end
+
+local function FindNailEntry(Tr)
+	local ent = Tr and Tr.Entity
+	local nails = ent and ent.Nails
+	if not nails then return end
+
+	local physicsBone = Tr.PhysicsBone or 0
+	if nails[physicsBone] then
+		return nails[physicsBone], physicsBone
+	end
+
+	local closestEntry, closestBone, closestDistance
+	for bone, entry in pairs(nails) do
+		if not istable(entry) or (entry[2] or 0) <= 0 then continue end
+
+		local nailPos = entry.NailPos
+		if not isvector(nailPos) and IsValid(ent) then
+			local phys = ent:GetPhysicsObjectNum(tonumber(bone) or 0)
+			if IsValid(phys) then nailPos = phys:GetPos() end
+		end
+
+		local distance = isvector(nailPos) and nailPos:DistToSqr(Tr.HitPos) or 0
+		if not closestDistance or distance < closestDistance then
+			closestEntry = entry
+			closestBone = bone
+			closestDistance = distance
+		end
+	end
+
+	return closestEntry, closestBone
 end
 
 function DoorIsOpen(door)
@@ -277,35 +460,51 @@ function SWEP:SecondaryAttack(override)
 	local Tr = hg.eyeTrace(Owner)
 	if self:GetNetVar("AttackMode", 1) == 2 then
 		if self:CutDuct() then return end
-		if ((Tr.Entity.Nails and Tr.Entity.Nails[Tr.PhysicsBone]) or Tr.Entity.LockedDoorNail) and not self.pulling then
+		if not Tr or not Tr.Entity then return end
+
+		local target = Tr.Entity
+		local nailEntry, nailBone = FindNailEntry(Tr)
+		local isDoorNailed = target.LockedDoorNail
+		if (nailEntry or isDoorNailed) and not self.pulling then
 			Owner:EmitSound("nail_pull.mp3", 65, 100, 1, CHAN_AUTO)
 			self.pulling = true
 			timer.Simple(2, function()
+				if not IsValid(Owner) or not IsValid(self) then return end
 				self.pulling = false
-				if Tr.Entity.LockedDoorNail then
-					if not Tr.Entity.LockedDoor and not Tr.Entity.LockedDoorMap then Tr.Entity:Fire("unlock", "", 0) end
-					Tr.Entity.LockedDoorNail = nil
-					Owner:SetAmmo(Owner:GetAmmoCount(self.Ammo) + (tr.Entity.CadedByBuilder and 2 or 3), self.Ammo)
+
+				if isDoorNailed and IsValid(target) and target.LockedDoorNail then
+					if not target.LockedDoor and not target.LockedDoorMap then target:Fire("unlock", "", 0) end
+					target.LockedDoorNail = nil
+					if IsValid(target.LockedDoorNailVisual) then
+						target.LockedDoorNailVisual:Remove()
+					end
+					target.LockedDoorNailVisual = nil
+					UpdateNailNetworkState(target)
+					Owner:SetAmmo(Owner:GetAmmoCount(self.Ammo) + (target.CadedByBuilder and 2 or 3), self.Ammo)
 					return
 				end
 
-				local tbl = Tr.Entity.Nails[Tr.PhysicsBone]
-				if tbl then
-					if tbl[2] <= 0 then return end
-					tbl[2] = tbl[2] - 1
+				if IsValid(target) and target.Nails and target.Nails[nailBone] == nailEntry then
+					if (nailEntry[2] or 0) <= 0 then return end
+					nailEntry[2] = nailEntry[2] - 1
 					Owner:SetAmmo(Owner:GetAmmoCount(self.Ammo) + 1, self.Ammo)
-					if tbl[2] > 0 then return end
-					if IsValid(tbl[1]) then
-						tbl[1]:Remove()
-						tbl[1] = nil
+					RemoveOneNailVisual(nailEntry)
+					if nailEntry[2] > 0 then return end
+
+					local primaryConstraint = nailEntry[1]
+					local pairedConstraint = nailEntry[3]
+					if IsValid(primaryConstraint) then
+						primaryConstraint:Remove()
 					end
 
-					if IsValid(tbl[3]) then
-						tbl[3]:Remove()
-						tbl[3] = nil
+					if IsValid(pairedConstraint) and pairedConstraint ~= primaryConstraint then
+						pairedConstraint:Remove()
 					end
 
-					Tr.Entity.Nails[Tr.PhysicsBone] = nil
+					if target.Nails and target.Nails[nailBone] == nailEntry then
+						target.Nails[nailBone] = nil
+					end
+					UpdateNailNetworkState(target)
 				end
 			end)
 			return
@@ -314,13 +513,12 @@ function SWEP:SecondaryAttack(override)
 		if Owner:KeyDown(IN_SPEED) then return end
 		if Owner:GetAmmoCount(self.Ammo) > 0 then
 			local AimVec = Owner:GetAimVector()
-			local Tr = hg.eyeTrace(Owner)
-			if self:CanNail(Tr) then
-				local NewTr, NewEnt = util.QuickTrace(Tr.HitPos, AimVec * 10, {Owner, Tr.Entity}), nil
-				if self:CanNail(NewTr) then
-					if not NewTr.HitSky then NewEnt = NewTr.Entity end
-					if NewEnt and (IsValid(NewEnt) or NewEnt:IsWorld()) and not (NewEnt:IsPlayer() or NewEnt:IsNPC() or (NewEnt == Tr.Entity)) then
-						if hgIsDoor(Tr.Entity) then
+			local Tr, NewTr = self:GetNailTraces(Owner)
+			if Tr and (NewTr or IsHammerDoor(Tr.Entity)) then
+				local NewEnt = NewTr and NewTr.Entity
+				if IsHammerDoor(Tr.Entity) or self:CanNail(NewTr) then
+					if IsHammerDoor(Tr.Entity) or (NewEnt and (IsValid(NewEnt) or NewEnt:IsWorld()) and not (NewEnt:IsPlayer() or NewEnt:IsNPC() or (NewEnt == Tr.Entity))) then
+						if IsHammerDoor(Tr.Entity) then
 							if Owner:GetAmmoCount(self.Ammo) > (Owner.Profession and Owner.Profession == "builder" and 1 or 2) then
 								if not DoorIsOpen(Tr.Entity) then
 									if not Tr.Entity.LockedDoorNail then Tr.Entity.LockedDoorMap = true end
@@ -331,9 +529,13 @@ function SWEP:SecondaryAttack(override)
 								Tr.Entity:Fire("lock", "", 0)
 								Tr.Entity.LockedDoorNail = true
 								Tr.Entity.CadedByBuilder = (Owner.Profession and Owner.Profession == "builder") and true or false
+								UpdateNailNetworkState(Tr.Entity)
 								Owner:SetAmmo(Owner:GetAmmoCount(self.Ammo) - (Owner.Profession and Owner.Profession == "builder" and 2 or 3), self.Ammo)
 								sound.Play("snd_jack_hmcd_hammerhit.wav", Tr.HitPos, 65, math.random(90, 110))
-								self:SprayDecals()
+								if IsValid(Tr.Entity.LockedDoorNailVisual) then
+									Tr.Entity.LockedDoorNailVisual:Remove()
+								end
+								Tr.Entity.LockedDoorNailVisual = self:SprayDecals()
 								Owner:PrintMessage(HUD_PRINTCENTER, "Door Sealed")
 								Owner:ViewPunch(vpang)
 								Owner:SetAnimation(PLAYER_ATTACK1)
@@ -373,7 +575,8 @@ function SWEP:SecondaryAttack(override)
 							--print(Tr.Entity,Weld)
 							if Weld or Weld == nil then Owner:SetAmmo(Owner:GetAmmoCount(self.Ammo) - 1, self.Ammo) end
 							sound.Play("snd_jack_hmcd_hammerhit.wav", Tr.HitPos, 65, math.random(90, 110))
-							util.Decal("hmcd_jackanail", Tr.HitPos + Tr.HitNormal, Tr.HitPos - Tr.HitNormal)
+							local nailVisual = CreateNailVisual(Tr.Entity, Tr.HitPos, Tr.HitPos - Owner:EyePos(), Tr.PhysicsBone or 0)
+							TrackNailVisual(Tr.Entity, Tr.PhysicsBone or 0, NewEnt, NewTr.PhysicsBone or 0, nailVisual)
 							Owner:ChatPrint("Bond strength: " .. tostring(Strength))
 							Owner:ViewPunch(vpang)
 							self:PlayAnim("attack", 0.6, false, nil, false, true)
@@ -438,16 +641,19 @@ if CLIENT then
 		local Owner = self:GetOwner()
 		if not IsValid(Owner) then return end
 
-		if self:GetNetVar("AttackMode", 1) == 2 then return end
+		if self:GetNetVar("AttackMode", 1) == 2 then
+			local Tr = hg.eyeTrace(Owner)
+			if Tr and IsValid(Tr.Entity) and Tr.Entity:GetNWBool("HasHammerNails", false) then
+				local toScreen = Tr.HitPos:ToScreen()
+				draw.SimpleText("RMB to Unnail", "HomigradFont", toScreen.x + 3, toScreen.y + 27, color_black, TEXT_ALIGN_CENTER)
+				draw.SimpleText("RMB to Unnail", "HomigradFont", toScreen.x, toScreen.y + 25, color_white, TEXT_ALIGN_CENTER)
+			end
+			return
+		end
 
-		local Tr = hg.eyeTrace(Owner)
-		if not Tr then return end
-
-		if self:CanNail(Tr) then
-			local AimVec = Owner:GetAimVector()
-			local NewTr = util.QuickTrace(Tr.HitPos, AimVec * 10, {Owner, Tr.Entity})
-			
-			if self:CanNail(NewTr) or (hgIsDoor and hgIsDoor(Tr.Entity)) then
+		local Tr, NewTr = self:GetNailTraces(Owner)
+		if Tr then
+			if NewTr or IsHammerDoor(Tr.Entity) then
 				local toScreen = Tr.HitPos:ToScreen()
 				draw.SimpleText("RMB to Nail", "HomigradFont", toScreen.x + 3, toScreen.y + 27, color_black, TEXT_ALIGN_CENTER)
 				draw.SimpleText("RMB to Nail", "HomigradFont", toScreen.x, toScreen.y + 25, color_white, TEXT_ALIGN_CENTER)
