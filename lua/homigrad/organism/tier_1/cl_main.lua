@@ -1258,6 +1258,137 @@ local function emitThroatBloodFlow(ply, ent, org, wound, pos, boneAng, time)
 	wound.throatFlowNext = time + math.Clamp(0.12 / math.max(flowMul, 0.65), 1 / math.max(hg_blood_fps:GetInt(), 12), 0.22)
 end
 
+local woundEmissionQueues = setmetatable({}, {__mode = "k"})
+
+local function woundQueueEntryLess(left, right)
+	if left.due == right.due then
+		return left.index < right.index
+	end
+
+	return left.due < right.due
+end
+
+local function woundQueuePush(queue, entry)
+	local heap = queue.heap
+	local index = #heap + 1
+
+	while index > 1 do
+		local parentIndex = math.floor(index / 2)
+		local parent = heap[parentIndex]
+		if not woundQueueEntryLess(entry, parent) then break end
+
+		heap[index] = parent
+		index = parentIndex
+	end
+
+	heap[index] = entry
+end
+
+local function woundQueuePop(queue)
+	local heap = queue.heap
+	local count = #heap
+	if count == 0 then return end
+
+	local first = heap[1]
+	local last = heap[count]
+	heap[count] = nil
+	count = count - 1
+
+	if count > 0 then
+		local index = 1
+
+		while true do
+			local leftIndex = index * 2
+			if leftIndex > count then break end
+
+			local rightIndex = leftIndex + 1
+			local childIndex = leftIndex
+			if rightIndex <= count and woundQueueEntryLess(heap[rightIndex], heap[leftIndex]) then
+				childIndex = rightIndex
+			end
+
+			if not woundQueueEntryLess(heap[childIndex], last) then break end
+
+			heap[index] = heap[childIndex]
+			index = childIndex
+		end
+
+		heap[index] = last
+	end
+
+	return first
+end
+
+local function rebuildWoundEmissionQueue(queue, wounds)
+	queue.source = wounds
+	queue.count = istable(wounds) and #wounds or 0
+	queue.heap = {}
+
+	for index = 1, queue.count do
+		local wound = wounds[index]
+		if not istable(wound) then continue end
+
+		woundQueuePush(queue, {
+			wound = wound,
+			index = index,
+			due = tonumber(wound[5]) or 0
+		})
+	end
+end
+
+local function getWoundEmissionQueue(ply, kind, wounds)
+	local queues = woundEmissionQueues[ply]
+	if not queues then
+		queues = {}
+		woundEmissionQueues[ply] = queues
+	end
+
+	local queue = queues[kind]
+	if not queue then
+		queue = {}
+		queues[kind] = queue
+	end
+
+	local count = istable(wounds) and #wounds or 0
+	if queue.source ~= wounds or queue.count ~= count then
+		rebuildWoundEmissionQueue(queue, wounds)
+	end
+
+	return queue
+end
+
+local function takeDueWoundEntries(queue, wounds, timeOffset, time)
+	local dueEntries
+	local first = queue.heap[1]
+
+	while first and first.due + timeOffset < time do
+		local entry = woundQueuePop(queue)
+		if wounds[entry.index] == entry.wound then
+			dueEntries = dueEntries or {}
+			dueEntries[#dueEntries + 1] = entry
+		else
+			rebuildWoundEmissionQueue(queue, wounds)
+			return
+		end
+
+		first = queue.heap[1]
+	end
+
+	return dueEntries
+end
+
+local function rescheduleWoundEntries(queue, wounds, entries)
+	if not entries then return end
+
+	for index = 1, #entries do
+		local entry = entries[index]
+		if wounds[entry.index] ~= entry.wound then continue end
+
+		entry.due = tonumber(entry.wound[5]) or 0
+		woundQueuePush(queue, entry)
+	end
+end
+
 hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, ent, time)
 	--local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
 	--print(ply,ent,ply.organism.owner,ply.new_organism.owner)
@@ -1440,55 +1571,66 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 	
 	if org and org.blood and org.blood > 10 and wounds and #wounds > 0 then
 		if (owner:IsPlayer() and owner:Alive()) or not owner:IsPlayer() then
-			for i, wound in pairs(wounds) do
+			local woundQueue = getWoundEmissionQueue(ply, "normal", wounds)
+			local dueWounds = takeDueWoundEntries(woundQueue, wounds, beatsPerSecond, time)
+
+			for dueIndex = 1, dueWounds and #dueWounds or 0 do
+				local woundEntry = dueWounds[dueIndex]
+				local wound = woundEntry.wound
 				local size = math.random(0, 1) * math.max(math.min(wound[1], 1), 0.5)
-				
-				if wound[5] + beatsPerSecond < time then
-					local woundBone = cachedClientThinkBone(ent, wound[4])
-					if seen and woundBone then
-						local bone = wound[4]
-						local should = !(hg.amputatedlimbs2[bone] and org[hg.amputatedlimbs2[bone].."amputated"])
 
-						if !should then continue end
+				local woundBone = cachedClientThinkBone(ent, wound[4])
+				if seen and woundBone then
+					local bone = wound[4]
+					local should = !(hg.amputatedlimbs2[bone] and org[hg.amputatedlimbs2[bone].."amputated"])
 
-						local mat = ent:GetBoneMatrix(woundBone)
-						if not mat then continue end
-						local bonePos, boneAng = mat:GetTranslation(), mat:GetAngles()
-						if not wound[2] or not wound[3] or not bonePos or not boneAng then continue end
-						local pos, ang = LocalToWorld(wound[2], wound[3], bonePos, boneAng)
+					if !should then continue end
 
-						local water = bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER
-						if water then
-							if wound[5] + 1 < time then
-								safeAddBloodPart2(pos, VectorRand(-5, 5), nil, nil, nil, nil, true, nil, ent)
-							end
-						else
-							safeAddBloodPart(pos, VectorRand(-15, 15), nil, size, size, false, nil, ent)
-						end
+					local mat = ent:GetBoneMatrix(woundBone)
+					if not mat then continue end
+					local bonePos, boneAng = mat:GetTranslation(), mat:GetAngles()
+					if not wound[2] or not wound[3] or not bonePos or not boneAng then continue end
+					local pos, ang = LocalToWorld(wound[2], wound[3], bonePos, boneAng)
 
-						wound[5] = time + (water and 2 or (math.Rand(0, 1) * (!hg_old_blood:GetBool() and 0.5 or 1) / wound[1] * 15))
-					else
-						local pos = ent:GetPos()
-
-						local water = bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER
-						if water then
+					local water = bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER
+					if water then
+						if wound[5] + 1 < time then
 							safeAddBloodPart2(pos, VectorRand(-5, 5), nil, nil, nil, nil, true, nil, ent)
-						else
-							safeAddBloodPart(pos, VectorRand(-15, 15), nil, size, size, false, nil, ent)
 						end
-
-						wound[5] = time + (water and 2 or (math.Rand(0, 1) * (!hg_old_blood:GetBool() and 0.5 or 1) / wound[1] * 15))
+					else
+						safeAddBloodPart(pos, VectorRand(-15, 15), nil, size, size, false, nil, ent)
 					end
+
+					wound[5] = time + (water and 2 or (math.Rand(0, 1) * (!hg_old_blood:GetBool() and 0.5 or 1) / wound[1] * 15))
+				else
+					local pos = ent:GetPos()
+
+					local water = bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER
+					if water then
+						safeAddBloodPart2(pos, VectorRand(-5, 5), nil, nil, nil, nil, true, nil, ent)
+					else
+						safeAddBloodPart(pos, VectorRand(-15, 15), nil, size, size, false, nil, ent)
+					end
+
+					wound[5] = time + (water and 2 or (math.Rand(0, 1) * (!hg_old_blood:GetBool() and 0.5 or 1) / wound[1] * 15))
 				end
 			end
+
+			rescheduleWoundEntries(woundQueue, wounds, dueWounds)
 		end
 	end
 	
 	if org and org.blood and org.blood > 10 and arterialwounds and #arterialwounds > 0 then
-		for i, wound in pairs(arterialwounds) do
-			local addtime = seen and 1 / math.Clamp(org.pulse or 70, 1,15) * 0.25 or 0.06
+		local addtime = seen and 1 / math.Clamp(org.pulse or 70, 1,15) * 0.25 or 0.06
+		local arterialQueue = getWoundEmissionQueue(ply, "arterial", arterialwounds)
+		local dueWounds = takeDueWoundEntries(arterialQueue, arterialwounds, addtime, time)
+
+		for dueIndex = 1, dueWounds and #dueWounds or 0 do
+			local woundEntry = dueWounds[dueIndex]
+			local i = woundEntry.index
+			local wound = woundEntry.wound
 			local woundBone = cachedClientThinkBone(ent, wound[4])
-			if wound[5] + addtime < time and woundBone then
+			if woundBone then
 				local pos, ang = ent:GetBonePosition(woundBone)
 				if (owner:IsPlayer() and owner:Alive()) or not owner:IsPlayer() then
 					local size = math.random(1, 2) * math.max(math.min(wound[1], 1), 0.5)
@@ -1535,6 +1677,8 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 				end
 			end
 		end
+
+		rescheduleWoundEntries(arterialQueue, arterialwounds, dueWounds)
 	end
 end)
 

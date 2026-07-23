@@ -597,9 +597,6 @@ players : 1 humans, 0 bots (20 max)
 --
 
 --\\ Can see or not
-	--local checkcd = 0
-	local ents_FindByClass = ents.FindByClass
-	local player_GetAll = player.GetAll
 	local render_GetViewSetup = render.GetViewSetup
 	LocalPlayerSeen = true
 	hg.seenents = {}
@@ -608,62 +605,120 @@ players : 1 humans, 0 bots (20 max)
 	local math_cos = math.cos
 	local math_rad = math.rad
 	local util_DistanceToLine = util.DistanceToLine
-	local table_Add = table.Add
+	local trackedVisibilityEntities = {}
+	local trackedVisibilityIndices = {}
 	local nextVisibilityRefresh = 0
 	local visibilityRefreshInterval = 0.1
+
+	local function shouldTrackVisibilityEntity(ent)
+		if not IsValid(ent) then return false end
+		return ent:IsPlayer() or ent:GetClass() == "prop_ragdoll"
+	end
+
+	local function trackVisibilityEntity(ent)
+		if not shouldTrackVisibilityEntity(ent) or trackedVisibilityIndices[ent] then return end
+
+		local index = #trackedVisibilityEntities + 1
+		trackedVisibilityEntities[index] = ent
+		trackedVisibilityIndices[ent] = index
+	end
+
+	local function untrackVisibilityEntity(ent)
+		local index = trackedVisibilityIndices[ent]
+		if not index then return end
+
+		local lastIndex = #trackedVisibilityEntities
+		local lastEnt = trackedVisibilityEntities[lastIndex]
+		trackedVisibilityEntities[index] = lastEnt
+		trackedVisibilityEntities[lastIndex] = nil
+		trackedVisibilityIndices[ent] = nil
+
+		if lastEnt ~= ent then
+			trackedVisibilityIndices[lastEnt] = index
+		end
+	end
+
+	local function seedVisibilityEntities()
+		table.Empty(trackedVisibilityEntities)
+		table.Empty(trackedVisibilityIndices)
+
+		for _, ent in ipairs(ents.GetAll()) do
+			trackVisibilityEntity(ent)
+		end
+
+		nextVisibilityRefresh = 0
+	end
+
+	hook.Add("OnEntityCreated", "ZC_VisibilityRegistryCreated", trackVisibilityEntity)
+	hook.Add("EntityRemoved", "ZC_VisibilityRegistryRemoved", untrackVisibilityEntity)
+	hook.Add("NotifyShouldTransmit", "ZC_VisibilityRegistryTransmit", function(ent)
+		trackVisibilityEntity(ent)
+	end)
+	hook.Add("InitPostEntity", "ZC_VisibilityRegistrySeed", seedVisibilityEntities)
+	timer.Simple(0, seedVisibilityEntities)
+
+	local function updateEntityVisibility(v, origin, lineEnd, viewForward, fovDot)
+		if v.shouldTransmit then
+			hg.seenents2[#hg.seenents2 + 1] = v
+		end
+
+		local nochange = (v == lply.FakeRagdoll) or (lply:Alive() and v == lply) or (not lply:Alive() and v == lply:GetNWEntity("spect"))
+
+		if nochange then
+			v.NotSeen = false
+			hg.seenents[#hg.seenents + 1] = v
+			return
+		end
+
+		local min, max = v:GetModelBounds()
+		local len = (max - min):Length()
+		local vPos = v:GetPos()
+		local _, point = util_DistanceToLine(origin, lineEnd, vPos)
+		local vSize = (point - vPos):GetNormalized() * len
+		local diff = (vPos + vSize - origin):GetNormalized()
+
+		if not v.shouldTransmit or viewForward:Dot(diff) <= fovDot then
+			v.NotSeen = true
+			if v == lply then LocalPlayerSeen = false end
+		else
+			v.NotSeen = false
+			if v == lply then LocalPlayerSeen = true end
+			hg.seenents[#hg.seenents + 1] = v
+		end
+	end
 
 	hook.Add("Think", "CanBeSeenOrNot", function()
 		local time = CurTime()
 		if nextVisibilityRefresh > time then return end
 		nextVisibilityRefresh = time + visibilityRefreshInterval
 
-		local entities = ents_FindByClass("prop_ragdoll")
-		table_Add(entities, player_GetAll())
-
-		local orgents = {}
-		for ent in pairs(hg.organism_ents) do
-			if !IsValid(ent) then hg.organism_ents[ent] = nil continue end
-
-			table.insert(entities, ent)
-		end
-
-		hg.seenents = {}
-		hg.seenents2 = {}
+		table.Empty(hg.seenents)
+		table.Empty(hg.seenents2)
 
 		if g_VR and g_VR.active then return end
 
 		local view = render_GetViewSetup()
 		local origin = view.origin
-		local angles = view.angles
+		local viewForward = view.angles:Forward()
+		local lineEnd = origin + viewForward * 9999
+		local fovDot = math_cos(math_rad(hg_fov:GetInt()))
 
-		for i = 1, #entities do
-			v = entities[i]
-			if v.shouldTransmit then
-				hg.seenents2[#hg.seenents2 + 1] = v
-			end
-
-			local nochange = (v == lply.FakeRagdoll) or (lply:Alive() and v == lply) or (not lply:Alive() and v == lply:GetNWEntity("spect"))
-
-			if nochange then
-				v.NotSeen = false
-				hg.seenents[#hg.seenents + 1] = v
-				continue
-			end
-
-			local min,max = v:GetModelBounds()
-			local len = (max - min):Length()
-			local vPos = v:GetPos()
-			local _, point, _ = util_DistanceToLine(origin, origin + angles:Forward() * 9999, vPos)
-			local vSize = (point - vPos):GetNormalized() * len
-			local diff = (vPos + vSize - origin):GetNormalized()
-
-			if !v.shouldTransmit or (angles:Forward():Dot(diff) <= math_cos(math_rad(hg_fov:GetInt()))) then
-				if not nochange then v.NotSeen = true end
-				if v == lply then LocalPlayerSeen = false end
+		local index = 1
+		while index <= #trackedVisibilityEntities do
+			local ent = trackedVisibilityEntities[index]
+			if not IsValid(ent) then
+				untrackVisibilityEntity(ent)
 			else
-				if not nochange then v.NotSeen = false end
-				if v == lply then LocalPlayerSeen = true end
-				hg.seenents[#hg.seenents + 1] = v
+				updateEntityVisibility(ent, origin, lineEnd, viewForward, fovDot)
+				index = index + 1
+			end
+		end
+
+		for ent in pairs(hg.organism_ents) do
+			if not IsValid(ent) then
+				hg.organism_ents[ent] = nil
+			else
+				updateEntityVisibility(ent, origin, lineEnd, viewForward, fovDot)
 			end
 		end
 	end)
