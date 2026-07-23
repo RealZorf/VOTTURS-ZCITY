@@ -609,10 +609,14 @@ players : 1 humans, 0 bots (20 max)
 	local math_rad = math.rad
 	local util_DistanceToLine = util.DistanceToLine
 	local table_Add = table.Add
+	local nextVisibilityRefresh = 0
+	local visibilityRefreshInterval = 0.1
 
 	hook.Add("Think", "CanBeSeenOrNot", function()
-		--if checkcd > CurTime() then return end
-		--checkcd = CurTime() + 1
+		local time = CurTime()
+		if nextVisibilityRefresh > time then return end
+		nextVisibilityRefresh = time + visibilityRefreshInterval
+
 		local entities = ents_FindByClass("prop_ragdoll")
 		table_Add(entities, player_GetAll())
 
