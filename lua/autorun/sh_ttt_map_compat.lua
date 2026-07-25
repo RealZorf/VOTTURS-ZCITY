@@ -65,7 +65,6 @@ local inertEntities = {
 	"item_ammo_revolver_ttt",
 	"item_ammo_357_ttt",
 	"ttt_map_settings",
-	"ttt_traitor_button",
 	"ttt_credit_adjust",
 	"ttt_random_weapon",
 	"ttt_random_ammo",

@@ -2790,6 +2790,10 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                 end
             end
 
+			if current_ply.isTraitor and ZCityTraps and ZCityTraps.GiveActivator then
+				ZCityTraps.GiveActivator(current_ply)
+			end
+
             if(gaymaps[game.GetMap()])then
                 local inv = current_ply:GetNetVar("Inventory") or {}
                 inv["Weapons"] = inv["Weapons"] or {}
