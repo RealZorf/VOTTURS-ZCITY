@@ -857,47 +857,46 @@ local IsValid = IsValid
 local renderSceneActive = false
 local function renderscene(pos, angle, fov)
 	if renderSceneActive or RENDERSCENE then return end
-	lply = IsValid(lply) and lply or fLPly()
-	if not IsValid(lply) then return end
-	
-	pos = eyepos(lply)
-	angle = eyeangles(lply)
-	local view = CalcView(lply, pos, angle, fov)
+
+	local ply = lply
+	if not IsValid(ply) then ply = fLPly() end
+	if not IsValid(ply) then return end
+	lply = ply
+
+	local view = CalcView(ply, eyepos(ply), eyeangles(ply), fov)
 	viewOverride = view
-	
-	local invert = invertCam:GetBool()
-	local oldrt
-	
 	if not view then return end
-	if not isvector(view.origin) or not isangle(view.angles) then return end
+
+	local origin, angles = view.origin, view.angles
+	if not isvector(origin) or not isangle(angles) then return end
+
 	renderSceneActive = true
 	RENDERSCENE = true
+
+	local invert = invertCam:GetBool()
+	local oldrt
 	if invert then
 		oldrt = render.GetRenderTarget()
-		render.SetRenderTarget( fliprt )
+		render.SetRenderTarget(fliprt)
 	end
 
-	--hook.Run("HG_RenderScene", pos, angle, fov)
-
+	renderView.fov = fov
+	renderView.origin = origin
+	renderView.angles = angles
 	renderView.w = scrw
 	renderView.h = scrh
-	renderView.fov = fov
-	renderView.origin = view.origin
-	renderView.angles = view.angles
 	if mapswithfog[map] then
 		renderView.zfar = zfar
 	end
-	--local cur = hg.GetCurrentCharacter(lply)
-	--if cur == lply then hg.renderOverride(cur, lply) end
 
-	lply.norender = true
+	ply.norender = true
 	local ok, result = pcall(render_RenderView, renderView)
-	lply.norender = nil
-	
+	ply.norender = nil
+
 	if invert then
-		render.SetRenderTarget( oldrt )
-		fliprtmat:SetTexture( "$basetexture", fliprt )
-		render.SetMaterial( fliprtmat )
+		render.SetRenderTarget(oldrt)
+		fliprtmat:SetTexture("$basetexture", fliprt)
+		render.SetMaterial(fliprtmat)
 		render.DrawScreenQuad()
 	end
 
