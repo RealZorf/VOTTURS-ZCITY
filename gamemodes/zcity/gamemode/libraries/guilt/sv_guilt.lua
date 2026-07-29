@@ -486,6 +486,11 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     
     Attacker.LastAttacked = CurTime()
 
+    if newharm >= maxharm and oldharmdone < newharm and player.GetCount() >= 10 and zb.IsTraitorLike(Victim) and not zb.IsTraitorLike(Attacker) then
+        Attacker.Karma = math.Clamp((Attacker.Karma or 100) + 5, -60, GetPlayerKarmaCap(Attacker))
+        Attacker:SetNetVar("Karma", Attacker.Karma)
+    end
+
     if ShouldSkipHmcdGuiltPenalty(Attacker, Victim, rnd) then return end
     
     if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and attackerTeam ~= Victim:Team()) then return end
@@ -502,7 +507,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     end
     
     amt = amt * 1
-        * (Victim:IsPlayer() and math.Clamp(((Victim.Karma or 100) / 100), 1, 1.2) or 1)
+        * (Victim:IsPlayer() and math.Clamp(((Victim.Karma or 100) / GetPlayerKarmaCap(Victim)), 1, 1.2) or 1)
         * (Victim:IsPlayer() and ((IsLookingAt(Victim, Attacker:EyePos()) and (victimWep and (ishgweapon(victimWep) or ((victimWep:GetClass() == "weapon_hands_sh" and victimWep:GetFists() or victimWep.ismelee2) and Victim:EyePos():DistToSqr(Attacker:EyePos()) <= (90 * 90))))) and 0.5 or 1) or 1)
 
     local add = amt * maxharm
@@ -601,7 +606,7 @@ hook.Add("Player Think", "karmagain", function(ply)
     if (ply.KarmaGainThink or 0) > CurTime() then return end
     ply.KarmaGainThink = CurTime() + 120
 
-    ply.Karma = math.Clamp(ply.Karma + (ply.Karma > 100 and 0.1 or (ply.KarmaGain or 0.75)), -60, GetPlayerKarmaCap(ply))-- * (1 + ply:HasPurchase("zpremium")), 0, zb.MaxKarma)
+    ply.Karma = math.Clamp(ply.Karma + (ply.KarmaGain or 0.75), -60, GetPlayerKarmaCap(ply))
     
     ply:SetNetVar("Karma", ply.Karma)
     --ply:guilt_SetValue( ply.Karma or 100 )
@@ -663,9 +668,28 @@ hook.Add("Org Think", "Its_Karma_Bro",function(owner, org, timeValue)
 end)
 
 hook.Add("ZB_EndRound","savevalues",function()
+    if player.GetCount() >= 10 then
+        for _, ply in player.Iterator() do
+            if not IsValid(ply) or not ply:Alive() or ply:Team() == TEAM_SPECTATOR or zb.IsTraitorLike(ply) then continue end
+
+            ply.Karma = math.Clamp((ply.Karma or 100) + 2, -60, GetPlayerKarmaCap(ply))
+            ply:SetNetVar("Karma", ply.Karma)
+        end
+    end
+
     for i,ply in player.Iterator() do
         ply:guilt_SetValue( ply.Karma or 100 )
     end
+end)
+
+hook.Add("ZB_PlayerBandaged", "GuiltReg", function(healer, patient)
+    if not zb.IsRoundGuiltActive() or player.GetCount() < 10 then return end
+
+    patient = hg.RagdollOwner and hg.RagdollOwner(patient) or patient
+    if not IsValid(healer) or not healer:IsPlayer() or not IsValid(patient) or not patient:IsPlayer() or healer == patient then return end
+
+    healer.Karma = math.Clamp((healer.Karma or 100) + 1, -60, GetPlayerKarmaCap(healer))
+    healer:SetNetVar("Karma", healer.Karma)
 end)
 
 hook.Add("ZB_StartRound","NO_HARM",function()
