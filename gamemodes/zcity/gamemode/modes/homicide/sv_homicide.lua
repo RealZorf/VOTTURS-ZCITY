@@ -1892,6 +1892,60 @@ end)
 util.AddNetworkString("HMCD_TraitorDeathState")
 util.AddNetworkString("HMCD_RequestTraitorStatuses")
 
+local TRAITOR_RADIO_CLASS = "weapon_walkie_talkie"
+
+local function HMCDGetTraitorRadioFrequency(radio)
+	local blockedFrequencies = radio.FMStations or {}
+	local publicFrequencies = radio.Frequencies or {}
+	local availableFrequencies = {}
+	local currentFrequency = math.Round(tonumber(MODE.TraitorFrequency) or 0, 1)
+
+	for i = 1, #publicFrequencies do
+		local frequency = math.Round(tonumber(publicFrequencies[i]) or 0, 1)
+		if frequency >= 87.5 and frequency <= 108 and not blockedFrequencies[frequency] then
+			availableFrequencies[#availableFrequencies + 1] = frequency
+
+			if frequency == currentFrequency then
+				return currentFrequency
+			end
+		end
+	end
+
+	local frequency
+	if #availableFrequencies > 0 then
+		frequency = availableFrequencies[math.random(#availableFrequencies)]
+	else
+		frequency = math.Round(tonumber(radio.Frequency) or 88.6, 1)
+	end
+
+	MODE.TraitorFrequency = frequency
+
+	return frequency
+end
+
+local function HMCDConfigureTraitorRadio(ply)
+	if not IsValid(ply) or not ply.isTraitor or ply:Team() == TEAM_SPECTATOR then return end
+
+	local radio = ply:GetWeapon(TRAITOR_RADIO_CLASS)
+	if not IsValid(radio) then
+		radio = ply:Give(TRAITOR_RADIO_CLASS)
+	end
+	if not IsValid(radio) then return end
+
+	local frequency = HMCDGetTraitorRadioFrequency(radio)
+	radio.Frequency = frequency
+	radio:SetHudFrequency(frequency)
+	radio.isOn = true
+	radio:SetIsOn(true)
+	radio:SetInUsing(false)
+
+	local roundStamp = zb.ROUND_BEGIN or 0
+	if ply.HMCDTraitorRadioNoticeRound ~= roundStamp then
+		ply.HMCDTraitorRadioNoticeRound = roundStamp
+		ply:ChatPrint("Traitor radio online: " .. string.format("%.1f MHz", frequency))
+	end
+end
+
 
 function MODE:SendTraitorDeathState(traitor, is_alive)
     if not traitor.CurAppearance then return end
@@ -1932,12 +1986,27 @@ hook.Add("PlayerSpawn", "HMCD_TraitorSpawnTracking", function(ply)
     end
 end)
 
+hook.Add("Player Spawn", "HMCD_TraitorRadioSpawn", function(ply)
+	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= MODE or not ply.isTraitor then return end
+
+	timer.Simple(0, function()
+		if not IsValid(ply) or zb.ROUND_STATE ~= 1 or CurrentRound() ~= MODE then return end
+
+		HMCDConfigureTraitorRadio(ply)
+	end)
+end)
+
 hook.Add("PlayerCanPickupWeapon", "HMCD_TraitorRadioPickup", function( ply, weapon )
     if ply.isTraitor and weapon:GetClass() == "weapon_walkie_talkie" then
         if ply:HasWeapon("weapon_walkie_talkie") then
             weapon:Remove()
-			ply:SetActiveWeapon("weapon_walkie_talkie")
+			local radio = ply:GetWeapon("weapon_walkie_talkie")
+			if IsValid(radio) then
+				ply:SetActiveWeapon(radio)
+			end
 			ply:ChatPrint("You hide the additional walkie talkie.")
+
+			return false
         end
     end
 end)
@@ -2779,16 +2848,9 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                 end
             end
             
-            if(MODE.Type == "soe")then
-                if(current_ply.isTraitor)then
-                    local walkie_talkie = current_ply:HasWeapon("weapon_walkie_talkie") and current_ply:GetWeapon("weapon_walkie_talkie") or current_ply:Give("weapon_walkie_talkie")
-					if IsValid(walkie_talkie) and walkie_talkie.Frequencies then
-						MODE.TraitorFrequency = MODE.TraitorFrequency or math.random(1, #walkie_talkie.Frequencies)
-						walkie_talkie.Frequency = MODE.TraitorFrequency
-						current_ply:ChatPrint("Walkie-Talkie Frequency = " .. walkie_talkie.Frequencies[MODE.TraitorFrequency])
-					end
-                end
-            end
+			if current_ply.isTraitor then
+				HMCDConfigureTraitorRadio(current_ply)
+			end
 
 			if current_ply.isTraitor and ZCityTraps and ZCityTraps.GiveActivator then
 				ZCityTraps.GiveActivator(current_ply)

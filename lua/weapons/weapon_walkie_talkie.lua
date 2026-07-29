@@ -69,33 +69,101 @@ function SWEP:BippSound(ent, pitch)
 end
 
 if SERVER then
+	local radioChatColor = Color(45, 255, 120)
+	local radioAnonymousColor = Color(175, 220, 195)
+	local whisperDistanceSqr = 100 * 100
+	local radioVoiceAliases = {}
+	local radioVoiceAliasCounts = {
+		MALE = 0,
+		FEMALE = 0
+	}
+	local radioVoiceAliasRound
+
+	local function RefreshRadioVoiceAliases()
+		local round = zb and zb.ROUND_BEGIN or 0
+		if radioVoiceAliasRound == round then return end
+
+		radioVoiceAliasRound = round
+		table.Empty(radioVoiceAliases)
+		radioVoiceAliasCounts.MALE = 0
+		radioVoiceAliasCounts.FEMALE = 0
+	end
+
+	local function GetRadioVoiceAlias(speaker)
+		RefreshRadioVoiceAliases()
+
+		local steamID64 = speaker:SteamID64()
+		local identity = steamID64 ~= "0" and steamID64 or ("entity-" .. speaker:EntIndex())
+		local alias = radioVoiceAliases[identity]
+		if alias then return alias end
+
+		local voice = ThatPlyIsFemale and ThatPlyIsFemale(speaker) and "FEMALE" or "MALE"
+		radioVoiceAliasCounts[voice] = radioVoiceAliasCounts[voice] + 1
+		alias = voice .. "-VOICE-" .. radioVoiceAliasCounts[voice]
+		radioVoiceAliases[identity] = alias
+
+		return alias
+	end
+
+	local function CanIdentifyRadioSpeaker(speaker, listener)
+		if speaker == listener then return true end
+		if speaker:GetPos():DistToSqr(listener:GetPos()) >= whisperDistanceSqr then return false end
+
+		return listener:TestPVS(speaker)
+	end
+
+	local function SendRadioChatMessage(radio, speaker, listener, text)
+		local frequency = math.Round(radio.Frequency or radio:GetHudFrequency(), 1)
+		local canIdentify = CanIdentifyRadioSpeaker(speaker, listener)
+		local displayName = canIdentify
+			and speaker:GetNWString("PlayerName", speaker:Nick())
+			or GetRadioVoiceAlias(speaker)
+		local displayColor = canIdentify and speaker:GetPlayerColor():ToColor() or radioAnonymousColor
+		local prefix = string.format("[RADIO %.1f MHz] ", frequency)
+
+		if listener.zChatPrint then
+			listener:zChatPrint(
+				radioChatColor,
+				prefix,
+				displayColor,
+				displayName,
+				color_white,
+				": " .. text
+			)
+		else
+			listener:ChatPrint(prefix .. displayName .. ": " .. text)
+		end
+	end
+
     function SWEP:CanListen(output, input, isChat)
-		if !self.isOn or !input:GetWeapon("weapon_walkie_talkie").isOn then
-			return false
-		end
 		if(not IsValid(output) or not IsValid(input))then 
-			return
-		end
-
-        if(not output:Alive() or output.organism.otrub or not input:Alive() or input.organism.otrub)then 
 			return false
 		end
 
-        if(not input:HasWeapon("weapon_walkie_talkie"))then 
-			return
+		local inputRadio = input:GetWeapon("weapon_walkie_talkie")
+		if not IsValid(inputRadio) or not self:GetIsOn() or not inputRadio:GetIsOn() then
+			return false
+		end
+
+		local outputOrganism = output.organism
+		local inputOrganism = input.organism
+        if(not output:Alive() or (outputOrganism and outputOrganism.otrub) or not input:Alive() or (inputOrganism and inputOrganism.otrub))then
+			return false
 		end
 
         if(output:GetActiveWeapon() ~= self)then 
-			return
+			return false
 		end
 
 		if self.FMStations[self.Frequency] then
-			return
+			return false
 		end
 
-        if(output:GetWeapon("weapon_walkie_talkie").Frequency == input:GetWeapon("weapon_walkie_talkie").Frequency or output:Team() == 1002)then 
+        if(self.Frequency == inputRadio.Frequency or output:Team() == 1002)then
 			return true
 		end
+
+		return false
     end
 
     hook.Add("CanListenOthers", "radio", function(output, input, isChat, teamonly, text)
@@ -105,24 +173,15 @@ if SERVER then
 			return
 		end
 
+		if isChat and not output.ChatWhisper then return end
+
         if wep:CanListen(output, input, isChat) then
 
             if isChat then
-				wep:BippSound(output, 100)
+				SendRadioChatMessage(wep, output, input, text)
+				wep:BippSound(input, 100)
 
-				if output == input then 
-					return 
-				end
-                
-                wep:BippSound(input, 100)
-
-				if input:GetPos():DistToSqr(output:GetPos()) < 600000 and not output.organism.otrub and not input.organism.otrub then
-					return true
-				else
-                    input:ChatPrint("Walkie Talkie: " .. text)
-
-					return false
-				end
+				return false
 			else
 				return true, false
             end

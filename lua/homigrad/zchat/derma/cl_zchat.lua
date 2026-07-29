@@ -8,6 +8,8 @@ local ShowTextBoxInactive = CreateClientConVar("zchat_showtextboxinactive", 1, t
 local chatMatGradD = Material("vgui/gradient-d")
 local chatMatGradL = Material("vgui/gradient-l")
 local chatMatGradR = Material("vgui/gradient-r")
+local radioHintColor = Color(35, 255, 110)
+local radioHintOutline = Color(0, 48, 22)
 
 local chatCols = {
 	bg = Color(4, 13, 9, 222),
@@ -576,8 +578,35 @@ function PANEL:Paint(w, h)
 	surface.SetAlphaMultiplier(self:GetAlpha() / 255)
 
 	DisableClipping(true)
-		draw.SimpleText("Hold left ALT and press ENTER to whisper", "zChatFontSmall", 5, h * 1.01 + 1, black)
-		draw.SimpleText("Hold left ALT and press ENTER to whisper", "zChatFontSmall", 4, h * 1.01, gray)
+		local whisperHint = "Hold left ALT and press ENTER to whisper"
+		local radioHint
+		local activeWeapon = LocalPlayer():GetActiveWeapon()
+		if IsValid(activeWeapon) and activeWeapon:GetClass() == "weapon_walkie_talkie" and activeWeapon:GetIsOn() then
+			whisperHint = "Hold left ALT and press ENTER to whisper and radio "
+			radioHint = string.format(
+				"[%.1f MHz]",
+				math.Round(activeWeapon:GetHudFrequency(), 1)
+			)
+		end
+
+		draw.SimpleText(whisperHint, "zChatFontSmall", 5, h * 1.01 + 1, black)
+		draw.SimpleText(whisperHint, "zChatFontSmall", 4, h * 1.01, gray)
+
+		if radioHint then
+			surface.SetFont("zChatFontSmall")
+			local hintWidth = surface.GetTextSize(whisperHint)
+			draw.SimpleTextOutlined(
+				radioHint,
+				"zChatFontSmall",
+				4 + hintWidth,
+				h * 1.01,
+				radioHintColor,
+				TEXT_ALIGN_LEFT,
+				TEXT_ALIGN_TOP,
+				1,
+				radioHintOutline
+			)
+		end
 
 		if LocalPlayer().organism and LocalPlayer().organism.otrub  then
 			draw.SimpleText("Your messages are currently not visible to anyone.", "zChatFontSmall", ScrW() * 0.3 + 1, h * 1.01 + 1, black, TEXT_ALIGN_RIGHT)
