@@ -21,33 +21,12 @@ local vgui_color_notready = Color(0, 50, 0, 255)
 	-- additive = false,
 	-- outline = false,
 -- })
-local function submitTraitorSubRoleSelection(role)
-	local lply = LocalPlayer()
-	if not IsValid(lply) or not lply.isTraitor or not lply.MainTraitor then return end
-	if MODE.RoleEndedChosingState ~= false then return end
-
-	net.Start("HMCD(SubmitTraitorSubRole)")
-		net.WriteString(role or "")
-	net.SendToServer()
-end
-
-local function notifyTraitorRoleSelectionComplete()
-	local lply = LocalPlayer()
-	if not IsValid(lply) or not lply.isTraitor or not lply.MainTraitor then return end
-	if MODE.RoleEndedChosingState ~= false then return end
-
-	net.Start("HMCD(StartPlayersRoleSelection)")
-	net.SendToServer()
-end
-
 local function set_role(role, mode)
 	if mode == "soe" then
 		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor_SOE, role)
 	else
 		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor, role)
 	end
-
-	submitTraitorSubRoleSelection(role)
 end
 
 local function getDisabledRoleToken(mode)
@@ -1147,7 +1126,7 @@ function PANEL:Construct()
 	end
 	
 	label_name.DoClick = function(sel)
-		setTraitorRolePreference(self.Role, self.Mode or MODE.Type or "standard")
+		setTraitorRolePreference(self.Role, self.Mode or "soe")
 	end
 	
 	local text_description = vgui.Create("RichText", self)
@@ -1254,7 +1233,7 @@ function PANEL:Construct()
 		role_panel.Title = role_name
 		role_panel.Description = role_description
 		role_panel.Role = role_id
-		role_panel.Mode = self.Mode or MODE.Type or "standard"
+		role_panel.Mode = self.Mode or "soe"
 		role_panel:SetWidth(ScreenScale(170))
 		-- role_panel:SetHeight(hscroll_height)
 		-- role_panel:InvalidateParent(false)
@@ -1268,14 +1247,16 @@ function PANEL:Construct()
 	button_ready:SetSkin(hg.GetMainSkin())
 	button_ready:SetText("APPLY")
 	button_ready.DoClick = function(sel)
-		local round_mode = self.Mode or MODE.Type or "standard"
-		submitTraitorSubRoleSelection(getCurrentTraitorRole(round_mode == "soe" and "soe" or "standard"))
-
-		if(IsValid(VGUI_HMCD_RolePanelList))then
-			VGUI_HMCD_RolePanelList:Remove()
-		end
-
-		notifyTraitorRoleSelectionComplete()
+		--if(sel.Clicked)then
+			if(IsValid(VGUI_HMCD_RolePanelList))then
+				VGUI_HMCD_RolePanelList:Remove()
+			end
+		--end
+		
+		--sel.Clicked = true
+		
+		--net.Start("HMCD(StartPlayersRoleSelection)")
+		--net.SendToServer()
 	end
 	button_ready.Paint = function(sel, w, h)
 		if(sel.Clicked)then
