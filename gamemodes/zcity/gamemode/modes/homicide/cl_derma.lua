@@ -77,51 +77,49 @@ local function getCurrentTraitorRole(mode)
 end
 
 local lastTraitorRoleBeforeDisable = {}
-local lastTraitorRoleCookieKey = {
-	standard = "hmcd_last_traitor_standard",
-	soe = "hmcd_last_traitor_soe",
-}
-
-local function rememberTraitorRole(role, mode)
-	if not roleExistsForMode(role, mode) then return end
-
-	lastTraitorRoleBeforeDisable[mode] = role
-	cookie.Set(lastTraitorRoleCookieKey[mode], role)
-end
-
-local function recallTraitorRole(mode)
-	local role = lastTraitorRoleBeforeDisable[mode]
-	if roleExistsForMode(role, mode) then return role end
-
-	role = cookie.Get(lastTraitorRoleCookieKey[mode], "")
+local function setTraitorRolePreference(role, mode)
 	if roleExistsForMode(role, mode) then
 		lastTraitorRoleBeforeDisable[mode] = role
-		return role
 	end
-end
 
-local function setTraitorRolePreference(role, mode)
-	rememberTraitorRole(role, mode)
 	set_role(role, mode)
 end
 
 local function toggleTraitorModeDisabled(mode)
 	if isTraitorModeDisabled(mode) then
-		setTraitorRolePreference(recallTraitorRole(mode) or getDefaultTraitorRole(mode), mode)
+		local restoreRole = lastTraitorRoleBeforeDisable[mode]
+		if not roleExistsForMode(restoreRole, mode) then
+			restoreRole = getDefaultTraitorRole(mode)
+		end
+
+		setTraitorRolePreference(restoreRole, mode)
 		return
 	end
 
-	rememberTraitorRole(getCurrentTraitorRole(mode), mode)
+	local currentRole = getCurrentTraitorRole(mode)
+	if roleExistsForMode(currentRole, mode) then
+		lastTraitorRoleBeforeDisable[mode] = currentRole
+	end
+
 	set_role(getDisabledRoleToken(mode), mode)
 end
 
 local function toggleTraitorModeRandom(mode)
 	if isTraitorModeRandom(mode) then
-		setTraitorRolePreference(recallTraitorRole(mode) or getDefaultTraitorRole(mode), mode)
+		local restoreRole = lastTraitorRoleBeforeDisable[mode]
+		if not roleExistsForMode(restoreRole, mode) then
+			restoreRole = getDefaultTraitorRole(mode)
+		end
+
+		setTraitorRolePreference(restoreRole, mode)
 		return
 	end
 
-	rememberTraitorRole(getCurrentTraitorRole(mode), mode)
+	local currentRole = getCurrentTraitorRole(mode)
+	if roleExistsForMode(currentRole, mode) then
+		lastTraitorRoleBeforeDisable[mode] = currentRole
+	end
+
 	set_role(getRandomRoleToken(mode), mode)
 end
 
@@ -629,15 +627,6 @@ local PANEL = {}
 function PANEL:Init()
 	refreshTraitorTileFonts()
 	requestTraitorRoleStats(false)
-
-	for _, mode in ipairs({"standard", "soe"}) do
-		recallTraitorRole(mode)
-
-		local currentRole = getCurrentTraitorRole(mode)
-		if roleExistsForMode(currentRole, mode) then
-			rememberTraitorRole(currentRole, mode)
-		end
-	end
 
 	if IsValid(VGUI_HMCD_TraitorTileMenu) then
 		VGUI_HMCD_TraitorTileMenu:Remove()
