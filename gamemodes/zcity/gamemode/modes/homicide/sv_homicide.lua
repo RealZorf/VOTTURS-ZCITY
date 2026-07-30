@@ -277,6 +277,7 @@ util.AddNetworkString("HMCDPoliceRole")
 util.AddNetworkString("HMCD(StartPlayersRoleSelection)")
 util.AddNetworkString("HMCD(EndPlayersRoleSelection)")
 util.AddNetworkString("HMCD(SetSubRole)")
+util.AddNetworkString("HMCD(SyncTraitorRolePreferences)")
 util.AddNetworkString("HMCD(SetProfession)")
 util.AddNetworkString("hmcd_announce_traitor_lose")
 util.AddNetworkString("HMCD_TraitorRoleStats")
@@ -412,11 +413,60 @@ local function HMCDGetTraitorRandomToken(round_type)
 	return round_type == "soe" and (MODE.SubRole_Traitor_Random_SOE or "traitor_random_soe") or (MODE.SubRole_Traitor_Random or "traitor_random")
 end
 
+local function HMCDGetTraitorPreferenceKey(round_type)
+	return round_type == "soe" and "soe" or "standard"
+end
+
+local function HMCDGetTraitorPreferenceConvarName(round_type)
+	return round_type == "soe" and MODE.ConVarName_SubRole_Traitor_SOE or MODE.ConVarName_SubRole_Traitor
+end
+
+local function HMCDValidateTraitorRolePreference(preference, round_type)
+	if not isstring(preference) or preference == "" or #preference > 64 then return nil end
+
+	local normalized = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(preference) or preference
+	if normalized == HMCDGetTraitorDisabledToken(round_type) or normalized == HMCDGetTraitorRandomToken(round_type) then
+		return normalized
+	end
+
+	local round_config = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[round_type]
+	if not round_config or not istable(round_config.Traitor) then return nil end
+	if not round_config.Traitor[normalized] or not MODE.SubRoles or not MODE.SubRoles[normalized] then return nil end
+
+	return normalized
+end
+
+local function HMCDGetPlayerTraitorRolePreference(ply, round_type)
+	if not IsValid(ply) then return nil end
+
+	local preference_key = HMCDGetTraitorPreferenceKey(round_type)
+	local cached = ply.HMCDTraitorRolePreferences and ply.HMCDTraitorRolePreferences[preference_key]
+	if cached then return cached end
+
+	local convar_name = HMCDGetTraitorPreferenceConvarName(round_type)
+	return HMCDValidateTraitorRolePreference(ply:GetInfo(convar_name or ""), round_type)
+end
+
+net.Receive("HMCD(SyncTraitorRolePreferences)", function(_, ply)
+	if not IsValid(ply) then return end
+	if (ply.HMCDNextTraitorRolePreferenceSync or 0) > CurTime() then return end
+
+	local standard = HMCDValidateTraitorRolePreference(net.ReadString(), "standard")
+	local soe = HMCDValidateTraitorRolePreference(net.ReadString(), "soe")
+	if not standard or not soe then return end
+
+	ply.HMCDNextTraitorRolePreferenceSync = CurTime() + 0.1
+	ply.HMCDTraitorRolePreferences = {
+		standard = standard,
+		soe = soe
+	}
+	ply.HMCDTraitorRolePreferencesReady = true
+end)
+
 local function HMCDPlayerDisabledTraitorMode(ply, round_type)
 	if not IsValid(ply) then return false end
 
-	local convar_name = round_type == "soe" and MODE.ConVarName_SubRole_Traitor_SOE or MODE.ConVarName_SubRole_Traitor
-	return ply:GetInfo(convar_name or "") == HMCDGetTraitorDisabledToken(round_type)
+	return HMCDGetPlayerTraitorRolePreference(ply, round_type) == HMCDGetTraitorDisabledToken(round_type)
 end
 
 local function HMCDChooseRandomTraitorSubRole(round_type)
@@ -425,7 +475,12 @@ local function HMCDChooseRandomTraitorSubRole(round_type)
 
 	local choices = {}
 	for role, enabled in pairs(round_config.Traitor) do
-		if enabled and isstring(role) and MODE.SubRoles and MODE.SubRoles[role] then
+		if enabled
+			and role ~= round_config.TraitorDefaultRole
+			and isstring(role)
+			and MODE.SubRoles
+			and MODE.SubRoles[role]
+		then
 			choices[#choices + 1] = role
 		end
 	end
@@ -438,9 +493,7 @@ end
 local function HMCDResolvePlayerTraitorSubRole(ply, round_type)
 	local round_config = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[round_type]
 	local default_role = round_config and round_config.TraitorDefaultRole or "traitor_default"
-	local convar_name = round_type == "soe" and MODE.ConVarName_SubRole_Traitor_SOE or MODE.ConVarName_SubRole_Traitor
-	local sub_role_id = IsValid(ply) and ply:GetInfo(convar_name or "") or default_role
-	local sub_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(sub_role_id) or sub_role_id
+	local sub_role = HMCDGetPlayerTraitorRolePreference(ply, round_type) or default_role
 
 	if sub_role == HMCDGetTraitorDisabledToken(round_type) then
 		return default_role, false
@@ -1370,7 +1423,10 @@ function MODE:Intermission()
 
 	local function CanPickTraitor(ply, allow_disabled)
 		if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then return false end
-		if not allow_disabled and HMCDPlayerDisabledTraitorMode(ply, self.Type) then return false end
+		if not allow_disabled then
+			if not ply.HMCDTraitorRolePreferencesReady then return false end
+			if HMCDPlayerDisabledTraitorMode(ply, self.Type) then return false end
+		end
 
 		return true
 	end

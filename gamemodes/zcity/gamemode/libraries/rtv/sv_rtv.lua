@@ -39,13 +39,13 @@ local blacklist = {
 local allowedPrefix = {
     ["ttt"] = true, ["hmcd"] = true, ["mu"] = true, ["ze"] = false,
     ["zs"] = true, ["tdm"] = true, ["zb"] = false, ["zbattle"] = false,
-    ["gm"] = true, ["ph"] = true, ["cs"] = true, ["de"] = true
+    ["gm"] = true, ["ph"] = true, ["cs"] = true, ["de"] = true, ["zc"] = true
 }
 
 local prefixWeights = {
     ["ttt"] = 18, ["hmcd"] = 19, ["mu"] = 18, ["ze"] = 0,
     ["zs"] = 9,  ["tdm"] = 5,  ["zb"] = 0,  ["zbattle"] = 0,
-    ["gm"] = 20, ["ph"] = 11, ["cs"] = 1,  ["de"] = 1
+    ["gm"] = 20, ["ph"] = 11, ["cs"] = 1,  ["de"] = 1, ["zc"] = 15
 }
 
 local function GetSafeServerName()

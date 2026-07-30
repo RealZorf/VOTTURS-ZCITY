@@ -21,13 +21,55 @@ local vgui_color_notready = Color(0, 50, 0, 255)
 	-- additive = false,
 	-- outline = false,
 -- })
+local function syncTraitorRolePreferences()
+	if not MODE.ConVar_SubRole_Traitor or not MODE.ConVar_SubRole_Traitor_SOE then return end
+
+	net.Start("HMCD(SyncTraitorRolePreferences)")
+		net.WriteString(MODE.ConVar_SubRole_Traitor:GetString())
+		net.WriteString(MODE.ConVar_SubRole_Traitor_SOE:GetString())
+	net.SendToServer()
+end
+
+local preferenceSyncQueued = false
+local function queueTraitorRolePreferenceSync()
+	if preferenceSyncQueued then return end
+	preferenceSyncQueued = true
+
+	timer.Simple(0, function()
+		preferenceSyncQueued = false
+		syncTraitorRolePreferences()
+	end)
+end
+
 local function set_role(role, mode)
 	if mode == "soe" then
 		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor_SOE, role)
 	else
 		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor, role)
 	end
+
+	queueTraitorRolePreferenceSync()
 end
+
+local function installTraitorRolePreferenceSync()
+	local standard_name = MODE.ConVarName_SubRole_Traitor
+	local soe_name = MODE.ConVarName_SubRole_Traitor_SOE
+	if not standard_name or not soe_name then return end
+
+	cvars.RemoveChangeCallback(standard_name, "HMCD_SyncStandardTraitorRolePreference")
+	cvars.RemoveChangeCallback(soe_name, "HMCD_SyncSOETraitorRolePreference")
+
+	cvars.AddChangeCallback(standard_name, queueTraitorRolePreferenceSync, "HMCD_SyncStandardTraitorRolePreference")
+	cvars.AddChangeCallback(soe_name, queueTraitorRolePreferenceSync, "HMCD_SyncSOETraitorRolePreference")
+	queueTraitorRolePreferenceSync()
+end
+
+timer.Simple(0, installTraitorRolePreferenceSync)
+
+hook.Add("InitPostEntity", "HMCD_SyncTraitorRolePreferences", function()
+	installTraitorRolePreferenceSync()
+	timer.Simple(2, queueTraitorRolePreferenceSync)
+end)
 
 local function getDisabledRoleToken(mode)
 	return mode == "soe" and (MODE.SubRole_Traitor_Disabled_SOE or "traitor_disabled_soe") or (MODE.SubRole_Traitor_Disabled or "traitor_disabled")
