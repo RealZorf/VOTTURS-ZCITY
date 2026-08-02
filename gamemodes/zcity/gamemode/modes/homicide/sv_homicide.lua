@@ -68,7 +68,6 @@ MODE.LootTable = {
 		{4,"weapon_hatchethmcd"},
 		{2,"weapon_hg_metalpot"},
 		{4,"weapon_pan"},
-		{1,"weapon_hg_pickaxe"},
 		{8,"weapon_pocketknife"},
 		{1,"weapon_hg_pickaxe"},
 		{0.2,"weapon_hg_pitchfork"},
@@ -94,7 +93,7 @@ MODE.LootTable = {
 		{1,"ent_armor_mask1"},
 		{2,"ent_armor_vest5"},
     }},
-    {12,{
+    {4,{
 		{10,"weapon_zoraki"},
 		{10,"weapon_mp-80"},
 		{10,"weapon_osapb"},
@@ -104,7 +103,7 @@ MODE.LootTable = {
 		{7,"weapon_revolversw686"},
         {7,"weapon_m1911"},
     }},
-	{10,{
+	{4,{
 		{5,"weapon_hk_usp"},
 		{5,"weapon_glock17"},
 		{5,"weapon_glock26"},
@@ -123,7 +122,7 @@ MODE.LootTable = {
 		{5,"weapon_m9beretta"},
 		{5,"weapon_grach"},
     }},
-    {6,	{
+    {3,	{
 		{3,"weapon_fivsevn"},
 		{5,"weapon_deagle"},
 		{5,"weapon_grizzlymkv"},
@@ -144,7 +143,7 @@ MODE.LootTable = {
 		{3,"weapon_tec9"},
 		{3,"weapon_uzicarbine"},
 	}},
-	{8, {
+	{4, {
 		{2,"ent_att_supressor4"},
 		{2,"ent_att_holo16"},
 		{2,"ent_att_holo9"},
@@ -226,7 +225,7 @@ MODE.LootTableStandard = {
 		{2,"weapon_hg_axe"},
 		{6,"weapon_hg_wrench"},
 	}},
-    {15,{
+    {2,{
 		{10,"weapon_zoraki"},
 		{10,"weapon_mp-80"},
 		{10,"weapon_osapb"},
