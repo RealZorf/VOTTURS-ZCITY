@@ -93,7 +93,7 @@ MODE.LootTable = {
 		{1,"ent_armor_mask1"},
 		{2,"ent_armor_vest5"},
     }},
-    {4,{
+    {7,{
 		{10,"weapon_zoraki"},
 		{10,"weapon_mp-80"},
 		{10,"weapon_osapb"},
@@ -103,7 +103,7 @@ MODE.LootTable = {
 		{7,"weapon_revolversw686"},
         {7,"weapon_m1911"},
     }},
-	{4,{
+	{6,{
 		{5,"weapon_hk_usp"},
 		{5,"weapon_glock17"},
 		{5,"weapon_glock26"},
@@ -122,7 +122,7 @@ MODE.LootTable = {
 		{5,"weapon_m9beretta"},
 		{5,"weapon_grach"},
     }},
-    {3,	{
+    {4,	{
 		{3,"weapon_fivsevn"},
 		{5,"weapon_deagle"},
 		{5,"weapon_grizzlymkv"},
@@ -143,7 +143,7 @@ MODE.LootTable = {
 		{3,"weapon_tec9"},
 		{3,"weapon_uzicarbine"},
 	}},
-	{4, {
+	{6, {
 		{2,"ent_att_supressor4"},
 		{2,"ent_att_holo16"},
 		{2,"ent_att_holo9"},
