@@ -1,5 +1,129 @@
 local chat_dist_normal = 3000
 local chat_dist_whisper = 100
+local voice_dist_normal = 2000
+local voice_occlusion_cache_time = 0.2
+local voice_dist_partial = 1700
+local voice_dist_indirect = 1400
+local voice_dist_wall = 850
+local voice_dist_floor = 500
+local voice_dist_multiple = 350
+local voice_up = Vector(0, 0, 1)
+local voice_chest_offset = Vector(0, 0, 12)
+
+local voice_occlusion_cache = setmetatable({}, {__mode = "k"})
+
+local function VoiceTraceFilter(ent)
+	if ent:IsPlayer() or ent:IsRagdoll() then return false end
+
+	local owner = ent:GetOwner()
+	if IsValid(owner) and owner:IsPlayer() then return false end
+
+	local parent = ent:GetParent()
+	if IsValid(parent) and parent:IsPlayer() then return false end
+
+	return true
+end
+
+local function GetVoicePairCache(listener, speaker)
+	local first, second = listener, speaker
+	if listener:EntIndex() > speaker:EntIndex() then
+		first, second = speaker, listener
+	end
+
+	local pairs = voice_occlusion_cache[first]
+	if not pairs then
+		pairs = setmetatable({}, {__mode = "k"})
+		voice_occlusion_cache[first] = pairs
+	end
+
+	return pairs, second
+end
+
+local function TraceVoicePath(traceData, startPos, endPos)
+	traceData.start = startPos
+	traceData.endpos = endPos
+
+	return util.TraceLine(traceData)
+end
+
+local function ClassifyVoicePath(listener, speaker)
+	local listenerHead = listener:EyePos()
+	local speakerHead = speaker:EyePos()
+	local listenerChest = listener:WorldSpaceCenter() + voice_chest_offset
+	local speakerChest = speaker:WorldSpaceCenter() + voice_chest_offset
+	local directDistance = speakerHead:Distance(listenerHead)
+	local traceData = {
+		mask = MASK_SOLID,
+		filter = VoiceTraceFilter
+	}
+	local directTrace = TraceVoicePath(traceData, speakerHead, listenerHead)
+	if not directTrace.Hit then return "clear", directDistance end
+	if not TraceVoicePath(traceData, speakerChest, listenerHead).Hit then return "partial", directDistance end
+	if not TraceVoicePath(traceData, speakerHead, listenerChest).Hit then return "partial", directDistance end
+
+	local hitNormal = directTrace.HitNormal
+	local tangent = hitNormal:Cross(voice_up)
+	if tangent:LengthSqr() < 0.01 then
+		local path = listenerHead - speakerHead
+		tangent = Vector(-path.y, path.x, 0)
+		if tangent:LengthSqr() < 0.01 then
+			tangent = speaker:GetRight()
+			tangent.z = 0
+		end
+	end
+
+	if tangent:LengthSqr() >= 0.01 then
+		tangent:Normalize()
+		local bendOffset = math.Clamp(directDistance * 0.18, 72, 180)
+		local shortestPath
+
+		for direction = -1, 1, 2 do
+			local bend = directTrace.HitPos + tangent * bendOffset * direction + hitNormal * 6
+			if not TraceVoicePath(traceData, speakerHead, bend).Hit and not TraceVoicePath(traceData, bend, listenerHead).Hit then
+				local pathDistance = speakerHead:Distance(bend) + bend:Distance(listenerHead)
+				if pathDistance <= directDistance * 1.35 and (not shortestPath or pathDistance < shortestPath) then
+					shortestPath = pathDistance
+				end
+			end
+		end
+
+		if shortestPath then return "indirect", shortestPath end
+	end
+
+	local reverse = TraceVoicePath(traceData, listenerHead, speakerHead)
+	local path = listenerHead - speakerHead
+	local verticalRatio = directDistance > 0 and math.abs(path.z) / directDistance or 0
+	local blockedSpan = reverse.Hit and directTrace.HitPos:Distance(reverse.HitPos) or 0
+	local sameBlocker = reverse.Hit and directTrace.Entity == reverse.Entity
+
+	if verticalRatio >= 0.4 then return "floor", directDistance end
+	if reverse.Hit and (blockedSpan > 96 or not sameBlocker) then return "multiple", directDistance end
+
+	return "wall", directDistance
+end
+
+local function GetVoiceAcousticRange(listener, speaker)
+	local pairs, key = GetVoicePairCache(listener, speaker)
+	local cached = pairs[key]
+	local now = CurTime()
+	if cached and cached.expires > now then return cached.range, cached.pathDistance end
+
+	local classification, pathDistance = ClassifyVoicePath(listener, speaker)
+	local allowedDistance = classification == "clear" and voice_dist_normal
+		or classification == "partial" and voice_dist_partial
+		or classification == "indirect" and voice_dist_indirect
+		or classification == "floor" and voice_dist_floor
+		or classification == "multiple" and voice_dist_multiple
+		or voice_dist_wall
+
+	pairs[key] = {
+		expires = now + voice_occlusion_cache_time,
+		range = allowedDistance,
+		pathDistance = pathDistance
+	}
+
+	return allowedDistance, pathDistance
+end
 
 --\\Whisper
 	util.AddNetworkString("ChatWhisper")
@@ -17,27 +141,35 @@ local function ChatLogic(output, input, isChat, teamonly, text)
 	
 	if result ~= nil then return result,is3D end
 
-	local chat_dist = chat_dist_normal
+	local chat_dist = isChat and chat_dist_normal or voice_dist_normal
 
 	if(IsValid(output) and output.ChatWhisper)then
 		chat_dist = chat_dist_whisper
 	end
 
 	if output:Alive() and input:Alive() and not output.organism.otrub and not input.organism.otrub and output.organism.o2[1] >= 15 and not output.organism.holdingbreath and input:TestPVS( output ) then
-		if input:GetPos():Distance(output:GetPos()) < chat_dist and not teamonly then
-			return true, true
-		else
-			return false
+		local distance = input:GetPos():Distance(output:GetPos())
+		if teamonly or distance >= chat_dist then return false end
+		if not isChat then
+			local acousticRange, acousticDistance = GetVoiceAcousticRange(input, output)
+			if acousticDistance >= acousticRange then return false end
 		end
+
+		return true, true
 	elseif not output:Alive() and not input:Alive() then
 		return true
 	else
-		if not input:Alive() and output:Alive() then 
-			if input:GetPos():Distance(output:GetPos()) < chat_dist and input:TestPVS( output ) and not teamonly then
-				return true, true
-			else
-				return false
-			end 
+		if not input:Alive() and output:Alive() then
+			if teamonly or not input:TestPVS(output) then return false end
+
+			local distance = input:GetPos():Distance(output:GetPos())
+			if distance >= chat_dist then return false end
+			if not isChat then
+				local acousticRange, acousticDistance = GetVoiceAcousticRange(input, output)
+				if acousticDistance >= acousticRange then return false end
+			end
+
+			return true, true
 		end
 		if not output:Alive() and input:Team() == 1002 and input:Alive() then return true end
 
@@ -161,7 +293,6 @@ hook.Add("HG_ReplacePhrase", "BraindeadPhrase", function(ply, phrase, muffed, pi
 end)
 
 hook.Add("PlayerCanHearPlayersVoice", "RealisticVoice", function(listener,speaker)
-	local result,is3D = ChatLogic(speaker,listener,false,false)
 	local speak = speaker:IsSpeaking()
 	speaker.IsSpeak = speak
 
@@ -180,5 +311,6 @@ hook.Add("PlayerCanHearPlayersVoice", "RealisticVoice", function(listener,speake
 		return Hook
 	end
 
+	local result,is3D = ChatLogic(speaker,listener,false,false)
 	return result,is3D
 end)

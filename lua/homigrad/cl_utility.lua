@@ -759,16 +759,63 @@ players : 1 humans, 0 bots (20 max)
 			end
 		end)
 
+		local activeVoiceSpeakers = setmetatable({}, {__mode = "k"})
+		local voiceOcclusionMemory = setmetatable({}, {__mode = "k"})
+		local playerVoiceBaseVolume
+		local throatCutVoiceMul
+
+		local function restoreVoiceVolume(ply)
+			if not IsValid(ply) then return end
+
+			local baseVolume = playerVoiceBaseVolume and playerVoiceBaseVolume(ply) or 1
+			local injuryVolume = throatCutVoiceMul and throatCutVoiceMul(ply) or 1
+			local enabled = not hg.muteall and (not hg.mutespect or ply:Alive())
+			ply:SetVoiceVolumeScale(enabled and baseVolume * injuryVolume or 0)
+		end
+
+		local function trackVoiceSpeaker(ply)
+			if not IsValid(ply) or ply == LocalPlayer() or activeVoiceSpeakers[ply] then return end
+
+			local previous = voiceOcclusionMemory[ply]
+			if previous and previous.expires <= CurTime() then previous = nil end
+
+			activeVoiceSpeakers[ply] = {
+				scale = previous and previous.scale or 1,
+				target = previous and previous.target or 1,
+				occlusion = previous and previous.occlusion or nil,
+				nextTrace = 0
+			}
+
+			if previous and playerVoiceBaseVolume and throatCutVoiceMul then
+				local enabled = not hg.muteall and (not hg.mutespect or ply:Alive())
+				local volume = playerVoiceBaseVolume(ply) * throatCutVoiceMul(ply) * previous.scale
+				ply:SetVoiceVolumeScale(enabled and volume or 0)
+			end
+		end
+
 		hook.Add("PlayerStartVoice","huy_CheckVoice",function(ply)
 			if not IsValid(ply) then return end
 
 			ply.IsSpeak = true
+			trackVoiceSpeaker(ply)
 		end)
 
 		hook.Add("PlayerEndVoice","huy_CheckVoice",function(ply)
 			if not IsValid(ply) then return end
 			
+			local state = activeVoiceSpeakers[ply]
+			if state then
+				voiceOcclusionMemory[ply] = {
+					scale = state.scale,
+					target = state.target,
+					occlusion = state.occlusion,
+					expires = CurTime() + 1
+				}
+			end
+
 			ply.IsSpeak = false
+			activeVoiceSpeakers[ply] = nil
+			restoreVoiceVolume(ply)
 		end)
 
 		local nextVoiceStaleCheck = 0
@@ -777,12 +824,37 @@ players : 1 humans, 0 bots (20 max)
 			if nextVoiceStaleCheck > time then return end
 			nextVoiceStaleCheck = time + 0.25
 
-			for _, ply in ipairs(player.GetHumans()) do
-				if not IsValid(ply) or not ply.IsSpeak then continue end
+			local listener = LocalPlayer()
+			for _, ply in player.Iterator() do
+				if ply ~= listener and ply:IsSpeaking() and not activeVoiceSpeakers[ply] then
+					ply.IsSpeak = true
+					trackVoiceSpeaker(ply)
+				end
+			end
+
+			for ply, state in pairs(activeVoiceSpeakers) do
+				if not IsValid(ply) then
+					activeVoiceSpeakers[ply] = nil
+					continue
+				end
+
+				if not ply.IsSpeak then
+					activeVoiceSpeakers[ply] = nil
+					continue
+				end
+
 				if hg.IsAdminVoicePanelActive and hg.IsAdminVoicePanelActive(ply) then continue end
 				if ply:IsSpeaking() then continue end
 
+				voiceOcclusionMemory[ply] = {
+					scale = state.scale,
+					target = state.target,
+					occlusion = state.occlusion,
+					expires = time + 1
+				}
 				ply.IsSpeak = false
+				activeVoiceSpeakers[ply] = nil
+				restoreVoiceVolume(ply)
 
 				if GAMEMODE and GAMEMODE.PlayerEndVoice then
 					GAMEMODE:PlayerEndVoice(ply)
@@ -825,7 +897,7 @@ players : 1 humans, 0 bots (20 max)
 			return snd
 		end
 
-		local function throatCutVoiceMul(talker)
+		throatCutVoiceMul = function(talker)
 			if not IsValid(talker) then return 1 end
 
 			local time = CurTime()
@@ -844,41 +916,237 @@ players : 1 humans, 0 bots (20 max)
 			return choke
 		end
 
-		local function playerVoiceBaseVolume(ply)
-			return hg.playerInfo[ply:SteamID()] and hg.playerInfo[ply:SteamID()][2] or 1
+		playerVoiceBaseVolume = function(ply)
+			local info = hg.playerInfo[ply:SteamID()]
+			return istable(info) and tonumber(info[2]) or 1
 		end
 
-		local function UpdateVoiceDSP(listener, talker)
-			if not talker:IsSpeaking() then return end
-			if not IsValid(listener) or not IsValid(talker) or listener == talker then return end
+		local voiceOcclusionVolume = {
+			clear = 1,
+			partial = 1,
+			indirect = 0.55,
+			wall = 0.42,
+			floor = 0.24,
+			multiple = 0.12
+		}
+		local voiceOcclusionDistance = {
+			partial = 1700,
+			indirect = 1400,
+			wall = 850,
+			floor = 500,
+			multiple = 350
+		}
+		local voiceUp = Vector(0, 0, 1)
+		local voiceChestOffset = Vector(0, 0, 12)
 
-			local trace = util.TraceLine({
-				start = listener:EyePos(),
-				endpos = talker:EyePos(),
-				mask = MASK_SOLID_BRUSHONLY,
-			})
+		local function voiceTraceFilter(ent)
+			if ent:IsPlayer() or ent:IsRagdoll() then return false end
 
-			local volume = (talker:WaterLevel() == 3) and 0.25 or (trace.Hit and 0.5 or 1)
-			volume = volume * throatCutVoiceMul(talker)
+			local owner = ent:GetOwner()
+			if IsValid(owner) and owner:IsPlayer() then return false end
 
-			talker:SetVoiceVolumeScale(!hg.muteall and math.min(playerVoiceBaseVolume(talker), volume) or 0)
+			local parent = ent:GetParent()
+			if IsValid(parent) and parent:IsPlayer() then return false end
+
+			return true
 		end
+
+		local function matchingVoiceRadio(listener, talker)
+			if not listener:Alive() or not talker:Alive() then return false end
+
+			local speakerRadio = talker:GetWeapon("weapon_walkie_talkie")
+			local listenerRadio = listener:GetWeapon("weapon_walkie_talkie")
+			if not IsValid(speakerRadio) or not IsValid(listenerRadio) then return false end
+			if talker:GetActiveWeapon() ~= speakerRadio then return false end
+			if not speakerRadio:GetIsOn() or not listenerRadio:GetIsOn() then return false end
+
+			local speakerOrg = talker.organism
+			local listenerOrg = listener.organism
+			if (speakerOrg and speakerOrg.otrub) or (listenerOrg and listenerOrg.otrub) then return false end
+
+			local speakerFrequency = math.Round(speakerRadio:GetHudFrequency(), 1)
+			local listenerFrequency = math.Round(listenerRadio:GetHudFrequency(), 1)
+			if speakerRadio.FMStations and speakerRadio.FMStations[speakerFrequency] then return false end
+
+			return speakerFrequency == listenerFrequency or talker:Team() == 1002
+		end
+
+		local function bypassVoiceOcclusion(listener, talker)
+			local result = hook.Run("HG_BypassVoiceOcclusion", listener, talker)
+			if result ~= nil then return result end
+
+			if zb and (zb.ROUND_STATE == 0 or zb.ROUND_STATE == 3) then return true end
+			if not listener:Alive() and not talker:Alive() then return true end
+			if listener:GetNetVar("disappearance") or talker:GetNetVar("disappearance") then return true end
+			if listener.PlayerClassName == "Combine" and talker.PlayerClassName == "Combine" and talker:Alive() then return true end
+
+			return matchingVoiceRadio(listener, talker)
+		end
+
+		local function traceVoicePath(traceData, startPos, endPos)
+			traceData.start = startPos
+			traceData.endpos = endPos
+
+			return util.TraceLine(traceData)
+		end
+
+		local function classifyVoiceOcclusion(listener, talker)
+			local listenerHead = listener:EyePos()
+			local talkerHead = talker:EyePos()
+			local listenerChest = listener:WorldSpaceCenter() + voiceChestOffset
+			local talkerChest = talker:WorldSpaceCenter() + voiceChestOffset
+			local directDistance = talkerHead:Distance(listenerHead)
+			local traceData = {
+				mask = MASK_SOLID,
+				filter = voiceTraceFilter
+			}
+			local directTrace = traceVoicePath(traceData, talkerHead, listenerHead)
+			local clearSamples = directTrace.Hit and 0 or 1
+
+			if not traceVoicePath(traceData, talkerChest, listenerHead).Hit then clearSamples = clearSamples + 1 end
+			if not traceVoicePath(traceData, talkerHead, listenerChest).Hit then clearSamples = clearSamples + 1 end
+
+			if clearSamples > 0 then
+				return clearSamples == 3 and "clear" or "partial", directDistance, clearSamples / 3
+			end
+
+			local hitNormal = directTrace.HitNormal
+			local tangent = hitNormal:Cross(voiceUp)
+			if tangent:LengthSqr() < 0.01 then
+				local path = listenerHead - talkerHead
+				tangent = Vector(-path.y, path.x, 0)
+				if tangent:LengthSqr() < 0.01 then
+					tangent = talker:GetRight()
+					tangent.z = 0
+				end
+			end
+
+			if tangent:LengthSqr() >= 0.01 then
+				tangent:Normalize()
+				local bendOffset = math.Clamp(directDistance * 0.18, 72, 180)
+				local shortestPath
+
+				for direction = -1, 1, 2 do
+					local bend = directTrace.HitPos + tangent * bendOffset * direction + hitNormal * 6
+					if not traceVoicePath(traceData, talkerHead, bend).Hit and not traceVoicePath(traceData, bend, listenerHead).Hit then
+						local pathDistance = talkerHead:Distance(bend) + bend:Distance(listenerHead)
+						if pathDistance <= directDistance * 1.35 and (not shortestPath or pathDistance < shortestPath) then
+							shortestPath = pathDistance
+						end
+					end
+				end
+
+				if shortestPath then return "indirect", shortestPath, math.Clamp(directDistance / shortestPath, 0, 1) end
+			end
+
+			local reverse = traceVoicePath(traceData, listenerHead, talkerHead)
+			local path = listenerHead - talkerHead
+			local verticalRatio = directDistance > 0 and math.abs(path.z) / directDistance or 0
+			local blockedSpan = reverse.Hit and directTrace.HitPos:Distance(reverse.HitPos) or 0
+			local sameBlocker = reverse.Hit and directTrace.Entity == reverse.Entity
+
+			if verticalRatio >= 0.4 then return "floor", directDistance, 1 end
+			if reverse.Hit and (blockedSpan > 96 or not sameBlocker) then return "multiple", directDistance, 1 end
+
+			return "wall", directDistance, 1
+		end
+
+		local function setVoiceOcclusionCandidate(state, candidate, pathDistance, exposure)
+			if not state.occlusion then
+				state.occlusion = candidate
+				state.pathDistance = pathDistance
+				state.exposure = exposure
+				state.pendingOcclusion = nil
+				state.pendingSamples = 0
+				return
+			end
+
+			if candidate == state.occlusion then
+				state.pathDistance = pathDistance
+				state.exposure = exposure
+				state.pendingOcclusion = nil
+				state.pendingSamples = 0
+				return
+			end
+
+			if state.pendingOcclusion ~= candidate then
+				state.pendingOcclusion = candidate
+				state.pendingSamples = 1
+				return
+			end
+
+			state.pendingSamples = state.pendingSamples + 1
+			local requiredSamples = candidate == "clear" and 3 or 2
+			if state.pendingSamples < requiredSamples then return end
+
+			state.occlusion = candidate
+			state.pathDistance = pathDistance
+			state.exposure = exposure
+			state.pendingOcclusion = nil
+			state.pendingSamples = 0
+		end
+
+		local function voiceOcclusionTarget(occlusion, acousticDistance, exposure)
+			local volume = voiceOcclusionVolume[occlusion] or 1
+			if occlusion == "partial" then
+				volume = Lerp(math.Clamp(exposure or 0, 0, 1), 0.55, 1)
+			elseif occlusion == "indirect" then
+				volume = volume * math.Clamp(exposure or 1, 0.7, 1)
+			end
+
+			local maxDistance = voiceOcclusionDistance[occlusion]
+			if not maxDistance then return volume end
+
+			local fadeStart = maxDistance * 0.4
+			local fraction = math.Clamp(((acousticDistance or 0) - fadeStart) / (maxDistance - fadeStart), 0, 1)
+			local smoothFraction = fraction * fraction * (3 - 2 * fraction)
+
+			return volume * (1 - smoothFraction)
+		end
+
+		hook.Add("Think", "HG_SmoothVoiceOcclusion", function()
+			local listener = LocalPlayer()
+			if not IsValid(listener) then return end
+
+			local time = CurTime()
+			local frameTime = FrameTime()
+			for talker, state in pairs(activeVoiceSpeakers) do
+				if not IsValid(talker) then
+					activeVoiceSpeakers[talker] = nil
+					continue
+				end
+
+				if state.nextTrace <= time then
+					state.nextTrace = time + 0.2
+					if bypassVoiceOcclusion(listener, talker) then
+						state.occlusion = "clear"
+						state.pathDistance = listener:EyePos():Distance(talker:EyePos())
+						state.exposure = 1
+						state.pendingOcclusion = nil
+						state.pendingSamples = 0
+					else
+						local classification, pathDistance, exposure = classifyVoiceOcclusion(listener, talker)
+						setVoiceOcclusionCandidate(state, classification, pathDistance, exposure)
+					end
+
+					state.target = voiceOcclusionTarget(state.occlusion, state.pathDistance, state.exposure)
+					if talker:WaterLevel() == 3 then state.target = math.min(state.target, 0.25) end
+				end
+
+				local fadeRate = state.target < state.scale and 7 or 4
+				state.scale = Lerp(math.Clamp(frameTime * fadeRate, 0, 1), state.scale, state.target)
+
+				local enabled = not hg.muteall and (not hg.mutespect or talker:Alive())
+				local volume = playerVoiceBaseVolume(talker) * throatCutVoiceMul(talker) * state.scale
+				talker:SetVoiceVolumeScale(enabled and volume or 0)
+			end
+		end)
 
 		local cachedLerp = Lerp
 
 		local function mouthmove(ply)
-			ply:SetVoiceVolumeScale(!hg.muteall and (!hg.mutespect or ply:Alive()) and playerVoiceBaseVolume(ply) * throatCutVoiceMul(ply) or 0)
-
 			if not ply:Alive() then return end
 			local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
-			
-			if ply:VoiceVolume() != 0 then
-				if (ply.timedupdate or 0) < CurTime() then
-					UpdateVoiceDSP(lply, ply)
-					
-					ply.timedupdate = CurTime() + 0.5
-				end
-			end
 
 			if lply:GetPos():DistToSqr(ent:GetPos()) > 1500 * 1500 then return end
 			

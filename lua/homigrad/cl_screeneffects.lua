@@ -365,9 +365,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	if not organism then stopthings() return end
 	if not organism.brain then stopthings() return end
 	local org = organism
+	local flashAmount = tonumber(amtflashed) or 0
 	
-	if org.blindness or amtflashed >= 0.8 then
-		local blindness = ((org.blindness and math.Round(org.blindness) == 0) or amtflashed >= 0.8) and 0 or (org.blindness)
+	if org.blindness or flashAmount >= 0.8 then
+		local blindness = ((org.blindness and math.Round(org.blindness) == 0) or flashAmount >= 0.8) and 0 or (org.blindness)
 		render.UpdateScreenEffectTexture()
 		render.UpdateFullScreenDepthTexture()
 		

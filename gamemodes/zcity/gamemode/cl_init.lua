@@ -102,10 +102,10 @@ hg = hg or {}
 function hg.DrawBlur(panel, amount, passes, alpha)
 	if is3d2d then return end
 	amount = amount or 5
-	hg_potatopc = hg_potatopc or hg.ConVars.potatopc
+	hg_potatopc = hg_potatopc or (hg.ConVars and hg.ConVars.potatopc) or GetConVar("hg_potatopc")
 
 	-- old blur
-	if(hg_potatopc:GetBool())then
+	if hg_potatopc and hg_potatopc:GetBool() then
 		surface.SetDrawColor(0, 0, 0, alpha or (amount * 20))
 		surface.DrawRect(0, 0, panel:GetWide(), panel:GetTall())
 	else
