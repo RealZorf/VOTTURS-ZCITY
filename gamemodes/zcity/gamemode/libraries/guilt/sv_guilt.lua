@@ -163,8 +163,10 @@ local function RecordGuiltCombatHarm(victim, attacker, amount, source)
 
     local entry = zb.GuiltCombatHistory[victim][attacker]
     if not istable(entry) or now - (tonumber(entry.last) or 0) > GUILT_THREAT_WINDOW then
-        entry = { harm = 0 }
+        entry = { harm = 0, first = now }
     end
+
+    entry.first = entry.first or now
 
     entry.harm = math.min((tonumber(entry.harm) or 0) + amount, zb.MaximumHarm or 10)
     entry.last = now
@@ -340,6 +342,7 @@ local function IsLookingAt(ply, targetVec)
 end
 
 local GUILTY_LIFE_THRESHOLD = 1
+local AGGRESSION_SCORE_GUILTY = 0.15
 
 local function ResolveGuiltPlayer(ent)
     if not IsValid(ent) then return nil end
@@ -373,26 +376,178 @@ local function GetPlayerLifeGuilt(ply)
     return guilt
 end
 
-local function HasKarmaHarmDealtAsAttacker(ply)
-    if not IsValid(ply) then return false end
+local function GetPairHarm(from, to)
+    if not IsValid(from) or not IsValid(to) then return 0 end
 
-    for _, attackers in pairs(zb.HarmDoneKarma or {}) do
-        if istable(attackers) and (tonumber(attackers[ply]) or 0) > 0 then
-            return true
+    local harmTable = zb.HarmDone[from]
+    return harmTable and (tonumber(harmTable[to]) or 0) or 0
+end
+
+local function GetCombatEntry(from, to)
+    local history = zb.GuiltCombatHistory[from]
+    local entry = history and history[to]
+    if not istable(entry) then return nil end
+
+    local age = CurTime() - (tonumber(entry.last) or 0)
+    if age < 0 or age > GUILT_THREAT_WINDOW then return nil end
+
+    return entry
+end
+
+function zb.EvaluateEngagement(attacker, victim, opts)
+    opts = opts or {}
+
+    local result = {
+        karmaMultiplier = 1,
+        guiltMultiplier = 1,
+        aggressor = nil,
+        defender = nil,
+        confidence = 0,
+        reasons = {}
+    }
+
+    if not IsValid(attacker) or not IsValid(victim) or attacker == victim then
+        result.karmaMultiplier = 0
+        result.guiltMultiplier = 0
+        return result
+    end
+
+    local maxHarm = math.max(tonumber(zb.MaximumHarm) or 10, 1)
+    local responseHarm = opts.responseHarm
+    local threatState = opts.threatState or zb.GetGuiltThreatState(victim, attacker, opts.source, responseHarm)
+
+    local atkHarm = GetPairHarm(victim, attacker)
+    local vicHarm = GetPairHarm(attacker, victim)
+    local totalExchange = atkHarm + vicHarm
+    local atkShare = totalExchange > 0 and (atkHarm / totalExchange) or 1
+
+    local atkCombat = GetCombatEntry(victim, attacker)
+    local vicCombat = GetCombatEntry(attacker, victim)
+    local atkFirst = atkCombat and (tonumber(atkCombat.first) or math.huge) or math.huge
+    local vicFirst = vicCombat and (tonumber(vicCombat.first) or math.huge) or math.huge
+    local victimStruckFirst = vicFirst < atkFirst
+
+    local incomingHarm = tonumber(threatState.incomingHarm) or 0
+    local responseRatio = tonumber(threatState.responseRatio) or 0
+    local threatScore = tonumber(threatState.score) or 0
+    local victimAggression = tonumber(victim.GuiltAggressionScore) or 0
+
+    local karmaMul = 1
+    local guiltMul = 1
+    local confidence = 0.35
+    local reasons = result.reasons
+
+    if victimAggression >= AGGRESSION_SCORE_GUILTY and not zb.IsForce(attacker) then
+        karmaMul = math.Clamp(0.03 + (1 - victimAggression) * 0.04, 0.03, 0.08)
+        result.aggressor = victim
+        result.defender = attacker
+        reasons[#reasons + 1] = "Victim has an elevated aggression score from prior unjustified harm."
+        confidence = 0.65 + victimAggression * 0.35
+    elseif threatScore >= 0.15 and incomingHarm > 0 then
+        result.aggressor = victim
+        result.defender = attacker
+
+        if responseRatio <= 1.25 then
+            karmaMul = 0.00
+        elseif responseRatio <= 2 then
+            karmaMul = 0.35
+        else
+            karmaMul = 0.45
+        end
+
+        karmaMul = math.min(karmaMul, tonumber(threatState.karmaMul) or karmaMul)
+
+        if victimStruckFirst then
+            karmaMul = math.min(karmaMul, 0.10)
+        end
+
+        reasons[#reasons + 1] = "Victim recently harmed the attacker."
+        confidence = math.max(threatScore, 0.5)
+    elseif vicHarm >= maxHarm * 0.15 and atkHarm >= maxHarm * 0.15 then
+        local balance = 1 - math.abs(atkShare - 0.5) * 2
+        karmaMul = 0.20 + (1 - balance) * 0.20
+        guiltMul = karmaMul
+
+        if victimStruckFirst then
+            result.aggressor = victim
+            result.defender = attacker
+        else
+            result.aggressor = attacker
+            result.defender = victim
+        end
+
+        reasons[#reasons + 1] = "Both players exchanged significant damage."
+        confidence = 0.45 + balance * 0.45
+    elseif vicHarm <= maxHarm * 0.05 then
+        karmaMul = 1
+        guiltMul = 1
+        result.aggressor = attacker
+        result.defender = victim
+        reasons[#reasons + 1] = "No meaningful prior harm from the victim."
+        confidence = math.Clamp(atkHarm / maxHarm, 0.35, 1)
+    else
+        karmaMul = 0.45
+        guiltMul = 0.45
+        result.aggressor = victimStruckFirst and victim or attacker
+        result.defender = victimStruckFirst and attacker or victim
+        reasons[#reasons + 1] = "Mixed engagement with limited reciprocity."
+        confidence = 0.4
+    end
+
+    local oldHarmDone = tonumber(opts.oldHarmDone) or 0
+    local victimAlreadyDown = oldHarmDone >= maxHarm
+    local victimAlive = opts.victimAlive
+
+    if victimAlive == nil and victim:IsPlayer() then
+        victimAlive = victim:Alive()
+    end
+
+    if victimAlreadyDown or victimAlive == false then
+        if incomingHarm > 0 and responseRatio > 1.5 then
+            local excess = math.Clamp((responseRatio - 1.5) / 2, 0, 1)
+            karmaMul = math.max(karmaMul, 0.5 + excess * 0.5)
+            reasons[#reasons + 1] = "Excessive damage continued after the threat was neutralized."
+        elseif incomingHarm <= 0 then
+            karmaMul = math.max(karmaMul, 0.85)
+            reasons[#reasons + 1] = "Additional harm dealt to an incapacitated victim."
         end
     end
 
-    return false
+    if zb.IsForce(attacker) and victimAggression >= AGGRESSION_SCORE_GUILTY then
+        karmaMul = 1
+        guiltMul = 1
+    end
+
+    result.karmaMultiplier = math.Clamp(karmaMul, 0, 1.25)
+    result.guiltMultiplier = math.Clamp(guiltMul, 0, 1.25)
+    result.confidence = math.Clamp(confidence, 0, 1)
+
+    return result
+end
+
+local function UpdateAggressionScore(ply, amt, engagement)
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    if engagement.aggressor ~= ply then return end
+    if (engagement.karmaMultiplier or 1) < 0.35 then return end
+
+    local delta = amt * engagement.karmaMultiplier * math.max(engagement.confidence or 0.25, 0.25) * 0.6
+    local score = (ply.GuiltAggressionScore or 0) + delta
+
+    if engagement.karmaMultiplier >= 0.95 then
+        score = math.max(score, AGGRESSION_SCORE_GUILTY + amt * 0.35)
+    end
+
+    ply.GuiltAggressionScore = math.Clamp(score, 0, 1)
 end
 
 function zb.IsPlayerGuiltyThisLife(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return false end
 
-    if GetPlayerLifeGuilt(ply) > GUILTY_LIFE_THRESHOLD then
+    if (ply.GuiltAggressionScore or 0) >= AGGRESSION_SCORE_GUILTY then
         return true
     end
 
-    return HasKarmaHarmDealtAsAttacker(ply)
+    return GetPlayerLifeGuilt(ply) > GUILTY_LIFE_THRESHOLD
 end
 
 hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, harm) 
@@ -496,8 +651,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and attackerTeam ~= Victim:Team()) then return end
 
     local guiltVictim = ResolveGuiltPlayer(ply) or ResolveGuiltPlayer(Victim) or (Victim:IsPlayer() and Victim or nil)
-    -- Victim.Guilt: skip penalizing attackers for fighting someone who already lost innocence this life
-    if IsValid(guiltVictim) and zb.IsPlayerGuiltyThisLife(guiltVictim) and not zb.IsForce(Attacker) then return end
+
     if Attacker:IsBerserk() then return end
 
     local victimWep = Victim:IsPlayer() and IsValid(Victim:GetActiveWeapon()) and Victim:GetActiveWeapon()
@@ -525,9 +679,23 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     end
 
     add = add * mul
-    add = add * math.Clamp(tonumber(threatState.karmaMul) or 1, 0, 1)
-    
-    local guiltadd = amt * 60
+
+    local engagement = zb.EvaluateEngagement(Attacker, guiltVictim or Victim, {
+        responseHarm = newharm,
+        threatState = threatState,
+        source = damageSource,
+        oldHarmDone = oldharmdone,
+        victimAlive = Victim:IsPlayer() and Victim:Alive() or true,
+    })
+
+    add = add * engagement.karmaMultiplier
+
+    local guiltadd = amt * 60 * engagement.guiltMultiplier
+    UpdateAggressionScore(engagement.aggressor, amt, engagement)
+
+    if hg_developer:GetBool() then
+        Attacker:ChatPrint("Engagement karma x" .. math.Round(engagement.karmaMultiplier, 2) .. " (" .. table.concat(engagement.reasons, " | ") .. ")")
+    end
     Attacker.Guilt = (Attacker.Guilt or 0) + guiltadd
     local priorGuilt = zb.GuiltTable[Attacker][Victim] or 0
     local karmaPenalty = add * math.max((1 - priorGuilt / 60), 0)
@@ -599,6 +767,7 @@ hook.Add("Player Spawn","SlowlyRestoreKarma",function(ply)
     --ply:guilt_SetValue( ply.Karma or 100 )
     
     ply.Guilt = 0
+    ply.GuiltAggressionScore = 0
 end)
 
 hook.Add("Player Think", "karmagain", function(ply)
@@ -703,6 +872,7 @@ hook.Add("ZB_StartRound","NO_HARM",function()
         end
 
         ResetRoundRefundState(ply)
+        ply.GuiltAggressionScore = 0
 
         --ply:guilt_SetValue( ply.Karma or 100 )
     end
@@ -867,7 +1037,7 @@ hook.Add("ZC_SomeoneGetFallBy","IdiotsMustBeKilled",function(Attacker,Victim)
     if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and Attacker:Team() ~= Victim:Team()) then return end
 
     local guiltVictim = ResolveGuiltPlayer(Victim) or (Victim:IsPlayer() and Victim or nil)
-    if IsValid(guiltVictim) and zb.IsPlayerGuiltyThisLife(guiltVictim) then return end
+    local engagement = zb.EvaluateEngagement(Attacker, guiltVictim or Victim)
 
-    Attacker.Guilt = (Attacker.Guilt or 0) + 5
+    Attacker.Guilt = (Attacker.Guilt or 0) + 5 * engagement.guiltMultiplier
 end)
