@@ -1324,7 +1324,7 @@ local function HMCDFitSummaryText(text, font, maxWidth)
 end
 
 
-local function HMCDSnapshotTraitorPortrait(ply)
+local function HMCDReadTraitorPortraitSnapshot()
 	local snapshot = {
 		model = "models/player/group01/male_07.mdl",
 		skin = 0,
@@ -1335,29 +1335,24 @@ local function HMCDSnapshotTraitorPortrait(ply)
 		accessories = {}
 	}
 
-	if not IsValid(ply) then return snapshot end
+	snapshot.model = net.ReadString()
+	snapshot.skin = net.ReadUInt(8)
+	snapshot.modelScale = net.ReadFloat()
+	snapshot.playerColor = net.ReadVector()
 
-	snapshot.model = ply:GetModel() or snapshot.model
-	snapshot.skin = ply:GetSkin() or 0
-	snapshot.modelScale = ply:GetModelScale() or 1
-	snapshot.playerColor = ply.GetPlayerColor and ply:GetPlayerColor() or snapshot.playerColor
-
-	local accessories = ply.GetNetVar and ply:GetNetVar("Accessories")
-	if istable(accessories) then
-		snapshot.accessories = table.Copy(accessories)
-	elseif isstring(accessories) and accessories ~= "" then
-		snapshot.accessories = {accessories}
+	local bodygroupCount = net.ReadUInt(5)
+	for _ = 1, bodygroupCount do
+		snapshot.bodygroups[net.ReadUInt(8)] = net.ReadUInt(8)
 	end
 
-	for _, bodygroup in ipairs(ply:GetBodyGroups() or {}) do
-		snapshot.bodygroups[bodygroup.id] = ply:GetBodygroup(bodygroup.id)
+	local subMaterialCount = net.ReadUInt(6)
+	for _ = 1, subMaterialCount do
+		snapshot.subMaterials[net.ReadUInt(8)] = net.ReadString()
 	end
 
-	for materialIndex = 0, #(ply:GetMaterials() or {}) - 1 do
-		local subMaterial = ply:GetSubMaterial(materialIndex)
-		if isstring(subMaterial) and subMaterial ~= "" then
-			snapshot.subMaterials[materialIndex] = subMaterial
-		end
+	local accessoryCount = net.ReadUInt(3)
+	for accessoryIndex = 1, accessoryCount do
+		snapshot.accessories[accessoryIndex] = net.ReadString()
 	end
 
 	return snapshot
@@ -1600,16 +1595,25 @@ net.Receive("HMCD_TraitorRoundSummary", function()
 
 	for index = 1, count do
 		local traitorEntity = net.ReadEntity()
+		local characterName = net.ReadString()
+		local nick = net.ReadString()
+		local roleKey = net.ReadString()
+		local roleName = net.ReadString()
+		local kills = net.ReadUInt(12)
+		local alive = net.ReadBool()
+		local mainTraitor = net.ReadBool()
+		local portrait = HMCDReadTraitorPortraitSnapshot()
+
 		summary[index] = {
 			entity = traitorEntity,
-			characterName = net.ReadString(),
-			nick = net.ReadString(),
-			roleKey = net.ReadString(),
-			roleName = net.ReadString(),
-			kills = net.ReadUInt(12),
-			alive = net.ReadBool(),
-			mainTraitor = net.ReadBool(),
-			portrait = HMCDSnapshotTraitorPortrait(traitorEntity)
+			characterName = characterName,
+			nick = nick,
+			roleKey = roleKey,
+			roleName = roleName,
+			kills = kills,
+			alive = alive,
+			mainTraitor = mainTraitor,
+			portrait = portrait
 		}
 	end
 

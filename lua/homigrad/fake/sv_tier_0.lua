@@ -136,6 +136,24 @@ local fixbones = {
 	--["ValveBiped.Bip01_L_Hand"] = true,
 }
 
+local ragdollTorsoBones = {
+	"ValveBiped.Bip01_Spine2",
+	"ValveBiped.Bip01_Spine1",
+	"ValveBiped.Bip01_Pelvis"
+}
+
+local function GetRagdollTorsoPhysics(ragdoll)
+	for _, boneName in ipairs(ragdollTorsoBones) do
+		local bone = ragdoll:LookupBone(boneName)
+		local physBone = bone and ragdoll:TranslateBoneToPhysBone(bone) or -1
+		local phys = physBone >= 0 and ragdoll:GetPhysicsObjectNum(physBone) or nil
+		if IsValid(phys) then return phys end
+	end
+
+	local phys = ragdoll:GetPhysicsObject()
+	return IsValid(phys) and phys or nil
+end
+
 function hg.Ragdoll_Create(ply)
 	local Data = duplicator.CopyEntTable( ply )
 	local ragdoll = ents.Create("prop_ragdoll")
@@ -167,9 +185,9 @@ function hg.Ragdoll_Create(ply)
 	local bull = ragdoll.bull
 	bull.ply = ply
 	bull.rag = ragdoll
-	local bodyphy = ragdoll:GetPhysicsObjectNum(10)
-	if !bodyphy then return end
-	bull:SetPos(bodyphy:GetPos()+bodyphy:GetAngles():Right()*7)
+	local bodyphy = GetRagdollTorsoPhysics(ragdoll)
+	local bullPos = IsValid(bodyphy) and (bodyphy:GetPos() + bodyphy:GetAngles():Right() * 7) or (ragdoll:GetPos() + vector_up * 36)
+	bull:SetPos(bullPos)
 	--bull:SetPos( eyeatt.Pos + eyeatt.Ang:Up() * 3.5 )
 	bull:SetAngles( ragdoll:GetAngles() )
 	bull:SetMoveType(MOVETYPE_OBSERVER)

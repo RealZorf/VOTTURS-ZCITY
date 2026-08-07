@@ -67,15 +67,22 @@ SWEP.blockinganim = 0
 
 local clawClasses = {
 	["furry"] = 0.5,
-	["headcrabzombie"] = 1.5
+	["headcrabzombie"] = 1.5,
+	["fastzombie"] = 1.5,
+	["poisonzombie"] = 1.75
 }
 
-local zombiePlayerModel = "models/zcity/player/zombie_classic.mdl"
+local zombiePlayerModels = {
+	headcrabzombie = "models/zcity/player/zombie_classic.mdl",
+	fastzombie = "models/zombie/fast.mdl",
+	poisonzombie = "models/zombie/poison.mdl"
+}
 local furryPlayerModel = "models/eradium/protogen_player.mdl"
 local function isZombieHands(owner)
-	if not IsValid(owner) or owner.PlayerClassName ~= "headcrabzombie" then return false end
+	if not IsValid(owner) then return false end
 
-	return string.lower(owner:GetModel() or "") == zombiePlayerModel
+	local expectedModel = zombiePlayerModels[owner.PlayerClassName]
+	return expectedModel and string.lower(owner:GetModel() or "") == expectedModel
 end
 
 local function isFurryHands(owner)
@@ -1778,6 +1785,8 @@ local customClassInfo = {
 		Instructions = "LMB - strike\nRMB - block/grab player\n\n<color=150,0,0>These are your zombified hands. They're no energy sword, but they still pack a wallop."
 	}
 }
+customClassInfo.fastzombie = customClassInfo.headcrabzombie
+customClassInfo.poisonzombie = customClassInfo.headcrabzombie
 
 local blockvp = Angle(-1,-1,0.5)
 function SWEP:Think()
@@ -1785,7 +1794,7 @@ function SWEP:Think()
 
 	self.handsDesc = "default"
 	local className = owner.PlayerClassName
-	if className == "headcrabzombie" and not isZombieHands(owner) then
+	if (className == "headcrabzombie" or className == "fastzombie" or className == "poisonzombie") and not isZombieHands(owner) then
 		className = nil
 	elseif className == "furry" and not isFurryHands(owner) then
 		className = nil
@@ -2087,6 +2096,7 @@ function SWEP:AttackFront(special_attack, rand, swingDirection, onlyIfHit)
 	if CLIENT then return end
 	local owner = self:GetOwner()
 	if not IsValid(owner) then return false end
+	if owner.PlayerClassName == "fastzombie" or owner.PlayerClassName == "poisonzombie" then return false end
 
 	if isvector(swingDirection) then
 		swingDirection = Vector(swingDirection.x, swingDirection.y, swingDirection.z)
@@ -2098,16 +2108,17 @@ function SWEP:AttackFront(special_attack, rand, swingDirection, onlyIfHit)
 	--self.PenetrationCopy = -(-self.Penetration) -- this is how
 	owner:LagCompensation(true)
 
+	local clawHands = useClawHandsVisual(owner)
 	local pos = hg.eye(owner, nil, nil, swingDirection)
 	if not isvector(pos) then
-		owner:LagCompensation(false)
-		return false
+		pos = owner:GetShootPos()
 	end
 
-	local clawHands = useClawHandsVisual(owner)
+	local reachDistance = clawHands and tonumber(owner.ClawReachDistance) or nil
+	reachDistance = reachDistance or self.ReachDistance
 	local trace = util.TraceHull({
 		start = pos,
-		endpos = pos + swingDirection * self.ReachDistance,
+		endpos = pos + swingDirection * reachDistance,
 		filter = {owner, hg.GetCurrentCharacter(owner)},
 		mins = clawHands and trMinsClaws or trMins,
 		maxs = clawHands and trMaxsClaws or trMaxs,
@@ -2130,13 +2141,23 @@ function SWEP:AttackFront(special_attack, rand, swingDirection, onlyIfHit)
 		local SelfForce, Mul = 150, 1 * (havekastet and 1.7 or 1)
 
 		if clawHands and hgIsDoor(Ent) then
-			if (Ent.Clawed or 0) > (isZomb and math.random(6, 12) or math.random(15, 30)) then
+			local clawDoorDamage = tonumber(owner.ClawDoorDamage)
+			local destroyDoor = false
+
+			if clawDoorDamage and clawDoorDamage > 0 then
+				Ent.HP = (Ent.HP or 200) - clawDoorDamage * (special_attack and 1.5 or 1)
+				destroyDoor = Ent.HP <= 0
+			else
+				Ent.Clawed = (Ent.Clawed or 0) + 1
+				destroyDoor = Ent.Clawed > (isZomb and math.random(6, 12) or math.random(15, 30))
+			end
+
+			if destroyDoor and not Ent:GetNoDraw() then
 				hgBlastThatDoor(Ent, AimVec * 50 + owner:GetVelocity())
 			else
 				sound.Play(vent[math.random(#vent)], HitPos, 90, math.random(90, 110), 1)
 				sound.Play("physics/wood/wood_crate_impact_hard" .. math.random(4) .. ".wav", HitPos, 90, math.random(90, 110), 1)
 			end
-			Ent.Clawed = (Ent.Clawed or 0) + 1
 		elseif self:IsEntSoft(Ent) then
 			SelfForce = 25
 			if Ent:IsPlayer() and IsValid(Ent:GetActiveWeapon()) and Ent:GetActiveWeapon().GetBlocking and Ent:GetActiveWeapon():GetBlocking() and not RagdollOwner(Ent) then
@@ -2241,7 +2262,14 @@ function SWEP:AttackFront(special_attack, rand, swingDirection, onlyIfHit)
 		Dam:SetDamageForce(AimVec * Mul ^ 2)
 		Dam:SetDamageType((clawHands or (Ent:GetClass() == "func_breakable_surf")) and DMG_SLASH or DMG_CLUB)
 		Dam:SetDamagePosition(HitPos)
+
+		local oldPenetration = self.Penetration
+		if clawHands and tonumber(owner.ClawPenetration) then
+			self.Penetration = owner.ClawPenetration
+		end
+
 		Ent:TakeDamageInfo(Dam)
+		self.Penetration = oldPenetration
 
 		if glass and Ent:Health() <= 0 then
 			hg.organism.AddWoundManual(owner, math.Rand(50,75) * 0.5, vector_origin, AngleRand(), owner:LookupBone("ValveBiped.Bip01_"..(rand and "R" or "L").."_Hand"), CurTime())

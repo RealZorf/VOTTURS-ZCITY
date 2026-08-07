@@ -173,7 +173,40 @@ local function isVortigauntModel(ent)
 	return IsValid(ent) and string.lower(ent:GetModel() or "") == "models/player/vortigaunt.mdl"
 end
 
+local function getFastZombieEyeFallback(ent)
+	if not IsValid(ent) or ent.PlayerClassName ~= "fastzombie" then return nil end
+	if string.lower(ent:GetModel() or "") ~= "models/zombie/fast.mdl" then return nil end
+
+	local headBone = cachedCameraBone(ent, "ValveBiped.Bip01_Head1")
+	local headMatrix = headBone and ent:GetBoneMatrix(headBone)
+	if not headMatrix then return nil end
+
+	return {
+		Pos = headMatrix:GetTranslation() + vector_up * 1.5,
+		Ang = ent:EyeAngles()
+	}
+end
+
+local function getPoisonZombieEyeFallback(ent)
+	if not IsValid(ent) or ent.PlayerClassName ~= "poisonzombie" then return nil end
+	if string.lower(ent:GetModel() or "") ~= "models/zombie/poison.mdl" then return nil end
+
+	local headBone = cachedCameraBone(ent, "ValveBiped.Bip01_Head1")
+	local headMatrix = headBone and ent:GetBoneMatrix(headBone)
+	if not headMatrix then return nil end
+
+	return {
+		Pos = headMatrix:GetTranslation() + headMatrix:GetAngles():Forward() * 2,
+		Ang = ent:EyeAngles()
+	}
+end
+
 local function getPreferredEyeAttachment(ent)
+	local fastZombieEye = getFastZombieEyeFallback(ent)
+	if fastZombieEye then return fastZombieEye end
+	local poisonZombieEye = getPoisonZombieEyeFallback(ent)
+	if poisonZombieEye then return poisonZombieEye end
+
 	local eye = getCachedAttachmentData(ent, "eyes")
 	if not eye or not istable(eye) then return nil end
 

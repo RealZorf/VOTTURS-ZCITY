@@ -22,7 +22,9 @@ function Player:SetPlayerClass(value, data)
 	local old = self.PlayerClassName
 	self.PlayerClassNameOld = old
 	old = classList[old]
+	self.PlayerClassNameNext = value
 	if old and old.Off then old.Off(self) end
+	self.PlayerClassNameNext = nil
 	self.PlayerClassName = value
 	self:PlayerClassEvent("On", data) -- WHO WRITE THIS SHIT
 	ResetClassAnimationState(self)
@@ -36,6 +38,8 @@ function Player:SetPlayerClass(value, data)
 		net.WriteString(self.PlayerClassNameOld or "")
 		net.WriteTable(data)
 	net.Broadcast()
+
+	hook.Run("HG_PlayerClassChanged", self, value, self.PlayerClassNameOld or "", data)
 	--if self:Alive() then
 	--	hg.FakeUp(self, true, true)
 	--end

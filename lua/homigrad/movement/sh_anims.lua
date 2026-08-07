@@ -2,6 +2,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 --\\ Custom running anim rate
 	hook.Add("UpdateAnimation", "NormAnimki", function(ply, vel, maxSeqGroundSpeed)
 		if not IsValid(ply) or not ply:Alive() or not ply:OnGround() then return end
+		if ply.PlayerClassName == "fastzombie" or ply.PlayerClassName == "poisonzombie" then return end
 
 		if vel:LengthSqr() >= 77000 and vel:LengthSqr() < 110000 then
 			ply:SetPlaybackRate(1.2)
@@ -23,6 +24,8 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 	}
 
 	hook.Add( "CalcMainActivity", "RunningAnim", function(ply, vel)
+		if ply.PlayerClassName == "fastzombie" or ply.PlayerClassName == "poisonzombie" then return end
+
 		local wep = IsValid(ply:GetActiveWeapon()) and ply:GetActiveWeapon()
 		local isAmputated = ply:IsBerserk() and ply.organism and (ply.organism.llegamputated or ply.organism.rlegamputated)
 		if (not ply:InVehicle()) and ply:IsOnGround() and vel:Length() > 250 and wep and runHoldTypes[wep:GetHoldType()] and not isAmputated then

@@ -1423,6 +1423,22 @@ end
 
 local homicide_traitoramount = ConVarExists("homicide_traitoramount") and GetConVar("homicide_traitoramount") or CreateConVar("homicide_traitoramount", 1, FCVAR_SERVER_CAN_EXECUTE + FCVAR_ARCHIVE, "Homicide Only: Determine how many traitors should innocents face in homicide.", 1, 20)
 
+local function HMCDRestoreRoundAppearance(ply)
+	local appearanceApi = hg and hg.Appearance
+	local validate = appearanceApi and appearanceApi.AppearanceValidater
+	local appearance = ply.CachedAppearance
+
+	if not (istable(appearance) and validate and validate(appearance)) then
+		appearance = ply.CurAppearance
+	end
+
+	if istable(appearance) and validate and validate(appearance) and appearanceApi.ForceApplyAppearance then
+		appearanceApi.ForceApplyAppearance(ply, table.Copy(appearance))
+	elseif ApplyAppearance then
+		ApplyAppearance(ply, nil, nil, nil, true)
+	end
+end
+
 function MODE:Intermission()
 	game.CleanUpMap()
 
@@ -1440,6 +1456,9 @@ function MODE:Intermission()
 		if ply:Team() == TEAM_SPECTATOR then continue end
 		MODE.ClearProfessionLoadout(ply)
 		MODE.ResetProfessionStats(ply)
+		if ply.PlayerClassName and ply.PlayerClassName ~= "none" then
+			ply:SetPlayerClass()
+		end
 		ply:KillSilent()
 
 		ply.isPolice = false
@@ -2308,6 +2327,50 @@ hook.Add("Player_Death", "HMCD_RoundTraitorKillCountHomigrad", function(victim, 
 	)
 end)
 
+local function HMCDBuildTraitorPortraitSnapshot(ply)
+	local snapshot = {
+		model = ply:GetModel() or "models/player/group01/male_07.mdl",
+		skin = math.Clamp(ply:GetSkin() or 0, 0, 255),
+		modelScale = math.Clamp(ply:GetModelScale() or 1, 0.05, 10),
+		playerColor = ply.GetPlayerColor and ply:GetPlayerColor() or Vector(1, 1, 1),
+		bodygroups = {},
+		subMaterials = {},
+		accessories = {}
+	}
+
+	for _, bodygroup in ipairs(ply:GetBodyGroups() or {}) do
+		if #snapshot.bodygroups >= 31 then break end
+		snapshot.bodygroups[#snapshot.bodygroups + 1] = {
+			id = math.Clamp(bodygroup.id or 0, 0, 255),
+			value = math.Clamp(ply:GetBodygroup(bodygroup.id or 0), 0, 255)
+		}
+	end
+
+	for materialIndex = 0, math.min(#(ply:GetMaterials() or {}) - 1, 63) do
+		local subMaterial = ply:GetSubMaterial(materialIndex)
+		if isstring(subMaterial) and subMaterial ~= "" then
+			snapshot.subMaterials[#snapshot.subMaterials + 1] = {
+				index = materialIndex,
+				material = string.sub(subMaterial, 1, 192)
+			}
+		end
+	end
+
+	local accessories = ply.GetNetVar and ply:GetNetVar("Accessories")
+	if istable(accessories) then
+		for _, accessory in ipairs(accessories) do
+			if #snapshot.accessories >= 7 then break end
+			if isstring(accessory) and accessory ~= "" then
+				snapshot.accessories[#snapshot.accessories + 1] = string.sub(accessory, 1, 96)
+			end
+		end
+	elseif isstring(accessories) and accessories ~= "" then
+		snapshot.accessories[1] = string.sub(accessories, 1, 96)
+	end
+
+	return snapshot
+end
+
 local function HMCDBuildTraitorRoundSummary(traitors)
 	local summary = {}
 
@@ -2330,7 +2393,8 @@ local function HMCDBuildTraitorRoundSummary(traitors)
 			roleName = roleInfo and roleInfo.Name or (traitor.MainTraitor and "Traitor" or "Accomplice"),
 			kills = math.Clamp(math.floor(tonumber(traitor.HMCDRoundKillCount) or 0), 0, 4095),
 			alive = traitor:Alive() and not (traitor.organism and (traitor.organism.incapacitated or traitor.organism.otrub)),
-			mainTraitor = traitor.MainTraitor == true
+			mainTraitor = traitor.MainTraitor == true,
+			portrait = HMCDBuildTraitorPortraitSnapshot(traitor)
 		}
 	end
 
@@ -2354,6 +2418,34 @@ local function HMCDBroadcastTraitorRoundSummary(summary)
 			net.WriteUInt(math.Clamp(math.floor(tonumber(kills) or 0), 0, 4095), 12)
 			net.WriteBool(info.alive == true)
 			net.WriteBool(info.mainTraitor == true)
+
+			local portrait = info.portrait or {}
+			net.WriteString(string.sub(portrait.model or "models/player/group01/male_07.mdl", 1, 192))
+			net.WriteUInt(math.Clamp(math.floor(tonumber(portrait.skin) or 0), 0, 255), 8)
+			net.WriteFloat(math.Clamp(tonumber(portrait.modelScale) or 1, 0.05, 10))
+			net.WriteVector(portrait.playerColor or Vector(1, 1, 1))
+
+			local bodygroups = portrait.bodygroups or {}
+			net.WriteUInt(math.min(#bodygroups, 31), 5)
+			for bodygroupIndex = 1, math.min(#bodygroups, 31) do
+				local bodygroup = bodygroups[bodygroupIndex]
+				net.WriteUInt(math.Clamp(bodygroup.id or 0, 0, 255), 8)
+				net.WriteUInt(math.Clamp(bodygroup.value or 0, 0, 255), 8)
+			end
+
+			local subMaterials = portrait.subMaterials or {}
+			net.WriteUInt(math.min(#subMaterials, 63), 6)
+			for materialIndex = 1, math.min(#subMaterials, 63) do
+				local subMaterial = subMaterials[materialIndex]
+				net.WriteUInt(math.Clamp(subMaterial.index or 0, 0, 255), 8)
+				net.WriteString(string.sub(subMaterial.material or "", 1, 192))
+			end
+
+			local accessories = portrait.accessories or {}
+			net.WriteUInt(math.min(#accessories, 7), 3)
+			for accessoryIndex = 1, math.min(#accessories, 7) do
+				net.WriteString(string.sub(accessories[accessoryIndex] or "", 1, 96))
+			end
 		end
 	net.Broadcast()
 end
@@ -2831,9 +2923,12 @@ function MODE.SpawnPlayers(spawn_with_subroles)
             current_ply.HMCD_IsThief = nil
             current_ply.HMCD_ThiefPickupInventory = nil
 
-            ApplyAppearance(current_ply,nil,nil,nil,true)
-            current_ply:Spawn()
-            current_ply:GetRandomSpawn()
+			if current_ply.PlayerClassName and current_ply.PlayerClassName ~= "none" then
+				current_ply:SetPlayerClass()
+			end
+			current_ply:Spawn()
+			HMCDRestoreRoundAppearance(current_ply)
+			current_ply:GetRandomSpawn()
 
             if(!current_ply:Alive())then
                 continue

@@ -47,6 +47,8 @@ if SERVER then return end
 
 local visualClassModels = {
 	headcrabzombie = "models/zcity/player/zombie_classic.mdl",
+	fastzombie = "models/zombie/fast.mdl",
+	poisonzombie = "models/zombie/poison.mdl",
 	furry = "models/eradium/protogen_player.mdl"
 }
 
@@ -82,7 +84,8 @@ local function ResetClassVisualState(ply)
 	ResetClassAnimationState(ply)
 
 	ply.ZC_FirstPersonHeadHidden = nil
-	ply.ZCDisableHeadcrabHands = ply.PlayerClassName ~= "headcrabzombie" or string.lower(ply:GetModel() or "") ~= visualClassModels.headcrabzombie
+	local zombieModel = (ply.PlayerClassName == "headcrabzombie" or ply.PlayerClassName == "fastzombie" or ply.PlayerClassName == "poisonzombie") and visualClassModels[ply.PlayerClassName]
+	ply.ZCDisableHeadcrabHands = not zombieModel or string.lower(ply:GetModel() or "") ~= zombieModel
 
 	ClearClientBoneCaches(ply)
 	ClearClientBoneCaches(ply:GetViewModel())

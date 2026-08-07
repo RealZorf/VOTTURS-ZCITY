@@ -693,7 +693,11 @@ local IsValid = IsValid
 
 		if IsValid(self.OldRagdoll) then DrawAppearance(ent, self, true) end
 		if !hg.converging[self] then
-			ent:DrawModel()
+			local drewZombieBody = CLIENT and ent == self and hg.DrawFastZombieFirstPersonBody and hg.DrawFastZombieFirstPersonBody(self)
+			if not drewZombieBody and CLIENT and ent == self and hg.DrawPoisonZombieFirstPersonBody then
+				drewZombieBody = hg.DrawPoisonZombieFirstPersonBody(self)
+			end
+			if not drewZombieBody then ent:DrawModel() end
 		else
 			DrawConversion(ent, self)
 		end
@@ -822,19 +826,19 @@ local IsValid = IsValid
 		local fakeCam = false--IsValid(ent) and ent != ply
 		local ent = (IsValid(ent) and ent) or (IsValid(ply.FakeRagdoll) and ply.FakeRagdoll) or ply
 		local bon = ent:LookupBone("ValveBiped.Bip01_Neck1")
-		if not bon then return end
 		if not IsValid(ply) then return end
 		if not ply.GetAimVector then return end
 
 		local aim_vector = isvector(aimvec) and aimvec or isangle(aimvec) and aimvec:Forward() or ply:GetAimVector()
 
 		if not bon or not ent:GetBoneMatrix(bon) then
+			local fallbackPos = isvector(startpos) and startpos or ply:EyePos()
 			local tr = {
-				start = ply:EyePos(),
-				endpos = ply:EyePos() + aim_vector * (dist or 60),
+				start = fallbackPos,
+				endpos = fallbackPos + aim_vector * (dist or 60),
 				filter = ply
 			}
-			return ply:EyePos(), aim_vector * (dist or 60), ply--util.TraceLine(tr)
+			return fallbackPos, aim_vector * (dist or 60), ply--util.TraceLine(tr)
 		end
 
 		/*if (ply.InVehicle and ply:InVehicle() and IsValid(ply:GetVehicle())) then

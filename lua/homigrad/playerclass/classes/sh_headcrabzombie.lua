@@ -1,5 +1,10 @@
 local CLASS = player.RegClass("headcrabzombie")
 local zombiePlayerModel = "models/zcity/player/zombie_classic.mdl"
+local zombiePlayerClasses = {
+	headcrabzombie = true,
+	fastzombie = true,
+	poisonzombie = true,
+}
 
 local function IsVisualZombie(ply)
 	return IsValid(ply) and ply.PlayerClassName == "headcrabzombie" and string.lower(ply:GetModel() or "") == zombiePlayerModel
@@ -72,7 +77,28 @@ local fallbackMats = {
 }
 
 local clr_darkred = Color(75, 0, 0)
+
+local function RestoreHumanAppearance(self)
+	if CLIENT or zombiePlayerClasses[self.PlayerClassNameNext] then return end
+
+	local appearance = self.CachedAppearance
+	local appearanceApi = hg and hg.Appearance
+	local validAppearance = appearanceApi and appearanceApi.AppearanceValidater
+
+	if not (istable(appearance) and validAppearance and validAppearance(appearance)) then
+		appearance = self.CurAppearance
+	end
+
+	if istable(appearance) and validAppearance and validAppearance(appearance) and appearanceApi.ForceApplyAppearance then
+		appearanceApi.ForceApplyAppearance(self, table.Copy(appearance))
+	elseif ApplyAppearance then
+		ApplyAppearance(self, nil, true)
+	end
+end
+
 function CLASS.On(self)
+	self.ZCZombieSprintExhausted = nil
+
 	--\\ Remember old player cloth to set it later
 	local clothTbl = {}
 	if SERVER then
@@ -172,14 +198,15 @@ function CLASS.On(self)
 		if self:HasWeapon("weapon_hands_sh") then
 			self:SelectWeapon("weapon_hands_sh")
 		else
-			local hands = self:Give("weapon_hands_sh")
-			self:SelectWeapon(hands)
+			self:Give("weapon_hands_sh")
+			self:SelectWeapon("weapon_hands_sh")
 		end
 	end
 end
 
 -- Reset organism and npc relationship
 function CLASS.Off(self)
+	self.ZCZombieSprintExhausted = nil
     if CLIENT then return end
 
 	for k, v in ipairs(ents.FindByClass("npc_*")) do
@@ -195,6 +222,7 @@ function CLASS.Off(self)
 	end
 
 	hook.Remove("OnEntityCreated", "relation_shipdo"..self:EntIndex())
+	RestoreHumanAppearance(self)
 end
 
 -- Reset npc relationship
@@ -236,12 +264,12 @@ function CLASS.Think(self)
 
 	--\\ Only hands will be active..
 	local wep = self:GetActiveWeapon()
-	if IsValid(wep) and wep ~= NULL and wep:GetClass() ~= "weapon_hands_sh" then
+	if not IsValid(wep) or wep:GetClass() ~= "weapon_hands_sh" then
 		if self:HasWeapon("weapon_hands_sh") then
 			self:SelectWeapon("weapon_hands_sh")
 		else
-			local hands = self:Give("weapon_hands_sh")
-			self:SelectWeapon(hands)
+			self:Give("weapon_hands_sh")
+			self:SelectWeapon("weapon_hands_sh")
 		end
 	end
 
@@ -334,12 +362,22 @@ end)
 -- Player speed & animation speed stuff
 hook.Add("HG_MovementCalc_2", "ZombSpeed", function(mul, ply, cmd, mv)
 	if IsValid(ply) and ply.PlayerClassName == "headcrabzombie" then
-        mul[1] = 0.8
-		if ply:IsSprinting() then
-			mul[1] = 1.2
+		local stamina = ply.organism and ply.organism.stamina
+		if stamina then
+			local currentStamina = stamina[1] or 0
+			if currentStamina <= 20 then
+				ply.ZCZombieSprintExhausted = true
+			elseif currentStamina >= 60 then
+				ply.ZCZombieSprintExhausted = nil
+			end
 		end
-		if ply.SpeedGainMul ~= 70 then
-			ply.SpeedGainMul = 70
+
+		mul[1] = 0.45
+		if ply:IsSprinting() and not ply.ZCZombieSprintExhausted then
+			mul[1] = 0.65
+		end
+		if ply.SpeedGainMul ~= 45 then
+			ply.SpeedGainMul = 45
 		end
     end
 end)
@@ -397,6 +435,14 @@ if SERVER then
 	-- Zombies can't speak
 	hook.Add("HG_PlayerCanHearPlayersVoice", "ZombVoice", function(listener, speaker)
 		if speaker.PlayerClassName == "headcrabzombie" then
+			local round = CurrentRound and CurrentRound()
+			local zombieSurvival = zb and zb.modes and round == zb.modes.zombiesurvival
+			local listenerIsZombie = listener.ZSIsZombie
+				or listener.PlayerClassName == "headcrabzombie"
+				or listener.PlayerClassName == "fastzombie"
+				or listener.PlayerClassName == "poisonzombie"
+
+			if zombieSurvival and listenerIsZombie then return end
 			return false, false
 		end
 	end)

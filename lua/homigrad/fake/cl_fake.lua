@@ -41,15 +41,30 @@ end
 local function getCachedEyesAttachment(ent)
 	if not IsValid(ent) then return end
 	local model = ent:GetModel()
+	local fastZombie = string.lower(model or "") == "models/zombie/fast.mdl"
 	if ent.ZCEyesAttachmentModel ~= model then
 		ent.ZCEyesAttachmentModel = model
 		local id = ent.LookupAttachment and ent:LookupAttachment("eyes") or 0
 		ent.ZCEyesAttachment = (id and id > 0) and id or false
 	end
 
+	if fastZombie then
+		local headBone = ent.LookupBone and ent:LookupBone("ValveBiped.Bip01_Head1")
+		local headMatrix = headBone and ent:GetBoneMatrix(headBone)
+		if not headMatrix then return end
+
+		local headAng = headMatrix:GetAngles()
+		headAng:RotateAroundAxis(headAng:Up(), -90)
+		headAng:RotateAroundAxis(headAng:Forward(), -90)
+
+		return {
+			Pos = headMatrix:GetTranslation() + headAng:Forward() * 3,
+			Ang = headAng
+		}
+	end
+
 	local id = ent.ZCEyesAttachment
-	if id == false or not id then return end
-	local eye = ent:GetAttachment(id)
+	local eye = id ~= false and id and ent:GetAttachment(id) or nil
 	if not eye or not istable(eye) then return end
 
 	if not isVortigauntModel(ent) then
@@ -540,6 +555,22 @@ end
 
 local hook_Run = hook.Run
 local indexes = {}
+
+local directZombieRagdollModels = {
+	["models/zombie/fast.mdl"] = true,
+	["models/zombie/poison.mdl"] = true
+}
+
+local function RagdollReadyToRender(ragdoll)
+	if not IsValid(ragdoll) or ragdoll:IsDormant() then return false end
+	if directZombieRagdollModels[string.lower(ragdoll:GetModel() or "")] then
+		return true
+	end
+
+	local bonePos = ragdoll:GetBonePosition(1)
+	return bonePos ~= nil and not bonePos:IsEqualTol(ragdoll:GetPos(), 0.01)
+end
+
 net.Receive("Player Ragdoll", function()
 	--local ply, ragdoll_index = net.ReadEntity(), net.ReadInt(32) --,net_ReadTable()
 	local ply, ragdoll, ragdoll_index = net.ReadEntity(), net.ReadEntity2() --,net_ReadTable()
@@ -554,9 +585,7 @@ hook.Add("NetworkEntityCreated", "HG_GiveRenderOverride", function(ragdoll)
 	if ragdoll:GetClass() == "prop_ragdoll" then
 		if !IsValid(ragdoll:GetNWEntity("ply")) then
 			ragdoll.RenderOverride = function(self, flags)
-				if not IsValid(self) or self:IsDormant() then return end
-				local bonePos = self:GetBonePosition(1)
-				if not bonePos or bonePos:IsEqualTol(self:GetPos(), 0.01) then return end
+				if not RagdollReadyToRender(self) then return end
 				if not self:GetNWString("PlayerName") then return end
 				local ply = self:GetNWEntity("ply")
 				local ply = (IsValid(ply) and ply:IsPlayer() and ply:Alive() and ply.FakeRagdoll == self) and ply or self
@@ -605,9 +634,7 @@ hook.Add("RagdollEntityCreated", "RagdollFinder", function(ply, ent, key)
 	
 	if IsValid(ent) then
 		ent.RenderOverride = function(self, flags)
-			if not IsValid(self) or self:IsDormant() then return end
-			local bonePos = self:GetBonePosition(1)
-			if not bonePos or bonePos:IsEqualTol(self:GetPos(), 0.01) then return end
+			if not RagdollReadyToRender(self) then return end
 			local ply = (IsValid(ply) and ply:IsPlayer() and ply:Alive() and ply.FakeRagdoll == self) and ply or self
 			
 			hg.renderOverride(ply, self, flags)

@@ -26,7 +26,10 @@ function hg.organism.ShootMatrix(ent, organs)
 	local obbCenter = ent:GetPos() --what kind of bullshit is this))0
 	obbCenter:Add(ent:OBBCenter())
 	for i = 0, ent:GetHitBoxCount(0) - 1 do
-		matrix = ent:GetBoneMatrix(ent:GetHitBoxBone(i, 0))
+		local bone = ent:GetHitBoxBone(i, 0)
+		if not isnumber(bone) or bone < 0 then continue end
+
+		matrix = ent:GetBoneMatrix(bone)
 		if not matrix then continue end
 		mins, maxs = ent:GetHitBoxBounds(i, 0)
 		pos = matrix:GetTranslation()
@@ -38,7 +41,8 @@ function hg.organism.ShootMatrix(ent, organs)
 
 	for nameBone, organs in pairs(organs) do
 		local bone = ent:LookupBone(nameBone)
-		--if not bone then continue end
+		if not isnumber(bone) or bone < 0 then continue end
+
 		matrix = ent:GetBoneMatrix(bone)
 		if not matrix then continue end
 		pos = matrix:GetTranslation()

@@ -133,13 +133,14 @@ end
 	end)
 --
 
-local function ChatLogic(output, input, isChat, teamonly, text)
+local function ChatLogic(output, input, isChat, teamonly, text, skipOverrides)
 
 	if not IsValid(output) then return true, true end
 	if not IsValid(input) then return false end
-	local result, is3D = hook.Run("CanListenOthers",output,input,isChat,teamonly,text)
-	
-	if result ~= nil then return result,is3D end
+	if not skipOverrides then
+		local result, is3D = hook.Run("CanListenOthers",output,input,isChat,teamonly,text)
+		if result ~= nil then return result,is3D end
+	end
 
 	local chat_dist = isChat and chat_dist_normal or voice_dist_normal
 
@@ -175,6 +176,11 @@ local function ChatLogic(output, input, isChat, teamonly, text)
 
 		return false
 	end
+end
+
+function hg.CanHearLocalProximityVoice(listener, speaker)
+	local canHear, is3D = ChatLogic(speaker, listener, false, false, nil, true)
+	return canHear == true, is3D
 end
 
 hook.Add("PlayerCanSeePlayersChat", "RealiticChar", function(text, teamOnly, listener, speaker)

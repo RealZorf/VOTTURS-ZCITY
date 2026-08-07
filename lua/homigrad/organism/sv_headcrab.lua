@@ -2,7 +2,7 @@
 local PLAYER = FindMetaTable("Player")
 util.AddNetworkString("hg_headcrab")
 function PLAYER:AddHeadcrab(headcrab)
-	if self.PlayerClassName == "headcrabzombie" then return end
+	if self.PlayerClassName == "headcrabzombie" or self.PlayerClassName == "fastzombie" or self.PlayerClassName == "poisonzombie" then return end
     --self.organism.headcrabon = headcrab
     self:SetNetVar("headcrab",headcrab)
    
@@ -15,10 +15,67 @@ function PLAYER:AddHeadcrab(headcrab)
     net.Broadcast()--]]
 end
 
+local brainLobes = {
+	"brainFrontal",
+	"brainParietal",
+	"brainTemporal",
+	"brainOccipital"
+}
+
+local function isBrainDestroyed(ply, rag, org)
+	if not org then return true end
+	if org.headamputated or rag.headexploded or ply.headamputated then return true end
+	if (org.brain or 0) >= 0.6 then return true end
+
+	for i = 1, #brainLobes do
+		if (org[brainLobes[i]] or 0) >= 0.95 then return true end
+	end
+
+	return false
+end
+
+local function releaseHeadcrab(ply, rag, org, headcrabClass)
+	if rag.ZCReleasedHeadcrab or isBrainDestroyed(ply, rag, org) then return end
+	rag.ZCReleasedHeadcrab = true
+
+	local headPos
+	local headBone = rag:LookupBone("ValveBiped.Bip01_Head1")
+	if headBone then headPos = rag:GetBonePosition(headBone) end
+	headPos = isvector(headPos) and headPos or rag:WorldSpaceCenter()
+
+	local spawnTrace = util.TraceHull({
+		start = headPos + Vector(0, 0, 2),
+		endpos = headPos + Vector(0, 0, 20),
+		mins = Vector(-6, -6, 0),
+		maxs = Vector(6, 6, 10),
+		mask = MASK_NPCSOLID,
+		filter = {ply, rag}
+	})
+
+	local headcrab = ents.Create(headcrabClass or "npc_headcrab")
+	if not IsValid(headcrab) then return end
+
+	rag:SetBodygroup(1, 0)
+	headcrab:SetPos(spawnTrace.HitPos)
+	headcrab:SetAngles(Angle(0, ply:EyeAngles().y, 0))
+	headcrab:Spawn()
+	headcrab:Activate()
+	headcrab:SetVelocity(ply:GetVelocity() + ply:GetForward() * 70 + Vector(0, 0, 110))
+	headcrab:EmitSound(headcrabClass == "npc_headcrab_black" and "npc/headcrab_poison/ph_rattle1.wav" or "npc/headcrab/alert1.wav", 70, math.random(95, 105))
+end
+
 hook.Add("RagdollDeath","headcrab",function(ply,rag)
     rag:SetNetVar("headcrab", ply:GetNetVar("headcrab"))
     ply:SetNetVar("headcrab", false)
 	ply.organism.noHead = false
+
+	if ply.PlayerClassName == "headcrabzombie" or ply.PlayerClassName == "poisonzombie" then
+		local headcrabClass = ply.PlayerClassName == "poisonzombie" and "npc_headcrab_black" or "npc_headcrab"
+		timer.Simple(0, function()
+			if not IsValid(ply) or not IsValid(rag) then return end
+			releaseHeadcrab(ply, rag, rag.organism or ply.organism, headcrabClass)
+		end)
+	end
 end)
 
 hook.Add("Org Clear", "removeheadcrab", function(org)
