@@ -312,6 +312,7 @@ if CLIENT then
             ["sandbox"] = true,
             ["scugarena"] = true,
             ["superfighters"] = true,
+            ["zombiesurvival"] = true,
         }
         
         for i, mode in SortedPairsByMemberValue(zb.availableModes,"canlaunch",true) do

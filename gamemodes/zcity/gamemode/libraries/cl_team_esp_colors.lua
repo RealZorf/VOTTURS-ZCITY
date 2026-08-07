@@ -18,6 +18,7 @@ TeamESP.SpectatorPaletteModes = {
 	superfighters = true,
 	lastmanstanding = true,
 	assassinsgreed = true,
+	zombiesurvival = true,
 }
 
 TeamESP.PlayerPalette = {
