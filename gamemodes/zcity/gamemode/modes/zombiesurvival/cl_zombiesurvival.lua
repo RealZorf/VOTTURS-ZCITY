@@ -8,6 +8,17 @@ local white = Color(238, 246, 241)
 local muted = Color(130, 165, 145)
 local panelBackground = Color(0, 13, 8, 188)
 local consumeTextOutline = Color(0, 8, 4, 235)
+local brainGlowMaterial = Material("sprites/light_glow02_add_noz")
+local brainTargets = {}
+local nextBrainTargetRefresh = 0
+local brainAuraColor = Color(120, 8, 12, 0)
+local brainLobeColor = Color(255, 48, 38, 0)
+local brainCoreColor = Color(255, 205, 155, 0)
+local zombiePlayerClasses = {
+	headcrabzombie = true,
+	fastzombie = true,
+	poisonzombie = true,
+}
 
 surface.CreateFont("ZC_ZS_Header", {
 	font = "Bahnschrift",
@@ -89,6 +100,103 @@ local function UpdateRosterCounts()
 		end
 	end
 end
+
+local function IsZombiePlayer(ply)
+	return IsValid(ply) and (zombiePlayerClasses[ply.PlayerClassName] == true or ply:GetNWBool("ZS_IsZombie", false))
+end
+
+local function GetBrainTransform(target, character)
+	local attachmentID = character:LookupAttachment("eyes")
+	if attachmentID and attachmentID > 0 then
+		local attachment = character:GetAttachment(attachmentID)
+		if attachment then
+			return attachment.Pos - attachment.Ang:Forward() * 1.8 + attachment.Ang:Up() * 2.2, attachment.Ang:Right()
+		end
+	end
+
+	local model = character:GetModel()
+	if character.ZSBrainESPModel ~= model then
+		character.ZSBrainESPModel = model
+		character.ZSBrainESPBone = character:LookupBone("ValveBiped.Bip01_Head1")
+	end
+
+	local bone = character.ZSBrainESPBone
+	if isnumber(bone) and bone >= 0 then
+		local matrix = character:GetBoneMatrix(bone)
+		if matrix then
+			local ang = matrix:GetAngles()
+			return matrix:GetTranslation() + ang:Up() * 2, ang:Right()
+		end
+	end
+
+	return character:WorldSpaceCenter() + Vector(0, 0, character:BoundingRadius() * 0.35), target:GetRight()
+end
+
+local function RefreshBrainTargets(localPly)
+	if CurTime() < nextBrainTargetRefresh then return end
+
+	nextBrainTargetRefresh = CurTime() + 0.2
+	brainTargets = {}
+	local origin = localPly:EyePos()
+
+	for _, target in player.Iterator() do
+		if target == localPly or not target:Alive() or IsZombiePlayer(target) then continue end
+		if target:Team() == TEAM_SPECTATOR or target:Team() == TEAM_UNASSIGNED then continue end
+
+		local character = hg.GetCurrentCharacter(target)
+		if not IsValid(character) then character = target end
+		if not IsValid(character) or origin:DistToSqr(character:WorldSpaceCenter()) > 144000000 then continue end
+
+		brainTargets[#brainTargets + 1] = {target, character}
+	end
+end
+
+hook.Add("PostDrawTranslucentRenderables", "ZCityZombieSurvival_BrainESP", function(_, drawingSkybox)
+	if drawingSkybox or zb.ROUND_STATE ~= 1 or CurrentRound() ~= MODE then return end
+
+	local localPly = LocalPlayer()
+	if not IsValid(localPly) or not localPly:Alive() or not IsZombiePlayer(localPly) or GetViewEntity() ~= localPly then
+		brainTargets = {}
+		return
+	end
+
+	RefreshBrainTargets(localPly)
+	if #brainTargets == 0 then return end
+
+	local now = CurTime()
+	local origin = localPly:EyePos()
+	render.SetMaterial(brainGlowMaterial)
+	cam.IgnoreZ(true)
+
+	for index = #brainTargets, 1, -1 do
+		local entry = brainTargets[index]
+		local target, character = entry[1], entry[2]
+		if not IsValid(target) or not target:Alive() or IsZombiePlayer(target) or not IsValid(character) then
+			table.remove(brainTargets, index)
+			continue
+		end
+
+		local brainPos, brainRight = GetBrainTransform(target, character)
+		local distance = origin:Distance(brainPos)
+		local rangeFade = 1 - math.Clamp((distance - 8000) / 4000, 0, 1)
+		if rangeFade <= 0 then continue end
+
+		local beat = math.max(math.sin(now * 5.5 + target:EntIndex() * 0.37), 0) ^ 5
+		local alpha = math.floor((195 + beat * 60) * rangeFade)
+		local lobeOffset = 1.7 + beat * 0.35
+		local lobeSize = 6.2 + beat * 1.8
+
+		brainAuraColor.a = math.floor(alpha * 0.72)
+		brainLobeColor.a = alpha
+		brainCoreColor.a = alpha
+		render.DrawSprite(brainPos, 18 + beat * 5, 18 + beat * 5, brainAuraColor)
+		render.DrawSprite(brainPos - brainRight * lobeOffset, lobeSize, lobeSize, brainLobeColor)
+		render.DrawSprite(brainPos + brainRight * lobeOffset, lobeSize, lobeSize, brainLobeColor)
+		render.DrawSprite(brainPos, 3.4 + beat, 3.4 + beat, brainCoreColor)
+	end
+
+	cam.IgnoreZ(false)
+end)
 
 local function DrawProgressArc(centerX, centerY, radius, progress, accent)
 	local segments = 48
