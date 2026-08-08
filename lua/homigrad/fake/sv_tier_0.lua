@@ -936,6 +936,56 @@ hook.Add("CanControlFake","stunnednocontrol",function(ply,rag)
 end)
 
 local util_TraceLine = util.TraceLine
+local function BeginFakeUpCrouchTransition(ply, ragdoll)
+	if not IsValid(ply) then return end
+
+	local scale = hg.GetEntityModelScale and hg.GetEntityModelScale(ply) or 1
+	local radius = math.max(2, 10 * scale)
+	local crouchHeight = math.max(8, 36 * scale)
+	local standHeight = math.max(12, 72 * scale)
+	local crouchMins = Vector(-radius, -radius, 0)
+	local crouchMaxs = Vector(radius, radius, crouchHeight)
+	local standMaxs = Vector(radius, radius, standHeight)
+	local crouchView = Vector(0, 0, math.max(6, 38 * scale))
+	local timerName = "fake_up_crouch_hull" .. ply:EntIndex()
+
+	ply:SetHull(crouchMins, crouchMaxs)
+	ply:SetHullDuck(crouchMins, crouchMaxs)
+	ply:SetViewOffset(crouchView)
+	ply:SetViewOffsetDucked(crouchView)
+
+	timer.Remove(timerName)
+	timer.Create(timerName, 0.05, 0, function()
+		if not IsValid(ply) or not ply:Alive() then
+			timer.Remove(timerName)
+			return
+		end
+
+		if IsValid(ply.FakeRagdoll) then
+			timer.Remove(timerName)
+			return
+		end
+
+		local standingTrace = util.TraceHull({
+			start = ply:GetPos(),
+			endpos = ply:GetPos(),
+			mins = crouchMins,
+			maxs = standMaxs,
+			filter = {ply, ragdoll},
+			mask = MASK_PLAYERSOLID,
+			collisiongroup = COLLISION_GROUP_PLAYER
+		})
+
+		if ply:Crouching() or not (standingTrace.Hit or standingTrace.StartSolid or standingTrace.AllSolid) then
+			if hg.ApplyScaledPlayerHull then
+				hg.ApplyScaledPlayerHull(ply, true)
+			end
+
+			timer.Remove(timerName)
+		end
+	end)
+end
+
 function hg.FakeUp(ply, forced, instant)
 	local ragdoll = ply.FakeRagdoll
 	
@@ -971,7 +1021,7 @@ function hg.FakeUp(ply, forced, instant)
 
 	local ent = (IsValid(ragdoll) and ragdoll or ply)
 	local posit = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Pelvis")):GetTranslation()
-	local pos = hg.GetUpPos(ply, posit, 50, 50)
+	local pos, crouchOnly = hg.GetUpPos(ply, posit, 50, 50)
 	
 	if not pos and not forced then return end
 	local oldpos = pos
@@ -983,13 +1033,6 @@ function hg.FakeUp(ply, forced, instant)
 	ply:SetNWEntity("FakeRagdollOld", ragdoll)
 	ply.FakeRagdoll = nil
 	
-	ply:ConCommand("+duck")
-	timer.Simple(0.5,function()
-		if IsValid(ply) then
-			ply:ConCommand("-duck")
-		end
-	end)
-
 	if IsValid(ragdoll) and ragdoll:IsOnFire() then
 		timer.Simple(0.1,function()
 			--ply.fires = ragdoll.fires
@@ -1019,6 +1062,18 @@ function hg.FakeUp(ply, forced, instant)
 	hg.OverrideSpawn(ply)
 	--local pos = ply:GetPos()
 	ply:Spawn()
+	ply:ConCommand("+duck")
+
+	if crouchOnly then
+		BeginFakeUpCrouchTransition(ply, ragdoll)
+	end
+
+	timer.Simple(0.5,function()
+		if IsValid(ply) then
+			ply:ConCommand("-duck")
+		end
+	end)
+
 	--ply:SetPos(pos)
 	ply:SetRenderMode(RENDERMODE_NORMAL)
 	ply.LastFakeUp = CurTime()
@@ -1306,69 +1361,93 @@ hook.Add("CanExitVehicle","huyhuy",function(ply, veh)
 	--return false
 end)
 
-local poses = {}
-
 function hg.GetUpPos(target,pos,tries,starttries)
-	if not IsValid(target) then return pos end
+	if not IsValid(target) or not isvector(pos) then return end
 
-	local hull = 10
-	local mins,maxs = -Vector(hull,hull,0),Vector(hull,hull,36)
+	local scale = hg.GetEntityModelScale and hg.GetEntityModelScale(target) or 1
+	local radius = math.max(2, 10 * scale)
+	local height = math.max(8, 36 * scale)
+	local standingHeight = math.max(12, 72 * scale)
+	local mins = Vector(-radius, -radius, 0)
+	local maxs = Vector(radius, radius, height)
+	local standingMaxs = Vector(radius, radius, standingHeight)
+	local filter = {target, target.FakeRagdoll, target.ply}
+	local groundLift = Vector(0, 0, 1)
+	local centerLift = Vector(0, 0, math.min(height * 0.5, 18 * scale))
+	local groundUp = math.max(4 * scale, 4)
+	local groundDown = math.max(height + 96 * scale, 128)
+	local maxRadius = math.Clamp(128 * scale, 96, 320)
+	local step = math.max(radius * 1.35, 12)
 
-	if tries <= 0 then
-		table.sort(poses,function(a,b) return a[2] < b[2] end)
+	local function CheckCandidate(candidate)
+		local groundTrace = util.TraceLine({
+			start = candidate + Vector(0, 0, groundUp),
+			endpos = candidate - Vector(0, 0, groundDown),
+			filter = filter,
+			mask = MASK_PLAYERSOLID,
+			collisiongroup = COLLISION_GROUP_PLAYER
+		})
 
-		local vec = (#poses > 0 and Vector(poses[1][1],poses[1][2],poses[1][3])) or target:GetPos() -- or pos - vector_up * 72
+		if not groundTrace.Hit or groundTrace.HitSky or groundTrace.HitNormal.z < 0.45 then return end
 
-		poses = {}
+		local standPos = groundTrace.HitPos + groundLift
+		local spaceTrace = util.TraceHull({
+			start = standPos,
+			endpos = standPos,
+			mins = mins,
+			maxs = maxs,
+			filter = filter,
+			mask = MASK_PLAYERSOLID,
+			collisiongroup = COLLISION_GROUP_PLAYER
+		})
 
-		if vec then
-			local t = {}
-			t.start = vec
-			t.endpos = vec - vector_up * 128
-			t.mins = mins
-			t.maxs = maxs
-			t.filter = {target,target.FakeRagdoll,target.ply}
-			--t.mask = MASK_PLAYERSOLID
-			t.collisiongroup = COLLISION_GROUP_PLAYER
-			local tr = util.TraceHull( t )
+		if spaceTrace.Hit or spaceTrace.StartSolid or spaceTrace.AllSolid then return end
 
-			return tr.HitPos
+		local pathTrace = util.TraceLine({
+			start = pos,
+			endpos = standPos + centerLift,
+			filter = filter,
+			mask = MASK_PLAYERSOLID,
+			collisiongroup = COLLISION_GROUP_PLAYER
+		})
+
+		if pathTrace.Hit then
+			local escapeDistance = math.max(48 * scale, radius * 3)
+			if not pathTrace.StartSolid or standPos:DistToSqr(pos) > escapeDistance * escapeDistance then return end
 		end
 
-		return vec
+		local standingTrace = util.TraceHull({
+			start = standPos,
+			endpos = standPos,
+			mins = mins,
+			maxs = standingMaxs,
+			filter = filter,
+			mask = MASK_PLAYERSOLID,
+			collisiongroup = COLLISION_GROUP_PLAYER
+		})
+
+		local crouchOnly = standingTrace.Hit or standingTrace.StartSolid or standingTrace.AllSolid
+		return standPos, crouchOnly
 	end
-	tries = tries - 1
 
+	local result, crouchOnly = CheckCandidate(pos)
+	if result then return result, crouchOnly end
 
-	local offset = tries == starttries and vector_origin or VectorRand(-32,32)
-	local newpos = pos + offset
+	local ring = 1
+	while ring * step <= maxRadius do
+		local distance = ring * step
+		local samples = math.min(8 + ring * 2, 18)
+		local phase = ring % 2 == 0 and math.pi / samples or 0
 
-	local t = {}
-	t.start = pos
-	t.endpos = newpos
-	t.filter = {target,target.FakeRagdoll,target.ply}
-	--t.mask = MASK_PLAYERSOLID
-	t.collisiongroup = COLLISION_GROUP_PLAYER
-
-	local tr = util.TraceLine( t )
-
-	if not tr.Hit then
-		local t = {}
-		t.start = newpos
-		t.endpos = newpos
-		t.mins = mins
-		t.maxs = maxs
-		t.filter = {target,target.FakeRagdoll,target.ply}
-		--t.mask = MASK_PLAYERSOLID
-		t.collisiongroup = COLLISION_GROUP_PLAYER
-		local tr = util.TraceHull( t )
-		
-		if not tr.Hit then
-			table.insert(poses,{newpos,(tr.HitPos - pos):LengthSqr()})
+		for sample = 0, samples - 1 do
+			local angle = phase + sample / samples * math.pi * 2
+			local candidate = pos + Vector(math.cos(angle) * distance, math.sin(angle) * distance, 0)
+			result, crouchOnly = CheckCandidate(candidate)
+			if result then return result, crouchOnly end
 		end
-	end
 
-	return hg.GetUpPos(target,pos,tries,starttries)
+		ring = ring + 1
+	end
 end
 /*
 local ent = Entity(1)
