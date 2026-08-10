@@ -15,6 +15,21 @@ local hg_developer = ConVarExists("hg_developer") and GetConVar("hg_developer") 
 local KARMA_SUICIDE_REFUND_RATE = 0.1
 local KARMA_SUICIDE_REFUND_WINDOW = 30
 local GUILT_THREAT_WINDOW = 15
+local RETALIATION_MIN_INCOMING = 0.01
+local RETALIATION_KILL_KARMA_CAP = 5
+
+local function GetGuiltThreatWindow()
+    local cfg = ZCITY_GUILT and ZCITY_GUILT.Config
+    if istable(cfg) then
+        local window = tonumber(cfg.SelfDefenseWindow)
+        if window then
+            return math.max(0, window)
+        end
+    end
+
+    return GUILT_THREAT_WINDOW
+end
+
 local PLAYER_KARMA_CAPS = {
     superadmin = 99999,
     owner = 99999,
@@ -151,6 +166,41 @@ local function GetGuiltDamageSource(attacker, dmgInfo)
     return "damage"
 end
 
+local function GetPairHarm(from, to)
+    if not IsValid(from) or not IsValid(to) then return 0 end
+
+    local harmTable = zb.HarmDone[from]
+    return harmTable and (tonumber(harmTable[to]) or 0) or 0
+end
+
+local function GetCombatEntry(from, to)
+    local history = zb.GuiltCombatHistory[from]
+    local entry = history and history[to]
+    if not istable(entry) then return nil end
+
+    local age = CurTime() - (tonumber(entry.last) or 0)
+    if age < 0 or age > GetGuiltThreatWindow() then return nil end
+
+    return entry
+end
+
+local function GetStrikeContext(attacker, victim, threatIncoming)
+    local atkCombat = GetCombatEntry(victim, attacker)
+    local vicCombat = GetCombatEntry(attacker, victim)
+    local atkFirst = atkCombat and (tonumber(atkCombat.first) or math.huge) or math.huge
+    local vicFirst = vicCombat and (tonumber(vicCombat.first) or math.huge) or math.huge
+    local recentIncoming = vicCombat and (tonumber(vicCombat.harm) or 0) or 0
+
+    threatIncoming = tonumber(threatIncoming) or 0
+    if recentIncoming < threatIncoming then
+        recentIncoming = threatIncoming
+    end
+
+    return {
+        victimStruckFirst = vicFirst < atkFirst,
+        recentIncoming = recentIncoming,
+    }
+end
 
 local function RecordGuiltCombatHarm(victim, attacker, amount, source)
     if not IsValid(victim) or not IsValid(attacker) then return end
@@ -162,7 +212,7 @@ local function RecordGuiltCombatHarm(victim, attacker, amount, source)
     zb.GuiltCombatHistory[victim] = zb.GuiltCombatHistory[victim] or {}
 
     local entry = zb.GuiltCombatHistory[victim][attacker]
-    if not istable(entry) or now - (tonumber(entry.last) or 0) > GUILT_THREAT_WINDOW then
+    if not istable(entry) or now - (tonumber(entry.last) or 0) > GetGuiltThreatWindow() then
         entry = { harm = 0, first = now }
     end
 
@@ -190,20 +240,21 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
     local reciprocal = zb.GuiltCombatHistory[attacker] and zb.GuiltCombatHistory[attacker][victim]
     if not istable(reciprocal) then return state end
 
+    local threatWindow = GetGuiltThreatWindow()
     local age = CurTime() - (tonumber(reciprocal.last) or 0)
-    if age < 0 or age > GUILT_THREAT_WINDOW then
+    if age < 0 or age > threatWindow then
         zb.GuiltCombatHistory[attacker][victim] = nil
         return state
     end
 
     local maxHarm = math.max(tonumber(zb.MaximumHarm) or 10, 1)
     local incomingHarm = math.Clamp(tonumber(reciprocal.harm) or 0, 0, maxHarm)
-    if incomingHarm <= 0 then return state end
+    if incomingHarm < RETALIATION_MIN_INCOMING then return state end
 
     local nativeResponse = zb.HarmDone[victim] and zb.HarmDone[victim][attacker] or 0
     local response = math.Clamp(tonumber(responseHarm) or tonumber(nativeResponse) or 0, 0, maxHarm)
-    local ratio = response / math.max(incomingHarm, 0.01)
-    local recency = 1 - math.Clamp(age / GUILT_THREAT_WINDOW, 0, 1)
+    local ratio = response / math.max(incomingHarm, RETALIATION_MIN_INCOMING)
+    local recency = 1 - math.Clamp(age / math.max(threatWindow, 0.01), 0, 1)
     local severity = math.Clamp(incomingHarm / maxHarm, 0, 1)
 
     state.score = math.Clamp(0.15 + recency * 0.45 + severity * 0.4, 0, 1)
@@ -219,13 +270,62 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
         state.karmaMul = 0.8
     end
 
+    local strike = GetStrikeContext(attacker, victim, incomingHarm)
+    if strike.victimStruckFirst then
+        if ratio <= 1.25 then
+            state.karmaMul = 0.10
+        else
+            state.karmaMul = math.min(state.karmaMul, 0.20)
+        end
+    end
+
     state.reasons = {
         "Victim recently harmed attacker for " .. math.Round(incomingHarm, 1) .. " harm.",
         ratio <= 1.25 and "Response appears proportional to the incoming harm." or "Response exceeded the incoming harm.",
+        strike.victimStruckFirst and "Victim struck before the attacker's response in this exchange." or "Attacker responded before the victim's latest hit.",
         "Threat was active " .. math.Round(age, 1) .. " seconds before this response."
     }
 
     return state
+end
+
+local function GetRetaliationKillKarmaCap()
+    local presets = ZCITY_GUILT and ZCITY_GUILT.Config and ZCITY_GUILT.Config.Presets
+    if istable(presets) then
+        for _, preset in ipairs(presets) do
+            if istable(preset) and preset.id == "punish_minor" then
+                local amount = tonumber(preset.amount)
+                if amount and amount > 0 then
+                    return amount
+                end
+            end
+        end
+    end
+
+    return RETALIATION_KILL_KARMA_CAP
+end
+
+local function ApplySelfDefenseKarmaMul(threatState, responseRatio, retaliation)
+    local threatMul = tonumber(threatState.karmaMul) or 1
+    local karmaMul
+
+    if retaliation then
+        if responseRatio <= 1.25 then
+            karmaMul = 0.05
+        elseif responseRatio <= 2 then
+            karmaMul = 0.15
+        else
+            karmaMul = 0.25
+        end
+    elseif responseRatio <= 1.25 then
+        karmaMul = 0
+    elseif responseRatio <= 2 then
+        karmaMul = 0.35
+    else
+        karmaMul = 0.45
+    end
+
+    return math.min(karmaMul, threatMul)
 end
 
 
@@ -376,24 +476,6 @@ local function GetPlayerLifeGuilt(ply)
     return guilt
 end
 
-local function GetPairHarm(from, to)
-    if not IsValid(from) or not IsValid(to) then return 0 end
-
-    local harmTable = zb.HarmDone[from]
-    return harmTable and (tonumber(harmTable[to]) or 0) or 0
-end
-
-local function GetCombatEntry(from, to)
-    local history = zb.GuiltCombatHistory[from]
-    local entry = history and history[to]
-    if not istable(entry) then return nil end
-
-    local age = CurTime() - (tonumber(entry.last) or 0)
-    if age < 0 or age > GUILT_THREAT_WINDOW then return nil end
-
-    return entry
-end
-
 function zb.EvaluateEngagement(attacker, victim, opts)
     opts = opts or {}
 
@@ -403,6 +485,8 @@ function zb.EvaluateEngagement(attacker, victim, opts)
         aggressor = nil,
         defender = nil,
         confidence = 0,
+        retaliation = false,
+        maxKarmaPenalty = nil,
         reasons = {}
     }
 
@@ -421,16 +505,16 @@ function zb.EvaluateEngagement(attacker, victim, opts)
     local totalExchange = atkHarm + vicHarm
     local atkShare = totalExchange > 0 and (atkHarm / totalExchange) or 1
 
-    local atkCombat = GetCombatEntry(victim, attacker)
-    local vicCombat = GetCombatEntry(attacker, victim)
-    local atkFirst = atkCombat and (tonumber(atkCombat.first) or math.huge) or math.huge
-    local vicFirst = vicCombat and (tonumber(vicCombat.first) or math.huge) or math.huge
-    local victimStruckFirst = vicFirst < atkFirst
-
     local incomingHarm = tonumber(threatState.incomingHarm) or 0
     local responseRatio = tonumber(threatState.responseRatio) or 0
     local threatScore = tonumber(threatState.score) or 0
     local victimAggression = tonumber(victim.GuiltAggressionScore) or 0
+    local strike = GetStrikeContext(attacker, victim, incomingHarm)
+    local victimStruckFirst = strike.victimStruckFirst
+    local activeThreat = threatScore >= 0.15 and incomingHarm >= RETALIATION_MIN_INCOMING
+    local retaliation = victimStruckFirst and strike.recentIncoming >= RETALIATION_MIN_INCOMING
+
+    result.retaliation = retaliation
 
     local karmaMul = 1
     local guiltMul = 1
@@ -439,30 +523,20 @@ function zb.EvaluateEngagement(attacker, victim, opts)
 
     if victimAggression >= AGGRESSION_SCORE_GUILTY and not zb.IsForce(attacker) then
         karmaMul = math.Clamp(0.03 + (1 - victimAggression) * 0.04, 0.03, 0.08)
+        guiltMul = karmaMul
         result.aggressor = victim
         result.defender = attacker
         reasons[#reasons + 1] = "Victim has an elevated aggression score from prior unjustified harm."
         confidence = 0.65 + victimAggression * 0.35
-    elseif threatScore >= 0.15 and incomingHarm > 0 then
+    elseif activeThreat or retaliation then
         result.aggressor = victim
         result.defender = attacker
-
-        if responseRatio <= 1.25 then
-            karmaMul = 0.00
-        elseif responseRatio <= 2 then
-            karmaMul = 0.35
-        else
-            karmaMul = 0.45
-        end
-
-        karmaMul = math.min(karmaMul, tonumber(threatState.karmaMul) or karmaMul)
-
-        if victimStruckFirst then
-            karmaMul = math.min(karmaMul, 0.10)
-        end
-
-        reasons[#reasons + 1] = "Victim recently harmed the attacker."
-        confidence = math.max(threatScore, 0.5)
+        karmaMul = ApplySelfDefenseKarmaMul(threatState, responseRatio, retaliation)
+        guiltMul = retaliation and karmaMul or math.max(karmaMul, 0.35)
+        reasons[#reasons + 1] = retaliation
+            and "Retaliation within the threat window after the victim struck first."
+            or "Victim recently harmed the attacker."
+        confidence = math.max(threatScore, retaliation and 0.55 or 0.5)
     elseif vicHarm >= maxHarm * 0.15 and atkHarm >= maxHarm * 0.15 then
         local balance = 1 - math.abs(atkShare - 0.5) * 2
         karmaMul = 0.20 + (1 - balance) * 0.20
@@ -478,11 +552,12 @@ function zb.EvaluateEngagement(attacker, victim, opts)
 
         reasons[#reasons + 1] = "Both players exchanged significant damage."
         confidence = 0.45 + balance * 0.45
-    elseif vicHarm <= maxHarm * 0.05 then
+    elseif vicHarm <= maxHarm * 0.05 and strike.recentIncoming < RETALIATION_MIN_INCOMING then
         karmaMul = 1
         guiltMul = 1
         result.aggressor = attacker
         result.defender = victim
+        result.retaliation = false
         reasons[#reasons + 1] = "No meaningful prior harm from the victim."
         confidence = math.Clamp(atkHarm / maxHarm, 0.35, 1)
     else
@@ -503,11 +578,13 @@ function zb.EvaluateEngagement(attacker, victim, opts)
     end
 
     if victimAlreadyDown or victimAlive == false then
-        if incomingHarm > 0 and responseRatio > 1.5 then
+        if retaliation then
+            reasons[#reasons + 1] = "Lethal retaliation against the player who initiated the fight."
+        elseif incomingHarm >= RETALIATION_MIN_INCOMING and responseRatio > 1.5 then
             local excess = math.Clamp((responseRatio - 1.5) / 2, 0, 1)
             karmaMul = math.max(karmaMul, 0.5 + excess * 0.5)
             reasons[#reasons + 1] = "Excessive damage continued after the threat was neutralized."
-        elseif incomingHarm <= 0 then
+        elseif incomingHarm < RETALIATION_MIN_INCOMING then
             karmaMul = math.max(karmaMul, 0.85)
             reasons[#reasons + 1] = "Additional harm dealt to an incapacitated victim."
         end
@@ -516,6 +593,12 @@ function zb.EvaluateEngagement(attacker, victim, opts)
     if zb.IsForce(attacker) and victimAggression >= AGGRESSION_SCORE_GUILTY then
         karmaMul = 1
         guiltMul = 1
+        result.retaliation = false
+        result.maxKarmaPenalty = nil
+    end
+
+    if result.retaliation and opts.lethalContribution then
+        result.maxKarmaPenalty = GetRetaliationKillKarmaCap()
     end
 
     result.karmaMultiplier = math.Clamp(karmaMul, 0, 1.25)
@@ -686,6 +769,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
         source = damageSource,
         oldHarmDone = oldharmdone,
         victimAlive = Victim:IsPlayer() and Victim:Alive() or true,
+        lethalContribution = newharm >= maxharm and oldharmdone < newharm,
     })
 
     add = add * engagement.karmaMultiplier
@@ -699,6 +783,9 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     Attacker.Guilt = (Attacker.Guilt or 0) + guiltadd
     local priorGuilt = zb.GuiltTable[Attacker][Victim] or 0
     local karmaPenalty = add * math.max((1 - priorGuilt / 60), 0)
+    if engagement.maxKarmaPenalty then
+        karmaPenalty = math.min(karmaPenalty, engagement.maxKarmaPenalty)
+    end
     Attacker.Karma = math.Clamp((Attacker.Karma or 100) - karmaPenalty, -60, GetPlayerKarmaCap(Attacker))
 
     zb.HarmDoneKarma[Victim][Attacker] = zb.HarmDoneKarma[Victim][Attacker] + karmaPenalty
