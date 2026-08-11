@@ -141,35 +141,78 @@ end
 local function resolveLootEntityFromTrace(ply, trace)
 	if not trace then return nil end
 
-	local ent = trace.Entity
-	ent = IsValid(hg.RagdollOwner(ent)) and hg.RagdollOwner(ent) or ent
+	local tracedEnt = trace.Entity
+	local tracedOwner = hg.RagdollOwner(tracedEnt)
+	local ent = IsValid(tracedOwner) and tracedOwner or tracedEnt
+
+	local function getBodyTarget(candidate)
+		if not IsValid(candidate) or not candidate:IsRagdoll() then return nil end
+
+		local owner = hg.RagdollOwner(candidate)
+		if IsValid(owner) then return owner end
+		if candidate:GetNetVar("Inventory") ~= nil then return candidate end
+	end
+
+	local directBody = getBodyTarget(tracedEnt)
+	if IsValid(directBody) then return directBody end
+
+	local hitPos = trace.HitPos
+	if not isvector(hitPos) then return ent end
+
+	local startPos = isvector(trace.StartPos) and trace.StartPos or ply:EyePos()
+	local aimDelta = hitPos - startPos
+	local aimLength = aimDelta:Length()
+	local aimDir = aimLength > 0 and aimDelta / aimLength or ply:GetAimVector()
+	aimLength = math.max(aimLength, 1)
+	local bestBody, bestBodyScore
+	local bestContainer, bestContainerScore
+
+	local function getCrosshairScore(candidate)
+		local center = candidate:WorldSpaceCenter()
+		local along = math.Clamp((center - startPos):Dot(aimDir), 0, aimLength)
+		local rayPoint = startPos + aimDir * along
+		local nearest = candidate.NearestPoint and candidate:NearestPoint(rayPoint) or center
+
+		along = math.Clamp((nearest - startPos):Dot(aimDir), 0, aimLength)
+		rayPoint = startPos + aimDir * along
+		nearest = candidate.NearestPoint and candidate:NearestPoint(rayPoint) or center
+
+		local missSqr = nearest:DistToSqr(rayPoint)
+		return missSqr + along * 0.05, missSqr
+	end
+
+	for _, candidate in ipairs(ents.FindInSphere(hitPos, 40)) do
+		if not IsValid(candidate) then continue end
+
+		local bodyTarget = getBodyTarget(candidate)
+		if IsValid(bodyTarget) then
+			local score, missSqr = getCrosshairScore(candidate)
+			if missSqr <= 18 * 18 and (not bestBodyScore or score < bestBodyScore) then
+				bestBody = bodyTarget
+				bestBodyScore = score
+			end
+			continue
+		end
+
+		if not hg.GetLootBoxData then continue end
+		if not lootableSearchClasses[candidate:GetClass()] then continue end
+		if not hg.GetLootBoxData(candidate) then continue end
+
+		local score, missSqr = getCrosshairScore(candidate)
+		if missSqr <= 12 * 12 and (not bestContainerScore or score < bestContainerScore) then
+			bestContainer = candidate
+			bestContainerScore = score
+		end
+	end
+
+	if IsValid(bestBody) then return bestBody end
+	if IsValid(ent) and ent:GetNetVar("Inventory") ~= nil then return ent end
 
 	if IsValid(ent) and hg.GetLootBoxData and hg.GetLootBoxData(ent) then
 		return ent
 	end
 
-	if not hg.GetLootBoxData then return ent end
-
-	local hitPos = trace.HitPos
-	if not isvector(hitPos) then return ent end
-
-	local bestEnt, bestDistSqr
-
-	for _, candidate in ipairs(ents.FindInSphere(hitPos, 48)) do
-		if not IsValid(candidate) then continue end
-		if not lootableSearchClasses[candidate:GetClass()] then continue end
-		if not hg.GetLootBoxData(candidate) then continue end
-
-		local nearest = candidate.NearestPoint and candidate:NearestPoint(hitPos) or candidate:GetPos()
-		local distSqr = nearest:DistToSqr(hitPos)
-
-		if not bestDistSqr or distSqr < bestDistSqr then
-			bestEnt = candidate
-			bestDistSqr = distSqr
-		end
-	end
-
-	return bestEnt or ent
+	return bestContainer or ent
 end
 
 function hg.CreateInv(ply)

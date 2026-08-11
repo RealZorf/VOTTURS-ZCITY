@@ -1372,17 +1372,23 @@ function hg.GetUpPos(target,pos,tries,starttries)
 	local maxs = Vector(radius, radius, height)
 	local standingMaxs = Vector(radius, radius, standingHeight)
 	local filter = {target, target.FakeRagdoll, target.ply}
-	local groundLift = Vector(0, 0, 1)
+	local groundLift = Vector(0, 0, math.max(1, scale))
 	local centerLift = Vector(0, 0, math.min(height * 0.5, 18 * scale))
-	local groundUp = math.max(4 * scale, 4)
+	local footInset = math.min(0.5 * scale, radius * 0.1)
+	local footRadius = math.max(radius - footInset, radius * 0.9)
+	local footMins = Vector(-footRadius, -footRadius, 0)
+	local footMaxs = Vector(footRadius, footRadius, math.max(2 * scale, 1))
+	local groundUp = math.max(radius * 2.25, 12 * scale, 12)
 	local groundDown = math.max(height + 96 * scale, 128)
-	local maxRadius = math.Clamp(128 * scale, 96, 320)
+	local maxRadius = math.Clamp(math.max(48 * scale, radius * 3), 24, 96)
 	local step = math.max(radius * 1.35, 12)
 
 	local function CheckCandidate(candidate)
-		local groundTrace = util.TraceLine({
+		local groundTrace = util.TraceHull({
 			start = candidate + Vector(0, 0, groundUp),
 			endpos = candidate - Vector(0, 0, groundDown),
+			mins = footMins,
+			maxs = footMaxs,
 			filter = filter,
 			mask = MASK_PLAYERSOLID,
 			collisiongroup = COLLISION_GROUP_PLAYER
@@ -1404,7 +1410,7 @@ function hg.GetUpPos(target,pos,tries,starttries)
 		if spaceTrace.Hit or spaceTrace.StartSolid or spaceTrace.AllSolid then return end
 
 		local pathTrace = util.TraceLine({
-			start = pos,
+			start = pos + centerLift,
 			endpos = standPos + centerLift,
 			filter = filter,
 			mask = MASK_PLAYERSOLID,
@@ -1412,8 +1418,7 @@ function hg.GetUpPos(target,pos,tries,starttries)
 		})
 
 		if pathTrace.Hit then
-			local escapeDistance = math.max(48 * scale, radius * 3)
-			if not pathTrace.StartSolid or standPos:DistToSqr(pos) > escapeDistance * escapeDistance then return end
+			if not pathTrace.StartSolid or standPos:DistToSqr(pos) > maxRadius * maxRadius then return end
 		end
 
 		local standingTrace = util.TraceHull({
