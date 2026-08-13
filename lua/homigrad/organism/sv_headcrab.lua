@@ -1,13 +1,26 @@
 
 local PLAYER = FindMetaTable("Player")
 util.AddNetworkString("hg_headcrab")
-function PLAYER:AddHeadcrab(headcrab)
+local zombieClasses = {
+	headcrabzombie = true,
+	fastzombie = true,
+	poisonzombie = true,
+}
+
+local zombieRoles = {
+	headcrabzombie = {"Zombie", Color(150, 0, 0)},
+	fastzombie = {"Fast Zombie", Color(210, 25, 15)},
+	poisonzombie = {"Poison Zombie", Color(100, 160, 35)},
+}
+
+function PLAYER:AddHeadcrab(headcrab, zombieClass)
 	if self.PlayerClassName == "headcrabzombie" or self.PlayerClassName == "fastzombie" or self.PlayerClassName == "poisonzombie" then return end
     --self.organism.headcrabon = headcrab
     self:SetNetVar("headcrab",headcrab)
    
-    self.organism.headcrabon = headcrab and CurTime()
+	self.organism.headcrabon = headcrab and CurTime()
 	self.organism.headcrabevent = false
+	self.organism.headcrabZombieClass = zombieClasses[zombieClass] and zombieClass or "headcrabzombie"
 
     --[[net.Start("hg_headcrab")
     net.WriteEntity(self)
@@ -69,8 +82,10 @@ hook.Add("RagdollDeath","headcrab",function(ply,rag)
     ply:SetNetVar("headcrab", false)
 	ply.organism.noHead = false
 
-	if ply.PlayerClassName == "headcrabzombie" or ply.PlayerClassName == "poisonzombie" then
-		local headcrabClass = ply.PlayerClassName == "poisonzombie" and "npc_headcrab_black" or "npc_headcrab"
+	if zombieClasses[ply.PlayerClassName] then
+		local headcrabClass = ply.PlayerClassName == "poisonzombie" and "npc_headcrab_black"
+			or ply.PlayerClassName == "fastzombie" and "npc_headcrab_fast"
+			or "npc_headcrab"
 		timer.Simple(0, function()
 			if not IsValid(ply) or not IsValid(rag) then return end
 			releaseHeadcrab(ply, rag, rag.organism or ply.organism, headcrabClass)
@@ -81,6 +96,7 @@ end)
 hook.Add("Org Clear", "removeheadcrab", function(org)
     org.headcrabon = nil
 	org.headcrabevent = false
+	org.headcrabZombieClass = nil
 	if IsValid(org.owner) then
 		org.owner:SetNetVar("headcrab", false)
 	end
@@ -105,7 +121,7 @@ local fallbackMats = {
 	},
 }
 
-local clr_red, lerpAng = Color(150, 0, 0), Angle(0, 0, 0)
+local lerpAng = Angle(0, 0, 0)
 hook.Add("Org Think", "Headcrab",function(owner, org, timeValue)
     if not IsValid(owner) then return end
     if not owner:IsPlayer() or not owner:Alive() then return end
@@ -133,16 +149,19 @@ hook.Add("Org Think", "Headcrab",function(owner, org, timeValue)
 			if (org.headcrabon + 60) < CurTime() and org.alive and not org.headcrabevent then
 				owner:EmitSound("npc/zombie/zombie_alert" .. math.random(3) .. ".wav", 80, math.random(60, 70))
 				owner:EmitSound("neck_snap_01.wav", 80, 80, 1, CHAN_AUTO)
-				owner:SetPlayerClass("headcrabzombie")
+				local zombieClass = zombieClasses[org.headcrabZombieClass] and org.headcrabZombieClass or "headcrabzombie"
+				owner:SetPlayerClass(zombieClass)
 				org.painadd = org.painadd + 5
 
 				hg.StunPlayer(owner, 5)
 				if zb and zb.GiveRole then
-					zb.GiveRole(owner, "Zombie", clr_red)
+					local role = zombieRoles[zombieClass] or zombieRoles.headcrabzombie
+					zb.GiveRole(owner, role[1], role[2])
 				end
 
 				org.headcrabevent = true
 				org.headcrabon = nil
+				org.headcrabZombieClass = nil
 				org.headcrabevent = false
 				org.noHead = false
 

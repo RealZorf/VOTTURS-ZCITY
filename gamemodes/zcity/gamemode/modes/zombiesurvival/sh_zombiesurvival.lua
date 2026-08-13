@@ -14,6 +14,12 @@ MODE.ZombieConsumeTime = 4
 MODE.ZombieConsumeReach = 100
 MODE.ZombieConsumeHealthRestore = 45
 
+MODE.ZombieBuffs = {
+	headcrabzombie = {maxHealth = 180, movement = 1.16, meleeDamage = 1.35},
+	fastzombie = {maxHealth = 225, movement = 1.12, meleeDamage = 1.75, doorDamage = 105},
+	poisonzombie = {maxHealth = 475, movement = 1.1, meleeDamage = 1.5, doorDamage = 150},
+}
+
 MODE.randomSpawns = true
 MODE.shouldfreeze = true
 MODE.OverrideSpawn = true
@@ -24,6 +30,15 @@ MODE.Chance = 0.12
 function MODE:CanLaunch()
 	return player.GetCount() >= 2
 end
+
+hook.Add("HG_MovementCalc_2", "ZombieSurvivalBuffSpeed", function(mul, ply)
+	if not CurrentRound or CurrentRound() ~= MODE then return end
+
+	local buff = IsValid(ply) and MODE.ZombieBuffs[ply.PlayerClassName]
+	if not buff then return end
+
+	mul[1] = (mul[1] or 1) * buff.movement
+end, 2)
 
 function MODE:IsZombieConsumableVictim(victim, corpse)
 	if not IsValid(victim) or not victim:IsPlayer() then return false end

@@ -311,9 +311,100 @@ local function BindObjects(ent1, pos1, ent2, pos2, power, bone1, bone2)
 	if ent1.Nails[bone1] then ent1.Nails[bone1][3] = ent2.Nails[bone2] and ent2.Nails[bone2][1] end
 	if ent1.Nails[bone1] then ent1.Nails[bone1].NailPos = pos1 end
 	if ent2.Nails[bone2] then ent2.Nails[bone2].NailPos = pos2 end
+	local nailEntry1 = ent1.Nails[bone1]
+	local nailEntry2 = ent2.Nails[bone2]
+	local impactState = nailEntry1 and nailEntry1.ImpactState or nailEntry2 and nailEntry2.ImpactState or {}
+	if nailEntry1 then nailEntry1.ImpactState = impactState end
+	if nailEntry2 then nailEntry2.ImpactState = impactState end
 	UpdateNailNetworkState(ent1)
 	UpdateNailNetworkState(ent2)
 	return ent1:IsWorld() and ((ent2.Nails[bone2] and ent2.Nails[bone2][2]) or 1) or ((ent1.Nails[bone1] and ent1.Nails[bone1][2]) or 1)
+end
+
+local function GetNailImpactDamage(dmgInfo)
+	local damage = math.max(dmgInfo:GetDamage(), 0)
+	if damage < 3 then return 0 end
+
+	if dmgInfo:IsDamageType(DMG_BLAST) then
+		return math.min(damage * 1.25, 120)
+	elseif dmgInfo:IsDamageType(DMG_CLUB) or dmgInfo:IsDamageType(DMG_SLASH) or dmgInfo:IsDamageType(DMG_CRUSH) or dmgInfo:IsDamageType(DMG_VEHICLE) then
+		return math.min(damage, 80)
+	elseif dmgInfo:IsBulletDamage() or dmgInfo:IsDamageType(DMG_BUCKSHOT) then
+		return math.min(damage * 0.7, 80)
+	end
+
+	return 0
+end
+
+local function BreakNailEntry(ent, bone, entry)
+	if not istable(entry) then return end
+
+	entry[2] = 0
+	RemoveAllNailVisuals(entry)
+
+	local primaryConstraint = entry[1]
+	local pairedConstraint = entry[3]
+	if IsValid(primaryConstraint) then primaryConstraint:Remove() end
+	if IsValid(pairedConstraint) and pairedConstraint ~= primaryConstraint then pairedConstraint:Remove() end
+
+	if IsValid(ent) and ent.Nails and ent.Nails[bone] == entry then
+		ent.Nails[bone] = nil
+	end
+
+	UpdateNailNetworkState(ent)
+end
+
+local function FindImpactNailEntry(ent, hitPos)
+	if not ent.Nails then return end
+
+	local closestBone, closestEntry, closestDistance
+	for bone, entry in pairs(ent.Nails) do
+		if not istable(entry) or (entry[2] or 0) <= 0 then continue end
+
+		local nailPos = entry.NailPos
+		local distance = isvector(hitPos) and isvector(nailPos) and hitPos:DistToSqr(nailPos) or 0
+		if not closestEntry or distance < closestDistance then
+			closestBone = bone
+			closestEntry = entry
+			closestDistance = distance
+		end
+	end
+
+	return closestBone, closestEntry
+end
+
+if SERVER then
+	hook.Add("PostEntityTakeDamage", "HammerNailsBreakFromDamage", function(ent, dmgInfo, tookDamage)
+		if not IsValid(ent) then return end
+
+		local impactDamage = GetNailImpactDamage(dmgInfo)
+		if impactDamage <= 0 then return end
+		local impactPos = dmgInfo:GetDamagePosition()
+		if impactPos == vector_origin then impactPos = ent:WorldSpaceCenter() end
+
+		if ent.LockedDoorNail then
+			ent.HammerNailImpactDamage = (ent.HammerNailImpactDamage or 0) + impactDamage
+			if ent.HammerNailImpactDamage >= 150 then
+				ent.HammerNailImpactDamage = nil
+				ent.LockedDoorNail = nil
+				if IsValid(ent.LockedDoorNailVisual) then ent.LockedDoorNailVisual:Remove() end
+				ent.LockedDoorNailVisual = nil
+				if not ent.LockedDoor and not ent.LockedDoorMap then ent:Fire("unlock", "", 0) end
+				UpdateNailNetworkState(ent)
+				sound.Play("nail_pull.mp3", impactPos, 65, 90)
+			end
+		end
+
+		local bone, entry = FindImpactNailEntry(ent, impactPos)
+		if not entry then return end
+
+		local impactState = entry.ImpactState or entry
+		impactState.Damage = (impactState.Damage or 0) + impactDamage
+		if impactState.Damage < math.max(entry[2] or 1, 1) * 55 then return end
+
+		BreakNailEntry(ent, bone, entry)
+		sound.Play("nail_pull.mp3", impactPos, 65, 90)
+	end)
 end
 
 if SERVER then
@@ -475,6 +566,7 @@ function SWEP:SecondaryAttack(override)
 				if isDoorNailed and IsValid(target) and target.LockedDoorNail then
 					if not target.LockedDoor and not target.LockedDoorMap then target:Fire("unlock", "", 0) end
 					target.LockedDoorNail = nil
+					target.HammerNailImpactDamage = nil
 					if IsValid(target.LockedDoorNailVisual) then
 						target.LockedDoorNailVisual:Remove()
 					end
@@ -528,6 +620,7 @@ function SWEP:SecondaryAttack(override)
 
 								Tr.Entity:Fire("lock", "", 0)
 								Tr.Entity.LockedDoorNail = true
+								Tr.Entity.HammerNailImpactDamage = nil
 								Tr.Entity.CadedByBuilder = (Owner.Profession and Owner.Profession == "builder") and true or false
 								UpdateNailNetworkState(Tr.Entity)
 								Owner:SetAmmo(Owner:GetAmmoCount(self.Ammo) - (Owner.Profession and Owner.Profession == "builder" and 2 or 3), self.Ammo)

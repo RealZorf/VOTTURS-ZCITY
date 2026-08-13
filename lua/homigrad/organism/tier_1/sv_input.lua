@@ -482,6 +482,12 @@ local headcrabsmodels = {
 	["npc_headcrab_black"] = "models/headcrabblack.mdl",
 }
 
+local headcrabZombieClasses = {
+	["npc_headcrab"] = "headcrabzombie",
+	["npc_headcrab_fast"] = "fastzombie",
+	["npc_headcrab_black"] = "poisonzombie",
+}
+
 local hg_norespawn = ConVarExists("hg_norespawn") and GetConVar("hg_norespawn") or CreateConVar("hg_norespawn",0,FCVAR_SERVER_CAN_EXECUTE,"Disable respawns in any gamemode (useful for hg_sync)",0,1)
 
 hook.Add("PlayerDeathThink","stoprespawning",function()
@@ -1299,7 +1305,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 
 			ply.PreZombClass = ply.PlayerClassName
 
-			ply:AddHeadcrab(headcrabsmodels[class])
+			ply:AddHeadcrab(headcrabsmodels[class], headcrabZombieClasses[class])
 			
 			dmgInfo:GetAttacker():Remove()
 		end

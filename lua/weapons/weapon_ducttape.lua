@@ -190,24 +190,44 @@ if CLIENT then
 end
 
 local function BindObjects(ent1, pos1, ent2, pos2, power, bone1, bone2)
-	ent1.DuctTape = ent1.DuctTape or {}
-	ent2.DuctTape = ent2.DuctTape or {}
-	local Strength = ent1.DuctTape and ent1.DuctTape[bone1] and #ent1.DuctTape[bone1] or 1
-	local weld = not ent1:IsRagdoll() and not ent2:IsRagdoll() and constraint.Rope(ent1, ent2, 0, 0, ent1:WorldToLocal(pos1), ent2:WorldToLocal(pos2), (pos1 - pos2):Length(), -.1, (500 + Strength * 100) * 5, 0, "", false) or constraint.Weld(ent1, ent2, bone1, bone2, (500 + Strength * 100) * 15, false, false)
-	if not ent1.DuctTape[bone1] then
-		ent1.DuctTape[bone1] = {weld, 1}
-		weld:CallOnRemove("removefromtbl", function() ent1.DuctTape[bone1] = nil end)
-	else
-		ent1.DuctTape[bone1][2] = ent1.DuctTape[bone1][2] + 1
+	if not ent1:IsWorld() then ent1.DuctTape = ent1.DuctTape or {} end
+	if not ent2:IsWorld() then ent2.DuctTape = ent2.DuctTape or {} end
+
+	local entry1 = ent1.DuctTape and ent1.DuctTape[bone1]
+	local entry2 = ent2.DuctTape and ent2.DuctTape[bone2]
+	local existing = entry1 or entry2
+	if istable(existing) and IsValid(existing[1]) then
+		local strength = math.max(entry1 and entry1[2] or 0, entry2 and entry2[2] or 0, 1) + 1
+		local impactState = entry1 and entry1.ImpactState or entry2 and entry2.ImpactState or {}
+		entry1 = entry1 or existing
+		entry2 = entry2 or existing
+		entry1[2] = strength
+		entry2[2] = strength
+		entry1.ImpactState = impactState
+		entry2.ImpactState = impactState
+		if ent1.DuctTape then ent1.DuctTape[bone1] = entry1 end
+		if ent2.DuctTape then ent2.DuctTape[bone2] = entry2 end
+
+		local forceLimit = tonumber(existing[1]:GetInternalVariable("forcelimit")) or 3000
+		existing[1]:SetKeyValue("forcelimit", tostring(forceLimit + 3000))
+		return strength
 	end
 
-	if not ent2.DuctTape[bone2] then
-		ent2.DuctTape[bone2] = {weld, 1}
-		weld:CallOnRemove("removefromtbl", function() ent2.DuctTape[bone2] = nil end)
-	else
-		ent2.DuctTape[bone2][2] = ent2.DuctTape[bone2][2] + 1
-	end
-	return ent1:IsWorld() and ent2.DuctTape[bone2][2] or ent1.DuctTape[bone1][2]
+	if ent1.DuctTape then ent1.DuctTape[bone1] = nil end
+	if ent2.DuctTape then ent2.DuctTape[bone2] = nil end
+	local weld = not ent1:IsRagdoll() and not ent2:IsRagdoll() and constraint.Rope(ent1, ent2, 0, 0, ent1:WorldToLocal(pos1), ent2:WorldToLocal(pos2), (pos1 - pos2):Length(), -.1, 3000, 0, "", false) or constraint.Weld(ent1, ent2, bone1, bone2, 9000, false, false)
+	if not IsValid(weld) then return 0 end
+
+	local entry = {weld, 1}
+	entry.ImpactState = {}
+	if ent1.DuctTape then ent1.DuctTape[bone1] = entry end
+	if ent2.DuctTape then ent2.DuctTape[bone2] = entry end
+	weld:CallOnRemove("removefromtbl", function()
+		if ent1.DuctTape and ent1.DuctTape[bone1] == entry then ent1.DuctTape[bone1] = nil end
+		if ent2.DuctTape and ent2.DuctTape[bone2] == entry then ent2.DuctTape[bone2] = nil end
+	end)
+
+	return 1
 end
 
 function hgCheckDuctTapeObjects(ent1)
@@ -215,7 +235,85 @@ function hgCheckDuctTapeObjects(ent1)
 	return (ent1.DuctTape and ent1.DuctTape[0] and #ent1.DuctTape[0]) or 0
 end
 
+local function GetTapeImpactDamage(dmgInfo)
+	local damage = math.max(dmgInfo:GetDamage(), 0)
+	if damage < 3 then return 0 end
+
+	if dmgInfo:IsDamageType(DMG_BLAST) then
+		return math.min(damage * 1.4, 120)
+	elseif dmgInfo:IsDamageType(DMG_CLUB) or dmgInfo:IsDamageType(DMG_SLASH) or dmgInfo:IsDamageType(DMG_CRUSH) or dmgInfo:IsDamageType(DMG_VEHICLE) then
+		return math.min(damage, 80)
+	elseif dmgInfo:IsBulletDamage() or dmgInfo:IsDamageType(DMG_BUCKSHOT) then
+		return math.min(damage * 0.8, 80)
+	end
+
+	return 0
+end
+
+local function ClearDuctTapeConstraint(ent, key, entry)
+	if not istable(entry) then return end
+
+	local weld = entry[1]
+	local ent1 = IsValid(weld) and weld.Ent1 or nil
+	local ent2 = IsValid(weld) and weld.Ent2 or nil
+	entry[2] = 0
+
+	if IsValid(weld) then weld:Remove() end
+
+	for _, endpoint in pairs({ent, ent1, ent2}) do
+		if not IsValid(endpoint) or not endpoint.DuctTape then continue end
+
+		for endpointKey, endpointEntry in pairs(endpoint.DuctTape) do
+			if endpointEntry == entry or (istable(endpointEntry) and endpointEntry[1] == weld) then
+				endpoint.DuctTape[endpointKey] = nil
+			end
+		end
+	end
+
+	if IsValid(ent) and ent.DuctTape and ent.DuctTape[key] == entry then
+		ent.DuctTape[key] = nil
+	end
+end
+
+local function FindTapeImpactEntry(ent)
+	if not ent.DuctTape then return end
+
+	for key, entry in pairs(ent.DuctTape) do
+		if istable(entry) and (entry[2] or 0) > 0 then
+			return key, entry
+		end
+	end
+end
+
 if SERVER then
+	hook.Add("PostEntityTakeDamage", "DuctTapeBreakFromDamage", function(ent, dmgInfo, tookDamage)
+		if not IsValid(ent) then return end
+
+		local impactDamage = GetTapeImpactDamage(dmgInfo)
+		if impactDamage <= 0 then return end
+		local impactPos = dmgInfo:GetDamagePosition()
+		if impactPos == vector_origin then impactPos = ent:WorldSpaceCenter() end
+
+		if isnumber(ent.LockedDoor) then
+			ent.LockedDoor = ent.LockedDoor - impactDamage
+			if ent.LockedDoor <= 0 then
+				ent.LockedDoor = nil
+				if not ent.LockedDoorNail and not ent.LockedDoorMap then ent:Fire("unlock", "", 0) end
+				sound.Play("tapetear.mp3", impactPos, 65, 100)
+			end
+		end
+
+		local key, entry = FindTapeImpactEntry(ent)
+		if not entry then return end
+
+		local impactState = entry.ImpactState or entry
+		impactState.Damage = (impactState.Damage or 0) + impactDamage
+		if impactState.Damage < math.max(entry[2] or 1, 1) * 30 then return end
+
+		ClearDuctTapeConstraint(ent, key, entry)
+		sound.Play("tapetear.mp3", impactPos, 65, 100)
+	end)
+
 	hook.Add("Should Fake Up", "DuctTaped", function(ply)
 		if ply and IsValid(ply.FakeRagdoll) then
 			local dtape = ply.FakeRagdoll.DuctTape

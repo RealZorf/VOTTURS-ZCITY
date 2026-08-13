@@ -6,11 +6,9 @@ CLASS.CanUseGestures = false
 
 local fastZombieColor = Color(105, 0, 0)
 local fastZombieModel = "models/zombie/fast.mdl"
-local fastZombieHeadBone = "ValveBiped.HC_BodyCube"
 
 if CLIENT then
 	local hiddenHeadScale = Vector(0.001, 0.001, 0.001)
-	local visibleHeadScale = Vector(1, 1, 1)
 	local fastZombieNormalHeadBone = "ValveBiped.Bip01_Head1"
 
 	local function IsFastZombieFirstPerson(ply)
@@ -43,13 +41,12 @@ if CLIENT then
 		body:SetRenderBounds(Vector(-64, -64, -24), Vector(64, 64, 104))
 
 		local normalHead = body:LookupBone(fastZombieNormalHeadBone)
-		local crabHead = body:LookupBone(fastZombieHeadBone)
 		body.ZCFastZombieHiddenBones = {}
 
 		for bone = 0, (body:GetBoneCount() or 0) - 1 do
 			local current = bone
 			while current and current >= 0 do
-				if current == normalHead or current == crabHead then
+				if current == normalHead then
 					body.ZCFastZombieHiddenBones[bone] = true
 					break
 				end
@@ -76,6 +73,7 @@ if CLIENT then
 		for index = 0, ply:GetNumBodyGroups() - 1 do
 			body:SetBodygroup(index, ply:GetBodygroup(index))
 		end
+		if body:GetNumBodyGroups() > 1 then body:SetBodygroup(1, 0) end
 
 		body:InvalidateBoneCache()
 		body:SetupBones()
@@ -102,24 +100,13 @@ if CLIENT then
 	end
 
 	local function SetFastZombieFirstPersonHeadHidden(ply, hidden)
-		if not IsValid(ply) or not ply.LookupBone then return end
+		if not IsValid(ply) or string.lower(ply:GetModel() or "") ~= fastZombieModel then return end
+		if ply:GetNumBodyGroups() <= 1 then return end
 
-		local model = string.lower(ply:GetModel() or "")
-		if model ~= fastZombieModel then return end
-
-		if ply.ZCFastZombieHeadBoneModel ~= model then
-			ply.ZCFastZombieHeadBoneModel = model
-			ply.ZCFastZombieHeadBone = ply:LookupBone(fastZombieHeadBone) or false
+		local headcrabState = hidden and 0 or 1
+		if ply:GetBodygroup(1) ~= headcrabState then
+			ply:SetBodygroup(1, headcrabState)
 		end
-
-		local bone = ply.ZCFastZombieHeadBone
-		if bone == false or bone == nil then return end
-
-		local scale = hidden and hiddenHeadScale or visibleHeadScale
-		local current = ply:GetManipulateBoneScale(bone)
-		if current and current:IsEqualTol(scale, 0.001) then return end
-
-		ply:ManipulateBoneScale(bone, scale)
 		ply.ZCFastZombieHeadHidden = hidden or nil
 	end
 
@@ -133,8 +120,6 @@ if CLIENT then
 	function CLASS.RestoreFirstPersonHead(self)
 		SetFastZombieFirstPersonHeadHidden(self, false)
 		RemoveFastZombieFirstPersonBody(self)
-		self.ZCFastZombieHeadBoneModel = nil
-		self.ZCFastZombieHeadBone = nil
 		self.ZCFastZombieHeadHidden = nil
 	end
 end
@@ -259,10 +244,12 @@ function CLASS.On(self, data)
 	self:SetModel(fastZombieModel)
 	self:SetSubMaterial()
 	self:SetSkin(0)
-	self:SetBodygroup(1, 0)
+	if self:GetNumBodyGroups() > 1 then
+		self:SetBodygroup(1, 1)
+	end
 	self:SetNWString("PlayerName", "Fast Zombie")
 	self:SetPlayerColor(fastZombieColor:ToVector())
-	self.JumpPowerMul = 1.5
+	self.JumpPowerMul = 1.85
 	self.MeleeDamageMul = 1.5
 	self.ClawPenetration = 2.25
 	self.ClawDoorDamage = 80
@@ -524,6 +511,25 @@ hook.Add("UpdateAnimation", "FastZombieAnimationRate", function(ply, vel, maxSeq
 end, -1)
 
 if SERVER then
+	hook.Add("KeyPress", "FastZombieLeap", function(ply, key)
+		if key ~= IN_JUMP or not IsFastZombie(ply) or not ply:Alive() or not ply:OnGround() then return end
+		if IsValid(ply.FakeRagdoll) or (ply.organism and (ply.organism.otrub or ply.organism.fake)) then return end
+
+		local velocity = ply:GetVelocity()
+		local direction = Vector(velocity.x, velocity.y, 0)
+		if direction:LengthSqr() < 900 then
+			direction = ply:EyeAngles():Forward()
+			direction.z = 0
+		end
+		if direction:LengthSqr() < 0.01 then direction = ply:GetForward() end
+		direction:Normalize()
+
+		timer.Simple(0, function()
+			if not IsFastZombie(ply) or not ply:Alive() or IsValid(ply.FakeRagdoll) then return end
+			ply:SetVelocity(direction * 150 + Vector(0, 0, 65))
+		end)
+	end)
+
 	hook.Add("HG_PlayerFootstep", "FastZombieFootsteps", function(ply)
 		if not ply:Alive() or not IsFastZombie(ply) then return end
 		if IsValid(ply.FakeRagdoll) and ply:GetNetVar("lastFake") == 0 then return end

@@ -67,6 +67,33 @@ local function IsPoisonZombie(ply)
 	return IsValid(ply) and ply.PlayerClassName == "poisonzombie"
 end
 
+local function HasPoisonZombieCriticalSupportFailure(ply)
+	local org = ply.organism
+	if not org then return false end
+
+	if org.otrub or org.needotrub or org.seizureActive or org.headamputated then return true end
+	if org.llegamputated or org.rlegamputated then return true end
+	if (tonumber(org.lleg) or 0) >= 1 or (tonumber(org.rleg) or 0) >= 1 then return true end
+	if (tonumber(org.brain) or 0) >= 0.6 or (tonumber(org.consciousness) or 1) <= 0.1 then return true end
+
+	local limits = hg.organism
+	if not limits then return false end
+	return (tonumber(org.spine1) or 0) >= (tonumber(limits.fake_spine1) or math.huge)
+		or (tonumber(org.spine2) or 0) >= (tonumber(limits.fake_spine2) or math.huge)
+		or (tonumber(org.spine3) or 0) >= (tonumber(limits.fake_spine3) or math.huge)
+end
+
+function CLASS.CanFake(self, ragdoll)
+	if not self:Alive() or IsValid(ragdoll) or (self.organism and self.organism.alive == false) then return end
+	if HasPoisonZombieCriticalSupportFailure(self) then return end
+	return false
+end
+
+function CLASS.CanStun(self)
+	if HasPoisonZombieCriticalSupportFailure(self) then return end
+	return false
+end
+
 function CLASS.AddThrowableHeadcrabs(self, amount)
 	if not SERVER or not IsPoisonZombie(self) then return false, 0 end
 
@@ -557,6 +584,16 @@ function CLASS.Think(self, time, dtime)
 	if self.organism and self.organism.stamina then
 		self.organism.stamina.max = 220
 		self.organism.stamina.range = 220
+	end
+
+	if self.organism and not HasPoisonZombieCriticalSupportFailure(self) then
+		self.organism.stun = 0
+		if (self.organism.lightstun or 0) > 0 then
+			self.organism.lightstun = 0
+			self:SetLocalVar("stun", 0)
+		end
+		self.organism.needfake = false
+		self.organism.fake = false
 	end
 
 	if self:KeyDown(IN_ATTACK) then PoisonZombieClawAttack(self) end

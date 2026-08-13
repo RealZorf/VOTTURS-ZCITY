@@ -506,6 +506,7 @@ end)
 
 function hg.StunPlayer(ply,time)
 	if !IsValid(ply) or !ply:IsPlayer() then return end
+	if ply.PlayerClassEvent and ply:PlayerClassEvent("CanStun", time, false) == false then return end
 	if !IsValid(ply.FakeRagdoll) then hg.Fake(ply) end
 
 	ply.organism.stun = CurTime() + (time or 1)
@@ -513,6 +514,7 @@ end
 
 function hg.LightStunPlayer(ply,time)
 	if !IsValid(ply) or !ply:IsPlayer() then return end
+	if ply.PlayerClassEvent and ply:PlayerClassEvent("CanStun", time, true) == false then return end
 	if !IsValid(ply.FakeRagdoll) then hg.Fake(ply,nil,true) end
 
 	ply.organism.lightstun = CurTime() + (time or 1)

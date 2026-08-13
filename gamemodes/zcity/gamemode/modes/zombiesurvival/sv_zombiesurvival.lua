@@ -164,15 +164,19 @@ local function ClearZombieConsumeState(ply)
 	ply:SetNWFloat("ZS_ConsumeReadyAt", 0)
 end
 
+local RestoreZombieBuffs
+
 local function ClearZombieState(ply)
 	timer.Remove(RespawnTimerName(ply))
 	timer.Remove(PreInfectionRespawnTimerName(ply))
 	timer.Remove(LateJoinTimerName(ply))
 	timer.Remove(VoiceTimerName(ply))
 	ClearZombieConsumeState(ply)
+	if RestoreZombieBuffs then RestoreZombieBuffs(ply) end
 	ply.ZSIsZombie = nil
 	ply.ZSIsPatientZero = nil
 	ply.ZSIsPoisonZombie = nil
+	ply.ZSZombieClass = nil
 	ply.PreZombClass = nil
 	ply.ZSDeathHandledAt = nil
 	ply.ZSNextVoiceCue = nil
@@ -190,6 +194,39 @@ local zombiePlayerClasses = {
 	fastzombie = true,
 	poisonzombie = true,
 }
+
+RestoreZombieBuffs = function(ply)
+	if not ply.ZSModeBuffApplied then return end
+
+	ply.MeleeDamageMul = ply.ZSModeBaseMeleeDamageMul ~= false and ply.ZSModeBaseMeleeDamageMul or nil
+	ply.ClawDoorDamage = ply.ZSModeBaseDoorDamage ~= false and ply.ZSModeBaseDoorDamage or nil
+	if ply.ZSModeBaseMaxHealth then ply:SetMaxHealth(ply.ZSModeBaseMaxHealth) end
+
+	ply.ZSModeBuffApplied = nil
+	ply.ZSModeBuffClass = nil
+	ply.ZSModeBaseMeleeDamageMul = nil
+	ply.ZSModeBaseDoorDamage = nil
+	ply.ZSModeBaseMaxHealth = nil
+end
+
+local function ApplyZombieBuffs(ply, className, refillHealth)
+	local buff = MODE.ZombieBuffs[className]
+	if not buff then return end
+
+	if not ply.ZSModeBuffApplied then
+		ply.ZSModeBuffApplied = true
+		ply.ZSModeBaseMeleeDamageMul = ply.MeleeDamageMul == nil and false or ply.MeleeDamageMul
+		ply.ZSModeBaseDoorDamage = ply.ClawDoorDamage == nil and false or ply.ClawDoorDamage
+		ply.ZSModeBaseMaxHealth = ply:GetMaxHealth()
+	end
+
+	local changedClass = ply.ZSModeBuffClass ~= className
+	ply.ZSModeBuffClass = className
+	ply.MeleeDamageMul = buff.meleeDamage
+	if buff.doorDamage then ply.ClawDoorDamage = buff.doorDamage end
+	ply:SetMaxHealth(buff.maxHealth)
+	if ply:Alive() and (changedClass or refillHealth) then ply:SetHealth(buff.maxHealth) end
+end
 
 hook.Add("ZB_PreRoundStart", "ZombieSurvival_RestorePlayerAppearances", function()
 	if CurrentRound() ~= MODE then return end
@@ -610,10 +647,14 @@ function MODE:SelectZombieSpawn(ply)
 	return bestPos or zb:GetRandomSpawn(ply)
 end
 
-function MODE:SetZombieState(ply, patientZero)
+function MODE:SetZombieState(ply, patientZero, zombieClass)
+	zombieClass = patientZero and "fastzombie" or zombieClass
+	if not zombiePlayerClasses[zombieClass] then zombieClass = "headcrabzombie" end
+
 	ply.ZSIsZombie = true
 	ply.ZSIsPatientZero = patientZero == true
-	if patientZero then ply.ZSIsPoisonZombie = nil end
+	ply.ZSZombieClass = zombieClass
+	ply.ZSIsPoisonZombie = zombieClass == "poisonzombie"
 	ply:SetNWBool("ZS_IsZombie", true)
 	ply:SetNWBool("ZS_IsPatientZero", patientZero == true)
 	ply:SetNWBool("ZS_IsPoisonZombie", ply.ZSIsPoisonZombie == true)
@@ -626,16 +667,18 @@ function MODE:SyncZombieStateFromPlayerClass(ply, className)
 	className = className or ply.PlayerClassName
 	if not zombiePlayerClasses[className] then return false end
 
-	local patientZero = className == "fastzombie"
+	local patientZero = ply.ZSIsPatientZero == true
 	local poisonZombie = className == "poisonzombie"
 
 	ply.ZSIsZombie = true
 	ply.ZSIsPatientZero = patientZero
 	ply.ZSIsPoisonZombie = poisonZombie
+	ply.ZSZombieClass = className
 	ply:SetNWBool("ZS_IsZombie", true)
 	ply:SetNWBool("ZS_IsPatientZero", patientZero)
 	ply:SetNWBool("ZS_IsPoisonZombie", poisonZombie)
 	if ply:Team() ~= 1 then ply:SetTeam(1) end
+	ApplyZombieBuffs(ply, className)
 
 	return true
 end
@@ -654,9 +697,16 @@ function MODE:PrepareZombieBody(ply, patientZero)
 	ply:StripAmmo()
 	hg.CreateInv(ply)
 	ply.PreZombClass = ply.PreZombClass or "Rebel"
-	local poisonZombie = ply.ZSIsPoisonZombie == true
-	local className = poisonZombie and "poisonzombie" or (patientZero and "fastzombie" or "headcrabzombie")
+	local className = ply.ZSZombieClass
+	if patientZero and className ~= "poisonzombie" then className = "fastzombie" end
+	if not zombiePlayerClasses[className] then
+		className = ply.ZSIsPoisonZombie and "poisonzombie" or "headcrabzombie"
+	end
+	local poisonZombie = className == "poisonzombie"
+	ply.ZSZombieClass = className
+	ply.ZSIsPoisonZombie = poisonZombie
 	ply:SetPlayerClass(className)
+	ApplyZombieBuffs(ply, className, true)
 
 	if poisonZombie then
 		zb.GiveRole(ply, "Poison Zombie", poisonZombieColor)
@@ -668,7 +718,7 @@ function MODE:PrepareZombieBody(ply, patientZero)
 				ply:ChatPrint("RMB throws a poison headcrab. Consuming a body replenishes one.")
 			end
 		end
-	elseif patientZero then
+	elseif className == "fastzombie" then
 		zb.GiveRole(ply, "Fast Zombie", fastZombieColor)
 	else
 		zb.GiveRole(ply, "Zombie", zombieColor)
@@ -707,6 +757,7 @@ function MODE:PromotePoisonZombie()
 	if not IsValid(promoted) then return end
 
 	promoted.ZSIsPoisonZombie = true
+	promoted.ZSZombieClass = "poisonzombie"
 	promoted:SetNWBool("ZS_IsPoisonZombie", true)
 
 	if promoted:Alive() then
@@ -1056,6 +1107,7 @@ function MODE:PromotePatientZero()
 	if IsValid(promoted) then
 		promoted.ZSIsPatientZero = true
 		promoted.ZSIsPoisonZombie = nil
+		promoted.ZSZombieClass = "fastzombie"
 		promoted:SetNWBool("ZS_IsPatientZero", true)
 		promoted:SetNWBool("ZS_IsPoisonZombie", false)
 

@@ -766,6 +766,7 @@ end
 
 function hg.Fake(ply, huyragdoll, no_freemove, force)
 	if not IsValid(ply) then return end
+	if ply.PlayerClassEvent and ply:PlayerClassEvent("CanFake", huyragdoll, no_freemove, force) == false then return end
 	ply.switchingseat = nil
 	if ply:GetMoveType() == 0 then return end
 	if ply.InVehicle and ply:InVehicle() and not force then return end
