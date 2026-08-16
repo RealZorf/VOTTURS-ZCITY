@@ -80,6 +80,9 @@ MODE.LootTable = {
 }
 
 util.AddNetworkString("ZCity_ZS_RequestConsume")
+util.AddNetworkString("ZCity_ZS_RequestSpawn")
+util.AddNetworkString("ZCity_ZS_CheckSpawn")
+util.AddNetworkString("ZCity_ZS_SpawnStatus")
 
 local survivorColor = Color(30, 220, 100)
 local zombieColor = Color(190, 35, 35)
@@ -94,6 +97,12 @@ local infectionTimerName = "ZCityZombieSurvivalInfection"
 local spawnHullMins = Vector(-16, -16, 4)
 local spawnHullMaxs = Vector(16, 16, 72)
 local spawnViewOffset = Vector(0, 0, 48)
+local spawnVisibilityOffsets = {
+	Vector(0, 0, 10),
+	Vector(0, 0, 42),
+	Vector(0, 0, 68)
+}
+local cameraSpawnOffsets = {vector_origin}
 local zombieSpawnClasses = {
 	"info_player_start", "info_player_deathmatch", "info_player_combine", "info_player_rebel",
 	"info_player_counterterrorist", "info_player_terrorist", "info_player_axis", "info_player_allies",
@@ -103,6 +112,13 @@ local zombieSpawnClasses = {
 	"info_player_coop", "info_player_human", "info_player_zombie", "info_player_zombiemaster",
 	"info_player_fof", "info_player_desperado", "info_player_vigilante", "info_survivor_rescue"
 }
+
+for radius = 16, 64, 16 do
+	for step = 0, 7 do
+		local angle = math.rad(step * 45)
+		cameraSpawnOffsets[#cameraSpawnOffsets + 1] = Vector(math.cos(angle) * radius, math.sin(angle) * radius, 0)
+	end
+end
 local classicZombieVoiceSounds = {}
 local fastZombieVoiceSounds = {
 	"npc/fast_zombie/idle1.wav",
@@ -183,9 +199,13 @@ local function ClearZombieState(ply)
 	ply.ZSOutbreakLateJoinSerial = nil
 	ply.ZSLateJoinPendingSerial = nil
 	ply.ZSLateJoinChangingTeam = nil
+	ply.ZSSpawnReady = nil
+	ply.ZSNextSpawnRequest = nil
+	ply.ZSNextSpawnProbe = nil
 	ply:SetNWBool("ZS_IsZombie", false)
 	ply:SetNWBool("ZS_IsPatientZero", false)
 	ply:SetNWBool("ZS_IsPoisonZombie", false)
+	ply:SetNWBool("ZS_SpawnReady", false)
 	ply:SetNWFloat("ZS_RespawnAt", 0)
 end
 
@@ -257,6 +277,8 @@ function MODE:ClearRoundTimers()
 		timer.Remove(LateJoinTimerName(ply))
 		timer.Remove(VoiceTimerName(ply))
 		ClearZombieConsumeState(ply)
+		ply.ZSSpawnReady = nil
+		ply:SetNWBool("ZS_SpawnReady", false)
 		ply:SetNWFloat("ZS_RespawnAt", 0)
 	end
 end
@@ -573,17 +595,128 @@ local function IsZombieSpawnClear(pos, ply)
 	return not trace.StartSolid and not trace.Hit
 end
 
-local function SurvivorCanSeeSpawn(survivor, pos)
+local function SurvivorCanSeeSpawn(survivor, pos, visibilityDistanceSqr, viewDot)
+	local eyePos = survivor:EyePos()
+	local toSpawn = pos + spawnViewOffset - eyePos
+	local distanceSqr = toSpawn:LengthSqr()
+	if distanceSqr > visibilityDistanceSqr then return false end
+
+	if distanceSqr > 1 then
+		local aim = survivor:GetAimVector()
+		if aim:Dot(toSpawn / math.sqrt(distanceSqr)) < viewDot then return false end
+	end
+
 	local character = hg.GetCurrentCharacter and hg.GetCurrentCharacter(survivor)
 	local filter = IsValid(character) and {survivor, character} or survivor
-	local trace = util.TraceLine({
-		start = survivor:EyePos(),
-		endpos = pos + spawnViewOffset,
-		mask = MASK_VISIBLE_AND_NPCS,
-		filter = filter
-	})
 
-	return not trace.Hit
+	for _, offset in ipairs(spawnVisibilityOffsets) do
+		local trace = util.TraceLine({
+			start = eyePos,
+			endpos = pos + offset,
+			mask = MASK_VISIBLE_AND_NPCS,
+			filter = filter
+		})
+
+		if not trace.Hit then return true end
+	end
+
+	return false
+end
+
+local function IsFiniteSpawnVector(pos)
+	if not isvector(pos) then return false end
+
+	return pos.x == pos.x and pos.y == pos.y and pos.z == pos.z
+		and math.abs(pos.x) <= 32768
+		and math.abs(pos.y) <= 32768
+		and math.abs(pos.z) <= 32768
+end
+
+local function GetLivingSurvivors()
+	local survivors = {}
+
+	for _, survivor in player.Iterator() do
+		if IsParticipant(survivor) and survivor:Alive() and not survivor.ZSIsZombie then
+			survivors[#survivors + 1] = survivor
+		end
+	end
+
+	return survivors
+end
+
+local SPAWN_STATUS_VALID = 0
+local SPAWN_STATUS_TOO_CLOSE = 1
+local SPAWN_STATUS_VISIBLE = 2
+local SPAWN_STATUS_BLOCKED = 3
+
+function MODE:ValidateCameraZombieSpawn(ply, cameraPos)
+	if not IsFiniteSpawnVector(cameraPos) or not util.IsInWorld(cameraPos) then
+		return nil, "Move your camera inside the map.", SPAWN_STATUS_BLOCKED
+	end
+
+	local survivors = GetLivingSurvivors()
+	local minDistanceSqr = (self.ZombieCameraSpawnMinDistance or 650) ^ 2
+	local verticalTolerance = math.max(self.ZombieCameraSpawnVerticalTolerance or 96, 0)
+	local visibilityDistanceSqr = (self.ZombieCameraSpawnVisibilityDistance or 2200) ^ 2
+	local viewDot = math.Clamp(self.ZombieCameraSpawnViewDot or 0.3, -1, 1)
+	local maxDrop = math.max(self.ZombieCameraSpawnMaxDrop or 256, 96)
+	local maxRadius = math.max(self.ZombieCameraSpawnSearchRadius or 64, 0)
+	local traceFilter = {ply}
+	local character = hg.GetCurrentCharacter and hg.GetCurrentCharacter(ply)
+	if IsValid(character) and character ~= ply then traceFilter[#traceFilter + 1] = character end
+
+	local sawClearGround = false
+	local wasTooClose = false
+	local wasVisible = false
+
+	for _, offset in ipairs(cameraSpawnOffsets) do
+		if offset.x * offset.x + offset.y * offset.y > maxRadius * maxRadius then continue end
+
+		local trace = util.TraceLine({
+			start = cameraPos + offset + Vector(0, 0, 16),
+			endpos = cameraPos + offset - Vector(0, 0, maxDrop),
+			mask = MASK_PLAYERSOLID,
+			filter = traceFilter
+		})
+
+		if trace.StartSolid or not trace.Hit or trace.HitSky or trace.HitNormal.z < 0.55 then continue end
+
+		local ground = trace.Entity
+		if IsValid(ground) and (ground:IsPlayer() or ground:IsRagdoll()) then continue end
+
+		local physics = IsValid(ground) and ground:GetPhysicsObject()
+		if IsValid(physics) and physics:IsMotionEnabled() then continue end
+
+		local spawnPos = trace.HitPos + Vector(0, 0, 1)
+		if not IsZombieSpawnClear(spawnPos, ply) then continue end
+
+		sawClearGround = true
+		local blocked = false
+		for _, survivor in ipairs(survivors) do
+			local survivorPos = survivor:GetPos()
+			local horizontalDelta = survivorPos - spawnPos
+			horizontalDelta.z = 0
+			if math.abs(survivorPos.z - spawnPos.z) <= verticalTolerance and horizontalDelta:LengthSqr() < minDistanceSqr then
+				wasTooClose = true
+				blocked = true
+				break
+			end
+
+			if SurvivorCanSeeSpawn(survivor, spawnPos, visibilityDistanceSqr, viewDot) then
+				wasVisible = true
+				blocked = true
+				break
+			end
+		end
+
+		if not blocked then return spawnPos, nil, SPAWN_STATUS_VALID end
+	end
+
+	if wasTooClose then return nil, "You are too close to a survivor.", SPAWN_STATUS_TOO_CLOSE end
+	if wasVisible then return nil, "A survivor can see this location.", SPAWN_STATUS_VISIBLE end
+	if sawClearGround then return nil, "This location is not safe to spawn in.", SPAWN_STATUS_BLOCKED end
+
+	return nil, "Aim your camera near clear, stable ground.", SPAWN_STATUS_BLOCKED
 end
 
 function MODE:SelectZombieSpawn(ply)
@@ -658,6 +791,8 @@ function MODE:SetZombieState(ply, patientZero, zombieClass)
 	ply:SetNWBool("ZS_IsZombie", true)
 	ply:SetNWBool("ZS_IsPatientZero", patientZero == true)
 	ply:SetNWBool("ZS_IsPoisonZombie", ply.ZSIsPoisonZombie == true)
+	ply.ZSSpawnReady = nil
+	ply:SetNWBool("ZS_SpawnReady", false)
 	ply:SetTeam(1)
 end
 
@@ -851,7 +986,7 @@ function MODE:QueueOutbreakLateJoin(ply)
 	ply.ZSLateJoinChangingTeam = nil
 
 	if ply.ZSIsZombie then
-		if not ply:Alive() and not timer.Exists(RespawnTimerName(ply)) then
+		if not ply:Alive() and not ply.ZSSpawnReady and not timer.Exists(RespawnTimerName(ply)) then
 			self:QueueZombieRespawn(ply, self.ZombieRespawnDelay)
 		end
 
@@ -898,7 +1033,7 @@ function MODE:BeginLateJoinEnrollment(ply)
 				ply.ZSOutbreakLateJoinSerial = nil
 				ply.ZSRoundEnrollmentSerial = roundSerial
 				timer.Remove(timerName)
-			elseif not timer.Exists(RespawnTimerName(ply)) then
+			elseif not ply.ZSSpawnReady and not timer.Exists(RespawnTimerName(ply)) then
 				MODE:QueueZombieRespawn(ply, 1)
 			end
 
@@ -1028,15 +1163,18 @@ function MODE:ReconcileLateJoiners()
 	end
 end
 
-function MODE:SpawnZombie(ply)
+function MODE:SpawnZombie(ply, requestedSpawnPos)
 	if not IsValid(ply) or not ply.ZSIsZombie then return end
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self then return end
 
 	local lateJoin = ply.ZSOutbreakLateJoinSerial == self.RoundSerial
 	if not lateJoin and not IsParticipant(ply) then return end
 
+	timer.Remove(RespawnTimerName(ply))
+	ply.ZSSpawnReady = nil
+	ply:SetNWBool("ZS_SpawnReady", false)
 	ply:SetTeam(1)
-	local spawnPos = self:SelectZombieSpawn(ply)
+	local spawnPos = isvector(requestedSpawnPos) and requestedSpawnPos or self:SelectZombieSpawn(ply)
 	ply:Spawn()
 	if not ply:Alive() then
 		self:QueueZombieRespawn(ply, 1)
@@ -1058,20 +1196,65 @@ function MODE:SpawnZombie(ply)
 end
 
 function MODE:QueueZombieRespawn(ply, delay)
+	if not IsValid(ply) then return end
+
 	delay = math.max(tonumber(delay) or self.ZombieRespawnDelay, 0.1)
 	local roundSerial = self.RoundSerial
 	local timerName = RespawnTimerName(ply)
 	timer.Remove(timerName)
+	ply.ZSSpawnReady = nil
+	ply:SetNWBool("ZS_SpawnReady", false)
 	ply:SetNWFloat("ZS_RespawnAt", CurTime() + delay)
 
 	timer.Create(timerName, delay, 1, function()
 		if not IsValid(ply) or zb.ROUND_STATE ~= 1 then return end
 		if CurrentRound() ~= MODE or MODE.RoundSerial ~= roundSerial then return end
 		if not ply.ZSIsZombie then return end
+		if ply:Alive() then return end
 
-		MODE:SpawnZombie(ply)
+		ply.ZSSpawnReady = true
+		ply:SetNWBool("ZS_SpawnReady", true)
+		ply:SetNWFloat("ZS_RespawnAt", 0)
 	end)
 end
+
+net.Receive("ZCity_ZS_CheckSpawn", function(_, ply)
+	local cameraPos = net.ReadVector()
+	if not IsValid(ply) or zb.ROUND_STATE ~= 1 or CurrentRound() ~= MODE then return end
+	if not MODE.InfectionStarted or ply:Alive() or not ply.ZSIsZombie or not ply.ZSSpawnReady then return end
+
+	local now = CurTime()
+	if now < (ply.ZSNextSpawnProbe or 0) then return end
+	ply.ZSNextSpawnProbe = now + 0.45
+
+	local spawnPos, _, status = MODE:ValidateCameraZombieSpawn(ply, cameraPos)
+	net.Start("ZCity_ZS_SpawnStatus")
+		net.WriteVector(cameraPos)
+		net.WriteUInt(isvector(spawnPos) and SPAWN_STATUS_VALID or status or SPAWN_STATUS_BLOCKED, 2)
+	net.Send(ply)
+end)
+
+net.Receive("ZCity_ZS_RequestSpawn", function(_, ply)
+	local cameraPos = net.ReadVector()
+	if not IsValid(ply) or zb.ROUND_STATE ~= 1 or CurrentRound() ~= MODE then return end
+	if not MODE.InfectionStarted or ply:Alive() or not ply.ZSIsZombie or not ply.ZSSpawnReady then return end
+
+	local now = CurTime()
+	if now < (ply.ZSNextSpawnRequest or 0) then return end
+	ply.ZSNextSpawnRequest = now + 0.3
+
+	local spawnPos, rejection = MODE:ValidateCameraZombieSpawn(ply, cameraPos)
+	if not spawnPos then
+		if isfunction(ply.Notify) then
+			ply:Notify(rejection or "You cannot spawn here.", 0, "zs_spawn_blocked", 1.5, nil, zombieColor)
+		else
+			ply:ChatPrint(rejection or "You cannot spawn here.")
+		end
+		return
+	end
+
+	MODE:SpawnZombie(ply, spawnPos)
+end)
 
 function MODE:GetPatientZeroCandidate()
 	local candidates = {}

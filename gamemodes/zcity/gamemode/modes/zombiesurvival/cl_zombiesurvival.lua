@@ -44,6 +44,12 @@ surface.CreateFont("ZC_ZS_Respawn", {
 	weight = 800,
 })
 
+surface.CreateFont("ZC_ZS_SpawnReason", {
+	font = "Bahnschrift",
+	size = 14,
+	weight = 900,
+})
+
 local roster = {
 	nextUpdate = 0,
 	survivors = 0,
@@ -244,28 +250,117 @@ local function DrawGradientCircle(centerX, centerY, radius, accent)
 	end
 end
 
+local spawnLocationValid = false
+local spawnLocationStatus = 3
+local spawnLocationCheckedAt = 0
+local spawnLocationCheckedPos
+local nextSpawnProbe = 0
+
+local function GetSpawnCameraPosition()
+	local view = render.GetViewSetup()
+	return view and view.origin or EyePos()
+end
+
+local function IsCurrentSpawnLocationChecked()
+	if not isvector(spawnLocationCheckedPos) then return false end
+	if CurTime() - spawnLocationCheckedAt > 1.25 then return false end
+
+	return GetSpawnCameraPosition():DistToSqr(spawnLocationCheckedPos) <= 32 * 32
+end
+
+local function IsCurrentSpawnLocationValid()
+	return spawnLocationValid and IsCurrentSpawnLocationChecked()
+end
+
+net.Receive("ZCity_ZS_SpawnStatus", function()
+	local checkedPos = net.ReadVector()
+	local status = net.ReadUInt(2)
+	local ply = LocalPlayer()
+	if not IsValid(ply) or ply:Alive() or not ply:GetNWBool("ZS_SpawnReady", false) then return end
+
+	spawnLocationCheckedPos = checkedPos
+	spawnLocationCheckedAt = CurTime()
+	spawnLocationStatus = status
+	spawnLocationValid = status == 0
+end)
+
+hook.Add("Think", "ZCityZombieSurvival_SpawnLocationProbe", function()
+	local ply = LocalPlayer()
+	local ready = IsValid(ply)
+		and zb.ROUND_STATE == 1
+		and CurrentRound() == MODE
+		and not ply:Alive()
+		and ply:GetNWBool("ZS_IsZombie", false)
+		and ply:GetNWBool("ZS_SpawnReady", false)
+
+	if not ready then
+		spawnLocationValid = false
+		spawnLocationStatus = 3
+		spawnLocationCheckedAt = 0
+		spawnLocationCheckedPos = nil
+		nextSpawnProbe = 0
+		return
+	end
+
+	local cameraPos = GetSpawnCameraPosition()
+	if isvector(spawnLocationCheckedPos) and cameraPos:DistToSqr(spawnLocationCheckedPos) > 32 * 32 then
+		spawnLocationValid = false
+		spawnLocationStatus = 3
+	end
+
+	if CurTime() < nextSpawnProbe then return end
+	nextSpawnProbe = CurTime() + 0.6
+
+	net.Start("ZCity_ZS_CheckSpawn")
+		net.WriteVector(cameraPos)
+	net.SendToServer()
+end)
+
 local function DrawRespawnTimer(ply, accent, isPatientZero)
 	if ply:Alive() or not ply:GetNWBool("ZS_IsZombie", false) then return end
 
 	local respawnAt = ply:GetNWFloat("ZS_RespawnAt", 0)
-	if respawnAt <= 0 then return end
+	local spawnReady = ply:GetNWBool("ZS_SpawnReady", false)
+	if respawnAt <= 0 and not spawnReady then return end
 
-	local remaining = math.max(respawnAt - CurTime(), 0)
+	local remaining = spawnReady and 0 or math.max(respawnAt - CurTime(), 0)
 	local duration = isPatientZero and MODE.FastZombieRespawnDelay or MODE.ZombieRespawnDelay
-	local progress = 1 - math.Clamp(remaining / math.max(duration, 0.1), 0, 1)
+	local progress = spawnReady and 1 or 1 - math.Clamp(remaining / math.max(duration, 0.1), 0, 1)
 	local centerX = math.floor(ScrW() * 0.5)
 	local centerY = ScrH() - 88
 	local radius = 38
+	local ringAccent = spawnReady and (IsCurrentSpawnLocationValid() and survivorAccent or zombieAccent) or accent
+	local rejectionText = spawnLocationStatus == 1 and "Too close to survivors"
+		or spawnLocationStatus == 2 and "In sight of survivors"
 
-	DrawGradientCircle(centerX, centerY, radius - 5, accent)
+	DrawGradientCircle(centerX, centerY, radius - 5, ringAccent)
 	for ring = 0, 2 do
 		surface.DrawCircle(centerX, centerY, radius - ring, respawnRingColor)
 	end
-	DrawProgressArc(centerX, centerY, radius, progress, accent)
+	DrawProgressArc(centerX, centerY, radius, progress, ringAccent)
 
-	draw.SimpleText(remaining > 0 and math.ceil(remaining) or "0", "ZC_ZS_Respawn", centerX, centerY - 13, white, TEXT_ALIGN_CENTER)
-	draw.SimpleText("RESPAWN", "ZC_ZS_Metric", centerX, centerY + 14, muted, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	draw.SimpleText(spawnReady and "E" or math.ceil(remaining), "ZC_ZS_Respawn", centerX, centerY - 13, white, TEXT_ALIGN_CENTER)
+	draw.SimpleText(spawnReady and "SPAWN" or "REANIMATE", "ZC_ZS_Metric", centerX, centerY + 14, spawnReady and ringAccent or muted, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	if spawnReady and rejectionText and IsCurrentSpawnLocationChecked() then
+		draw.SimpleTextOutlined(rejectionText, "ZC_ZS_SpawnReason", centerX, centerY - radius - 15, zombieAccent, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, consumeTextOutline)
+	end
 end
+
+local nextSpawnRequest = 0
+
+hook.Add("PlayerButtonDown", "ZCityZombieSurvival_CameraSpawn", function(ply, button)
+	if ply ~= LocalPlayer() or button ~= KEY_E then return end
+	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= MODE then return end
+	if ply:Alive() or not ply:GetNWBool("ZS_IsZombie", false) or not ply:GetNWBool("ZS_SpawnReady", false) then return end
+	if gui.IsGameUIVisible() or vgui.CursorVisible() or IsValid(vgui.GetKeyboardFocus()) or CurTime() < nextSpawnRequest then return end
+
+	nextSpawnRequest = CurTime() + 0.3
+	local cameraPos = GetSpawnCameraPosition()
+
+	net.Start("ZCity_ZS_RequestSpawn")
+		net.WriteVector(cameraPos)
+	net.SendToServer()
+end)
 
 local function DrawConsumePrompt(ply)
 	if not ply:Alive() or not ply:GetNWBool("ZS_IsZombie", false) then return end

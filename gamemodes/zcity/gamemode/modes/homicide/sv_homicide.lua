@@ -1951,6 +1951,29 @@ util.AddNetworkString("HMCD_RequestTraitorStatuses")
 
 local TRAITOR_RADIO_CLASS = "weapon_walkie_talkie"
 
+local function HMCDGrantConcealedThiefUtility(ply, weaponClass, grant)
+	if not IsValid(ply) or not isfunction(grant) then return end
+
+	local isThief = ply.HMCD_IsThief == true
+	local wasInitializing = ply.HMCD_ThiefInitializing
+	if isThief then
+		ply.HMCD_ThiefInitializing = true
+	end
+
+	local result = grant()
+
+	if isThief then
+		ply.HMCD_ThiefInitializing = wasInitializing or nil
+
+		local picked = ply.HMCD_ThiefPickupInventory
+		if istable(picked) and istable(picked.Weapons) then
+			picked.Weapons[weaponClass] = nil
+		end
+	end
+
+	return result
+end
+
 local function HMCDGetTraitorRadioFrequency(radio)
 	local blockedFrequencies = radio.FMStations or {}
 	local publicFrequencies = radio.Frequencies or {}
@@ -1983,10 +2006,10 @@ end
 local function HMCDConfigureTraitorRadio(ply)
 	if not IsValid(ply) or not ply.isTraitor or ply:Team() == TEAM_SPECTATOR then return end
 
-	local radio = ply:GetWeapon(TRAITOR_RADIO_CLASS)
-	if not IsValid(radio) then
-		radio = ply:Give(TRAITOR_RADIO_CLASS)
-	end
+	local radio = HMCDGrantConcealedThiefUtility(ply, TRAITOR_RADIO_CLASS, function()
+		local existingRadio = ply:GetWeapon(TRAITOR_RADIO_CLASS)
+		return IsValid(existingRadio) and existingRadio or ply:Give(TRAITOR_RADIO_CLASS)
+	end)
 	if not IsValid(radio) then return end
 
 	local frequency = HMCDGetTraitorRadioFrequency(radio)
@@ -2988,7 +3011,10 @@ function MODE.SpawnPlayers(spawn_with_subroles)
 			end
 
 			if current_ply.isTraitor and ZCityTraps and ZCityTraps.GiveActivator then
-				ZCityTraps.GiveActivator(current_ply)
+				local activatorClass = ZCityTraps.ActivatorClass or "weapon_hg_trap_activator"
+				HMCDGrantConcealedThiefUtility(current_ply, activatorClass, function()
+					return ZCityTraps.GiveActivator(current_ply)
+				end)
 			end
 
             if(gaymaps[game.GetMap()])then
