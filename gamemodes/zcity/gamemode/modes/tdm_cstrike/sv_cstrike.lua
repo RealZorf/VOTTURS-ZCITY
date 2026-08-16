@@ -82,10 +82,10 @@ function MODE:Intermission()
         zb.Winners = {}
         zb.bombexploded = nil
         zb.bomb = nil
-        --zb.rtype = zb.nextcsround or (math.random(2) == 1 and "bomb" or "hostage")
-        zb.rtype = (
-            (#zb.GetMapPoints( "BOMB_ZONE_A" ) > 0 or #zb.GetMapPoints( "BOMB_ZONE_B" ) > 0) and  "bomb") or 
-            (zb.hostagepoints and #zb.hostagepoints > 0 and "hostage")
+        local hasBomb = #zb.GetMapPoints( "BOMB_ZONE_A" ) > 0 or #zb.GetMapPoints( "BOMB_ZONE_B" ) > 0
+        local hasHostage = zb.hostagepoints and #zb.hostagepoints > 0
+
+        zb.rtype = zb.nextcsround or (hasBomb and hasHostage and (math.random(2) == 1 and "bomb" or "hostage") or hasBomb and "bomb" or hasHostage and "hostage")
         zb.nextcsround = nil
     end
 
