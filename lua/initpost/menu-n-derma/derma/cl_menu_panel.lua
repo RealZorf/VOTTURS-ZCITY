@@ -18,6 +18,8 @@ local COL = {
 	hover = Color(35, 255, 110, 10),
 	active = Color(35, 255, 110, 18),
 	shadow = Color(0, 0, 0, 90),
+	featured = Color(255, 196, 46),
+	featured_shadow = Color(82, 50, 0, 220),
 }
 
 local function MenuScale(size)
@@ -97,6 +99,7 @@ local Selects = {
 		luaMenu:Close()
 		gui.OpenURL("https://ko-fi.com/votturzcity")
 	end},
+	{Title = "Keybinds", Featured = true, Func = function(luaMenu, pp) hg.DrawKeybinds(pp) end},
 	{Title = "Settings", Func = function(luaMenu, pp) hg.DrawSettings(pp) end},
 	{Title = "Achievements", Func = function(luaMenu, pp) hg.DrawAchievmentsMenu(pp) end},
 	{Title = "Appearance", Func = function(luaMenu, pp) hg.CreateApperanceMenu(pp) end},
@@ -385,6 +388,8 @@ function PANEL:AddSelect(pParent, strTitle, tbl)
 	btn.Func = tbl.Func
 	btn.HoveredFunc = tbl.HoveredFunc
 	btn.StrTitle = strTitle
+	btn.Featured = tbl.Featured == true
+	if btn.Featured then btn:SetTooltip("NEW") end
 	local luaMenu = self
 	if tbl.CreatedFunc then tbl.CreatedFunc(btn, self, luaMenu) end
 	btn.RColor = COL.text_dim
@@ -409,7 +414,18 @@ function PANEL:AddSelect(pParent, strTitle, tbl)
 		end
 
 		local textCol = this.RColor:Lerp(isActive and btn.ActiveColor or select_color, isActive and 1 or v)
-		draw.SimpleText(this:GetText(), "ZC_MM_Button", pad + barW + MenuScale(4), h * 0.5, textCol, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		local textX = pad + barW + MenuScale(4)
+		local text = this:GetText()
+		draw.SimpleText(text, "ZC_MM_Button", textX, h * 0.5, textCol, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+		if this.Featured then
+			surface.SetFont("ZC_MM_Button")
+			local textW = surface.GetTextSize(text)
+			local starX = textX + textW + MenuScale(9)
+			local starY = h * 0.5 - MenuScale(1)
+			draw.SimpleText("★", "ZC_MM_Button", starX + 1, starY + 1, COL.featured_shadow, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+			draw.SimpleText("★", "ZC_MM_Button", starX, starY, COL.featured, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		end
 	end
 
 	function btn:DoClick()

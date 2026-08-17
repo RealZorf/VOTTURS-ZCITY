@@ -361,8 +361,9 @@ if CLIENT then
 		if not trace then return end
 
 		local screenPosition = trace.HitPos:ToScreen()
+		local specialBind = hg.GetKeybindDisplay and hg.GetKeybindDisplay("special_interaction", "LALT + E") or "LALT + E"
 		draw.SimpleTextOutlined(
-			"ALT + E to ignite",
+			specialBind .. " to ignite",
 			"HomigradFontMedium",
 			screenPosition.x,
 			screenPosition.y + ScreenScale(12),

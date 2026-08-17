@@ -152,6 +152,7 @@ end)
 hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 	local ply = LocalPlayer()
 	local aim_ent, other_ply, trace = MODE.GetPlayerTraceToOther(ply)
+	local special_bind = hg.GetKeybindDisplay and hg.GetKeybindDisplay("special_interaction", "LALT + E") or "LALT + E"
 	local after_text_offset = 5
 	local y_offset = 30
 	y_offset = y_offset + ScreenScale(15)
@@ -162,7 +163,7 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 		if(ply.isTraitor)then
 			if(ply.SubRole == "traitor_infiltrator" or ply.SubRole == "traitor_infiltrator_soe")then
 				local action = MODE.GetNeckBreakAction and MODE.GetNeckBreakAction(ply) or "neck_break"
-				local text = action == "saw_head" and "(HOLD)[ALT + E] Saw Off Head" or "(HOLD)[ALT + E] Break Neck"
+				local text = action == "saw_head" and "(HOLD)[" .. special_bind .. "] Saw Off Head" or "(HOLD)[" .. special_bind .. "] Break Neck"
 				local tw, th = surface.GetTextSize(text)
 				local text_pos = trace and trace.HitPos or (ply:GetShootPos() + ply:GetAimVector() * 60)
 				local screen_pos = text_pos:ToScreen()
@@ -214,7 +215,7 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 				local draw_corpse = IsValid(active_corpse) and active_corpse or corpse
 
 				if(IsValid(draw_corpse))then
-					local text = "(HOLD)[ALT + E] Consume Body"
+					local text = "(HOLD)[" .. special_bind .. "] Consume Body"
 					local stacks = ply:GetNWInt("HMCD_CannibalStacks", 0)
 					if stacks > 0 then
 						text = text .. " [" .. stacks .. "/" .. (MODE.CannibalMaxConsumedBodies or 6) .. "]"
@@ -263,7 +264,7 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 				if(not can_strangle and MODE.GetJuggernautStompTarget)then
 					local rag, stomp_victim, stomp_trace = MODE.GetJuggernautStompTarget(ply)
 					if(IsValid(rag) and IsValid(stomp_victim))then
-						local text = "[ALT + E] Stomp Skull"
+						local text = "[" .. special_bind .. "] Stomp Skull"
 						local tw, th = surface.GetTextSize(text)
 						local text_pos = stomp_trace and stomp_trace.HitPos or rag:WorldSpaceCenter()
 						local screen_pos = text_pos:ToScreen()
@@ -278,7 +279,7 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 
 			if((MODE.IsAssassinRole and MODE.IsAssassinRole(ply.SubRole)) or ply.PlayerClassName == "sc_infiltrator")then
 				local aim_ent, other_ply, trace = MODE.GetPlayerTraceToOther(ply, nil, MODE.DisarmReach)
-				local text = "(HOLD)[ALT + E] Disarm"
+				local text = "(HOLD)[" .. special_bind .. "] Disarm"
 				local tw, th = surface.GetTextSize(text)
 				local cx, cy = trace.HitPos:ToScreen().x, trace.HitPos:ToScreen().y
 				cy = cy + y_offset

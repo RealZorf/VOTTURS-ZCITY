@@ -72,17 +72,21 @@ local text_color = "<color=180,180,180>"
 function SWEP:PrintWeaponInfo( x, y, alpha )
     if ( self.DrawWeaponInfoBox == false ) then return end
 
-    if ( self.InfoMarkup == nil ) then
+	local instructions = hg.ResolveKeybindText and hg.ResolveKeybindText(self.Instructions or "") or (self.Instructions or "")
+	local infoSignature = tostring(self.Author or "") .. "\0" .. instructions
+
+    if ( self.InfoMarkup == nil or self.InfoMarkupSignature ~= infoSignature ) then
         local str = "<font=HomigradFontSmall>"
         if self.Author != "" then
 			str = str .. title_color .. "Manufacturer:</color>\t" .. text_color .. self.Author .. "</color>\n"
 		end
-        if self.Instructions != "" then
-			str = str .. title_color .. "Information:</color>\n" .. text_color .. self.Instructions .. "</color>\n"
+		if instructions != "" then
+			str = str .. title_color .. "Information:</color>\n" .. text_color .. instructions .. "</color>\n"
 		end
         str = str .. "</font>"
 
         self.InfoMarkup = markup.Parse( str, 250 )
+		self.InfoMarkupSignature = infoSignature
     end
 
     x = ScrW()*0.85   

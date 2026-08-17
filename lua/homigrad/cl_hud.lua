@@ -563,28 +563,44 @@ local randomGestures = {
 	{"thumb_up", function() RunConsoleCommand("hg_hand_gesture" , "thumb_up") end},
 }
 
-concommand.Add("hg_randomgesture",function()
-	randomGesture()
+local function performRandomGesture()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() then return false end
+
+	local organism = ply.organism or {}
+	if organism.otrub or hg.GetCurrentCharacter(ply) ~= ply then return false end
+
+	local playerClass = ply.GetPlayerClass and ply:GetPlayerClass()
+	if playerClass and playerClass.CanUseGestures ~= nil and not playerClass.CanUseGestures then return false end
+
+	local gesture = randomGestures[math.random(#randomGestures)]
+	if istable(gesture) then
+		if gesture[2] then gesture[2]() end
+	else
+		RunConsoleCommand("act", gesture)
+	end
+
+	if (ply.NextFoley or 0) < CurTime() then
+		ply:EmitSound("player/clothes_generic_foley_0" .. math.random(5) .. ".wav", 55)
+		ply.NextFoley = CurTime() + 1
+	end
+
+	return true
+end
+
+concommand.Add("hg_randomgesture", function()
+	performRandomGesture()
 end)
 
 hook.Add("radialOptions", "7", function()
     local ply = LocalPlayer()
     local organism = ply.organism or {}
 
-    if ply:Alive() and not organism.otrub and hg.GetCurrentCharacter(ply) == ply then
-        if ply.GetPlayerClass and ply:GetPlayerClass() and ply:GetPlayerClass().CanUseGestures ~= nil and not ply:GetPlayerClass().CanUseGestures then return end
+	if ply:Alive() and not organism.otrub and hg.GetCurrentCharacter(ply) == ply then
+		if ply.GetPlayerClass and ply:GetPlayerClass() and ply:GetPlayerClass().CanUseGestures ~= nil and not ply:GetPlayerClass().CanUseGestures then return end
 		local tbl = {function(mouseClick)
 			if mouseClick == 1 then
-				local gesture = randomGestures[math.random(#randomGestures)]
-				if istable(gesture) then
-					if gesture[2] then gesture[2]() end
-				else
-					RunConsoleCommand("act", gesture)
-				end
-				if (ply.NextFoley or 0) < CurTime() then
-					ply:EmitSound("player/clothes_generic_foley_0" .. math.random(5) .. ".wav", 55)
-					ply.NextFoley = CurTime() + 1
-				end
+				performRandomGesture()
 			else
 				local commands = {}
 				for i, str in ipairs(randomGestures) do

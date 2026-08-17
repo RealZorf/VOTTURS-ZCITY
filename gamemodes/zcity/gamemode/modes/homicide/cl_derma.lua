@@ -359,6 +359,11 @@ net.Receive("HMCD_TraitorRoleStats", function()
 	end
 end)
 
+local function resolveBindText(text)
+	if hg.ResolveKeybindText then return hg.ResolveKeybindText(text) end
+	return text
+end
+
 local function getRoleDescription(info)
 	if not info then return "" end
 
@@ -366,7 +371,7 @@ local function getRoleDescription(info)
 	text = string.gsub(text, "\r", "")
 	text = string.gsub(text, "\n+", "\n")
 
-	return text
+	return resolveBindText(text)
 end
 
 local function getRoleSummary(info)
@@ -413,7 +418,7 @@ local traitorLoadoutText = {
 }
 
 local function getLoadoutText(role)
-	return traitorLoadoutText[role or ""] or "Loadout metadata missing for this profile."
+	return resolveBindText(traitorLoadoutText[role or ""] or "Loadout metadata missing for this profile.")
 end
 
 local function collectTraitorRolePairs()
@@ -447,8 +452,8 @@ local function collectTraitorRolePairs()
 				DetailDescription = getRoleDescription(info),
 				StandardLoadout = getLoadoutText(pair.standard),
 				SOELoadout = getLoadoutText(pair.soe),
-				StandardObjective = standardInfo and standardInfo.Objective or "",
-				SOEObjective = soeInfo and soeInfo.Objective or "",
+				StandardObjective = resolveBindText(standardInfo and standardInfo.Objective or ""),
+				SOEObjective = resolveBindText(soeInfo and soeInfo.Objective or ""),
 				Standard = pair.standard,
 				SOE = pair.soe
 			}
@@ -1269,7 +1274,7 @@ function PANEL:Construct()
 	for role_id, _ in pairs(self.RolesIDsList) do
 		local role_info = MODE.SubRoles[role_id]
 		local role_name = role_info.Name
-		local role_description = role_info.Description
+		local role_description = resolveBindText(role_info.Description)
 		
 		local role_panel = vgui.Create("HMCD_RolePanel", hscroll)
 		role_panel.Title = role_name

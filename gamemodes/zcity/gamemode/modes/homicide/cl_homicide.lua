@@ -857,7 +857,9 @@ local function draw_hmcd_traitor_partner_tiles(partners, y, alpha)
 		local name = get_hmcd_traitor_display_name(info)
 		local roleName = get_hmcd_traitor_role_name(info)
 		local roleAccent = get_hmcd_traitor_role_color(info)
-		local roleTipLines = hmcd_wrap_text(get_hmcd_traitor_role_tip(info, usedTips), "ZB_HomicideCellTip", tileW - hmcd_intro_scale(44), 2)
+		local roleTip = get_hmcd_traitor_role_tip(info, usedTips)
+		if hg.ResolveKeybindText then roleTip = hg.ResolveKeybindText(roleTip) end
+		local roleTipLines = hmcd_wrap_text(roleTip, "ZB_HomicideCellTip", tileW - hmcd_intro_scale(44), 2)
 		local header = "CELL LINK ACTIVE / PARTNER " .. string.format("%02d", i)
 		local cut = hmcd_intro_scale(12)
 		local topBandH = hmcd_intro_scale(36)
@@ -1202,6 +1204,8 @@ function MODE:HUDPaint()
 	if(!MODE.RoleEndedChosingState)then
 		Objective = "Round is starting..."
 	end
+
+	if hg.ResolveKeybindText then Objective = hg.ResolveKeybindText(Objective) end
 
 	local ColorObj = ( lply.isTraitor and MODE.TypeObjectives[MODE.Type].traitor.color2 ) or ( lply.isGunner and MODE.TypeObjectives[MODE.Type].gunner.color2 ) or MODE.TypeObjectives[MODE.Type].innocent.color2 or Color(255,255,255)
 	ColorObj.a = 255 * fade

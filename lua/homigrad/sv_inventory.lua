@@ -19,6 +19,14 @@ local lootableSearchClasses = {
 	["func_physbox"] = true,
 }
 
+local function isOwnInventoryTarget(ply, ent)
+	if not IsValid(ply) or not IsValid(ent) then return false end
+	if ent == ply then return true end
+
+	local owner = hg.RagdollOwner(ent)
+	return IsValid(owner) and owner == ply
+end
+
 local function isHMCDThief(ent)
 	return IsValid(ent) and ent.HMCD_IsThief == true
 end
@@ -144,9 +152,11 @@ local function resolveLootEntityFromTrace(ply, trace)
 	local tracedEnt = trace.Entity
 	local tracedOwner = hg.RagdollOwner(tracedEnt)
 	local ent = IsValid(tracedOwner) and tracedOwner or tracedEnt
+	if isOwnInventoryTarget(ply, tracedEnt) or ent == ply then ent = nil end
 
 	local function getBodyTarget(candidate)
 		if not IsValid(candidate) or not candidate:IsRagdoll() then return nil end
+		if isOwnInventoryTarget(ply, candidate) then return nil end
 
 		local owner = hg.RagdollOwner(candidate)
 		if IsValid(owner) then return owner end
@@ -590,6 +600,7 @@ net.Receive("ply_take_item", function(len, ply)
     local ent = net.ReadEntity()
     
     if !IsValid(ent) or !IsValid(ply) then return end
+	if isOwnInventoryTarget(ply, ent) then return end
     if ent:IsPlayer() and not IsValid(ent.FakeRagdoll) and not canThiefSearchLive(ply, ent) then return end
     if not isThiefPickupVisible(ent, tblIndex, thing, unpack(tbl)) then return end
     if isSlingProtectedLoot(ent, tblIndex, thing) then return end
@@ -609,8 +620,9 @@ end)
 util.AddNetworkString("should_open_inv")
 local playerMeta = FindMetaTable("Player")
 function playerMeta:OpenInventory(ent)
-    hook.Run("ZB_InventoryOpened",self,ent)
     if not IsValid(ent) then return end
+	if isOwnInventoryTarget(self, ent) then return end
+    hook.Run("ZB_InventoryOpened",self,ent)
     if ent:IsPlayer() and not IsValid(ent.FakeRagdoll) and not canThiefSearchLive(self, ent) then return end
     if ent:IsPlayer() then hg.RenewInv(ent) end
     if self:IsPlayer() then hg.RenewInv(self) end

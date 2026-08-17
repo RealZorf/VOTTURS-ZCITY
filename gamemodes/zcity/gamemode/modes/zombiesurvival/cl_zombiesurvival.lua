@@ -374,7 +374,8 @@ local function DrawConsumePrompt(ply)
 	local screenPos = worldPos:ToScreen()
 	if not screenPos.visible then return end
 
-	local text = "HOLD ALT + E  DEVOUR"
+	local specialBind = hg.GetKeybindDisplay and hg.GetKeybindDisplay("special_interaction", "LALT + E") or "LALT + E"
+	local text = "HOLD " .. specialBind .. "  DEVOUR"
 	surface.SetFont("ZC_ZS_Header")
 	local textWidth, textHeight = surface.GetTextSize(text)
 	local x, y = screenPos.x, screenPos.y + 16
