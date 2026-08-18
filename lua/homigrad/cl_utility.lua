@@ -764,12 +764,20 @@ players : 1 humans, 0 bots (20 max)
 		local playerVoiceBaseVolume
 		local throatCutVoiceMul
 
+		local function isVoicePlaybackEnabled(ply)
+			if not IsValid(ply) or hg.muteall then return false end
+			if hg.mutespect and not ply:Alive() then return false end
+			if ply.IsMuted and ply:IsMuted() then return false end
+
+			return true
+		end
+
 		local function restoreVoiceVolume(ply)
 			if not IsValid(ply) then return end
 
 			local baseVolume = playerVoiceBaseVolume and playerVoiceBaseVolume(ply) or 1
 			local injuryVolume = throatCutVoiceMul and throatCutVoiceMul(ply) or 1
-			local enabled = not hg.muteall and (not hg.mutespect or ply:Alive())
+			local enabled = isVoicePlaybackEnabled(ply)
 			ply:SetVoiceVolumeScale(enabled and baseVolume * injuryVolume or 0)
 		end
 
@@ -787,7 +795,7 @@ players : 1 humans, 0 bots (20 max)
 			}
 
 			if previous and playerVoiceBaseVolume and throatCutVoiceMul then
-				local enabled = not hg.muteall and (not hg.mutespect or ply:Alive())
+				local enabled = isVoicePlaybackEnabled(ply)
 				local volume = playerVoiceBaseVolume(ply) * throatCutVoiceMul(ply) * previous.scale
 				ply:SetVoiceVolumeScale(enabled and volume or 0)
 			end
@@ -1136,7 +1144,7 @@ players : 1 humans, 0 bots (20 max)
 				local fadeRate = state.target < state.scale and 7 or 4
 				state.scale = Lerp(math.Clamp(frameTime * fadeRate, 0, 1), state.scale, state.target)
 
-				local enabled = not hg.muteall and (not hg.mutespect or talker:Alive())
+				local enabled = isVoicePlaybackEnabled(talker)
 				local volume = playerVoiceBaseVolume(talker) * throatCutVoiceMul(talker) * state.scale
 				talker:SetVoiceVolumeScale(enabled and volume or 0)
 			end
