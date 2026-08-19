@@ -350,10 +350,11 @@ function MODE.LoadTraitorRoleStats()
 		if isstring(normalized_role) and MODE.SubRoles[normalized_role] and istable(stats) then
 			local wins = math.max(math.floor(tonumber(stats.wins or stats.Wins or 0) or 0), 0)
 			local games = math.max(math.floor(tonumber(stats.games or stats.Games or 0) or 0), wins)
+			local existing = MODE.HMCDTraitorRoleStats[normalized_role] or {wins = 0, games = 0}
 
 			MODE.HMCDTraitorRoleStats[normalized_role] = {
-				wins = wins,
-				games = games
+				wins = existing.wins + wins,
+				games = existing.games + games
 			}
 		end
 	end

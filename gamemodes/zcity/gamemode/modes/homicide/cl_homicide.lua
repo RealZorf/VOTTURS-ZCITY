@@ -341,18 +341,6 @@ local hmcd_traitor_role_tips = {
 		"let them weaken groups before you reveal weapons.",
 		"drive wounded targets into gas so they cannot stabilize."
 	},
-	traitor_shadow = {
-		"draw eyes away while they camouflage near walls.",
-		"send victims past dark corners for tranquilizer and cuff plays.",
-		"their concealed kit stays quiet; let them handle witnesses.",
-		"create noise so they can blend into a wall before striking.",
-		"they can tranq, cuff and poison; give them isolated angles.",
-		"their handcuffs turn a risky target into a quiet delivery.",
-		"let them hold a wall while you bait someone through it.",
-		"their tranquilizer is precious; call only high-value targets.",
-		"concealed weapons keep suspicion low after a search.",
-		"their camouflage holds briefly after cover, so time the bait."
-	},
 	traitor_maniac = {
 		"block exits before they charge with axe, molotov and grenade.",
 		"use their high stamina to start panic while you catch runners.",
@@ -413,16 +401,16 @@ local hmcd_traitor_role_tips = {
 		"they are strongest when you feed them clean sightlines."
 	},
 	traitor_stalker = {
-		"let them watch groups early; they can mark runners quickly now.",
+		"draw eyes away while they mark prey or prepare camouflage.",
 		"call wounded targets; their heartbeat pulse makes hiding harder.",
 		"their first hit on each mark now staggers, drains stamina and bites harder.",
 		"split the crowd after they mark three victims.",
-		"their sonar is strongest after panic scatters people.",
-		"give them quiet sightlines before the first body drops.",
+		"their sonar is strongest after panic scatters people into isolated routes.",
+		"give them a wall and a quiet sightline before the first body drops.",
 		"marked targets are easier to chase through rooms and smoke.",
-		"let them open on a marked gun threat to interrupt and weaken the response.",
-		"their pulse readout tells you who is still alive and moving.",
-		"they are best at finishing isolated survivors, not starting a massacre."
+		"their limited tranquilizer should be saved for an armed marked target.",
+		"their decoys can sell a false death while they disappear into cover.",
+		"they are best at controlling and finishing isolated survivors, not starting a massacre."
 	}
 }
 
@@ -473,15 +461,6 @@ local hmcd_traitor_self_tip_openers = {
 		"Stand in your own cloud if it keeps the exit shut;",
 		"Use chemical reads to tell your partner when to enter;"
 	},
-	traitor_shadow = {
-		"Use camouflage, tranq or cuffs to isolate;",
-		"Stay hidden until your partner creates noise;",
-		"Let your concealed kit remove witnesses;",
-		"Blend into walls before the ambush starts;",
-		"Tranq the armed witness, not the easy target;",
-		"Cuff someone only when your partner can receive them;",
-		"Use poison after the victim is already controlled;"
-	},
 	traitor_maniac = {
 		"Start the panic with axe, fire or grenade;",
 		"Use your stamina and health to draw pressure;",
@@ -529,13 +508,14 @@ local hmcd_traitor_self_tip_openers = {
 		"Stay posted until the crowd breaks formation;"
 	},
 	traitor_stalker = {
-		"Mark victims quickly before the room starts moving;",
+		"Mark victims before disappearing beside a wall;",
 		"Watch pulses to track people through walls;",
 		"Save your first-hit stagger and damage boost for a real opening;",
-		"Mark the armed witness before you reveal yourself;",
+		"Camouflage before the armed witness reaches your angle;",
 		"Use heartbeat rhythm to follow wounded runners;",
 		"Use isolated prey to refill stamina and move quietly;",
-		"Call marked targets when they split from the crowd;"
+		"Use your tranquilizer on the marked target who can fight back;",
+		"Leave a death decoy before changing your hunting route;"
 	}
 }
 
@@ -545,7 +525,6 @@ local hmcd_traitor_role_colors = {
 	traitor_thief = Color(70, 235, 255),
 	traitor_assassin = Color(80, 150, 255),
 	traitor_chemist = Color(70, 255, 115),
-	traitor_shadow = Color(130, 90, 255),
 	traitor_maniac = Color(255, 70, 70),
 	traitor_juggernaut = Color(210, 95, 55),
 	traitor_cannibal = Color(175, 45, 45),

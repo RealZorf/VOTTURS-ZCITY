@@ -71,11 +71,13 @@ MODE.JuggernautStompCooldown = 1.35
 MODE.JuggernautStompMinPitch = 58
 
 function MODE.IsShadowRole(subrole)
-	return subrole == "traitor_shadow" or subrole == "traitor_shadow_soe"
+	return subrole == "traitor_stalker" or subrole == "traitor_stalker_soe"
+		or subrole == "traitor_shadow" or subrole == "traitor_shadow_soe"
 end
 
 function MODE.IsStalkerRole(subrole)
 	return subrole == "traitor_stalker" or subrole == "traitor_stalker_soe"
+		or subrole == "traitor_shadow" or subrole == "traitor_shadow_soe"
 end
 
 function MODE.IsManiacRole(subrole)

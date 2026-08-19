@@ -401,8 +401,6 @@ local traitorLoadoutText = {
 	traitor_assassin_soe = "Katana with sling\nWalkie-talkie\nAdrenaline\nFiber wire\nHigher recoil control and stamina",
 	traitor_chemist = "SOG knife\nAdrenaline\nPoison 1, 2, 3 and 4\nPoison consumable, sleep canister\nFiber wire, flashlight",
 	traitor_chemist_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nPoison 1, 2, 3 and 4\nPoison consumable, sleep canister\nFiber wire, flashlight",
-	traitor_shadow = "Reload-key wall camouflage with short slip window\nTranquilizer gun with population-scaled ammo\nSOG knife, poison vial, traitor suit\nAdrenaline, handcuffs, smoke and decoy grenades\nFiber wire, flashlight",
-	traitor_shadow_soe = "Reload-key wall camouflage with short slip window\nTranquilizer gun with population-scaled ammo\nSOG knife, poison vial, traitor suit\nWalkie-talkie, adrenaline, handcuffs\nSmoke and decoy grenades\nFiber wire, flashlight",
 	traitor_maniac = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health\nPermanent Fury, Rampage, Injury Defiance",
 	traitor_maniac_soe = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health, SOE recoil control\nPermanent Fury, Rampage, Injury Defiance",
 	traitor_juggernaut = "Athlete physical stats\n1.15x size, 2x stamina, 1.5x melee and leg strength\n1.15x jump power, reduced stamina exhaustion\nCrowbar\nAdrenaline, smoke grenade, flashlight\nHold ALT while lifting smaller non-Athletes to strangle\nSlam carried victims into walls or props for bonus damage and stun\nALT + E over an unconscious head stomps the skull",
@@ -413,8 +411,8 @@ local traitorLoadoutText = {
 	traitor_terrorist_soe = "Bomb vest\nMatches\nClaymore, grenade\nIED, SOG knife\nFlashlight",
 	traitor_lastmanstanding = "Concealed De Lisle + 20 rounds\nBrass knuckles\nFlashlight",
 	traitor_lastmanstanding_soe = "Concealed De Lisle + 20 rounds\nNail gun\nSling\nBrass knuckles\nFlashlight, SOE recoil control",
-	traitor_stalker = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nFaster sonar marking with wider aim assist\nPrey Sense sharpens isolated marked victims\nSilent Pursuit makes your steps very quiet near isolated prey\nFirst hit staggers, drains stamina and deals bonus damage",
-	traitor_stalker_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nHammer + 6 nails\nOne-use death decoy\nFaster sonar marking with wider aim assist\nPrey Sense sharpens isolated marked victims\nSilent Pursuit makes your steps very quiet near isolated prey\nFirst hit staggers, drains stamina and deals bonus damage"
+	traitor_stalker = "Wall camouflage activated with Reload\nSonar marking, Prey Sense and Silent Pursuit\nLimited tranquilizer and SOG knife\nDecoy grenade and one-use death decoy\nHammer + 4 nails\nFlashlight\nFirst marked hit staggers, drains stamina and deals bonus damage",
+	traitor_stalker_soe = "Wall camouflage activated with Reload\nSonar marking, Prey Sense and Silent Pursuit\nLimited tranquilizer and SOG knife\nWalkie-talkie\nDecoy grenade and one-use death decoy\nHammer + 4 nails\nFlashlight\nFirst marked hit staggers, drains stamina and deals bonus damage"
 }
 
 local function getLoadoutText(role)

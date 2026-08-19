@@ -35,6 +35,8 @@ end
 function MODE.NormalizeTraitorSubRole(subrole)
 	if subrole == "traitor_assasin" then return "traitor_assassin" end
 	if subrole == "traitor_assasin_soe" then return "traitor_assassin_soe" end
+	if subrole == "traitor_shadow" then return "traitor_stalker" end
+	if subrole == "traitor_shadow_soe" then return "traitor_stalker_soe" end
 
 	return subrole
 end
@@ -392,79 +394,6 @@ Can detect presence and potency of chemical agents in the air.]],
 		},	
 	
 	--==\\
-	["traitor_shadow"] = {
-		Name = "Shadow",
-		Description = [[A master of silent elimination.
-Stand still next to a wall for a few seconds while upright, then press reload to camouflage with a short slip window after leaving cover.
-Equipped with concealed weapons that won't be visible on your body.
-Uses tranquilizer gun, tetrodoxin, handcuffs and a disguise.
-Enhanced stealth capabilities with increased stamina. (+40 units)
-For those who prefer to kill from the shadows.]],
-		Objective = "You're a silent killer. Stay hidden, isolate targets and eliminate them without being detected.",
-		SpawnFunction = function(ply)
-			local tranq = ply:Give("weapon_tranquilizer")
-			if IsValid(tranq) then
-				local playerCount = #player.GetAll()
-				local ammoAmount = math.max(1, math.floor(playerCount / 6))
-				ply:GiveAmmo(tranq:GetMaxClip1() * ammoAmount, tranq:GetPrimaryAmmoType(), true)
-			end
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_traitor_poison1")
-			ply:Give("weapon_traitor_suit")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_handcuffs")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_hg_decoynade_tpik")
-			ply:Give("weapon_hg_fiberwire")
-			
-			ply.organism.stamina.max = 260
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			
-			ply:SetNetVar("Inventory", inv)
-		end,
-	},
-	--==//
-	
-	--==\\
-	["traitor_shadow_soe"] = {
-		Name = "Shadow",
-		Description = [[A master of silent elimination.
-Stand still next to a wall for a few seconds while upright, then press reload to camouflage with a short slip window after leaving cover.
-Equipped with concealed weapons that won't be visible on your body.
-Uses tranquilizer gun, tetrodoxin, handcuffs and a disguise.
-Enhanced stealth capabilities with increased stamina. (+40 units)
-For those who prefer to kill from the shadows.]],
-		Objective = "You're a silent killer. Use your concealed weapons to eliminate targets without being detected.",
-		SpawnFunction = function(ply)
-			-- Silent tranquilizer gun for ranged takedowns
-			local tranq = ply:Give("weapon_tranquilizer")
-			if IsValid(tranq) then
-				-- Dynamic ammo based on player count for balance
-				local playerCount = #player.GetAll()
-				local ammoAmount = math.max(1, math.floor(playerCount / 6)) -- 1 mag per 6 players, minimum 1
-				ply:GiveAmmo(tranq:GetMaxClip1() * ammoAmount, tranq:GetPrimaryAmmoType(), true)
-			end
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_traitor_poison1")
-			ply:Give("weapon_traitor_suit")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_handcuffs")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_hg_decoynade_tpik")
-			ply:Give("weapon_hg_fiberwire")
-			
-			ply.organism.stamina.max = 260
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			
-			ply:SetNetVar("Inventory", inv)
-		end,
-	},
-	--==//
-	
-	--==\\
 	["traitor_maniac"] = {
 		Name = "Maniac",
 		Description = [[A blood-crazed butcher who lives for close-range slaughter.
@@ -744,25 +673,24 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 	},
 	["traitor_stalker"] = {
 		Name = "Stalker",
-		Description = [[A sonar hunter who reads the living by their pulse.
+		Description = [[A patient predator who combines sonar tracking with wall camouflage.
 Look at victims briefly to mark up to 3 of them.
 Marked victims emit a subtle color pulse through walls in rhythm with their heartbeat.
+Stand still beside a wall, then press reload to camouflage until you leave cover or cancel it.
 Isolated marked victims become clearer prey and make your pursuit much quieter.
 Your first hit against each marked victim staggers, drains stamina and deals extra damage; isolated prey are punished harder.
-You carry a hammer and nails to quietly seal routes around your prey.
-Once per round, you can leave behind a dead copy of yourself to fake your death.]],
-		Objective = "You are the Stalker. Mark victims, read isolated prey, kill the isolated.",
+A limited tranquilizer, hammer and misdirection tools help you isolate prey without giving you a full combat loadout.]],
+		Objective = "You are the Stalker. Mark your prey, disappear into cover and strike when they are isolated.",
 		SpawnFunction = function(ply)
 			ply.HMCDStalkerDeathDecoyUsed = nil
+			ply:Give("weapon_tranquilizer")
 			ply:Give("weapon_sogknife")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_fiberwire")
-			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_hg_decoynade_tpik")
 			ply:Give("weapon_hg_stalker_decoy")
 			ply:Give("weapon_hammer")
-			ply:GiveAmmo(6, "Nails", true)
+			ply:GiveAmmo(4, "Nails", true)
 
-			ply.organism.stamina.max = 260
+			ply.organism.stamina.max = 240
 			local inv = ply:GetNetVar("Inventory", {})
 			inv["Weapons"]["hg_flashlight"] = true
 
@@ -771,27 +699,26 @@ Once per round, you can leave behind a dead copy of yourself to fake your death.
 	},
 	["traitor_stalker_soe"] = {
 		Name = "Stalker",
-		Description = [[A sonar hunter who reads the living by their pulse.
+		Description = [[A patient predator who combines sonar tracking with wall camouflage.
 Look at victims briefly to mark up to 3 of them.
 Marked victims emit a subtle color pulse through walls in rhythm with their heartbeat.
+Stand still beside a wall, then press reload to camouflage until you leave cover or cancel it.
 Isolated marked victims become clearer prey and make your pursuit much quieter.
 Your first hit against each marked victim staggers, drains stamina and deals extra damage; isolated prey are punished harder.
-You carry a hammer and nails to quietly seal routes around your prey.
-Once per round, you can leave behind a dead copy of yourself to fake your death.]],
-		Objective = "You are the Stalker. Mark victims, read isolated prey, kill the isolated.",
+A limited tranquilizer, hammer and misdirection tools help you isolate prey without giving you a full combat loadout.]],
+		Objective = "You are the Stalker. Mark your prey, disappear into cover and strike when they are isolated.",
 		SpawnFunction = function(ply)
 			ply.HMCDStalkerDeathDecoyUsed = nil
+			ply:Give("weapon_tranquilizer")
 			ply:Give("weapon_sogknife")
 			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_fiberwire")
-			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_hg_decoynade_tpik")
 			ply:Give("weapon_hg_stalker_decoy")
 			ply:Give("weapon_hammer")
-			ply:GiveAmmo(6, "Nails", true)
+			ply:GiveAmmo(4, "Nails", true)
 
 			ply.organism.recoilmul = 1
-			ply.organism.stamina.max = 260
+			ply.organism.stamina.max = 240
 			local inv = ply:GetNetVar("Inventory", {})
 			inv["Weapons"]["hg_flashlight"] = true
 
@@ -1007,7 +934,6 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_infiltrator"] = true,
 			["traitor_chemist"] = true,
 			["traitor_thief"] = true,
-			["traitor_shadow"] = true,
 			["traitor_assassin"] = true,
 			["traitor_maniac"] = true, 	-- maniac killer
 			["traitor_juggernaut"] = true,
@@ -1083,7 +1009,6 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_infiltrator_soe"] = true,
 			["traitor_chemist_soe"] = true,
 			["traitor_thief_soe"] = true,
-			["traitor_shadow_soe"] = true,
 			["traitor_assassin_soe"] = true,
 			["traitor_maniac_soe"] = true,
 			["traitor_juggernaut_soe"] = true,
