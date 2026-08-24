@@ -48,18 +48,18 @@ util.AddNetworkString("overstimulated_audio_cue")
 
 function MODE.GuiltCheck(attacker, victim)
 	if not IsValid(attacker) or not IsValid(victim) then
-		return 1, true
+		return 0, false
 	end
 
 	if attacker == victim then
-		return 1, true
+		return 0, false
 	end
 
-	if attacker:Team() == victim:Team() and attacker:Team() ~= TEAM_SPECTATOR then
-		return 4, true
-	end
+	if zb.ROUND_STATE ~= 1 then return 0, false end
+	if attacker:Team() ~= victim:Team() then return 0, false end
+	if attacker:Team() == TEAM_SPECTATOR then return 0, false end
 
-	return 1, true
+	return 4, true
 end
 
 local function shuffle(tbl)

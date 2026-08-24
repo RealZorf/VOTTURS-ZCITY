@@ -5,8 +5,8 @@ MODE.PrintName = "Zombie Survival"
 
 MODE.start_time = 5
 MODE.end_time = 7
-MODE.ROUND_TIME = 600
-MODE.InfectionDelay = 59
+MODE.ROUND_TIME = 420
+MODE.InfectionDelay = 45
 MODE.FastZombieRespawnDelay = 5
 MODE.ZombieRespawnDelay = 15
 MODE.ZombieCameraSpawnMinDistance = 650
@@ -15,15 +15,15 @@ MODE.ZombieCameraSpawnVisibilityDistance = 2200
 MODE.ZombieCameraSpawnViewDot = 0.3
 MODE.ZombieCameraSpawnMaxDrop = 256
 MODE.ZombieCameraSpawnSearchRadius = 64
-MODE.PoisonZombieInterval = 150
+MODE.PoisonZombieInterval = 90
 MODE.ZombieConsumeTime = 4
 MODE.ZombieConsumeReach = 100
 MODE.ZombieConsumeHealthRestore = 45
 
 MODE.ZombieBuffs = {
-	headcrabzombie = {maxHealth = 180, movement = 1.16, meleeDamage = 1.35},
-	fastzombie = {maxHealth = 225, movement = 1.12, meleeDamage = 1.75, doorDamage = 105},
-	poisonzombie = {maxHealth = 475, movement = 1.1, meleeDamage = 1.5, doorDamage = 150},
+	headcrabzombie = {maxHealth = 355, movement = 1.25, meleeDamage = 1.05, doorDamage = 105},
+	fastzombie = {maxHealth = 180, movement = 1.2, meleeDamage = 1.75, doorDamage = 125},
+	poisonzombie = {maxHealth = 750, movement = 1.15, meleeDamage = 1.5, doorDamage = 200},
 }
 
 MODE.randomSpawns = true
@@ -31,7 +31,7 @@ MODE.shouldfreeze = true
 MODE.OverrideSpawn = true
 MODE.LootSpawn = true
 MODE.LootOnTime = false
-MODE.Chance = 0.12
+MODE.Chance = 0.05
 
 function MODE:CanLaunch()
 	return player.GetCount() >= 2
