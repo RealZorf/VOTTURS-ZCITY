@@ -148,7 +148,21 @@ local function ChatLogic(output, input, isChat, teamonly, text, skipOverrides)
 		chat_dist = chat_dist_whisper
 	end
 
-	if output:Alive() and input:Alive() and not output.organism.otrub and not input.organism.otrub and output.organism.o2[1] >= 15 and not output.organism.holdingbreath and input:TestPVS( output ) then
+	local outputOrganism = output.organism
+	local inputOrganism = input.organism
+	local outputOxygen = outputOrganism and outputOrganism.o2
+	local canSpeakAlive = output:Alive()
+		and input:Alive()
+		and outputOrganism
+		and inputOrganism
+		and istable(outputOxygen)
+		and not outputOrganism.otrub
+		and not inputOrganism.otrub
+		and (tonumber(outputOxygen[1]) or 0) >= 15
+		and not outputOrganism.holdingbreath
+		and input:TestPVS(output)
+
+	if canSpeakAlive then
 		local distance = input:GetPos():Distance(output:GetPos())
 		if teamonly or distance >= chat_dist then return false end
 		if not isChat then
@@ -280,8 +294,9 @@ hook.Add("HG_PlayerSay", "furrifyPhraseOwO", function(ply, txt)
 end)
 
 hook.Add("HG_PlayerCanHearPlayersVoice","BrainDamage", function(listener, speaker)
-	if speaker.organism.brain > 0.05 then return false, false end
-end)
+	local organism = speaker.organism
+	if organism and (tonumber(organism.brain) or 0) > 0.05 then return false, false end
+end, -1)
 
 local braindeadphrase_male = {
 	"vo/episode_1/npc/male01/cit_behindyousfx01.wav",
@@ -312,11 +327,11 @@ hook.Add("PlayerCanHearPlayersVoice", "RealisticVoice", function(listener,speake
 		if speak then hook.Run( "StartVoice", speaker, listener ) else hook.Run( "EndVoice", speaker, listener )  end
 	end
 
-	local Hook = hook.Run("HG_PlayerCanHearPlayersVoice", listener, speaker )
-	if Hook ~= nil then
-		return Hook
+	local canHear, is3D = hook.Run("HG_PlayerCanHearPlayersVoice", listener, speaker)
+	if canHear ~= nil then
+		return canHear, is3D
 	end
 
 	local result,is3D = ChatLogic(speaker,listener,false,false)
 	return result,is3D
-end)
+end, 1)

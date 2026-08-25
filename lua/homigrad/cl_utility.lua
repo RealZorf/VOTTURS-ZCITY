@@ -764,21 +764,38 @@ players : 1 humans, 0 bots (20 max)
 		local playerVoiceBaseVolume
 		local throatCutVoiceMul
 
+		local function isVoicePlayerMuted(ply)
+			if not IsValid(ply) then return true end
+
+			local info = hg.playerInfo and hg.playerInfo[ply:SteamID()]
+			if istable(info) and info[1] == true then return true end
+
+			return ply.IsMuted and ply:IsMuted() or false
+		end
+
 		local function isVoicePlaybackEnabled(ply)
 			if not IsValid(ply) or hg.muteall then return false end
 			if hg.mutespect and not ply:Alive() then return false end
-			if ply.IsMuted and ply:IsMuted() then return false end
+			if isVoicePlayerMuted(ply) then return false end
 
 			return true
 		end
 
-		local function restoreVoiceVolume(ply)
+		local function applyVoiceVolume(ply, occlusionScale)
 			if not IsValid(ply) then return end
 
 			local baseVolume = playerVoiceBaseVolume and playerVoiceBaseVolume(ply) or 1
 			local injuryVolume = throatCutVoiceMul and throatCutVoiceMul(ply) or 1
+			local externalVolume = hook.Run("HG_PlayerVoiceVolumeMultiplier", ply)
+			externalVolume = isnumber(externalVolume) and math.Clamp(externalVolume, 0, 1) or 1
 			local enabled = isVoicePlaybackEnabled(ply)
-			ply:SetVoiceVolumeScale(enabled and baseVolume * injuryVolume or 0)
+			local volume = baseVolume * injuryVolume * externalVolume * math.Clamp(tonumber(occlusionScale) or 1, 0, 1)
+			ply:SetVoiceVolumeScale(enabled and volume or 0)
+		end
+
+		function hg.RefreshPlayerVoiceVolume(ply)
+			local state = activeVoiceSpeakers[ply]
+			applyVoiceVolume(ply, state and state.scale or 1)
 		end
 
 		local function trackVoiceSpeaker(ply)
@@ -795,9 +812,7 @@ players : 1 humans, 0 bots (20 max)
 			}
 
 			if previous and playerVoiceBaseVolume and throatCutVoiceMul then
-				local enabled = isVoicePlaybackEnabled(ply)
-				local volume = playerVoiceBaseVolume(ply) * throatCutVoiceMul(ply) * previous.scale
-				ply:SetVoiceVolumeScale(enabled and volume or 0)
+				applyVoiceVolume(ply, previous.scale)
 			end
 		end
 
@@ -823,7 +838,7 @@ players : 1 humans, 0 bots (20 max)
 
 			ply.IsSpeak = false
 			activeVoiceSpeakers[ply] = nil
-			restoreVoiceVolume(ply)
+			applyVoiceVolume(ply)
 		end)
 
 		local nextVoiceStaleCheck = 0
@@ -862,7 +877,7 @@ players : 1 humans, 0 bots (20 max)
 				}
 				ply.IsSpeak = false
 				activeVoiceSpeakers[ply] = nil
-				restoreVoiceVolume(ply)
+				applyVoiceVolume(ply)
 
 				if GAMEMODE and GAMEMODE.PlayerEndVoice then
 					GAMEMODE:PlayerEndVoice(ply)
@@ -1144,9 +1159,7 @@ players : 1 humans, 0 bots (20 max)
 				local fadeRate = state.target < state.scale and 7 or 4
 				state.scale = Lerp(math.Clamp(frameTime * fadeRate, 0, 1), state.scale, state.target)
 
-				local enabled = isVoicePlaybackEnabled(talker)
-				local volume = playerVoiceBaseVolume(talker) * throatCutVoiceMul(talker) * state.scale
-				talker:SetVoiceVolumeScale(enabled and volume or 0)
+				applyVoiceVolume(talker, state.scale)
 			end
 		end)
 

@@ -711,13 +711,54 @@ local function addToPlayerInfo(ply, muted, volume)
 	--PrintTable(hg.playerInfo)
 end
 
+local function applySavedPlayerVoiceInfo(ply, steamID)
+	if not IsValid(ply) or not ply:IsPlayer() then return false end
+
+	local key = steamID or ply:SteamID()
+	if not key or key == "" or key == "STEAM_ID_PENDING" then return false end
+
+	local info = hg.playerInfo and hg.playerInfo[key]
+	if info == nil then return true end
+
+	if not istable(info) then
+		info = {info == true, 1}
+		hg.playerInfo[key] = info
+	end
+
+	local muted = info[1] == true
+	local volume = math.Clamp(tonumber(info[2]) or 1, 0, 1)
+	ply:SetMuted(muted)
+
+	if hg.RefreshPlayerVoiceVolume then
+		hg.RefreshPlayerVoiceVolume(ply)
+	else
+		ply:SetVoiceVolumeScale(muted and 0 or volume)
+	end
+
+	return true
+end
+
 gameevent.Listen("player_connect")
 hook.Add("player_connect", "zcityhuy", function(data)
-	local ply = Player(data.userid)
-	if IsValid(ply) and ply.SetMuted and hg.playerInfo and hg.playerInfo[data.networkid] then
-		ply:SetMuted(hg.playerInfo[data.networkid][1])
-		ply:SetVoiceVolumeScale(hg.playerInfo[data.networkid][2])
-	end
+	local timerName = "zcity_voice_restore_" .. tostring(data.userid)
+	timer.Create(timerName, 0.25, 12, function()
+		local ply = Player(data.userid)
+		if not applySavedPlayerVoiceInfo(ply, data.networkid) then return end
+
+		timer.Remove(timerName)
+	end)
+end)
+
+hook.Add("NetworkEntityCreated", "ZCityRestoreCreatedPlayerVoice", function(ent)
+	if not IsValid(ent) or not ent:IsPlayer() then return end
+
+	timer.Simple(0, function()
+		applySavedPlayerVoiceInfo(ent)
+	end)
+
+	timer.Simple(1, function()
+		applySavedPlayerVoiceInfo(ent)
+	end)
 end)
 
 hook.Add("InitPostEntity", "furryhuy", function()
@@ -737,10 +778,7 @@ hook.Add("InitPostEntity", "furryhuy", function()
 					hg.playerInfo[ply:SteamID()][2] = 1
 				end--compatibility with old json
 
-				if hg.playerInfo[ply:SteamID()] then
-					ply:SetMuted(hg.playerInfo[ply:SteamID()][1])
-					ply:SetVoiceVolumeScale(hg.playerInfo[ply:SteamID()][2])
-				end
+				applySavedPlayerVoiceInfo(ply)
 			end	
 		end
 	end
@@ -761,18 +799,36 @@ local colBlueUp = Color(14, 40, 28, 220)
 hg.muteall = false
 hg.mutespect = false
 
+local function refreshPlayerVoiceVolume(ply)
+	if not IsValid(ply) then return end
+
+	if hg.RefreshPlayerVoiceVolume then
+		hg.RefreshPlayerVoiceVolume(ply)
+		return
+	end
+
+	local info = hg.playerInfo and hg.playerInfo[ply:SteamID()]
+	local muted = (istable(info) and info[1] == true) or (ply.IsMuted and ply:IsMuted())
+	local volume = istable(info) and tonumber(info[2]) or 1
+	local enabled = not muted and not hg.muteall and (not hg.mutespect or ply:Alive())
+	ply:SetVoiceVolumeScale(enabled and math.Clamp(volume or 1, 0, 1) or 0)
+end
+
 local function OpenPlayerSoundSettings(selfa, ply)
 	local Menu = DermaMenu()
 	
 	if not hg.playerInfo[ply:SteamID()] or not istable(hg.playerInfo[ply:SteamID()]) then addToPlayerInfo(ply, false, 1) end
 
 	local mute = Menu:AddOption( "Mute", function(self)
-		if hg.muteall || hg.mutespect then return end
-		
-		self:SetChecked(not ply:IsMuted())
-		ply:SetMuted( not ply:IsMuted() )
-		selfa:SetImage(not ply:IsMuted() && "icon16/sound.png" || "icon16/sound_mute.png")
-		addToPlayerInfo(ply, ply:IsMuted(), hg.playerInfo[ply:SteamID()][2])
+		if not IsValid(ply) then return end
+
+		local info = hg.playerInfo[ply:SteamID()]
+		local muted = not ((istable(info) and info[1] == true) or ply:IsMuted())
+		ply:SetMuted(muted)
+		self:SetChecked(muted)
+		selfa:SetImage(muted and "icon16/sound_mute.png" or "icon16/sound.png")
+		addToPlayerInfo(ply, muted, hg.playerInfo[ply:SteamID()][2])
+		refreshPlayerVoiceVolume(ply)
 	end ) -- get your stupid one line ass outta here
 
 	mute:SetIsCheckable( true )
@@ -783,10 +839,9 @@ local function OpenPlayerSoundSettings(selfa, ply)
 	volumeSlider:SetSlideX(hg.playerInfo[ply:SteamID()][2]) 
 	volumeSlider.OnValueChanged = function(self, x, y)
 		if not IsValid(ply) then return end
-		if hg.muteall or (hg.mutespect && !ply:Alive()) then return end
 		hg.playerInfo[ply:SteamID()][2] = x
-		ply:SetVoiceVolumeScale(hg.playerInfo[ply:SteamID()][2])
-		addToPlayerInfo(ply, ply:IsMuted(), hg.playerInfo[ply:SteamID()][2])
+		addToPlayerInfo(ply, hg.playerInfo[ply:SteamID()][1] == true, hg.playerInfo[ply:SteamID()][2])
+		refreshPlayerVoiceVolume(ply)
 	end
 
 	function volumeSlider:Paint(w,h)
@@ -806,7 +861,7 @@ hook.Add("Player Getup", "nomorespect", function(ply)
 	if not hg.mutespect then return end
 
 	--ply:SetMuted(ply.oldmutedspect)
-	ply:SetVoiceVolumeScale(!hg.muteall and (hg.playerInfo[ply:SteamID()] and hg.playerInfo[ply:SteamID()][2] or 1) or 0)
+	refreshPlayerVoiceVolume(ply)
 	--ply.oldmutedspect = nil
 
 	--if IsValid(ply.soundButton) then
@@ -819,7 +874,7 @@ hook.Add("Player_Death", "fixSpectatorVoiceMute", function(ply)
 
 	--ply.oldmutedspect = ply:IsMuted()
 	--ply:SetMuted(hg.mutespect)
-	ply:SetVoiceVolumeScale(0)
+	refreshPlayerVoiceVolume(ply)
 	--if IsValid(ply.soundButton) then
 		--ply.soundButton:SetImage(not ply:IsMuted() && "icon16/sound.png" || "icon16/sound_mute.png")
 	--end
@@ -871,21 +926,7 @@ function GM:ScoreboardShow()
 		hg.muteall = not hg.muteall
 		
 		for i,ply in player.Iterator() do
-			if hg.muteall then
-				--ply.oldmutedspect = ply:IsMuted()
-
-				ply:SetVoiceVolumeScale(0)
-				--if IsValid(ply.soundButton) then
-					--ply.soundButton:SetImage(not ply:IsMuted() && "icon16/sound.png" || "icon16/sound_mute.png")
-				--end
-			else
-				ply:SetVoiceVolumeScale((!hg.mutespect or ply:Alive()) and (hg.playerInfo[ply:SteamID()] and hg.playerInfo[ply:SteamID()][2] or 1) or 0)
-				--ply:SetMuted(ply.oldmuted)
-				--if IsValid(ply.soundButton) then
-					--ply.soundButton:SetImage(not ply:IsMuted() && "icon16/sound.png" || "icon16/sound_mute.png")
-				--end
-				--ply.oldmuted = nil
-			end
+			refreshPlayerVoiceVolume(ply)
 		end 
 	end
 
@@ -912,7 +953,7 @@ function GM:ScoreboardShow()
 			if ply:Alive() then continue end
 
 			if hg.mutespect then
-				ply:SetVoiceVolumeScale(0)
+				refreshPlayerVoiceVolume(ply)
 				--ply.oldmutedspect = ply:IsMuted()
 
 				--ply:SetMuted(true)
@@ -920,7 +961,7 @@ function GM:ScoreboardShow()
 					--ply.soundButton:SetImage(not ply:IsMuted() && "icon16/sound.png" || "icon16/sound_mute.png")
 				--end
 			else
-				ply:SetVoiceVolumeScale(!hg.muteall and (hg.playerInfo[ply:SteamID()] and hg.playerInfo[ply:SteamID()][2] or 1) or 0)
+				refreshPlayerVoiceVolume(ply)
 				--ply:SetMuted(ply.oldmutedspect)
 				--if IsValid(ply.soundButton) then
 					--ply.soundButton:SetImage(not ply:IsMuted() && "icon16/sound.png" || "icon16/sound_mute.png")

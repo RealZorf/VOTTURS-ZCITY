@@ -17,6 +17,10 @@ local KARMA_SUICIDE_REFUND_WINDOW = 30
 local GUILT_THREAT_WINDOW = 15
 local RETALIATION_MIN_INCOMING = 0.01
 local RETALIATION_KILL_KARMA_CAP = 5
+local PROPORTIONAL_RESPONSE_RATIO = 1.25
+local MODERATE_RESPONSE_RATIO = 2
+local LETHAL_SELF_DEFENSE_MIN_INCOMING = 0.35
+local LETHAL_SELF_DEFENSE_MAX_RATIO = 2.5
 
 local function GetGuiltThreatWindow()
     local cfg = ZCITY_GUILT and ZCITY_GUILT.Config
@@ -224,6 +228,20 @@ local function RecordGuiltCombatHarm(victim, attacker, amount, source)
     zb.GuiltCombatHistory[victim][attacker] = entry
 end
 
+local function GetSelfDefenseKarmaMul(responseRatio, retaliation)
+    responseRatio = math.max(0, tonumber(responseRatio) or 0)
+
+    if responseRatio <= PROPORTIONAL_RESPONSE_RATIO then
+        return retaliation and 0.10 or 0.15
+    end
+
+    if responseRatio <= MODERATE_RESPONSE_RATIO then
+        return retaliation and 0.35 or 0.45
+    end
+
+    return math.Clamp(0.65 + (responseRatio - MODERATE_RESPONSE_RATIO) * 0.15, 0.65, 1)
+end
+
 
 function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
     local state = {
@@ -262,22 +280,10 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
     state.responseRatio = ratio
     state.source = tostring(source or reciprocal.source or "damage")
 
-    if ratio <= 1.25 then
-        state.karmaMul = 0.15
-    elseif ratio <= 2 then
-        state.karmaMul = 0.45
-    else
-        state.karmaMul = 0.8
-    end
-
     local strike = GetStrikeContext(attacker, victim, incomingHarm)
-    if strike.victimStruckFirst then
-        if ratio <= 1.25 then
-            state.karmaMul = 0.10
-        else
-            state.karmaMul = math.min(state.karmaMul, 0.20)
-        end
-    end
+    state.karmaMul = GetSelfDefenseKarmaMul(ratio, strike.victimStruckFirst)
+    state.proportional = ratio <= PROPORTIONAL_RESPONSE_RATIO
+    state.excessive = ratio > MODERATE_RESPONSE_RATIO
 
     state.reasons = {
         "Victim recently harmed attacker for " .. math.Round(incomingHarm, 1) .. " harm.",
@@ -307,25 +313,7 @@ end
 
 local function ApplySelfDefenseKarmaMul(threatState, responseRatio, retaliation)
     local threatMul = tonumber(threatState.karmaMul) or 1
-    local karmaMul
-
-    if retaliation then
-        if responseRatio <= 1.25 then
-            karmaMul = 0.05
-        elseif responseRatio <= 2 then
-            karmaMul = 0.15
-        else
-            karmaMul = 0.25
-        end
-    elseif responseRatio <= 1.25 then
-        karmaMul = 0
-    elseif responseRatio <= 2 then
-        karmaMul = 0.35
-    else
-        karmaMul = 0.45
-    end
-
-    return math.min(karmaMul, threatMul)
+    return math.max(GetSelfDefenseKarmaMul(responseRatio, retaliation), threatMul)
 end
 
 
@@ -578,15 +566,37 @@ function zb.EvaluateEngagement(attacker, victim, opts)
     end
 
     if victimAlreadyDown or victimAlive == false then
-        if retaliation then
-            reasons[#reasons + 1] = "Lethal retaliation against the player who initiated the fight."
-        elseif incomingHarm >= RETALIATION_MIN_INCOMING and responseRatio > 1.5 then
+        if retaliation and responseRatio <= PROPORTIONAL_RESPONSE_RATIO then
+            reasons[#reasons + 1] = "Proportional retaliation against the player who initiated the fight."
+        elseif incomingHarm >= RETALIATION_MIN_INCOMING and responseRatio > PROPORTIONAL_RESPONSE_RATIO then
             local excess = math.Clamp((responseRatio - 1.5) / 2, 0, 1)
             karmaMul = math.max(karmaMul, 0.5 + excess * 0.5)
+            guiltMul = math.max(guiltMul, karmaMul)
             reasons[#reasons + 1] = "Excessive damage continued after the threat was neutralized."
         elseif incomingHarm < RETALIATION_MIN_INCOMING then
             karmaMul = math.max(karmaMul, 0.85)
+            guiltMul = math.max(guiltMul, karmaMul)
             reasons[#reasons + 1] = "Additional harm dealt to an incapacitated victim."
+        end
+    end
+
+    if result.retaliation and opts.lethalContribution then
+        local incomingSeverity = math.Clamp(incomingHarm / maxHarm, 0, 1)
+        local credibleLethalDefense = incomingSeverity >= LETHAL_SELF_DEFENSE_MIN_INCOMING
+            and responseRatio <= LETHAL_SELF_DEFENSE_MAX_RATIO
+
+        if credibleLethalDefense then
+            result.maxKarmaPenalty = GetRetaliationKillKarmaCap()
+            reasons[#reasons + 1] = "Lethal force followed substantial incoming harm."
+        else
+            local ratioExcess = math.Clamp((responseRatio - PROPORTIONAL_RESPONSE_RATIO) / 2, 0, 1)
+            local severityShortfall = math.Clamp((LETHAL_SELF_DEFENSE_MIN_INCOMING - incomingSeverity) / LETHAL_SELF_DEFENSE_MIN_INCOMING, 0, 1)
+            local lethalMul = 0.75 + math.max(ratioExcess, severityShortfall) * 0.25
+
+            karmaMul = math.max(karmaMul, lethalMul)
+            guiltMul = math.max(guiltMul, lethalMul)
+            result.maxKarmaPenalty = nil
+            reasons[#reasons + 1] = "Lethal force was disproportionate to the incoming threat."
         end
     end
 
@@ -595,10 +605,6 @@ function zb.EvaluateEngagement(attacker, victim, opts)
         guiltMul = 1
         result.retaliation = false
         result.maxKarmaPenalty = nil
-    end
-
-    if result.retaliation and opts.lethalContribution then
-        result.maxKarmaPenalty = GetRetaliationKillKarmaCap()
     end
 
     result.karmaMultiplier = math.Clamp(karmaMul, 0, 1.25)
@@ -689,8 +695,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
         zb.hostageLastTouched = Attacker
     end
 
-    local inflictor = dmgInfo:GetInflictor()
-    local attackerTeam = (IsValid(inflictor) and inflictor.team) or (Attacker:IsPlayer() and Attacker:Team()) or Attacker.team
+    local attackerTeam = Attacker:Team()
     zb.HarmDoneDetailed[id][id2] = {
         harm = newharm,
         amt = newharm / maxharm,
@@ -731,7 +736,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
 
     if ShouldSkipHmcdGuiltPenalty(Attacker, Victim, rnd) then return end
     
-    if rnd.name != "hmcd" and (Attacker.Team and Victim.Team and attackerTeam ~= Victim:Team()) then return end
+    if rnd.name != "hmcd" and attackerTeam ~= Victim:Team() then return end
 
     local guiltVictim = ResolveGuiltPlayer(ply) or ResolveGuiltPlayer(Victim) or (Victim:IsPlayer() and Victim or nil)
 

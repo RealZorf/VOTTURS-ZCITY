@@ -870,7 +870,7 @@ if SERVER then
     -- prevent voice while strangled
     hook.Add("HG_PlayerCanHearPlayersVoice", "FiberwireStrangleMute", function(listener, speaker)
         if IsFiberwireStrangled(speaker) then return false, false end
-    end)
+    end, -1)
 
     hook.Add("HG_PlayerCanSeePlayersChat", "FiberwireStrangleMute", function(listener, speaker)
         if IsFiberwireStrangled(speaker) then return false end
