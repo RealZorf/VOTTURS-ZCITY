@@ -1,5 +1,9 @@
 local MODE = MODE
 MODE.NetSize_ChemicalResistanceBits = 8
+MODE.ChemistNeutralizerDoses = 2
+MODE.ChemistNeutralizerDuration = 45
+MODE.ChemistNeutralizerReach = 90
+MODE.LMSFinalStandMultiplier = 0.5
 local chemical_degrade_speeds = {
 	["HCN"] = 1,
 	["KCN"] = 0.5,
@@ -43,14 +47,14 @@ MODE.ManiacRampageMeleeDamagePerStack = 0.06
 MODE.ManiacRampageMeleeSpeedPerStack = 0.04
 MODE.ManiacInjuryDefianceMoveFloor = 0.65
 MODE.ManiacInjuryDefianceGripFloor = 0.70
-MODE.CannibalConsumeTime = 4.5
-MODE.CannibalCleaverConsumeTime = 3
-MODE.CannibalConsumeReach = 95
-MODE.CannibalHealthRestore = 30
+MODE.CannibalConsumeTime = 4
+MODE.CannibalCleaverConsumeTime = 2.75
+MODE.CannibalConsumeReach = 100
+MODE.CannibalHealthRestore = 40
 MODE.CannibalBloodRestore = 900
-MODE.CannibalStaminaBonusPerBody = 25
-MODE.CannibalMeleeDamageBonusPerBody = 0.10
-MODE.CannibalMaxConsumedBodies = 10
+MODE.CannibalStaminaBonusPerBody = 40
+MODE.CannibalMeleeDamageBonusPerBody = 0.25
+MODE.CannibalMaxConsumedBodies = 6
 MODE.JuggernautModelScale = 1.15
 MODE.JuggernautStaminaMultiplier = 2
 MODE.JuggernautMeleeDamageMultiplier = 1.5
@@ -86,6 +90,25 @@ end
 
 function MODE.IsCannibalRole(subrole)
 	return subrole == "traitor_cannibal" or subrole == "traitor_cannibal_soe"
+end
+
+function MODE.GetChemistNeutralizerTarget(ply)
+	if not IsValid(ply) then return nil end
+
+	local aim_ent, target, trace = MODE.GetPlayerTraceToOther(ply, nil, MODE.ChemistNeutralizerReach)
+	if not IsValid(aim_ent) then return nil end
+
+	if hg and hg.RagdollOwner then
+		target = hg.RagdollOwner(aim_ent) or target
+	end
+	if not IsValid(target) and aim_ent:IsPlayer() then
+		target = aim_ent
+	end
+
+	if not IsValid(target) or not target:IsPlayer() or target == ply or not target:Alive() then return nil end
+	if not target.isTraitor and target ~= ply.HMCD_ChemistNeutralizerTarget then return nil end
+
+	return target, aim_ent, trace
 end
 
 function MODE.IsJuggernautRole(subrole)
@@ -189,7 +212,7 @@ function MODE.GetCannibalConsumeTime(ply)
 		return MODE.CannibalCleaverConsumeTime or 3
 	end
 
-	return MODE.CannibalConsumeTime or 4.5
+	return MODE.CannibalConsumeTime or 4
 end
 
 function MODE.IsCannibalConsumableVictim(victim, corpse)
@@ -229,6 +252,9 @@ function MODE.GetCannibalConsumeTarget(ply)
 	end
 
 	if not IsValid(corpse) or not corpse:IsRagdoll() then return nil end
+	if CLIENT and not IsValid(victim) then
+		return corpse, nil, trace
+	end
 	if not IsValid(victim) or not victim:IsPlayer() or victim == ply then return nil end
 	if not MODE.IsCannibalConsumableVictim(victim, corpse) then return nil end
 

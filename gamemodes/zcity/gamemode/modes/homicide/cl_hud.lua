@@ -299,6 +299,16 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 			end
 			
 			if(MODE.IsChemistRole and MODE.IsChemistRole(ply.SubRole))then
+				local neutralizer_target, _, neutralizer_trace = MODE.GetChemistNeutralizerTarget(ply)
+				local neutralizer_doses = ply:GetNWInt("HMCD_ChemistNeutralizerDoses", 0)
+				if IsValid(neutralizer_target) and neutralizer_trace and neutralizer_doses > 0 then
+					local text = "(PRESS)[" .. special_bind .. "] Neutralize teammate [" .. neutralizer_doses .. "]"
+					local screen_pos = neutralizer_trace.HitPos:ToScreen()
+					local _, th = surface.GetTextSize(text)
+					draw_shadow_text(text, screen_pos.x, screen_pos.y + y_offset)
+					y_offset = y_offset + th + after_text_offset
+				end
+
 				local after_side_bar_offset = 5
 				local bar_border = 5
 				local bar_width = ScreenScale(20)

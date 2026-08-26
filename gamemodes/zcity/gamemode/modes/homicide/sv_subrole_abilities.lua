@@ -5,9 +5,12 @@ util.AddNetworkString("HMCD_BreakingOtherNeck")
 util.AddNetworkString("HMCD_BeingVictimOfDisarmament")
 util.AddNetworkString("HMCD_DisarmingOther")
 util.AddNetworkString("HMCD_UpdateChemicalResistance")
+util.AddNetworkString("HMCD_ChemistNeutralizerTarget")
 util.AddNetworkString("HMCD_StalkerMarks")
+util.AddNetworkString("HMCD_CannibalStacked")
 
 resource.AddFile("sound/cannibal_eating.mp3")
+resource.AddFile("sound/cannibalstacked.wav")
 
 local cannibal_body_gib_models = {
 	"models/gibs/hgibs.mdl",
@@ -24,6 +27,28 @@ local cannibal_eating_sound = "cannibal_eating.mp3"
 local cannibal_eating_volume = 0.82
 local cannibal_eating_pitch_min = 118
 local cannibal_eating_pitch_max = 128
+
+local function playCannibalStackedSound(cannibal)
+	local recipients = RecipientFilter()
+	local has_recipients = false
+
+	if IsValid(cannibal) and cannibal:IsPlayer() and cannibal:Alive() then
+		recipients:AddPlayer(cannibal)
+		has_recipients = true
+	end
+
+	for _, listener in player.Iterator() do
+		if IsValid(listener) and listener ~= cannibal and listener:Alive() then
+			recipients:AddPlayer(listener)
+			has_recipients = true
+		end
+	end
+
+	if not has_recipients then return end
+
+	net.Start("HMCD_CannibalStacked")
+	net.Send(recipients)
+end
 
 local function stopCannibalEatingSound(ply, fade)
 	local data = IsValid(ply) and ply.Ability_CannibalConsume or nil
@@ -1047,8 +1072,14 @@ function MODE.FinishCannibalConsume(ply, corpse, victim)
 		org.pain = math.max((org.pain or 0) - 10, 0)
 	end
 
-	ply.Ability_CannibalConsumedBodies = math.min(MODE.GetCannibalStacks(ply) + 1, MODE.CannibalMaxConsumedBodies or 6)
+	local previous_stacks = MODE.GetCannibalStacks(ply)
+	local max_stacks = MODE.CannibalMaxConsumedBodies or 6
+	ply.Ability_CannibalConsumedBodies = math.min(previous_stacks + 1, max_stacks)
 	MODE.ApplyCannibalStacks(ply)
+
+	if previous_stacks < max_stacks and MODE.GetCannibalStacks(ply) >= max_stacks then
+		playCannibalStackedSound(ply)
+	end
 
 	local pos = corpse:WorldSpaceCenter()
 	sound.Play("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", pos, 65, math.random(75, 90), 0.85)
@@ -1075,7 +1106,8 @@ function MODE.FinishCannibalConsume(ply, corpse, victim)
 	end
 
 	local stacks = MODE.GetCannibalStacks(ply)
-	local msg = "Consumed. Strength growing. (" .. stacks .. "/" .. (MODE.CannibalMaxConsumedBodies or 6) .. ")"
+	local max_stacks = MODE.CannibalMaxConsumedBodies or 6
+	local msg = stacks >= max_stacks and "Fully stacked. Nothing left to consume. (" .. stacks .. "/" .. max_stacks .. ")" or "Consumed. Strength growing. (" .. stacks .. "/" .. max_stacks .. ")"
 	if isfunction(ply.Notify) then
 		ply:Notify(msg, 0, "cannibal_consume_" .. stacks, 0, nil, Color(170, 45, 45))
 	else
@@ -1397,6 +1429,108 @@ function MODE.StartJuggernautStomp(ply, rag, victim)
 end
 
 --\\Chemical resistance
+local function neutralizerTimerName(ply)
+	return "HMCD_ChemistNeutralizer_" .. ply:UserID()
+end
+
+function MODE.ClearNeutralizedChemicals(ply)
+	if not IsValid(ply) then return end
+
+	if CleanChemicalsOfPlayer then
+		CleanChemicalsOfPlayer(ply)
+	else
+		ply.PassiveAbility_ChemicalAccumulation = {}
+	end
+
+	if ply.organism then
+		ply.organism.Poison_KCN = nil
+		ply.organism.tranquilizer = 0
+		ply.organism.poison3 = nil
+		ply.organism.poison3notificate = nil
+	end
+end
+
+function MODE.ClearChemistNeutralizerResistance(ply)
+	if not IsValid(ply) then return end
+
+	timer.Remove(neutralizerTimerName(ply))
+	ply.Ability_ChemicalResistanceUntil = nil
+	ply:SetNWFloat("HMCD_ChemicalResistanceUntil", 0)
+end
+
+function MODE.StartChemistNeutralizerResistance(ply)
+	if not IsValid(ply) then return end
+
+	MODE.ClearChemistNeutralizerResistance(ply)
+	local expires = CurTime() + MODE.ChemistNeutralizerDuration
+	local timer_name = neutralizerTimerName(ply)
+	ply.Ability_ChemicalResistanceUntil = expires
+	ply:SetNWFloat("HMCD_ChemicalResistanceUntil", expires)
+	MODE.ClearNeutralizedChemicals(ply)
+	if MODE.NetworkChemicalResistanceOfPlayer then
+		MODE.NetworkChemicalResistanceOfPlayer(ply)
+	end
+
+	timer.Create(timer_name, 0.1, 0, function()
+		local active_mode = CurrentRound and CurrentRound()
+		if not IsValid(ply) or not ply:Alive() or active_mode ~= MODE or not zb or zb.ROUND_STATE ~= 1
+			or ply.Ability_ChemicalResistanceUntil ~= expires or CurTime() >= expires then
+			if IsValid(ply) and ply.Ability_ChemicalResistanceUntil == expires then
+				ply.Ability_ChemicalResistanceUntil = nil
+				ply:SetNWFloat("HMCD_ChemicalResistanceUntil", 0)
+			end
+			timer.Remove(timer_name)
+			return
+		end
+
+		MODE.ClearNeutralizedChemicals(ply)
+	end)
+end
+
+function MODE.UseChemistNeutralizer(ply)
+	local active_mode = CurrentRound and CurrentRound()
+	if active_mode ~= MODE or not zb or zb.ROUND_STATE ~= 1 then return false end
+	if not IsValid(ply) or not ply:Alive() or not ply.isTraitor or not MODE.IsChemistRole(ply.SubRole) then return false end
+
+	local target = MODE.GetChemistNeutralizerTarget(ply)
+	if not IsValid(target) then return false end
+
+	local doses = math.max(ply.Ability_ChemistNeutralizerDoses or 0, 0)
+	if doses <= 0 then
+		ply:Notify("No Neutralizer doses left.", 0, "chemist_neutralizer_empty", 2, nil, Color(80, 220, 150))
+		return false
+	end
+	if target:GetNWFloat("HMCD_ChemicalResistanceUntil", 0) > CurTime() then
+		ply:Notify("Their Neutralizer resistance is already active.", 0, "chemist_neutralizer_active", 2, nil, Color(80, 220, 150))
+		return false
+	end
+
+	doses = doses - 1
+	ply.Ability_ChemistNeutralizerDoses = doses
+	ply:SetNWInt("HMCD_ChemistNeutralizerDoses", doses)
+	MODE.StartChemistNeutralizerResistance(target)
+
+	ply:Notify("Neutralizer administered. " .. doses .. " dose" .. (doses == 1 and "" or "s") .. " left.", 0, "chemist_neutralizer_used", 2, nil, Color(80, 220, 150))
+	target:Notify("Chemical resistance active for " .. MODE.ChemistNeutralizerDuration .. " seconds.", 0, "chemist_neutralizer_received", 2, nil, Color(80, 220, 150))
+	return true
+end
+
+function MODE.UpdateChemistNeutralizerTarget(ply)
+	if not IsValid(ply) or not ply:Alive() or not MODE.IsChemistRole(ply.SubRole) then return end
+	if (ply.HMCD_ChemistNeutralizerTargetNextUpdate or 0) > CurTime() then return end
+	ply.HMCD_ChemistNeutralizerTargetNextUpdate = CurTime() + 0.1
+
+	local target = MODE.GetChemistNeutralizerTarget(ply)
+	local next_target = IsValid(target) and target or NULL
+	if ply.HMCD_ChemistNeutralizerTarget == next_target then return end
+
+	ply.HMCD_ChemistNeutralizerTarget = next_target
+
+	net.Start("HMCD_ChemistNeutralizerTarget")
+		net.WriteEntity(next_target)
+	net.Send(ply)
+end
+
 	function MODE.NetworkChemicalResistanceOfPlayer(ply)
 		ply.PassiveAbility_ChemicalAccumulation = ply.PassiveAbility_ChemicalAccumulation or {}
 		
@@ -1414,7 +1548,15 @@ end
 
 hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 	if(MODE.RoleChooseRoundTypes[MODE.Type])then
+		if ply:Alive() and MODE.IsChemistRole(ply.SubRole) then
+			MODE.UpdateChemistNeutralizerTarget(ply)
+		end
+
 		if(ply:Alive() and ply.organism and not ply.organism.otrub)then
+			if MODE.IsChemistRole(ply.SubRole) and ply:KeyDown(IN_WALK) and ply:KeyPressed(IN_USE) then
+				MODE.UseChemistNeutralizer(ply)
+			end
+
 			if(MODE.IsShadowRole(ply.SubRole))then
 				local current_char = hg.GetCurrentCharacter(ply)
 				local is_upright = current_char == ply and not IsValid(ply.FakeRagdoll)
@@ -1703,6 +1845,70 @@ hook.Add("HomigradDamage", "HMCD_SubRoles_ManiacFuryTrigger", function(victim, d
 	if not melee_damage then return end
 
 	MODE.AddManiacBloodFrenzy(attacker, harm, ply)
+end)
+
+function MODE.CheckLastManStandingFinalStand(excluded_ply)
+	local active_mode = CurrentRound and CurrentRound()
+	if active_mode ~= MODE or not zb or zb.ROUND_STATE ~= 1 then return end
+
+	local living_traitors = {}
+	for _, ply in player.Iterator() do
+		if ply ~= excluded_ply and IsValid(ply) and ply:Alive() and ply.isTraitor then
+			living_traitors[#living_traitors + 1] = ply
+		end
+	end
+
+	for _, ply in player.Iterator() do
+		if not MODE.IsLastManStandingRole(ply.SubRole) then
+			if ply.Ability_LMSFinalStand or ply:GetNWBool("HMCD_LMSFinalStand", false) then
+				ply.Ability_LMSHadLivingTeammate = nil
+				ply.Ability_LMSFinalStand = nil
+				ply:SetNWBool("HMCD_LMSFinalStand", false)
+				ply:SetNWFloat("HMCD_LMSFinalStandMultiplier", 1)
+			end
+		elseif ply:Alive() and ply.isTraitor and not ply.Ability_LMSFinalStand then
+			local has_teammate = false
+			for _, teammate in ipairs(living_traitors) do
+				if teammate ~= ply then
+					has_teammate = true
+					break
+				end
+			end
+
+			if has_teammate then
+				ply.Ability_LMSHadLivingTeammate = true
+			elseif ply.Ability_LMSHadLivingTeammate then
+				ply.Ability_LMSFinalStand = true
+				ply:SetNWBool("HMCD_LMSFinalStand", true)
+				ply:SetNWFloat("HMCD_LMSFinalStandMultiplier", MODE.LMSFinalStandMultiplier)
+				ply:Notify("All my teammates are dead, time for the last stand", 0, "lms_final_stand", 3, nil, Color(255, 190, 60))
+			end
+		end
+	end
+end
+
+hook.Add("PlayerDeath", "HMCD_SubRoles_LastManStandingFinalStand", function()
+	timer.Simple(0, function()
+		MODE.CheckLastManStandingFinalStand()
+	end)
+end)
+
+hook.Add("PlayerDisconnected", "HMCD_SubRoles_LastManStandingFinalStand", function(disconnected_ply)
+	timer.Simple(0, function()
+		MODE.CheckLastManStandingFinalStand(disconnected_ply)
+	end)
+end)
+
+hook.Add("ZB_PreRoundStart", "HMCD_SubRoles_ResetRoundBuffs", function()
+	for _, ply in player.Iterator() do
+		MODE.ClearChemistNeutralizerResistance(ply)
+		ply.Ability_ChemistNeutralizerDoses = nil
+		ply:SetNWInt("HMCD_ChemistNeutralizerDoses", 0)
+		ply.Ability_LMSHadLivingTeammate = nil
+		ply.Ability_LMSFinalStand = nil
+		ply:SetNWBool("HMCD_LMSFinalStand", false)
+		ply:SetNWFloat("HMCD_LMSFinalStandMultiplier", 1)
+	end
 end)
 
 hook.Add("HG_PlayerFootstep", "HMCD_SubRoles_StalkerSilentPursuit", function(ply, pos, foot, sound, volume, rf)

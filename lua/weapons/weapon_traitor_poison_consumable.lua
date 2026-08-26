@@ -197,12 +197,18 @@ end
 function SetChemicalToPlayer(ply, chemical_name, amt)
 	amt = amt or 1
 	ply.PassiveAbility_ChemicalAccumulation = ply.PassiveAbility_ChemicalAccumulation or {}
+	if ply:GetNWFloat("HMCD_ChemicalResistanceUntil", 0) > CurTime() then
+		return ply.PassiveAbility_ChemicalAccumulation[chemical_name] or 0
+	end
 	ply.PassiveAbility_ChemicalAccumulation[chemical_name] = amt
 end
 
 function AddChemicalToPlayer(ply, chemical_name, amt)
 	amt = amt or 1
 	ply.PassiveAbility_ChemicalAccumulation = ply.PassiveAbility_ChemicalAccumulation or {}
+	if ply:GetNWFloat("HMCD_ChemicalResistanceUntil", 0) > CurTime() then
+		return ply.PassiveAbility_ChemicalAccumulation[chemical_name] or 0
+	end
 	ply.PassiveAbility_ChemicalAccumulation[chemical_name] = (ply.PassiveAbility_ChemicalAccumulation[chemical_name] or 0) + amt
 	
 	return ply.PassiveAbility_ChemicalAccumulation[chemical_name]

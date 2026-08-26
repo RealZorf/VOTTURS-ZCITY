@@ -35,6 +35,9 @@ function SWEP:GetPrimaryMul()
 	self:ApplyForce(mul)
 	local org = owner.organism
 	mul = (mul or 0) * (self.Supressor and 0.75 or 1) * (org and org.recoilmul or 1) * (org and org.cigaretteAimMul or 1) * GetPerfusionGripRecoilMul(org)
+	if self:GetClass() == "weapon_delisle" and IsValid(owner) and owner:GetNWBool("HMCD_LMSFinalStand", false) then
+		mul = mul * owner:GetNWFloat("HMCD_LMSFinalStandMultiplier", 0.5)
+	end
 	return mul
 end
 

@@ -221,6 +221,9 @@ function SWEP:AnimApply_ShootRecoil(time)
 	animpos = math.ease.InOutSine(animpos)
 	animpos = animpos * ((self:IsZoom() and self.SpreadMulZoom or self.SpreadMul) + math_max(self.Primary.Force / 110 - 1, 0)) * (( not owner:IsNPC() and owner:Crouching() ) and self.CrouchMul or 1) * 0.75
 	animpos = animpos * self.AnimShootMul
+	if self:GetClass() == "weapon_delisle" and IsValid(owner) and owner:GetNWBool("HMCD_LMSFinalStand", false) then
+		animpos = animpos * owner:GetNWFloat("HMCD_LMSFinalStandMultiplier", 0.5)
+	end
 	--if animpos > 0 then
 		if CLIENT and (owner ~= LocalPlayer() or LocalPlayer() ~= GetViewEntity()) then
 			angShoot[3] = -15 * animpos * self.Primary.Force / 50 * (self.NumBullet and self.NumBullet * 0.5 or 1)

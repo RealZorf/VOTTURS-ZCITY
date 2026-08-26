@@ -27,6 +27,10 @@ function MODE.IsChemistRole(subrole)
 	return subrole == "traitor_chemist" or subrole == "traitor_chemist_soe"
 end
 
+function MODE.IsLastManStandingRole(subrole)
+	return subrole == "traitor_lastmanstanding" or subrole == "traitor_lastmanstanding_soe"
+end
+
 function MODE.IsAssassinRole(subrole)
 	return subrole == "traitor_assassin" or subrole == "traitor_assassin_soe"
 		or subrole == "traitor_assasin" or subrole == "traitor_assasin_soe"
@@ -339,7 +343,8 @@ For people who like to play checkers.]],
 		Name = "Chemist",
 		Description = [[Has multiple chemical agents and epipen and knife.
 Resistant to a certain degree to all chemical agents mentioned.
-Can detect presence and potency of chemical agents in the air.]],
+Can detect presence and potency of chemical agents in the air.
+Carries two Neutralizer doses that purge a traitor teammate's chemicals and grant 45 seconds of chemical resistance.]],
 		Objective = "You're a chemist who decided to use his knowledge to hurt others. Poison everything.",
 		SpawnFunction = function(ply)
 			ply:Give("weapon_sogknife")
@@ -360,6 +365,8 @@ Can detect presence and potency of chemical agents in the air.]],
 			if CleanChemicalsOfPlayer then
 				CleanChemicalsOfPlayer(ply)
 			end
+			ply.Ability_ChemistNeutralizerDoses = MODE.ChemistNeutralizerDoses
+			ply:SetNWInt("HMCD_ChemistNeutralizerDoses", MODE.ChemistNeutralizerDoses)
 		end,
 	},	
 	--==//
@@ -368,7 +375,8 @@ Can detect presence and potency of chemical agents in the air.]],
 			Name = "Chemist",
 			Description = [[Has multiple chemical agents and epipen and knife.
 Resistant to a certain degree to all chemical agents mentioned.
-Can detect presence and potency of chemical agents in the air.]],
+Can detect presence and potency of chemical agents in the air.
+Carries two Neutralizer doses that purge a traitor teammate's chemicals and grant 45 seconds of chemical resistance.]],
 			Objective = "You're a chemist who decided to use his knowledge to hurt others. Poison everything.",
 			SpawnFunction = function(ply)
 				ply:Give("weapon_sogknife")
@@ -390,6 +398,8 @@ Can detect presence and potency of chemical agents in the air.]],
 				if CleanChemicalsOfPlayer then
 					CleanChemicalsOfPlayer(ply)
 				end
+				ply.Ability_ChemistNeutralizerDoses = MODE.ChemistNeutralizerDoses
+				ply:SetNWInt("HMCD_ChemistNeutralizerDoses", MODE.ChemistNeutralizerDoses)
 			end,
 		},	
 	
@@ -626,11 +636,18 @@ Perfect for aggressive players who want to spread chaos and kill as many people 
 		Name = "Last Man Standing",
 		Description = [[A relentless killer who is ready to outlive everyone else.
 Armed with a concealed De Lisle and brass knuckles, you are built for a brutal final showdown.
-Pick your shots carefully, stay calm under pressure and make sure you are the only one left standing.]],
+Pick your shots carefully, stay calm under pressure and make sure you are the only one left standing.
+When your last living traitor teammate falls, Final Stand halves De Lisle recoil and handling times.]],
 		Objective = "You are the last man standing. Hunt everyone down and be the only survivor.",
 		SpawnFunction = function(ply)
+			ply.Ability_LMSHadLivingTeammate = false
+			ply.Ability_LMSFinalStand = false
+			ply:SetNWBool("HMCD_LMSFinalStand", false)
+			ply:SetNWFloat("HMCD_LMSFinalStandMultiplier", 1)
+
 			local gun = ply:Give("weapon_delisle")
 			if IsValid(gun) then
+				hg.AddAttachmentForce(ply, gun, "optic12")
 				gun.shouldntDrawHolstered = true
 				gun:SetNWBool("ZCityPocketHolster", true)
 				ply:GiveAmmo(20, gun:GetPrimaryAmmoType(), true)
@@ -644,17 +661,29 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 			inv["Weapons"]["hg_flashlight"] = true
 
 			ply:SetNetVar("Inventory", inv)
+			timer.Simple(0, function()
+				if IsValid(ply) and MODE.CheckLastManStandingFinalStand then
+					MODE.CheckLastManStandingFinalStand()
+				end
+			end)
 		end,
 	},
 	["traitor_lastmanstanding_soe"] = {
 		Name = "Last Man Standing",
 		Description = [[A relentless killer who is ready to outlive everyone else.
 Armed with a concealed De Lisle, a sling, brass knuckles and a nail gun, you are built for a brutal final showdown.
-Pick your shots carefully, stay calm under pressure and make sure you are the only one left standing.]],
+Pick your shots carefully, stay calm under pressure and make sure you are the only one left standing.
+When your last living traitor teammate falls, Final Stand halves De Lisle recoil and handling times.]],
 		Objective = "You are the last man standing. Hunt everyone down and be the only survivor.",
 		SpawnFunction = function(ply)
+			ply.Ability_LMSHadLivingTeammate = false
+			ply.Ability_LMSFinalStand = false
+			ply:SetNWBool("HMCD_LMSFinalStand", false)
+			ply:SetNWFloat("HMCD_LMSFinalStandMultiplier", 1)
+
 			local gun = ply:Give("weapon_delisle")
 			if IsValid(gun) then
+				hg.AddAttachmentForce(ply, gun, "optic12")
 				gun.shouldntDrawHolstered = true
 				gun:SetNWBool("ZCityPocketHolster", true)
 				ply:GiveAmmo(20, gun:GetPrimaryAmmoType(), true)
@@ -669,6 +698,11 @@ Pick your shots carefully, stay calm under pressure and make sure you are the on
 			inv["Weapons"]["hg_flashlight"] = true
 
 			ply:SetNetVar("Inventory", inv)
+			timer.Simple(0, function()
+				if IsValid(ply) and MODE.CheckLastManStandingFinalStand then
+					MODE.CheckLastManStandingFinalStand()
+				end
+			end)
 		end,
 	},
 	["traitor_stalker"] = {

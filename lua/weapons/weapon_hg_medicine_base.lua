@@ -486,7 +486,10 @@ if SERVER then
 						self:PoisonKCNOrganism(org)
 					end
 					
-					NetworkChemicalResistanceOfPlayer(organism_owner)
+					local mode_hmcd = zb and zb.modes and zb.modes["hmcd"]
+					if mode_hmcd and mode_hmcd.NetworkChemicalResistanceOfPlayer then
+						mode_hmcd.NetworkChemicalResistanceOfPlayer(organism_owner)
+					end
 					
 					organism_owner.PassiveAbility_ChemicalAccumulation_NextNetworkTime = CurTime() + 1
 				end
@@ -504,6 +507,10 @@ if SERVER then
 	
 	function SWEP:PoisonKCNOrganism(org)
 		if(org and self.ConsumePoisoned_KCN)then
+			if IsValid(org.owner) and org.owner:GetNWFloat("HMCD_ChemicalResistanceUntil", 0) > CurTime() then
+				self.ConsumePoisoned_KCN = nil
+				return
+			end
 			org.Poison_KCN = org.Poison_KCN or {}
 			org.Poison_KCN.StartTime = org.Poison_KCN.StartTime or CurTime()
 			org.Poison_KCN.Potency = (org.Poison_KCN.Potency or 0) + self.ConsumePoisoned_KCN
