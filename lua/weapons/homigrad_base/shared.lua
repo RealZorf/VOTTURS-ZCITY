@@ -504,7 +504,11 @@ function SWEP:Shoot(override)
 	if !override and IsValid(owner) and !owner:IsNPC() and primary.Next > CurTime() then return false end
 	if !override and IsValid(owner) and !owner:IsNPC() and (primary.NextFire or 0) > CurTime() then return false end
 	
-	primary.Next = CurTime() + primary.Wait * 1.1
+	local cycle_mul = 1
+	if self:GetClass() == "weapon_delisle" and IsValid(owner) and owner:GetNWBool("HMCD_LMSFinalStand", false) then
+		cycle_mul = owner:GetNWFloat("HMCD_LMSFinalStandMultiplier", 0.5)
+	end
+	primary.Next = CurTime() + primary.Wait * 1.1 * cycle_mul
 	primary.RealAutomatic = primary.RealAutomatic or weapons_Get(self:GetClass()).Primary.Automatic
 	primary.Automatic = primary.RealAutomatic
 	

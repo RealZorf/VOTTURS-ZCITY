@@ -14,6 +14,9 @@ function SWEP:Reload(time)
 	self.StaminaReloadMul = math.Clamp(self.StaminaReloadMul,0.65,1.5)
 	self.StaminaReloadTime = self.ReloadTime * self.StaminaReloadMul
 	self.StaminaReloadTime = (self.StaminaReloadTime + (self:Clip1() > 0 and -self.StaminaReloadTime/3 or 0 ))
+	if self:GetClass() == "weapon_delisle" and self:GetOwner():GetNWBool("HMCD_LMSFinalStand", false) then
+		self.StaminaReloadTime = self.StaminaReloadTime * self:GetOwner():GetNWFloat("HMCD_LMSFinalStandMultiplier", 0.5)
+	end
 	self.reload = self.LastReload + self.StaminaReloadTime
 	self.dwr_reverbDisable = true
 	net.Start("hgwep reload")

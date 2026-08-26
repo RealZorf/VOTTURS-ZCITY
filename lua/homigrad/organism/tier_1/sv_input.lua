@@ -1017,7 +1017,8 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			end)
 		end
 
-		if bullet and hg.ammotypeshuy[bullet.AmmoType] and hg.ammotypeshuy[bullet.AmmoType].BulletSettings.tranquilizer then
+		if bullet and hg.ammotypeshuy[bullet.AmmoType] and hg.ammotypeshuy[bullet.AmmoType].BulletSettings.tranquilizer
+			and org.owner:GetNWFloat("HMCD_ChemicalResistanceUntil", 0) <= CurTime() then
 			org.tranquilizer = org.tranquilizer + dmgInfo:GetDamage()
 		end
 

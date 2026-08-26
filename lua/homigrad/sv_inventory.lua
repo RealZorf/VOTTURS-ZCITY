@@ -31,6 +31,13 @@ local function isHMCDThief(ent)
 	return IsValid(ent) and ent.HMCD_IsThief == true
 end
 
+local function isHMCDStandard()
+	local mode = CurrentRound and CurrentRound()
+	return istable(mode)
+		and mode.name == "hmcd"
+		and mode.Type == "standard"
+end
+
 local function canThiefSearchLive(ply, ent)
 	return isHMCDThief(ply)
 		and IsValid(ent)
@@ -41,6 +48,15 @@ local function canThiefSearchLive(ply, ent)
 		and IsValid(ply)
 		and ply:Alive()
 		and not IsValid(ply.FakeRagdoll)
+end
+
+local function canSearchPlayerInventory(ply, ent)
+	if not IsValid(ent) or not ent:IsPlayer() then return true end
+	if not IsValid(ent.FakeRagdoll) then return canThiefSearchLive(ply, ent) end
+	if not isHMCDStandard() or isHMCDThief(ply) or not ent:Alive() then return true end
+
+	local organism = ent.organism
+	return istable(organism) and organism.otrub == true
 end
 
 function hg.HMCDCanThiefSearchLive(ply, ent)
@@ -600,8 +616,10 @@ net.Receive("ply_take_item", function(len, ply)
     local ent = net.ReadEntity()
     
     if !IsValid(ent) or !IsValid(ply) then return end
+	local ragdollOwner = hg.RagdollOwner(ent)
+	if IsValid(ragdollOwner) then ent = ragdollOwner end
 	if isOwnInventoryTarget(ply, ent) then return end
-    if ent:IsPlayer() and not IsValid(ent.FakeRagdoll) and not canThiefSearchLive(ply, ent) then return end
+    if not canSearchPlayerInventory(ply, ent) then return end
     if not isThiefPickupVisible(ent, tblIndex, thing, unpack(tbl)) then return end
     if isSlingProtectedLoot(ent, tblIndex, thing) then return end
 
@@ -622,8 +640,8 @@ local playerMeta = FindMetaTable("Player")
 function playerMeta:OpenInventory(ent)
     if not IsValid(ent) then return end
 	if isOwnInventoryTarget(self, ent) then return end
+    if not canSearchPlayerInventory(self, ent) then return end
     hook.Run("ZB_InventoryOpened",self,ent)
-    if ent:IsPlayer() and not IsValid(ent.FakeRagdoll) and not canThiefSearchLive(self, ent) then return end
     if ent:IsPlayer() then hg.RenewInv(ent) end
     if self:IsPlayer() then hg.RenewInv(self) end
     self.cooldown_takeitem = CurTime() + 0.5

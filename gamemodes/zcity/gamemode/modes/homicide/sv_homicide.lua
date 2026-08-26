@@ -1491,7 +1491,7 @@ function MODE:Intermission()
 	local function CanPickTraitor(ply, allow_disabled)
 		if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then return false end
 		if not allow_disabled then
-			if not ply.HMCDTraitorRolePreferencesReady then return false end
+			if not ply:IsBot() and not ply.HMCDTraitorRolePreferencesReady then return false end
 			if HMCDPlayerDisabledTraitorMode(ply, self.Type) then return false end
 		end
 

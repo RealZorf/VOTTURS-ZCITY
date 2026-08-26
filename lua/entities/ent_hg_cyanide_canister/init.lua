@@ -61,7 +61,9 @@ function ENT:Think()
 
 		for i,ent in ipairs(ents_FindInSphere(pos,64)) do
 			if (not ent.organism) or ent.organism.poison3 or ent.organism.holdingbreath then continue end
-			if not ent.organism.owner:IsPlayer() then continue end
+			local organism_owner = ent.organism.owner
+			if not IsValid(organism_owner) or not organism_owner:IsPlayer() then continue end
+			if organism_owner:GetNWFloat("HMCD_ChemicalResistanceUntil", 0) > CurTime() then continue end
 			if util.TraceLine({start = pos,endpos = ent:GetPos(),filter = {self,ent},mask = MASK_SOLID_BRUSHONLY}).Hit then continue end
 			
 			local is_chemist = isChemistSubRole(ent)
@@ -77,7 +79,9 @@ function ENT:Think()
 							ent.organism.poison3 = CurTime()
 						end
 						
-						NetworkChemicalResistanceOfPlayer(ent)
+						if mode_hmcd and mode_hmcd.NetworkChemicalResistanceOfPlayer then
+							mode_hmcd.NetworkChemicalResistanceOfPlayer(ent)
+						end
 						
 						ent.PassiveAbility_ChemicalAccumulation_NextNetworkTime = CurTime() + 1
 						

@@ -33,9 +33,11 @@ end
 local function canSedate(ent)
 	if not ent.organism then return false end
 	if ent.organism.holdingbreath then return false end
-	if not IsValid(ent.organism.owner) or not ent.organism.owner:IsPlayer() then return false end
+	local owner = ent.organism.owner
+	if not IsValid(owner) or not owner:IsPlayer() then return false end
+	if owner:GetNWFloat("HMCD_ChemicalResistanceUntil", 0) > CurTime() then return false end
 	if isChemistSubRole(ent) then return false end
-	if ent.organism.owner.armors["face"] == "mask2" then return false end
+	if owner.armors["face"] == "mask2" then return false end
 	if ent.PlayerClassName == "Combine" then return false end
 
 	return true

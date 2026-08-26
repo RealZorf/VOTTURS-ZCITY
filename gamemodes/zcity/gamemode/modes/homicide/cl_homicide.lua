@@ -331,6 +331,7 @@ local hmcd_traitor_role_tips = {
 	},
 	traitor_chemist = {
 		"push victims through their sleep gas and poison zones.",
+		"call for a Neutralizer if chemicals or sedatives catch you.",
 		"hold exits while they contaminate food, rooms or choke points.",
 		"they resist chemicals; let them work inside their own gas.",
 		"call stacked crowds so their canisters hit multiple targets.",
@@ -389,10 +390,11 @@ local hmcd_traitor_role_tips = {
 		"fire forces people outside; hold the exits, not the flames."
 	},
 	traitor_lastmanstanding = {
-		"herd targets into their Kar98 sightline and sling setup.",
+		"herd targets into their De Lisle sightline and sling setup.",
 		"pin victims down so their rifle shots are easy.",
 		"let them hold open lanes while you work close corners.",
-		"force targets across open ground when their Kar98 is posted.",
+		"force targets across open ground when their De Lisle is posted.",
+		"if the rest of the cell falls, their Final Stand makes the De Lisle much faster.",
 		"their brass knuckles cover close range; give them reload time.",
 		"their rifle controls distance; call movement before targets cross.",
 		"keep pressure off their reload and they can lock the map.",
@@ -454,6 +456,7 @@ local hmcd_traitor_self_tip_openers = {
 	},
 	traitor_chemist = {
 		"Poison food or lock a choke with gas;",
+		"Neutralize a contaminated teammate with your special interaction;",
 		"Use chemical resistance to hold the area;",
 		"Call your gas timing before people scatter;",
 		"Sleep a room before anyone knows who started it;",
@@ -499,7 +502,8 @@ local hmcd_traitor_self_tip_openers = {
 		"Make every loud blast create a quiet opening elsewhere;"
 	},
 	traitor_lastmanstanding = {
-		"Hold a long angle with the Kar98;",
+		"Hold a long angle with the De Lisle;",
+		"If your last teammate falls, use Final Stand's faster handling;",
 		"Use the sling and rifle to control open space;",
 		"Cover your reloads with distance and calls;",
 		"Tell your cell when someone crosses your lane;",

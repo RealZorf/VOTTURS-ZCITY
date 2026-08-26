@@ -1,5 +1,9 @@
 local MODE = MODE
 
+net.Receive("HMCD_CannibalStacked", function()
+	surface.PlaySound("cannibalstacked.wav")
+end)
+
 --\\Neck Break
 net.Receive("HMCD_BeingVictimOfNeckBreak", function(len, ply)
 	LocalPlayer().BeingVictimOfNeckBreak = net.ReadBool()
@@ -72,6 +76,10 @@ net.Receive("HMCD_UpdateChemicalResistance", function(len, ply)
 	end
 end)
 --
+
+net.Receive("HMCD_ChemistNeutralizerTarget", function()
+	LocalPlayer().HMCD_ChemistNeutralizerTarget = net.ReadEntity()
+end)
 
 --\\Stalker sonar
 local stalkerMarks = {}
