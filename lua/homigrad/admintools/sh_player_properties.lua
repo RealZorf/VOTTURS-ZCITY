@@ -1,9 +1,32 @@
+if SERVER then
+    local function LogZCTool(ply, action, target, details)
+        if not IsValid(ply) then return end
+
+        local actorName = ply:Nick()
+        local actorSteamID = ply:SteamID()
+
+        local targetName = "Unknown"
+        local targetSteamID = "Unknown"
+
+        target = hg.RagdollOwner(target) or target
+
+        if IsValid(target) and target:IsPlayer() then
+            targetName = target:Nick()
+            targetSteamID = target:SteamID()
+        end
+
+        print(string.format("[Properties] %s (%s) > %s (%s): %s%s", actorName, actorSteamID, targetName, targetSteamID, action, details and (" | " .. details) or ""))
+    end
+end
+
 local function check(self, ent, ply)
     if not ply:ZCTools_GetAccess() then return false end 
-	if ( !IsValid( ent ) ) then return false end
-	if ( ent:IsPlayer() ) then return true end
-    local pEnt = hg.RagdollOwner( ent )
-    if ( ent:IsRagdoll() ) and pEnt and pEnt:IsPlayer() and pEnt:Alive() then return true end
+    if not IsValid(ent) then return false end
+    if ent:IsPlayer() then return true end
+
+    local pEnt = hg.RagdollOwner(ent)
+
+    if ent:IsRagdoll() and pEnt and pEnt:IsPlayer() and pEnt:Alive() then return true end
 end
 
 properties.Add("copy_steamid", {
@@ -56,6 +79,7 @@ properties.Add( "notify", {
         ent = hg.RagdollOwner( ent ) or ent
 
 		ent:Notify( text, 0 )
+        LogZCTool(ply, "Notify", ent, "Message: "..text)
 		print(tostring(ply:Nick() or ply) .." has notfied ".. tostring(ent:Nick() or ent) .." with the following message; "..text)
 	end 
 } )
@@ -90,6 +114,7 @@ properties.Add( "givegun", {
 		local spawned = ent:Give( text )
         if not IsValid(spawned) then return end
         spawned:Use(ent)
+        LogZCTool(ply, "Give", ent, "SWEP: "..text)
 		print(tostring(ply:Nick() or ply) .." has given ".. tostring(ent:Nick() or ent) .." a SWEP; "..text)
 	end 
 } )
@@ -122,6 +147,7 @@ properties.Add( "strip", {
         ent = hg.RagdollOwner( ent ) or ent
 		ent:StripWeapons( )
         ent:Give("weapon_hands_sh")
+        LogZCTool(ply, "Strip", ent)
 		print(tostring(ply:Nick() or ply) .." has stripped ".. tostring(ent:Nick() or ent) .." of their weapons.")
 	end 
 } )
@@ -154,6 +180,7 @@ properties.Add( "fullstrip", {
         ent = hg.RagdollOwner( ent ) or ent
 
 		ent:StripWeapons( )
+        LogZCTool(ply, "Full Strip", ent)
 		print(tostring(ply:Nick() or ply) .." has full stripped ".. tostring(ent:Nick() or ent) .." of their weapons and fist.")
 	end 
 } )
@@ -186,6 +213,7 @@ properties.Add( "reset_org", {
         ent = hg.RagdollOwner( ent ) or ent
         
 		hg.organism.Clear( ent.organism )
+        LogZCTool(ply, "Reset Organism", ent)
 		print(tostring(ply:Nick() or ply) .." reset the health of ".. tostring(ent:Nick() or ent))
 	end 
 } )
@@ -216,7 +244,9 @@ properties.Add( "freeze", {
 		if ( !self:Filter( ent, ply ) ) then return end
         ent = hg.RagdollOwner( ent ) or ent
         
-		ent:Freeze(not ent:IsFrozen())
+        local frozen = ent:IsFrozen()
+		ent:Freeze(not frozen)
+        LogZCTool(ply, frozen and "Unfreeze" or "Freeze", ent)
 		print(tostring(ply:Nick() or ply) .. (not ent:IsFrozen() and " has frozen " or " has unfrozen ").. tostring(ent:Nick() or ent))
 	end 
 } )
@@ -255,6 +285,7 @@ properties.Add( "snatch", {
 		local bot = ents.Create("bot_fear")
         bot.Victim = ent
         bot:Spawn()
+        LogZCTool(ply, "Snatch", ent)
 		print(tostring(ply:Nick() or ply) .." has snatched ".. tostring(ent:Nick() or ent))
 	end 
 } )
@@ -277,9 +308,11 @@ properties.Add( "ragdollize", {
         ent = hg.RagdollOwner(ent) or ent
 
 		if not IsValid(ent.FakeRagdoll) then
+            LogZCTool(ply, "Stun", ent)
 			print(tostring(ply:Nick() or ply) .." has stunned ".. tostring(ent:Nick() or ent))
 			hg.LightStunPlayer(ent, 5)
 		else
+            LogZCTool(ply, "Get Up", ent)
 			print(tostring(ply:Nick() or ply) .." has unstunned ".. tostring(ent:Nick() or ent))
 			hg.FakeUp(ent)
 		end
@@ -304,6 +337,7 @@ properties.Add( "vomit", {
         ent = hg.RagdollOwner(ent) or ent
 
 		hg.organism.Vomit(ent)
+        LogZCTool(ply, "Vomit", ent)
 		print(tostring(ply:Nick() or ply) .." forced ".. tostring(ent:Nick() or ent) .." to vomit.")
 	end 
 } )
@@ -327,6 +361,7 @@ properties.Add( "lobotomize", {
         
         ent.organism.brain = ent.organism.brain + 0.05
         ply:ChatPrint("Lobotomized brain to "..math.Round(ent.organism.brain * 100).."%")
+        LogZCTool(ply, "Lobotomize", ent, "Brain: "..math.Round(ent.organism.brain * 100).."%")
         print(tostring(ply:Nick() or ply) .." has lobotomized ".. tostring(ent:Nick() or ent))
 
         if ent.organism.brain >= 0.25 and ent.organism.brain < 0.3 then
@@ -351,6 +386,7 @@ properties.Add("killsilent", {
 
 		if ( !self:Filter( ent, ply ) ) then return end
         ent = hg.RagdollOwner( ent ) or ent
+        LogZCTool(ply, "Kill (Silent)", ent)
 		print(tostring(ply:Nick() or ply) .." has silently killed ".. tostring(ent:Nick() or ent))
 		ent:Kill()
 	end 
@@ -372,6 +408,7 @@ properties.Add("removeply", {
 
 		if ( !self:Filter( ent, ply ) ) then return end
         ent = hg.RagdollOwner( ent ) or ent
+        LogZCTool(ply, "Remove", ent)
 		print(tostring(ply:Nick() or ply) .." has removed ".. tostring(ent:Nick() or ent))
 		ent:KillSilent()
 		ent:Remove()
@@ -403,6 +440,7 @@ properties.Add( "setplayerclass", {
 		ent = hg.RagdollOwner(ent) or hg.GetCurrentCharacter(ent) or ent
 		if IsValid(ent) and ent:IsPlayer() and player.classList[class] then
 			ent:SetPlayerClass(class)
+            LogZCTool(ply, "Set Player Class", ent, "Class: "..class)
 		end
 	end,
 	MenuOpen = function( self, option, ent, tr )
@@ -497,20 +535,28 @@ properties.Add( "break_limb", {
         local dmgInfo = DamageInfo()
 		if limb == 0 then
             hg.BreakNeck(ent)
+            LogZCTool(ply, "Break Limb", ent, "Limb: Neck")
         elseif limb == 1 then
             hg.organism.input_list.larmup(ent.organism, 0, 1, dmgInfo)
-		elseif limb == 2 then
+            LogZCTool(ply, "Break Limb", ent, "Limb: Left Arm")
+        elseif limb == 2 then
 			hg.organism.input_list.rarmup(ent.organism, 0, 1, dmgInfo)
+            LogZCTool(ply, "Break Limb", ent, "Limb: Right Arm")
 		elseif limb == 3 then
 			hg.organism.input_list.llegup(ent.organism, 0, 1, dmgInfo)
+            LogZCTool(ply, "Break Limb", ent, "Limb: Left Leg")
 		elseif limb == 4 then
 			hg.organism.input_list.rlegup(ent.organism, 0, 1, dmgInfo)
+            LogZCTool(ply, "Break Limb", ent, "Limb: Right Leg")
 		elseif limb == 5 then
 			hg.organism.input_list.spine1(ent.organism, 0, 1, dmgInfo)
+            LogZCTool(ply, "Break Limb", ent, "Limb: Spine 1")
 		elseif limb == 6 then
 			hg.organism.input_list.spine2(ent.organism, 0, 1, dmgInfo)
+            LogZCTool(ply, "Break Limb", ent, "Limb: Spine 2")
 		elseif limb == 7 then
 			hg.organism.input_list.spine3(ent.organism, 0, 1, dmgInfo)
+            LogZCTool(ply, "Break Limb", ent, "Limb: Spine 3")
 		end
 	end
 } )
@@ -575,15 +621,20 @@ properties.Add( "amputate_limb", {
 		if limb == 0 then
 			if SERVER and not ent.noHead then
 				hg.ExplodeHead(ent)
+                LogZCTool(ply, "Amputate Limb", ent, "Limb: Head")
 			end
         elseif limb == 1 then
             hg.organism.AmputateLimb(ent.organism, "larm")
+            LogZCTool(ply, "Amputate Limb", ent, "Limb: Left Arm")
 		elseif limb == 2 then
 			hg.organism.AmputateLimb(ent.organism, "rarm")
+            LogZCTool(ply, "Amputate Limb", ent, "Limb: Right Arm")
 		elseif limb == 3 then
 			hg.organism.AmputateLimb(ent.organism, "lleg")
+            LogZCTool(ply, "Amputate Limb", ent, "Limb: Left Leg")
 		elseif limb == 4 then
 			hg.organism.AmputateLimb(ent.organism, "rleg")
+            LogZCTool(ply, "Amputate Limb", ent, "Limb: Right Leg")
 		end
 	end
 } )
@@ -609,6 +660,7 @@ properties.Add( "door_toggle", {
         local ent = net.ReadEntity()
         if not self:Filter(ent, ply) then return end
         ent:Fire("toggle")
+        LogZCTool(ply, "Toggle Door", ent, "Class: "..ent:GetClass())
     end
 })
 
@@ -626,6 +678,7 @@ properties.Add( "door_lock", {
         local ent = net.ReadEntity()
         if not self:Filter(ent, ply) then return end
         ent:Fire("lock")
+        LogZCTool(ply, "Lock Door", ent, "Class: "..ent:GetClass())
     end
 })
 
@@ -643,6 +696,7 @@ properties.Add( "door_unlock", {
         local ent = net.ReadEntity()
         if not self:Filter(ent, ply) then return end
         ent:Fire("unlock")
+        LogZCTool(ply, "Unlock Door", ent, "Class: "..ent:GetClass())
     end
 })
 
@@ -740,6 +794,7 @@ properties.Add( "respawn_ply_in_rag", {
         --ent = hg.RagdollOwner( ent ) or ent
         
 		Respawn(sPly,ent)
+        LogZCTool(ply, "Respawn Player", sPly, "Body: "..tostring(ent))
 	end 
 } )
 
@@ -777,6 +832,7 @@ properties.Add( "respawn_lply_in_rag", {
         --ent = hg.RagdollOwner( ent ) or ent
         
 		Respawn(sPly,ent)
+        LogZCTool(ply, "Spawn Self", sPly, "Body: "..tostring(ent))
 	end 
 } )
 
@@ -814,6 +870,7 @@ properties.Add( "respawn_ragply_in_rag", {
         --ent = hg.RagdollOwner( ent ) or ent
         
 		Respawn(sPly,ent)
+        LogZCTool(ply, "Spawn RagOwner", sPly, "Body: "..tostring(ent))
 	end 
 } )
 
