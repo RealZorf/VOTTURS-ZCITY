@@ -2599,7 +2599,7 @@ hook.Add("PostPostPlayerDeath", "HMCD_RevenantMarkCorpse", function(ply, rag)
 	end
 
 	local org = rag.organism or {}
-	local validBrain = not org.headamputated and not org.noHead and not rag.noHead and (org.brain or 0) < 0.6
+	local validBrain = not org.headamputated and not org.noHead and not rag.headamputated and not rag.noHead and not rag.headexploded
 	local eligible = not ply.isTraitor and validBrain and not rag:GetNWBool("HMCD_CannibalConsumed", false)
 	rag:SetNWBool("HMCD_RevenantEligible", eligible)
 	rag:SetNWBool("HMCD_RevenantUsed", false)
