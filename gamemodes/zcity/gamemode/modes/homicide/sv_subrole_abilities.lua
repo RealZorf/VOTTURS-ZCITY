@@ -229,6 +229,32 @@ local function createRevenantRagdoll(source, appearance)
 	return rag
 end
 
+local function clearRevenantBleeding(org)
+	org.wounds = {}
+	org.arterialwounds = {}
+	org.bleed = 0
+	org.venousBleed = 0
+	org.arterialBleed = 0
+	org.internalBleed = 0
+	org.internalBleedRate = 0
+	org.internalBleedHeal = 0
+	org.arteria = 0
+	org.rarmartery = 0
+	org.larmartery = 0
+	org.rlegartery = 0
+	org.llegartery = 0
+	org.spineartery = 0
+	org.bleedStart = 0
+	org.wantToVomit = 0
+	org.vomitInThroat = nil
+	org.throatcut = false
+	org.throatCutTime = 0
+	org.throatCutUntil = 0
+	org.throatCutSeverity = 0
+	org.throatCutPressureShock = 0
+	org.throatCutGurgleNext = 0
+end
+
 local function prepareRevenantReturnRagdoll(ply, rag)
 	if not IsValid(rag) then return end
 
@@ -1582,6 +1608,7 @@ function MODE.BeginRevenantPossession(ply, corpse)
 	if shellOrg.o2 then
 		shellOrg.o2[1] = math.max(shellOrg.o2[1] or 0, math.min(shellOrg.o2.range or 30, 22))
 	end
+	clearRevenantBleeding(shellOrg)
 
 	if hg.organism and hg.organism.list then hg.organism.list[ply] = nil end
 	ply.organism = shellOrg
