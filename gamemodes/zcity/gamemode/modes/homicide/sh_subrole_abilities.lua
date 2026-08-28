@@ -55,6 +55,15 @@ MODE.CannibalBloodRestore = 900
 MODE.CannibalStaminaBonusPerBody = 40
 MODE.CannibalMeleeDamageBonusPerBody = 0.25
 MODE.CannibalMaxConsumedBodies = 6
+MODE.RevenantImplantTime = 4
+MODE.RevenantPossessionTime = 32
+MODE.RevenantBootDuration = 2
+MODE.RevenantPossessionCooldown = 20
+MODE.RevenantCharges = 3
+MODE.RevenantImplantReach = 100
+MODE.RevenantLootLockTime = 5
+MODE.RevenantOriginalBodyHealth = 180
+MODE.RevenantOriginalBodyDamageMul = 0.35
 MODE.JuggernautModelScale = 1.15
 MODE.JuggernautStaminaMultiplier = 2
 MODE.JuggernautMeleeDamageMultiplier = 1.5
@@ -90,6 +99,30 @@ end
 
 function MODE.IsCannibalRole(subrole)
 	return subrole == "traitor_cannibal" or subrole == "traitor_cannibal_soe"
+end
+
+function MODE.IsRevenantRole(subrole)
+	return subrole == "traitor_revenant" or subrole == "traitor_revenant_soe"
+end
+
+function MODE.GetRevenantCorpseTarget(ply)
+	if not IsValid(ply) or not MODE.IsRevenantRole(ply.SubRole) then return nil end
+
+	local trace = hg and hg.eyeTrace and hg.eyeTrace(ply, MODE.RevenantImplantReach or 100)
+	local corpse = trace and trace.Entity
+	if not IsValid(corpse) or not corpse:IsRagdoll() then return nil end
+	if corpse:GetNWBool("HMCD_RevenantUsed", false) then return nil end
+	if not corpse:GetNWBool("HMCD_RevenantEligible", false) then return nil end
+
+	return corpse, trace
+end
+
+function MODE.GetRevenantImplantProgress(ply)
+	if not IsValid(ply) then return 0 end
+	local started = ply:GetNWFloat("HMCD_RevenantImplantStart", 0)
+	local ready = ply:GetNWFloat("HMCD_RevenantImplantReadyAt", 0)
+	if started <= 0 or ready <= started then return 0 end
+	return math.Clamp((CurTime() - started) / (ready - started), 0, 1)
 end
 
 function MODE.GetChemistNeutralizerTarget(ply)

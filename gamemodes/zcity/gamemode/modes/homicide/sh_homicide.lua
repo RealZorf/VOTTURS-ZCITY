@@ -589,6 +589,37 @@ For people who enjoy aggressive and high-risk gameplay.]],
 			ply:SetNetVar("Inventory", inv)
 		end,
 	},
+	["traitor_revenant"] = {
+		Name = "Revenant",
+		Description = [[Carry three neural chips which can reanimate suitable innocent corpses.
+Hold the special interaction bind over a corpse to possess it for up to 30 seconds.
+Your real body remains behind and completely vulnerable while you control the corpse.
+The corpse keeps its appearance, wounds, limbs and equipment.]],
+		Objective = "You are the Revenant. Use fallen bodies to deceive and support your teammate without losing your own.",
+		SpawnFunction = function(ply)
+			ply:Give("weapon_sogknife")
+			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_traitor_suit")
+			ply.Ability_RevenantCharges = MODE.RevenantCharges or 3
+			ply:SetNWInt("HMCD_RevenantCharges", ply.Ability_RevenantCharges)
+		end,
+	},
+	["traitor_revenant_soe"] = {
+		Name = "Revenant",
+		Description = [[Carry three neural chips which can reanimate suitable innocent corpses.
+Hold the special interaction bind over a corpse to possess it for up to 30 seconds.
+Your real body remains behind and completely vulnerable while you control the corpse.
+The corpse keeps its appearance, wounds, limbs and equipment.]],
+		Objective = "You are the Revenant. Use fallen bodies to deceive and support your teammate without losing your own.",
+		SpawnFunction = function(ply)
+			ply:Give("weapon_sogknife")
+			ply:Give("weapon_walkie_talkie")
+			ply:Give("weapon_hg_smokenade_tpik")
+			ply:Give("weapon_traitor_suit")
+			ply.Ability_RevenantCharges = MODE.RevenantCharges or 3
+			ply:SetNWInt("HMCD_RevenantCharges", ply.Ability_RevenantCharges)
+		end,
+	},
 	["traitor_terrorist"] = {
 		Name = "Terrorist",
 		Description = [[A ruthless terrorist who wants everyone dead.
@@ -975,6 +1006,7 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_terrorist"] = true,
 			["traitor_lastmanstanding"] = true,
 			["traitor_stalker"] = true,
+			["traitor_revenant"] = true,
 		},
 		Professions = {
 			["medic"] = {
@@ -1050,6 +1082,7 @@ MODE.RoleChooseRoundTypes = {
 			["traitor_terrorist_soe"] = true,
 			["traitor_lastmanstanding_soe"] = true,
 			["traitor_stalker_soe"] = true,
+			["traitor_revenant_soe"] = true,
 			-- ["traitor_demoman_soe"] = true,
 		},
 		Professions = {

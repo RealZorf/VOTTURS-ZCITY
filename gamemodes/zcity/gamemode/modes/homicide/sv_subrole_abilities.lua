@@ -28,6 +28,243 @@ local cannibal_eating_volume = 0.82
 local cannibal_eating_pitch_min = 118
 local cannibal_eating_pitch_max = 128
 
+local revenantWeaponBlacklist = {
+	weapon_hands_sh = true
+}
+
+local revenantPossessions = setmetatable({}, {__mode = "k"})
+
+local function getRevenantState(ply)
+	if not IsValid(ply) then return nil end
+	return revenantPossessions[ply] or ply.Ability_RevenantPossession
+end
+
+local function setRevenantState(ply, state)
+	if not IsValid(ply) then return end
+	revenantPossessions[ply] = state
+	ply.Ability_RevenantPossession = state
+end
+
+local function captureRevenantVisuals(ent, appearance)
+	local accessories = ent.GetNetVar and ent:GetNetVar("Accessories", "") or ""
+	if istable(accessories) then accessories = table.Copy(accessories) end
+
+	local visuals = {
+		model = ent:GetModel(),
+		modelScale = ent:GetModelScale(),
+		skin = ent:GetSkin(),
+		color = ent:GetColor(),
+		playerColor = ent.GetPlayerColor and ent:GetPlayerColor() or nil,
+		material = ent:GetMaterial(),
+		appearance = table.Copy(appearance or ent.CurAppearance or {}),
+		playerName = ent:GetNWString("PlayerName", ""),
+		accessories = accessories,
+		bodygroups = {},
+		submaterials = {}
+	}
+
+	for _, bodygroup in ipairs(ent:GetBodyGroups() or {}) do
+		visuals.bodygroups[bodygroup.id] = ent:GetBodygroup(bodygroup.id)
+	end
+
+	for index = 0, #(ent:GetMaterials() or {}) - 1 do
+		visuals.submaterials[index] = ent:GetSubMaterial(index)
+	end
+
+	return visuals
+end
+
+local function applyRevenantVisuals(ent, visuals)
+	if not IsValid(ent) or not visuals then return end
+
+	if visuals.model and util.IsValidModel(visuals.model) then
+		ent:SetModel(visuals.model)
+	end
+	ent:SetModelScale(visuals.modelScale or 1, 0)
+
+	local appearance = visuals.appearance
+	if istable(appearance) and appearance.AModel and appearance.AColor and hg.Appearance and hg.Appearance.ForceApplyAppearance then
+		ent.CurAppearance = table.Copy(appearance)
+		hg.Appearance.ForceApplyAppearance(ent, table.Copy(appearance))
+	else
+		ent.CurAppearance = istable(appearance) and table.Copy(appearance) or nil
+	end
+	if istable(appearance) and appearance.AName then
+		ent:SetNWString("PlayerName", appearance.AName)
+	elseif visuals.playerName ~= "" then
+		ent:SetNWString("PlayerName", visuals.playerName)
+	end
+	if istable(appearance) and appearance.AAttachments then
+		ent:SetNetVar("Accessories", table.Copy(appearance.AAttachments))
+	elseif ent.SetNetVar and visuals.accessories ~= "" then
+		ent:SetNetVar("Accessories", table.Copy(visuals.accessories))
+	end
+	if visuals.playerColor and ent.SetPlayerColor then ent:SetPlayerColor(visuals.playerColor) end
+
+	ent:SetSkin(visuals.skin or 0)
+	ent:SetColor(visuals.color or color_white)
+	ent:SetMaterial(visuals.material or "")
+	for id, value in pairs(visuals.bodygroups or {}) do ent:SetBodygroup(id, value) end
+	for index, material in pairs(visuals.submaterials or {}) do ent:SetSubMaterial(index, material) end
+end
+
+local function deferRevenantVisualRestore(ply, visuals)
+	if not IsValid(ply) or not visuals then return end
+
+	local timerName = "HMCD_RevenantRestoreVisuals_" .. ply:EntIndex()
+	timer.Remove(timerName)
+	timer.Create(timerName, 0.1, 10, function()
+		if not IsValid(ply) or not ply:Alive() then
+			timer.Remove(timerName)
+			return
+		end
+
+		applyRevenantVisuals(ply, visuals)
+	end)
+end
+
+local function capturePlayerLoadout(ply)
+	local data = {weapons = {}, ammo = {}, inventory = table.Copy(ply:GetNetVar("Inventory", {}) or {}), active = nil}
+	for _, wep in ipairs(ply:GetWeapons()) do
+		if not IsValid(wep) or revenantWeaponBlacklist[wep:GetClass()] then continue end
+		local info = wep.GetInfo and wep:GetInfo() or {Clip1 = wep:Clip1(), Clip2 = wep:Clip2()}
+		data.weapons[wep:GetClass()] = istable(info) and table.Copy(info) or true
+	end
+	for ammoID, count in pairs(ply:GetAmmo()) do
+		local name = game.GetAmmoName(ammoID)
+		if name and count > 0 then data.ammo[name] = count end
+	end
+	local active = ply:GetActiveWeapon()
+	data.active = IsValid(active) and active:GetClass() or nil
+	return data
+end
+
+local function captureCorpseLoadout(corpse)
+	local networkInventory = corpse:GetNetVar("Inventory", {})
+	local localInventory = corpse.inventory
+	if not istable(networkInventory) then networkInventory = {} end
+	if not istable(localInventory) then localInventory = {} end
+	local data = {weapons = {}, ammo = {}, inventory = table.Copy(networkInventory)}
+
+	for key, value in pairs(localInventory) do
+		if key ~= "Weapons" then data.inventory[key] = istable(value) and table.Copy(value) or value end
+	end
+
+	data.inventory.Weapons = table.Copy(networkInventory.Weapons or {})
+	for class, value in pairs(localInventory.Weapons or {}) do
+		data.inventory.Weapons[class] = istable(value) and table.Copy(value) or value
+	end
+
+	local inventoryWeapons = data.inventory.Weapons
+	for class, value in pairs(inventoryWeapons) do
+		if isentity(value) and IsValid(value) and value:IsWeapon() then
+			local info = value.GetInfo and value:GetInfo() or {Clip1 = value:Clip1(), Clip2 = value:Clip2()}
+			data.weapons[class] = istable(info) and table.Copy(info) or true
+			value:Remove()
+		elseif weapons.Get(class) and istable(value) then
+			data.weapons[class] = table.Copy(value)
+		elseif weapons.Get(class) and value == true and not revenantWeaponBlacklist[class] then
+			data.weapons[class] = true
+		end
+	end
+	for ammoID, count in pairs(data.inventory.Ammo or {}) do
+		local name = isnumber(ammoID) and game.GetAmmoName(ammoID) or ammoID
+		if name and count > 0 then data.ammo[name] = count end
+	end
+	return data
+end
+
+local function applyLoadout(ply, data)
+	if not IsValid(ply) or not data then return end
+	ply:SetSuppressPickupNotices(true)
+	ply:StripWeapons()
+	ply:RemoveAllAmmo()
+	ply:Give("weapon_hands_sh")
+	local inv = table.Copy(data.inventory or {})
+	inv.Weapons = inv.Weapons or {}
+	inv.Ammo = inv.Ammo or {}
+	ply.inventory = inv
+	ply:SetNetVar("Inventory", inv)
+	for class, info in pairs(data.weapons or {}) do
+		local wep = ply:Give(class)
+		if IsValid(wep) and istable(info) then
+			if wep.SetInfo then wep:SetInfo(table.Copy(info)) else
+				if info.Clip1 then wep:SetClip1(info.Clip1) end
+				if info.Clip2 then wep:SetClip2(info.Clip2) end
+			end
+		end
+		if IsValid(wep) then inv.Weapons[class] = wep end
+	end
+	for name, count in pairs(data.ammo or {}) do ply:GiveAmmo(count, name, true) end
+	inv.Ammo = ply:GetAmmo()
+	ply:SetNetVar("Inventory", inv)
+	if data.active then timer.Simple(0, function() if IsValid(ply) and ply:Alive() then ply:SelectWeapon(data.active) end end) end
+	ply:SetSuppressPickupNotices(false)
+end
+
+local function copyBodyPose(source, rag)
+	for physID = 0, rag:GetPhysicsObjectCount() - 1 do
+		local phys = rag:GetPhysicsObjectNum(physID)
+		local bone = rag:TranslatePhysBoneToBone(physID)
+		local matrix = bone and source:GetBoneMatrix(bone)
+		if IsValid(phys) and matrix then
+			phys:SetPos(matrix:GetTranslation())
+			phys:SetAngles(matrix:GetAngles())
+			phys:SetVelocity(source:GetVelocity())
+		end
+	end
+end
+
+local function createRevenantRagdoll(source, appearance)
+	local visuals = captureRevenantVisuals(source, appearance)
+	local rag = ents.Create("prop_ragdoll")
+	if not IsValid(rag) then return nil end
+	rag:SetModel(visuals.model)
+	rag:SetPos(source:GetPos())
+	rag:SetAngles(source:GetAngles())
+	rag:Spawn()
+	rag:Activate()
+	applyRevenantVisuals(rag, visuals)
+	copyBodyPose(source, rag)
+	return rag
+end
+
+local function prepareRevenantReturnRagdoll(ply, rag)
+	if not IsValid(rag) then return end
+
+	if hg.ApplySetCollisionGroupNow then
+		hg.ApplySetCollisionGroupNow(rag, COLLISION_GROUP_WEAPON)
+	else
+		rag:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+	end
+	rag:AddEFlags(EFL_NO_DAMAGE_FORCES + EFL_DONTBLOCKLOS)
+
+	local masses = hg.IdealMassPlayer or {}
+	for physID = 0, rag:GetPhysicsObjectCount() - 1 do
+		local phys = rag:GetPhysicsObjectNum(physID)
+		local bone = rag:TranslatePhysBoneToBone(physID)
+		if IsValid(phys) then
+			phys:SetMass(masses[bone and rag:GetBoneName(bone) or ""] or 4)
+			phys:EnableMotion(true)
+			phys:EnableGravity(true)
+			phys:Wake()
+		end
+	end
+
+	if hg.ApplyRagdollPhysicsScale then
+		hg.ApplyRagdollPhysicsScale(rag, hg.GetPlayerModelScale and hg.GetPlayerModelScale(ply) or ply:GetModelScale())
+	end
+end
+
+local function clearRevenantNW(ply)
+	ply:SetNWBool("HMCD_RevenantPossessing", false)
+	ply:SetNWEntity("HMCD_RevenantImplantCorpse", NULL)
+	ply:SetNWEntity("HMCD_RevenantOriginalBody", NULL)
+	ply:SetNWFloat("HMCD_RevenantImplantStart", 0)
+	ply:SetNWFloat("HMCD_RevenantImplantReadyAt", 0)
+	ply:SetNWFloat("HMCD_RevenantEndsAt", 0)
+end
+
 local function playCannibalStackedSound(cannibal)
 	local recipients = RecipientFilter()
 	local has_recipients = false
@@ -1156,6 +1393,260 @@ function MODE.ContinueCannibalConsume(ply)
 	MODE.StopCannibalConsume(ply)
 end
 
+function MODE.StopRevenantImplant(ply)
+	if not IsValid(ply) then return end
+	ply.Ability_RevenantImplant = nil
+	ply:SetNWEntity("HMCD_RevenantImplantCorpse", NULL)
+	ply:SetNWFloat("HMCD_RevenantImplantStart", 0)
+	ply:SetNWFloat("HMCD_RevenantImplantReadyAt", 0)
+end
+
+function MODE.EndRevenantPossession(ply, reason, originalDead, skipShell)
+	local state = getRevenantState(ply)
+	if not state or state.Ending then return end
+	state.Ending = true
+	local originalVisuals = state.OriginalVisuals
+	local anchor = state.OriginalBody
+	local returnPos = IsValid(anchor) and anchor:GetPos() + Vector(0, 0, 8) or state.OriginalReturnPos or state.OriginalPos
+	local remainingHealth = IsValid(anchor) and anchor:Health() or state.Health
+	local originalBodyMaxHealth = state.OriginalBodyMaxHealth or MODE.RevenantOriginalBodyHealth or 180
+	local returnHealth = math.max(1, math.floor((state.Health or 100) * math.Clamp(remainingHealth / originalBodyMaxHealth, 0, 1)))
+
+	local shellRag
+	if not skipShell and ply:Alive() then
+		shellRag = state.ShellRagdoll
+		if not IsValid(shellRag) then
+			shellRag = createRevenantRagdoll(ply, ply.CurAppearance)
+		end
+		if IsValid(shellRag) then
+			shellRag.organism = table.Copy(ply.organism or {})
+			shellRag.organism.owner = shellRag
+			shellRag.organism.alive = false
+			if hg.organism and hg.organism.list then hg.organism.list[shellRag] = shellRag.organism end
+			shellRag:SetNWBool("HMCD_RevenantUsed", true)
+			shellRag:SetNWEntity("ply", IsValid(state.ShellOriginalOwner) and state.ShellOriginalOwner or NULL)
+			hg.RenewInv(ply, true, shellRag)
+			hg.TransferItems(ply, shellRag)
+		end
+	end
+
+	local originalOrganism = (IsValid(anchor) and istable(anchor.organism) and anchor.organism) or state.OriginalBodyOrganism or state.OriginalOrganism
+	if hg.organism and hg.organism.list then
+		hg.organism.list[ply] = nil
+		if IsValid(anchor) then hg.organism.list[anchor] = nil end
+	end
+	ply.organism = originalOrganism
+	if ply.organism then
+		ply.organism.owner = ply
+		ply.organism.fakePlayer = nil
+		state.OriginalBodyOrganism = ply.organism
+		if hg.organism and hg.organism.list then hg.organism.list[ply] = ply.organism end
+		ply.organism.wounds = ply.organism.wounds or {}
+		ply.organism.arterialwounds = ply.organism.arterialwounds or {}
+		ply:SetNetVar("wounds", ply.organism.wounds)
+		ply:SetNetVar("arterialwounds", ply.organism.arterialwounds)
+		ply.fullsend = true
+	end
+
+	if not ply:Alive() and not originalDead then
+		ply:Spawn()
+	end
+	applyRevenantVisuals(ply, originalVisuals)
+	ply:SetMaxHealth(state.MaxHealth or 100)
+	applyLoadout(ply, state.Loadout)
+
+	ply:SetPos(returnPos)
+	ply:SetHealth(math.min(returnHealth, ply:GetMaxHealth()))
+	if ply.organism and hg.send_organism then
+		hg.send_organism(ply.organism, ply)
+	end
+	setRevenantState(ply, nil)
+	ply.HMCD_RevenantShellDeathReturn = nil
+	ply.Ability_RevenantCooldownUntil = CurTime() + (MODE.RevenantPossessionCooldown or 20)
+	clearRevenantNW(ply)
+	deferRevenantVisualRestore(ply, originalVisuals)
+	timer.Simple(1.1, function()
+		if not IsValid(ply) or not ply:Alive() or ply.organism ~= originalOrganism then return end
+
+		ply.fullsend = true
+		if hg.send_bareinfo then hg.send_bareinfo(ply.organism) end
+		if hg.send_organism then hg.send_organism(ply.organism, ply) end
+	end)
+	if not originalDead then
+		timer.Simple(0, function()
+			if IsValid(ply) and ply:Alive() then ply:SetPos(returnPos) end
+		end)
+	end
+
+	if originalDead or (remainingHealth or 0) <= 0 then
+		if IsValid(anchor) then anchor:Remove() end
+		timer.Simple(0, function() if IsValid(ply) and ply:Alive() then ply:Kill() end end)
+	elseif IsValid(anchor) and hg.Fake then
+	prepareRevenantReturnRagdoll(ply, anchor)
+		hg.Fake(ply, anchor, true, true)
+		timer.Simple(0, function()
+			if IsValid(ply) and ply.FakeRagdoll == anchor then
+				prepareRevenantReturnRagdoll(ply, anchor)
+			end
+		end)
+	end
+end
+
+function MODE.BeginRevenantPossession(ply, corpse)
+	if not IsValid(ply) or not IsValid(corpse) or not ply:Alive() then return false end
+	if not MODE.IsRevenantRole(ply.SubRole) or getRevenantState(ply) then return false end
+	if corpse:GetNWBool("HMCD_RevenantUsed", false) or not corpse:GetNWBool("HMCD_RevenantEligible", false) then return false end
+	if (ply.Ability_RevenantCharges or 0) <= 0 or (ply.Ability_RevenantCooldownUntil or 0) > CurTime() then return false end
+
+	local appearance = table.Copy(ply.CurAppearance or {})
+	local originalVisuals = captureRevenantVisuals(ply, appearance)
+	local shellVisuals = table.Copy(corpse.HMCD_RevenantVisuals or captureRevenantVisuals(corpse, corpse.CurAppearance))
+	local originalBody = createRevenantRagdoll(ply, appearance)
+	if not IsValid(originalBody) then return false end
+	local originalBodyHealth = math.max(MODE.RevenantOriginalBodyHealth or 180, ply:Health())
+	originalBody:SetHealth(originalBodyHealth)
+	originalBody:SetMaxHealth(originalBodyHealth)
+	originalBody.HMCD_RevenantOriginalOwner = ply
+	originalBody:SetNWBool("HMCD_RevenantOriginalBody", true)
+
+	local state = {
+		OriginalBody = originalBody,
+		ShellRagdoll = corpse,
+		ShellOriginalOwner = corpse:GetNWEntity("ply", NULL),
+		OriginalOrganism = ply.organism,
+		Loadout = capturePlayerLoadout(ply),
+		Model = ply:GetModel(),
+		ModelScale = ply:GetModelScale(),
+		Appearance = appearance,
+		OriginalVisuals = originalVisuals,
+		ShellVisuals = shellVisuals,
+		Health = ply:Health(),
+		MaxHealth = ply:GetMaxHealth(),
+		OriginalBodyMaxHealth = originalBodyHealth,
+		OriginalPos = ply:GetPos(),
+		OriginalReturnPos = originalBody:GetPos() + Vector(0, 0, 8),
+		EndsAt = CurTime() + (MODE.RevenantPossessionTime or 32)
+	}
+
+	if hg.organism and hg.organism.Add and state.OriginalOrganism then
+		local originalBodyOrganism = hg.organism.Add(originalBody)
+		table.Merge(originalBodyOrganism, state.OriginalOrganism)
+		originalBodyOrganism.owner = originalBody
+		originalBodyOrganism.fakePlayer = true
+		originalBodyOrganism.alive = true
+		state.OriginalBodyOrganism = originalBodyOrganism
+		state.OriginalOrganism = originalBodyOrganism
+	end
+
+	local function rollback()
+		if hg.organism and hg.organism.list then hg.organism.list[ply] = nil end
+		ply.organism = state.OriginalBodyOrganism or state.OriginalOrganism
+		if ply.organism then
+			ply.organism.owner = ply
+			ply.organism.fakePlayer = nil
+			ply:SetNetVar("wounds", ply.organism.wounds or {})
+			ply:SetNetVar("arterialwounds", ply.organism.arterialwounds or {})
+			if hg.organism and hg.organism.list then hg.organism.list[ply] = ply.organism end
+		end
+		ply:SetPos(state.OriginalPos)
+		originalBody:Remove()
+	end
+
+	local shellOrg = table.Copy(corpse.organism or {})
+	shellOrg.owner = ply
+	shellOrg.alive = true
+	shellOrg.otrub = false
+	shellOrg.needotrub = false
+	shellOrg.needfake = false
+	shellOrg.fake = false
+	shellOrg.heartstop = false
+	shellOrg.lungsfunction = true
+	shellOrg.CantCheckPulse = true
+	shellOrg.blood = math.max(shellOrg.blood or 0, 3000)
+	shellOrg.bloodpressure = math.max(shellOrg.bloodpressure or 0, 0.65)
+	shellOrg.brainoxygen = math.max(shellOrg.brainoxygen or 0, 0.72)
+	shellOrg.perfusion = math.max(shellOrg.perfusion or 0, 0.62)
+	shellOrg.peripheralperfusion = math.max(shellOrg.peripheralperfusion or 0, 0.55)
+	shellOrg.cerebralPerfusion = math.max(shellOrg.cerebralPerfusion or 0, 0.62)
+	shellOrg.consciousness = math.max(shellOrg.consciousness or 0, 0.8)
+	shellOrg.pulse = math.max(shellOrg.pulse or 0, 58)
+	shellOrg.shock = math.min(shellOrg.shock or 0, 20)
+	shellOrg.avgpain = math.min(shellOrg.avgpain or 0, 55)
+	shellOrg.pain = math.min(shellOrg.pain or 0, 55)
+	shellOrg.painadd = math.min(shellOrg.painadd or 0, 20)
+	shellOrg.tranquilizer = 0
+	shellOrg.stun = CurTime() - 1
+	shellOrg.uncon_timer = 0
+	shellOrg.hypoxiaTime = 0
+	shellOrg.severeHypoxiaTime = 0
+	if shellOrg.o2 then
+		shellOrg.o2[1] = math.max(shellOrg.o2[1] or 0, math.min(shellOrg.o2.range or 30, 22))
+	end
+
+	if hg.organism and hg.organism.list then hg.organism.list[ply] = nil end
+	ply.organism = shellOrg
+	if hg.organism and hg.organism.list then hg.organism.list[ply] = shellOrg end
+
+	ply:SetPos(corpse:GetPos() + Vector(0, 0, 8))
+	if not hg.Fake then
+		rollback()
+		return false
+	end
+
+	hg.Fake(ply, corpse, true, true)
+	if ply.FakeRagdoll ~= corpse then
+		rollback()
+		return false
+	end
+
+	local corpseLoadout = captureCorpseLoadout(corpse)
+	corpse:SetNWBool("HMCD_RevenantUsed", true)
+	setRevenantState(ply, state)
+	ply.Ability_RevenantCharges = ply.Ability_RevenantCharges - 1
+	ply:SetNWInt("HMCD_RevenantCharges", ply.Ability_RevenantCharges)
+	applyRevenantVisuals(ply, shellVisuals)
+	applyLoadout(ply, corpseLoadout)
+	ply:SetHealth(math.min(ply:GetMaxHealth(), math.max(25, math.floor((shellOrg.blood or 2500) / 65))))
+	ply:SetNWBool("HMCD_RevenantPossessing", true)
+	ply:SetNWEntity("HMCD_RevenantOriginalBody", originalBody)
+	ply:SetNWFloat("HMCD_RevenantEndsAt", state.EndsAt)
+	for _, delay in ipairs({0, 0.1}) do
+		timer.Simple(delay, function()
+			if not IsValid(ply) or getRevenantState(ply) ~= state then return end
+			applyRevenantVisuals(ply, state.ShellVisuals)
+		end)
+	end
+	return true
+end
+
+function MODE.StartRevenantImplant(ply, corpse)
+	if not IsValid(ply) or not IsValid(corpse) or ply.Ability_RevenantImplant then return end
+	if getRevenantState(ply) or (ply.Ability_RevenantCharges or 0) <= 0 then return end
+	if (ply.Ability_RevenantCooldownUntil or 0) > CurTime() then
+		ply:Notify("The neural link is still recovering.", 0, "revenant_cooldown", 2, nil, Color(180, 210, 190))
+		return
+	end
+	local now = CurTime()
+	ply.Ability_RevenantImplant = {Corpse = corpse, ReadyAt = now + (MODE.RevenantImplantTime or 4)}
+	ply:SetNWEntity("HMCD_RevenantImplantCorpse", corpse)
+	ply:SetNWFloat("HMCD_RevenantImplantStart", now)
+	ply:SetNWFloat("HMCD_RevenantImplantReadyAt", ply.Ability_RevenantImplant.ReadyAt)
+end
+
+function MODE.ContinueRevenantImplant(ply)
+	local data = IsValid(ply) and ply.Ability_RevenantImplant
+	if not data then return end
+	local corpse, trace = MODE.GetRevenantCorpseTarget(ply)
+	if corpse ~= data.Corpse or not trace or ply:GetShootPos():DistToSqr(corpse:WorldSpaceCenter()) > ((MODE.RevenantImplantReach or 100) + 25) ^ 2 then
+		MODE.StopRevenantImplant(ply)
+		return
+	end
+	if CurTime() >= data.ReadyAt then
+		MODE.StopRevenantImplant(ply)
+		MODE.BeginRevenantPossession(ply, corpse)
+	end
+end
+
 function MODE.UpdateJuggernautCarryState(ply)
 	local carried, victim = MODE.GetJuggernautCarryTarget(ply)
 	local old_carried = ply.Ability_JuggernautCarriedEnt
@@ -1548,6 +2039,23 @@ end
 
 hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 	if(MODE.RoleChooseRoundTypes[MODE.Type])then
+		local revenantState = getRevenantState(ply)
+		if revenantState and ply:Alive() then
+			local anchor = revenantState.OriginalBody
+			local anchorOrg = IsValid(anchor) and anchor.organism or nil
+			local anchorDestroyed = not IsValid(anchor)
+				or (anchor:Health() or 0) <= 0
+				or anchor.headexploded
+				or anchor.noHead
+				or (anchorOrg and (anchorOrg.headamputated or anchorOrg.alive == false))
+
+			if anchorDestroyed then
+				MODE.EndRevenantPossession(ply, "original_killed", true)
+			elseif CurTime() >= revenantState.EndsAt or not ply.organism or ply.organism.otrub or (ply.organism.consciousness or 1) < 0.2 then
+				MODE.EndRevenantPossession(ply, "shell_ended")
+			end
+		end
+
 		if ply:Alive() and MODE.IsChemistRole(ply.SubRole) then
 			MODE.UpdateChemistNeutralizerTarget(ply)
 		end
@@ -1741,6 +2249,22 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 				MODE.ResetCannibal(ply)
 			end
 
+			if MODE.IsRevenantRole and MODE.IsRevenantRole(ply.SubRole) and not getRevenantState(ply) then
+				if ply:KeyDown(IN_WALK) then
+					if ply:KeyPressed(IN_USE) then
+						local corpse = MODE.GetRevenantCorpseTarget(ply)
+						if IsValid(corpse) then MODE.StartRevenantImplant(ply, corpse) end
+					elseif ply:KeyDown(IN_USE) then
+						MODE.ContinueRevenantImplant(ply)
+					end
+					if ply:KeyReleased(IN_USE) then MODE.StopRevenantImplant(ply) end
+				else
+					MODE.StopRevenantImplant(ply)
+				end
+			elseif ply.Ability_RevenantImplant then
+				MODE.StopRevenantImplant(ply)
+			end
+
 			if(MODE.IsJuggernautRole and MODE.IsJuggernautRole(ply.SubRole))then
 				MODE.UpdateJuggernautCarryState(ply)
 
@@ -1921,6 +2445,23 @@ hook.Add("HG_PlayerFootstep", "HMCD_SubRoles_StalkerSilentPursuit", function(ply
 end)
 
 hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(victim, dmgInfo)
+	if IsValid(victim) and IsValid(victim.HMCD_RevenantOriginalOwner) then
+		local owner = victim.HMCD_RevenantOriginalOwner
+		local state = getRevenantState(owner)
+		if state then
+			local damage = math.max(dmgInfo:GetDamage(), 0) * (MODE.RevenantOriginalBodyDamageMul or 0.35)
+			victim.HMCD_RevenantProtectedHealth = math.max(victim:Health() - damage, 0)
+			victim.HMCD_RevenantProtectedOwner = owner
+		end
+		return
+	end
+
+	if IsValid(victim) and victim:IsPlayer() and getRevenantState(victim) and dmgInfo:GetDamage() >= victim:Health() then
+		dmgInfo:SetDamage(0)
+		timer.Simple(0, function() if IsValid(victim) then MODE.EndRevenantPossession(victim, "shell_killed") end end)
+		return
+	end
+
 	local ply = IsValid(victim) and victim or nil
 	ply = hg.RagdollOwner and (hg.RagdollOwner(ply) or ply) or ply
 
@@ -1953,6 +2494,29 @@ hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(vic
 	end
 end)
 
+hook.Add("PostEntityTakeDamage", "HMCD_RevenantOriginalBodyDamage", function(victim)
+	if not IsValid(victim) then return end
+
+	local remaining = victim.HMCD_RevenantProtectedHealth
+	if not isnumber(remaining) then return end
+
+	local owner = victim.HMCD_RevenantProtectedOwner
+	victim.HMCD_RevenantProtectedHealth = nil
+	victim.HMCD_RevenantProtectedOwner = nil
+	victim:SetHealth(remaining)
+	if remaining <= 0 then
+		timer.Simple(0, function()
+			if IsValid(owner) then MODE.EndRevenantPossession(owner, "original_killed", true) end
+		end)
+	end
+end)
+
+hook.Add("CanPlayerSuicide", "HMCD_RevenantShellSuicide", function(ply)
+	if not getRevenantState(ply) then return end
+	MODE.EndRevenantPossession(ply, "shell_killed")
+	return false
+end)
+
 hook.Add("PlayerSpawn", "HMCD_SubRoles_ShadowCamouflage", function(ply)
 	ply.HMCD_JuggernautBlackoutUntil = nil
 	MODE.ResetShadowCamouflage(ply)
@@ -1962,19 +2526,82 @@ hook.Add("PlayerSpawn", "HMCD_SubRoles_ShadowCamouflage", function(ply)
 	MODE.ResetStalkerTracking(ply)
 	MODE.StopCannibalConsume(ply)
 	MODE.ResetJuggernaut(ply)
+	MODE.StopRevenantImplant(ply)
+	if not MODE.IsRevenantRole(ply.SubRole) then
+		ply.Ability_RevenantCharges = nil
+		ply:SetNWInt("HMCD_RevenantCharges", 0)
+	end
 end)
 
 hook.Add("PlayerDeath", "HMCD_SubRoles_ShadowCamouflage", function(ply)
+	local revenantState = getRevenantState(ply)
+	if revenantState and not revenantState.Ending then
+		if revenantState.ReturningFromDeath then return end
+		revenantState.ReturningFromDeath = true
+		revenantState.PendingShellReturn = true
+		ply.HMCD_RevenantShellDeathReturn = true
+		return
+	end
+
 	ply.HMCD_JuggernautBlackoutUntil = nil
 	MODE.ResetShadowCamouflage(ply)
 	MODE.ResetManiacFury(ply)
 	MODE.ResetStalkerTracking(ply)
 	MODE.StopCannibalConsume(ply)
 	MODE.ResetJuggernaut(ply, true)
-
+	MODE.StopRevenantImplant(ply)
 	for _, stalker in player.Iterator() do
 		if IsValid(stalker) and stalker.Ability_StalkerMarks then
 			MODE.SyncStalkerMarks(stalker)
 		end
+	end
+end)
+
+hook.Add("PostPostPlayerDeath", "HMCD_RevenantMarkCorpse", function(ply, rag)
+	if not IsValid(rag) then return end
+	local revenantState = getRevenantState(ply)
+	if revenantState and revenantState.PendingShellReturn and not revenantState.Ending then
+		revenantState.PendingShellReturn = nil
+		rag:SetNWBool("HMCD_RevenantUsed", true)
+		timer.Simple(0, function()
+			if IsValid(ply) and getRevenantState(ply) == revenantState then
+				MODE.EndRevenantPossession(ply, "shell_killed", false, true)
+			end
+		end)
+		return
+	end
+
+	local org = rag.organism or {}
+	local validBrain = not org.headamputated and not org.noHead and not rag.noHead and (org.brain or 0) < 0.6
+	local eligible = not ply.isTraitor and validBrain and not rag:GetNWBool("HMCD_CannibalConsumed", false)
+	rag:SetNWBool("HMCD_RevenantEligible", eligible)
+	rag:SetNWBool("HMCD_RevenantUsed", false)
+	rag.HMCD_RevenantVisuals = captureRevenantVisuals(rag, ply.CurAppearance or rag.CurAppearance)
+end)
+
+hook.Add("ZB_CanLootInventory", "HMCD_RevenantFinalSecondsLootLock", function(ply)
+	local state = getRevenantState(ply)
+	if state and state.EndsAt - CurTime() <= (MODE.RevenantLootLockTime or 5) then return nil, nil, false end
+end)
+
+hook.Add("PlayerDisconnected", "HMCD_RevenantCleanup", function(ply)
+	local state = getRevenantState(ply)
+	if state and IsValid(state.OriginalBody) then state.OriginalBody:Remove() end
+	setRevenantState(ply, nil)
+end)
+
+hook.Add("ZB_PreRoundStart", "HMCD_RevenantRoundCleanup", function()
+	for _, ply in player.Iterator() do
+		local state = getRevenantState(ply)
+		if state and IsValid(state.OriginalBody) then state.OriginalBody:Remove() end
+		setRevenantState(ply, nil)
+		ply.Ability_RevenantImplant = nil
+		ply.Ability_RevenantCooldownUntil = nil
+		ply.Ability_RevenantCharges = nil
+		ply:SetNWInt("HMCD_RevenantCharges", 0)
+		clearRevenantNW(ply)
+	end
+	for _, rag in ipairs(ents.FindByClass("prop_ragdoll")) do
+		if rag:GetNWBool("HMCD_RevenantOriginalBody", false) then rag:Remove() end
 	end
 end)
