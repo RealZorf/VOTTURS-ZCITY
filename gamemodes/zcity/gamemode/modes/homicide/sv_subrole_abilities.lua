@@ -255,6 +255,73 @@ local function clearRevenantBleeding(org)
 	org.throatCutGurgleNext = 0
 end
 
+local revenantNeurologyFields = {
+	"brain",
+	"brainFrontal",
+	"brainParietal",
+	"brainTemporal",
+	"brainOccipital",
+	"brainHemorrhage",
+	"brainBleedRate",
+	"brainSwelling",
+	"intracranialPressure",
+	"skull",
+	"heart",
+	"trachea",
+	"pneumothorax"
+}
+
+local function stabilizeRevenantNeurology(org)
+	local original = {}
+	for _, field in ipairs(revenantNeurologyFields) do
+		original[field] = tonumber(org[field]) or 0
+	end
+	original.lungsL = table.Copy(org.lungsL or {0, 0})
+	original.lungsR = table.Copy(org.lungsR or {0, 0})
+
+	org.brain = math.min(original.brain, 0.08)
+	org.brainFrontal = math.min(original.brainFrontal, 0.15)
+	org.brainParietal = math.min(original.brainParietal, 0.15)
+	org.brainTemporal = math.min(original.brainTemporal, 0.15)
+	org.brainOccipital = math.min(original.brainOccipital, 0.15)
+	org.brainHemorrhage = 0
+	org.brainBleedRate = 0
+	org.brainSwelling = math.min(original.brainSwelling, 0.05)
+	org.intracranialPressure = math.min(original.intracranialPressure, 0.05)
+	org.skull = math.min(original.skull, 0.35)
+	org.heart = math.min(original.heart, 0.2)
+	org.trachea = math.min(original.trachea, 0.15)
+	org.pneumothorax = math.min(original.pneumothorax, 0.1)
+	org.lungsL = table.Copy(original.lungsL)
+	org.lungsR = table.Copy(original.lungsR)
+	org.lungsL[1] = math.min(tonumber(org.lungsL[1]) or 0, 0.25)
+	org.lungsL[2] = math.min(tonumber(org.lungsL[2]) or 0, 0.25)
+	org.lungsR[1] = math.min(tonumber(org.lungsR[1]) or 0, 0.25)
+	org.lungsR[2] = math.min(tonumber(org.lungsR[2]) or 0, 0.25)
+	org.seizure = 0
+	org.seizureActive = false
+	org.seizureStart = 0
+	org.seizureEnd = 0
+	org.neckBrainOxygenPenalty = 0
+	org.incapacitated = false
+	org.critical = false
+
+	return original
+end
+
+local function restoreRevenantNeurology(org, original)
+	if not original then return end
+	for _, field in ipairs(revenantNeurologyFields) do
+		org[field] = math.max(tonumber(org[field]) or 0, original[field] or 0)
+	end
+	org.lungsL = org.lungsL or {0, 0}
+	org.lungsR = org.lungsR or {0, 0}
+	for index = 1, 2 do
+		org.lungsL[index] = math.max(tonumber(org.lungsL[index]) or 0, tonumber(original.lungsL and original.lungsL[index]) or 0)
+		org.lungsR[index] = math.max(tonumber(org.lungsR[index]) or 0, tonumber(original.lungsR and original.lungsR[index]) or 0)
+	end
+end
+
 local function prepareRevenantReturnRagdoll(ply, rag)
 	if not IsValid(rag) then return end
 
@@ -1445,12 +1512,15 @@ function MODE.EndRevenantPossession(ply, reason, originalDead, skipShell)
 			shellRag = createRevenantRagdoll(ply, ply.CurAppearance)
 		end
 		if IsValid(shellRag) then
-			shellRag.organism = table.Copy(ply.organism or {})
+			local shellOrganism = table.Copy(ply.organism or {})
+			restoreRevenantNeurology(shellOrganism, state.ShellNeurology)
+			shellRag.organism = shellOrganism
 			shellRag.organism.owner = shellRag
 			shellRag.organism.alive = false
 			if hg.organism and hg.organism.list then hg.organism.list[shellRag] = shellRag.organism end
 			shellRag:SetNWBool("HMCD_RevenantUsed", true)
 			shellRag:SetNWEntity("ply", IsValid(state.ShellOriginalOwner) and state.ShellOriginalOwner or NULL)
+			shellRag.ply = IsValid(state.ShellOriginalPly) and state.ShellOriginalPly or nil
 			hg.RenewInv(ply, true, shellRag)
 			hg.TransferItems(ply, shellRag)
 		end
@@ -1539,6 +1609,7 @@ function MODE.BeginRevenantPossession(ply, corpse)
 		OriginalBody = originalBody,
 		ShellRagdoll = corpse,
 		ShellOriginalOwner = corpse:GetNWEntity("ply", NULL),
+		ShellOriginalPly = corpse.ply,
 		OriginalOrganism = ply.organism,
 		Loadout = capturePlayerLoadout(ply),
 		Model = ply:GetModel(),
@@ -1575,6 +1646,8 @@ function MODE.BeginRevenantPossession(ply, corpse)
 			if hg.organism and hg.organism.list then hg.organism.list[ply] = ply.organism end
 		end
 		ply:SetPos(state.OriginalPos)
+		corpse.ply = IsValid(state.ShellOriginalPly) and state.ShellOriginalPly or nil
+		corpse:SetNWEntity("ply", IsValid(state.ShellOriginalOwner) and state.ShellOriginalOwner or NULL)
 		originalBody:Remove()
 	end
 
@@ -1588,27 +1661,34 @@ function MODE.BeginRevenantPossession(ply, corpse)
 	shellOrg.heartstop = false
 	shellOrg.lungsfunction = true
 	shellOrg.CantCheckPulse = true
-	shellOrg.blood = math.max(shellOrg.blood or 0, 3000)
-	shellOrg.bloodpressure = math.max(shellOrg.bloodpressure or 0, 0.65)
-	shellOrg.brainoxygen = math.max(shellOrg.brainoxygen or 0, 0.72)
-	shellOrg.perfusion = math.max(shellOrg.perfusion or 0, 0.62)
-	shellOrg.peripheralperfusion = math.max(shellOrg.peripheralperfusion or 0, 0.55)
-	shellOrg.cerebralPerfusion = math.max(shellOrg.cerebralPerfusion or 0, 0.62)
-	shellOrg.consciousness = math.max(shellOrg.consciousness or 0, 0.8)
-	shellOrg.pulse = math.max(shellOrg.pulse or 0, 58)
-	shellOrg.shock = math.min(shellOrg.shock or 0, 20)
-	shellOrg.avgpain = math.min(shellOrg.avgpain or 0, 55)
-	shellOrg.pain = math.min(shellOrg.pain or 0, 55)
-	shellOrg.painadd = math.min(shellOrg.painadd or 0, 20)
+	shellOrg.blood = math.max(shellOrg.blood or 0, 4000)
+	shellOrg.bloodpressure = math.max(shellOrg.bloodpressure or 0, 0.85)
+	shellOrg.brainoxygen = math.max(shellOrg.brainoxygen or 0, 0.9)
+	shellOrg.perfusion = math.max(shellOrg.perfusion or 0, 0.85)
+	shellOrg.peripheralperfusion = math.max(shellOrg.peripheralperfusion or 0, 0.75)
+	shellOrg.cerebralPerfusion = math.max(shellOrg.cerebralPerfusion or 0, 0.9)
+	shellOrg.consciousness = math.max(shellOrg.consciousness or 0, 0.95)
+	shellOrg.pulse = math.max(shellOrg.pulse or 0, 68)
+	shellOrg.heartbeat = math.max(shellOrg.heartbeat or 0, 68)
+	shellOrg.temperature = math.Clamp(shellOrg.temperature or 36.7, 35.5, 38)
+	shellOrg.shock = math.min(shellOrg.shock or 0, 8)
+	shellOrg.avgpain = math.min(shellOrg.avgpain or 0, 30)
+	shellOrg.pain = math.min(shellOrg.pain or 0, 30)
+	shellOrg.painadd = math.min(shellOrg.painadd or 0, 10)
 	shellOrg.tranquilizer = 0
+	shellOrg.holdingbreath = false
+	shellOrg.choking = false
+	shellOrg.CO = 0
+	shellOrg.COregen = 0
 	shellOrg.stun = CurTime() - 1
 	shellOrg.uncon_timer = 0
 	shellOrg.hypoxiaTime = 0
 	shellOrg.severeHypoxiaTime = 0
 	if shellOrg.o2 then
-		shellOrg.o2[1] = math.max(shellOrg.o2[1] or 0, math.min(shellOrg.o2.range or 30, 22))
+		shellOrg.o2[1] = math.max(shellOrg.o2[1] or 0, math.min(shellOrg.o2.range or 30, 28))
 	end
 	clearRevenantBleeding(shellOrg)
+	state.ShellNeurology = stabilizeRevenantNeurology(shellOrg)
 
 	if hg.organism and hg.organism.list then hg.organism.list[ply] = nil end
 	ply.organism = shellOrg
@@ -1620,6 +1700,7 @@ function MODE.BeginRevenantPossession(ply, corpse)
 		return false
 	end
 
+	corpse.ply = ply
 	hg.Fake(ply, corpse, true, true)
 	if ply.FakeRagdoll ~= corpse then
 		rollback()
@@ -2584,11 +2665,34 @@ hook.Add("PlayerDeath", "HMCD_SubRoles_ShadowCamouflage", function(ply)
 	end
 end)
 
+local function markRevenantCorpse(rag, wasTraitor, visuals, resetUsed)
+	if not IsValid(rag) or not rag:IsRagdoll() then return end
+
+	if resetUsed then
+		rag:SetNWBool("HMCD_RevenantTraitorCorpse", wasTraitor)
+	else
+		wasTraitor = wasTraitor or rag:GetNWBool("HMCD_RevenantTraitorCorpse", false)
+	end
+
+	local org = rag.organism or {}
+	local validBrain = not org.headamputated and not org.noHead and not rag.headamputated and not rag.noHead and not rag.headexploded
+	local eligible = not wasTraitor and validBrain and not rag:GetNWBool("HMCD_CannibalConsumed", false)
+	rag:SetNWBool("HMCD_RevenantEligible", eligible)
+	if resetUsed then rag:SetNWBool("HMCD_RevenantUsed", false) end
+	rag.HMCD_RevenantVisuals = table.Copy(visuals or captureRevenantVisuals(rag, rag.CurAppearance))
+end
+
+hook.Add("RagdollDeath", "HMCD_RevenantMarkCorpseEarly", function(ply, rag)
+	if not IsValid(ply) or not ply:IsPlayer() or getRevenantState(ply) then return end
+	markRevenantCorpse(rag, ply.isTraitor == true, captureRevenantVisuals(rag, ply.CurAppearance or rag.CurAppearance), true)
+end)
+
 hook.Add("PostPostPlayerDeath", "HMCD_RevenantMarkCorpse", function(ply, rag)
 	if not IsValid(rag) then return end
 	local revenantState = getRevenantState(ply)
 	if revenantState and revenantState.PendingShellReturn and not revenantState.Ending then
 		revenantState.PendingShellReturn = nil
+		if istable(rag.organism) then restoreRevenantNeurology(rag.organism, revenantState.ShellNeurology) end
 		rag:SetNWBool("HMCD_RevenantUsed", true)
 		timer.Simple(0, function()
 			if IsValid(ply) and getRevenantState(ply) == revenantState then
@@ -2598,12 +2702,20 @@ hook.Add("PostPostPlayerDeath", "HMCD_RevenantMarkCorpse", function(ply, rag)
 		return
 	end
 
-	local org = rag.organism or {}
-	local validBrain = not org.headamputated and not org.noHead and not rag.headamputated and not rag.noHead and not rag.headexploded
-	local eligible = not ply.isTraitor and validBrain and not rag:GetNWBool("HMCD_CannibalConsumed", false)
-	rag:SetNWBool("HMCD_RevenantEligible", eligible)
-	rag:SetNWBool("HMCD_RevenantUsed", false)
-	rag.HMCD_RevenantVisuals = captureRevenantVisuals(rag, ply.CurAppearance or rag.CurAppearance)
+	markRevenantCorpse(rag, ply.isTraitor == true, captureRevenantVisuals(rag, ply.CurAppearance or rag.CurAppearance), true)
+end)
+
+hook.Add("PlayerDisconnected", "HMCD_RevenantDisconnectedCorpse", function(ply)
+	if not IsValid(ply) then return end
+
+	local wasTraitor = ply.isTraitor == true
+	local visuals = captureRevenantVisuals(ply, ply.CurAppearance)
+
+	local rag = ply:GetNWEntity("RagdollDeath", NULL)
+	if not IsValid(rag) then rag = ply.RagdollDeath end
+	if not IsValid(rag) or rag:GetNWBool("HMCD_RevenantUsed", false) then return end
+
+	markRevenantCorpse(rag, wasTraitor, visuals, false)
 end)
 
 hook.Add("ZB_CanLootInventory", "HMCD_RevenantFinalSecondsLootLock", function(ply)
