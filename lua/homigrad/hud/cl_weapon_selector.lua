@@ -225,8 +225,45 @@ local function canUseSelector(ply)
     return IsAiming(ply) or (IsValid(wep) and wep:GetClass() == "weapon_physgun" and ply:KeyDown(IN_ATTACK)) or (lply.organism and lply.organism.pain and lply.organism.pain > 100) or GetGlobalBool("RadialInventory", false)
 end
 
-function WS.ChangeSelectionWep( ply, key )
+function WS.ConfirmSelection(ply)
+    if WS.Selected and WS.Selected > CurTime() then return end
+
+    local selectedWeapon = WS.GetSelectedWeapon()
+    if IsValid(selectedWeapon) then
+        WS.LastInv = WS.LastInv ~= ply:GetActiveWeapon() and WS.LastInv or ply:GetActiveWeapon()
+        input.SelectWeapon(selectedWeapon)
+    end
+
+    WS.LastSelectedSlot = WS.SelectedSlot
+    WS.LastSelectedSlotPos = WS.SelectedSlotPos
+    WS.Selected = CurTime() + 0.2
+    WS.Show = CurTime() + 0.2
+    surface.PlaySound("arc9_eft_shared/weapon_generic_spin"..math.random(1,10)..".ogg")
+end
+
+function WS.ChangeSelectionWep( ply, key, pressed )
     if not IsValid( ply ) or not ply:Alive() or GetGlobalBool("RadialInventory", false) then return end
+
+    local attack = key == "+attack" and 1 or key == "+attack2" and 2 or nil
+    if attack then
+        local field = attack == 1 and "BlockAttackBind1" or "BlockAttackBind2"
+        if pressed and WS.Show > CurTime() then
+            WS[field] = true
+            WS.ConfirmSelection(ply)
+            net.Start("HG_WeaponSelectorConfirmed")
+            net.WriteUInt(attack, 2)
+            net.SendToServer()
+            return true
+        end
+
+        if WS[field] then
+            if not pressed then WS[field] = nil end
+            return true
+        end
+
+        return
+    end
+
     if ply.organism and ply.organism.otrub then return end
     if canUseSelector( ply ) then return end
     --print(canUseSelector( ply ))
@@ -238,6 +275,8 @@ function WS.ChangeSelectionWep( ply, key )
         local Weapons = WS.GetWeaponTable( ply )
 
         WS.Show = CurTime() + 4
+        net.Start("HG_WeaponSelectorOpened")
+        net.SendToServer()
         --print(key)
         surface.PlaySound("arc9_eft_shared/weapon_generic_rifle_spin"..math.random(10)..".ogg")
         if iPos then
@@ -276,8 +315,24 @@ function WS.ChangeSelectionWep( ply, key )
 end
 
 function WS.SetActuallyWeapon( ply, cmd )
+    local attack1 = cmd:KeyDown(IN_ATTACK)
+    local attack2 = cmd:KeyDown(IN_ATTACK2)
+
+    if WS.SuppressAttack1 then
+        cmd:RemoveKey(IN_ATTACK)
+        if not attack1 then WS.SuppressAttack1 = nil end
+    end
+
+    if WS.SuppressAttack2 then
+        cmd:RemoveKey(IN_ATTACK2)
+        if not attack2 then WS.SuppressAttack2 = nil end
+    end
+
     if not IsValid( ply ) or not ply:Alive() or GetGlobalBool("RadialInventory", false) then return end
-    if (cmd:KeyDown( IN_ATTACK ) or cmd:KeyDown( IN_ATTACK2 )) and WS.Show > CurTime() then
+    if (attack1 or attack2) and WS.Show > CurTime() then
+
+        WS.SuppressAttack1 = attack1 or WS.SuppressAttack1
+        WS.SuppressAttack2 = attack2 or WS.SuppressAttack2
 
         if WS.Selected and WS.Selected > CurTime() then 
             cmd:RemoveKey(IN_ATTACK) 
@@ -285,20 +340,7 @@ function WS.SetActuallyWeapon( ply, cmd )
         else
             cmd:RemoveKey(IN_ATTACK)
             cmd:RemoveKey(IN_ATTACK2) 
-            --print(WS.GetSelectedWeapon())
-            
-            if IsValid(WS.GetSelectedWeapon()) then
-                WS.LastInv = WS.LastInv ~= ply:GetActiveWeapon() and WS.LastInv or ply:GetActiveWeapon()
-                input.SelectWeapon( WS.GetSelectedWeapon() )
-            end
-            cmd:RemoveKey(IN_ATTACK)
-            cmd:RemoveKey(IN_ATTACK2) 
-
-            WS.LastSelectedSlot = WS.SelectedSlot
-            WS.LastSelectedSlotPos = WS.SelectedSlotPos
-            WS.Selected = CurTime() + 0.2
-            WS.Show = CurTime() + 0.2
-            surface.PlaySound("arc9_eft_shared/weapon_generic_spin"..math.random(1,10)..".ogg")
+            WS.ConfirmSelection(ply)
         end
     end
 end
