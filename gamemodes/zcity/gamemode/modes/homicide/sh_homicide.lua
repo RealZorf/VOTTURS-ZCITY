@@ -591,11 +591,11 @@ For people who enjoy aggressive and high-risk gameplay.]],
 	},
 	["traitor_revenant"] = {
 		Name = "Revenant",
-		Description = [[Carry three neural chips which can reanimate suitable innocent corpses.
-Hold the special interaction bind over a corpse to possess it for up to 30 seconds.
-Your real body remains behind and completely vulnerable while you control the corpse.
-The corpse keeps its appearance, wounds, limbs and equipment.]],
-		Objective = "You are the Revenant. Use fallen bodies to deceive and support your teammate without losing your own.",
+		Description = [[Carry three neural chips which can possess suitable dead, disconnected or unconscious innocent bodies.
+Hold the special interaction bind over a body to possess it for up to 30 seconds.
+Your real body remains behind and completely vulnerable while you control the body.
+The body keeps its appearance, wounds, limbs and equipment.]],
+		Objective = "You are the Revenant. Use stolen bodies to deceive and support your teammate without losing your own.",
 		SpawnFunction = function(ply)
 			ply:Give("weapon_sogknife")
 			ply:Give("weapon_hg_fiberwire")
@@ -607,11 +607,11 @@ The corpse keeps its appearance, wounds, limbs and equipment.]],
 	},
 	["traitor_revenant_soe"] = {
 		Name = "Revenant",
-		Description = [[Carry three neural chips which can reanimate suitable innocent corpses.
-Hold the special interaction bind over a corpse to possess it for up to 30 seconds.
-Your real body remains behind and completely vulnerable while you control the corpse.
-The corpse keeps its appearance, wounds, limbs and equipment.]],
-		Objective = "You are the Revenant. Use fallen bodies to deceive and support your teammate without losing your own.",
+		Description = [[Carry three neural chips which can possess suitable dead, disconnected or unconscious innocent bodies.
+Hold the special interaction bind over a body to possess it for up to 30 seconds.
+Your real body remains behind and completely vulnerable while you control the body.
+The body keeps its appearance, wounds, limbs and equipment.]],
+		Objective = "You are the Revenant. Use stolen bodies to deceive and support your teammate without losing your own.",
 		SpawnFunction = function(ply)
 			ply:Give("weapon_sogknife")
 			ply:Give("weapon_hg_fiberwire")
