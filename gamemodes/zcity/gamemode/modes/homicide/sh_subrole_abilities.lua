@@ -3,7 +3,7 @@ MODE.NetSize_ChemicalResistanceBits = 8
 MODE.ChemistNeutralizerDoses = 2
 MODE.ChemistNeutralizerDuration = 45
 MODE.ChemistNeutralizerReach = 90
-MODE.LMSFinalStandMultiplier = 0.5
+MODE.LMSFinalStandMultiplier = 0.33
 local chemical_degrade_speeds = {
 	["HCN"] = 1,
 	["KCN"] = 0.5,
@@ -105,6 +105,16 @@ function MODE.IsRevenantRole(subrole)
 	return subrole == "traitor_revenant" or subrole == "traitor_revenant_soe"
 end
 
+function MODE.GetRevenantPassengerOwner(body)
+	if not IsValid(body) or not body:IsRagdoll() or not body:GetNWBool("HMCD_RevenantLiveEligible", false) then return nil end
+
+	local owner = hg and hg.RagdollOwner and hg.RagdollOwner(body) or body:GetNWEntity("ply", NULL)
+	if not IsValid(owner) or not owner:IsPlayer() or not owner:Alive() then return nil end
+	if owner:GetNWBool("HMCD_RevenantPassenger", false) then return nil end
+
+	return owner
+end
+
 function MODE.GetRevenantCorpseTarget(ply)
 	if not IsValid(ply) or not MODE.IsRevenantRole(ply.SubRole) then return nil end
 
@@ -112,9 +122,10 @@ function MODE.GetRevenantCorpseTarget(ply)
 	local corpse = trace and trace.Entity
 	if not IsValid(corpse) or not corpse:IsRagdoll() then return nil end
 	if corpse:GetNWBool("HMCD_RevenantUsed", false) then return nil end
-	if not corpse:GetNWBool("HMCD_RevenantEligible", false) then return nil end
+	local passenger = MODE.GetRevenantPassengerOwner(corpse)
+	if not IsValid(passenger) and not corpse:GetNWBool("HMCD_RevenantEligible", false) then return nil end
 
-	return corpse, trace
+	return corpse, trace, passenger
 end
 
 function MODE.GetRevenantImplantProgress(ply)

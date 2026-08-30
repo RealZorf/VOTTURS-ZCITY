@@ -465,7 +465,53 @@ hook.Add("hg_AdjustMouseSensitivity", "HMCD_SubRole_Abilities", function(sensiti
 	end
 end)
 
+hook.Add("PlayerBindPress", "HMCD_RevenantPassengerCommunication", function(ply, bind)
+	if ply ~= LocalPlayer() or not ply:GetNWBool("HMCD_RevenantPassenger", false) then return end
+	bind = string.lower(bind or "")
+	if string.find(bind, "messagemode", 1, true) or string.find(bind, "+voicerecord", 1, true) then return true end
+end)
+
+hook.Add("PostPostHGCalcView", "HMCD_RevenantPassengerView", function(ply, view)
+	local passenger = LocalPlayer()
+	if ply ~= passenger or not passenger:GetNWBool("HMCD_RevenantPassenger", false) then return end
+
+	local controller = passenger:GetNWEntity("HMCD_RevenantPassengerController", NULL)
+	local body = passenger:GetNWEntity("HMCD_RevenantPassengerBody", NULL)
+	if not IsValid(body) and IsValid(controller) then body = controller:GetNWEntity("FakeRagdoll", NULL) end
+	if not IsValid(body) then return end
+
+	body:SetupBones()
+	local target
+	local eyes = body:LookupAttachment("eyes")
+	local attachment = eyes and eyes > 0 and body:GetAttachment(eyes) or nil
+	if attachment then target = attachment.Pos end
+	if not target then
+		local head = body:LookupBone("ValveBiped.Bip01_Head1")
+		local matrix = head and body:GetBoneMatrix(head) or nil
+		target = matrix and matrix:GetTranslation() or body:WorldSpaceCenter()
+	end
+
+	local angles = IsValid(controller) and controller:EyeAngles() or view.angles
+	local desired = target - angles:Forward() * 95 + Vector(0, 0, 14)
+	local trace = util.TraceHull({
+		start = target,
+		endpos = desired,
+		mins = Vector(-4, -4, -4),
+		maxs = Vector(4, 4, 4),
+		filter = {passenger, controller, body},
+		mask = MASK_SOLID
+	})
+
+	view.origin = trace.StartSolid and target or trace.HitPos
+	view.angles = angles
+	view.drawviewer = true
+	view.znear = 2
+	return view
+end, -1)
+
 hook.Add("PrePlayerDraw", "HMCD_SubRoles_Abilities", function(ply, flags)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return true end
+
 	-- if(ply.Ability_NeckBreak)then
 		-- local ability = ply.Ability_NeckBreak
 		-- local victim = ability.Victim

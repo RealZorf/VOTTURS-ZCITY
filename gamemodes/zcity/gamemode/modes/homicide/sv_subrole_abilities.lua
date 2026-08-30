@@ -325,6 +325,15 @@ end
 local function prepareRevenantReturnRagdoll(ply, rag)
 	if not IsValid(rag) then return end
 
+	if IsValid(rag.ConsLH) then rag.ConsLH:Remove() end
+	if IsValid(rag.ConsRH) then rag.ConsRH:Remove() end
+	rag.ConsLH = nil
+	rag.ConsRH = nil
+	rag.cooldownLH = 0
+	rag.cooldownRH = 0
+	rag.lastCallTime = SysTime()
+	if IsValid(rag.bull) then rag.bull.ply = ply end
+
 	if hg.ApplySetCollisionGroupNow then
 		hg.ApplySetCollisionGroupNow(rag, COLLISION_GROUP_WEAPON)
 	else
@@ -349,6 +358,132 @@ local function prepareRevenantReturnRagdoll(ply, rag)
 	end
 end
 
+local function getRevenantRagdollPhysicsPos(rag)
+	if not IsValid(rag) then return nil end
+
+	local phys = rag:GetPhysicsObject()
+	if IsValid(phys) then return phys:GetPos() end
+
+	return rag:WorldSpaceCenter()
+end
+
+local function captureRevenantRagdollPose(rag)
+	if not IsValid(rag) then return nil end
+
+	local pose = {}
+	for physID = 0, rag:GetPhysicsObjectCount() - 1 do
+		local phys = rag:GetPhysicsObjectNum(physID)
+		if IsValid(phys) then
+			pose[physID] = {
+				pos = phys:GetPos(),
+				ang = phys:GetAngles(),
+				velocity = phys:GetVelocity(),
+				angularVelocity = phys:GetAngleVelocity()
+			}
+		end
+	end
+
+	return pose
+end
+
+local function restoreRevenantRagdollPose(rag, pose)
+	if not IsValid(rag) or not istable(pose) then return end
+
+	for physID, data in pairs(pose) do
+		local phys = rag:GetPhysicsObjectNum(physID)
+		if IsValid(phys) then
+			phys:SetPos(data.pos)
+			phys:SetAngles(data.ang)
+			phys:SetVelocity(data.velocity)
+			phys:AddAngleVelocity(data.angularVelocity - phys:GetAngleVelocity())
+			phys:EnableMotion(true)
+			phys:EnableGravity(true)
+			phys:Wake()
+		end
+	end
+end
+
+local function isRevenantRagdollIrrecoverable(rag)
+	if not IsValid(rag) then return true end
+	if rag.noHead or rag.headexploded or rag.headamputated then return true end
+	if istable(rag.gibRemove) and next(rag.gibRemove) ~= nil then return true end
+
+	local organism = rag.organism
+	return istable(organism) and (organism.noHead or organism.headamputated) or false
+end
+
+local function replaceRevenantPassengerRagdoll(state, passenger, body)
+	local pose = IsValid(body) and captureRevenantRagdollPose(body) or nil
+	local bodyPos = IsValid(body) and (getRevenantRagdollPhysicsPos(body) or body:GetPos()) or state.ShellLastPos
+	local visuals = state.PassengerVisuals
+	local replacement = createRevenantRagdoll(passenger, visuals and visuals.appearance)
+	if not IsValid(replacement) then return nil end
+
+	if visuals then applyRevenantVisuals(replacement, visuals) end
+	if bodyPos then replacement:SetPos(bodyPos) end
+	if pose then restoreRevenantRagdollPose(replacement, pose) end
+
+	if IsValid(body) then
+		body:RemoveCallOnRemove("Fake")
+		body:RemoveCallOnRemove("HMCD_RevenantPassengerFallback")
+		if hg.organism and hg.organism.list then hg.organism.list[body] = nil end
+		body:Remove()
+	end
+
+	state.ShellRagdoll = replacement
+	state.ShellLastPos = bodyPos
+	return replacement
+end
+
+local function forceAttachRevenantPassenger(passenger, body)
+	if not IsValid(passenger) or not passenger:Alive() or not IsValid(body) then return false end
+
+	passenger.FakeRagdoll = body
+	passenger:SetNWEntity("FakeRagdoll", body)
+	body.ply = passenger
+	body:SetNWEntity("ply", passenger)
+	body:RemoveCallOnRemove("Fake")
+	body:CallOnRemove("HMCD_RevenantPassengerFallback", function(removed, owner)
+		if not IsValid(owner) or owner.FakeRagdoll ~= removed then return end
+		owner.FakeRagdoll = nil
+		owner:SetNWEntity("FakeRagdoll", NULL)
+		if hg.ragdollFake then hg.ragdollFake[owner] = nil end
+		if owner:Alive() then owner:Kill() end
+	end, passenger)
+
+	if hg.CacheFakeRagdollData then hg.CacheFakeRagdollData(body) end
+	if hg.ragdollFake then hg.ragdollFake[passenger] = body end
+	if IsValid(body.bull) then body.bull.ply = passenger end
+	passenger.fakecd = CurTime() + 1
+	passenger.FakeRagdollOld = nil
+	passenger.OldRagdoll = nil
+	passenger.ActiveWeapon = passenger:GetActiveWeapon()
+	hook.Run("Fake", passenger, body)
+
+	passenger:DrawWorldModel(false)
+	passenger:DrawShadow(false)
+	passenger:SetNoDraw(false)
+	passenger:SetRenderMode(RENDERMODE_NONE)
+	if hg.ApplySetCollisionGroupNow then
+		hg.ApplySetCollisionGroupNow(passenger, COLLISION_GROUP_IN_VEHICLE)
+	else
+		passenger:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
+	end
+	if hg.SetFreemove then
+		hg.SetFreemove(passenger, false)
+	else
+		passenger:SetMoveType(MOVETYPE_NOCLIP)
+	end
+	if passenger:FlashlightIsOn() then passenger:Flashlight(false) end
+	passenger:AllowFlashlight(false)
+
+	net.Start("Player Ragdoll")
+		net.WriteEntity(passenger)
+		net.WriteEntity(body)
+	net.Broadcast()
+	return true
+end
+
 local function clearRevenantNW(ply)
 	ply:SetNWBool("HMCD_RevenantPossessing", false)
 	ply:SetNWEntity("HMCD_RevenantImplantCorpse", NULL)
@@ -356,6 +491,300 @@ local function clearRevenantNW(ply)
 	ply:SetNWFloat("HMCD_RevenantImplantStart", 0)
 	ply:SetNWFloat("HMCD_RevenantImplantReadyAt", 0)
 	ply:SetNWFloat("HMCD_RevenantEndsAt", 0)
+end
+
+local function ensureRevenantShellControl(ply, state)
+	if not IsValid(ply) or not ply:Alive() or not state then return false end
+
+	if state.ShellStanding then
+		local attached = ply.FakeRagdoll
+		if IsValid(attached) then
+			state.ShellStanding = nil
+			state.ShellRagdoll = attached
+			state.ShellLastPos = getRevenantRagdollPhysicsPos(attached) or attached:GetPos()
+			attached:SetNWBool("HMCD_RevenantLiveEligible", false)
+			attached:SetNWBool("HMCD_RevenantUsed", true)
+			if IsValid(state.Passenger) then
+				state.Passenger:SetNWEntity("HMCD_RevenantPassengerBody", attached)
+			end
+			return true
+		end
+
+		state.ShellLastPos = ply:GetPos()
+		if IsValid(state.Passenger) then
+			state.Passenger:SetNWEntity("HMCD_RevenantPassengerBody", ply)
+		end
+		return true
+	end
+
+	local shell = state.ShellRagdoll
+	if not IsValid(shell) then return false end
+	if ply.FakeRagdoll == shell and ply:GetNWEntity("FakeRagdoll", NULL) == shell then return true end
+
+	timer.Remove("faking_up" .. ply:EntIndex())
+	local detached = ply.FakeRagdoll
+	if IsValid(detached) and detached ~= shell then
+		detached.override = true
+		detached:Remove()
+	end
+	ply.FakeRagdoll = nil
+	ply:SetNWEntity("FakeRagdoll", NULL)
+	ply.FakeRagdollOld = nil
+	ply.OldRagdoll = nil
+	ply:SetNWEntity("FakeRagdollOld", NULL)
+	if hg.ragdollFake then hg.ragdollFake[ply] = nil end
+
+	shell.override = nil
+	shell.ply = ply
+	shell:SetNWEntity("ply", ply)
+	if ply:GetMoveType() == MOVETYPE_NONE then ply:SetMoveType(MOVETYPE_WALK) end
+	hg.Fake(ply, shell, true, true)
+	return ply.FakeRagdoll == shell
+end
+
+local function clearRevenantPassengerLock(passenger)
+	if not IsValid(passenger) then return end
+	passenger.HMCD_RevenantPassengerController = nil
+	passenger.HMCD_RevenantPassengerSyncNext = nil
+	passenger:SetNWBool("HMCD_RevenantPassenger", false)
+	passenger:SetNWEntity("HMCD_RevenantPassengerController", NULL)
+	passenger:SetNWEntity("HMCD_RevenantPassengerBody", NULL)
+	passenger:UnSpectate()
+	passenger:SetObserverMode(OBS_MODE_NONE)
+	passenger:SetViewEntity(passenger)
+end
+
+local function lockRevenantPassenger(state, controller, body)
+	local passenger = state.Passenger
+	if not IsValid(passenger) or not passenger:Alive() or not IsValid(body) then return false end
+	timer.Remove("faking_up" .. passenger:EntIndex())
+
+	passenger.HMCD_RevenantPassengerController = controller
+	passenger.HMCD_RevenantBodyUsed = true
+	passenger:SetNWBool("HMCD_RevenantPassenger", true)
+	passenger:SetNWEntity("HMCD_RevenantPassengerController", controller)
+	passenger:SetNWEntity("HMCD_RevenantPassengerBody", body)
+	passenger:SetHealth(math.max(1, math.min(state.PassengerHealth or passenger:Health(), passenger:GetMaxHealth())))
+	body:SetNWBool("HMCD_RevenantLiveEligible", false)
+	body:SetNWBool("HMCD_RevenantUsed", true)
+
+	if hg.organism and hg.organism.list then hg.organism.list[passenger] = nil end
+	if body.ply == passenger or body:GetNWEntity("ply", NULL) == passenger then body:RemoveCallOnRemove("Fake") end
+	passenger.FakeRagdoll = nil
+	passenger:SetNWEntity("FakeRagdoll", NULL)
+	passenger.FakeRagdollOld = nil
+	passenger.OldRagdoll = nil
+	passenger:SetNWEntity("FakeRagdollOld", NULL)
+	if hg.ragdollFake then hg.ragdollFake[passenger] = nil end
+
+	local viewOrganism = table.Copy(state.PassengerOrganism or {})
+	viewOrganism.owner = passenger
+	viewOrganism.alive = true
+	viewOrganism.otrub = false
+	viewOrganism.needotrub = false
+	viewOrganism.needfake = false
+	viewOrganism.fake = false
+	viewOrganism.consciousness = 1
+	passenger.organism = viewOrganism
+	if hg.send_organism then hg.send_organism(viewOrganism, passenger) end
+
+	passenger:UnSpectate()
+	passenger:SetObserverMode(OBS_MODE_NONE)
+	passenger:SetViewEntity(passenger)
+	passenger:SetMoveType(MOVETYPE_NONE)
+	passenger:SetNotSolid(true)
+	passenger:SetNoTarget(true)
+	if hg.ApplySetCollisionGroupNow then
+		hg.ApplySetCollisionGroupNow(passenger, COLLISION_GROUP_IN_VEHICLE)
+	else
+		passenger:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
+	end
+	passenger:SetPos((getRevenantRagdollPhysicsPos(body) or body:GetPos()) + Vector(0, 0, 8))
+	passenger:SetNoDraw(true)
+	passenger:DrawWorldModel(false)
+	passenger:DrawShadow(false)
+	passenger:SetRenderMode(RENDERMODE_NONE)
+	return true
+end
+
+local function recoverRevenantPassenger(state, controller, passenger)
+	if state.PassengerRecovering then return end
+	state.PassengerRecovering = true
+
+	timer.Simple(0, function()
+		if not IsValid(controller) or not IsValid(passenger) or getRevenantState(controller) ~= state or state.Ending or state.Passenger ~= passenger then
+			state.PassengerRecovering = nil
+			return
+		end
+
+		local function removeProxyRagdoll()
+			local rag = passenger:GetNWEntity("RagdollDeath", NULL)
+			if not IsValid(rag) then rag = passenger.RagdollDeath end
+			if IsValid(rag) and rag ~= state.ShellRagdoll then rag:Remove() end
+			passenger.RagdollDeath = nil
+			passenger:SetNWEntity("RagdollDeath", NULL)
+			if IsValid(passenger.FakeRagdoll) and passenger.FakeRagdoll ~= state.ShellRagdoll then passenger.FakeRagdoll:Remove() end
+			passenger.FakeRagdoll = nil
+			passenger:SetNWEntity("FakeRagdoll", NULL)
+			if hg.ragdollFake then hg.ragdollFake[passenger] = nil end
+		end
+
+		removeProxyRagdoll()
+		if not passenger:Alive() then
+			local previousOverride = OverrideSpawn
+			OverrideSpawn = true
+			passenger:Spawn()
+			OverrideSpawn = previousOverride
+		end
+
+		timer.Simple(0, function()
+			if not IsValid(controller) or not IsValid(passenger) or getRevenantState(controller) ~= state or state.Ending or state.Passenger ~= passenger then
+				state.PassengerRecovering = nil
+				return
+			end
+
+			removeProxyRagdoll()
+			if not passenger:Alive() or not IsValid(state.ShellRagdoll) then
+				state.PassengerRecovering = nil
+				MODE.EndRevenantPossession(controller, "passenger_link_lost")
+				return
+			end
+
+			lockRevenantPassenger(state, controller, state.ShellRagdoll)
+			applyLoadout(passenger, {weapons = {}, ammo = {}, inventory = {}})
+			state.PassengerRecovering = nil
+		end)
+	end)
+end
+
+local function restoreRevenantPassenger(state, body, loadout, markUsed, silent)
+	local passenger = state and state.Passenger
+	if not IsValid(passenger) or not passenger:Alive() then return false end
+	local used = markUsed ~= false
+
+	if not IsValid(body) or isRevenantRagdollIrrecoverable(body) then
+		body = replaceRevenantPassengerRagdoll(state, passenger, body)
+	end
+	if not IsValid(body) then return false end
+
+	local pose = captureRevenantRagdollPose(body)
+	local bodyPos = getRevenantRagdollPhysicsPos(body) or body:GetPos()
+	clearRevenantPassengerLock(passenger)
+	passenger:SetMoveType(MOVETYPE_WALK)
+	passenger:SetNotSolid(false)
+	passenger:SetNoTarget(state.PassengerNoTarget == true)
+	passenger:SetPos(bodyPos + Vector(0, 0, 8))
+	if state.PassengerEyeAngles then passenger:SetEyeAngles(state.PassengerEyeAngles) end
+	applyRevenantVisuals(passenger, state.PassengerVisuals)
+	passenger:SetMaxHealth(state.PassengerMaxHealth or passenger:GetMaxHealth())
+	passenger:SetHealth(math.Clamp(state.PassengerHealth or passenger:Health(), 1, passenger:GetMaxHealth()))
+
+	local organism = table.Copy(state.PassengerOrganism or {})
+	organism.owner = passenger
+	organism.alive = true
+	passenger.organism = organism
+	if hg.organism and hg.organism.list then
+		hg.organism.list[body] = nil
+		hg.organism.list[passenger] = organism
+	end
+
+	passenger.FakeRagdoll = nil
+	if hg.ragdollFake then hg.ragdollFake[passenger] = nil end
+	body.ply = passenger
+	body:SetNWEntity("ply", passenger)
+	body:SetNWBool("HMCD_RevenantLiveEligible", false)
+	body:SetNWBool("HMCD_RevenantUsed", used)
+	if not used then passenger.HMCD_RevenantBodyUsed = nil end
+
+	prepareRevenantReturnRagdoll(passenger, body)
+	if hg.Fake then hg.Fake(passenger, body, true, true) end
+	if passenger.FakeRagdoll ~= body then forceAttachRevenantPassenger(passenger, body) end
+	if state.PassengerFlashlightAllowed ~= nil then passenger.oldCanUseFlashlight = state.PassengerFlashlightAllowed end
+	if passenger.FakeRagdoll ~= body then
+		clearRevenantPassengerLock(passenger)
+		passenger.FakeRagdoll = nil
+		passenger:SetNWEntity("FakeRagdoll", NULL)
+		passenger:SetNoDraw(false)
+		passenger:DrawWorldModel(true)
+		passenger:DrawShadow(true)
+		passenger:SetRenderMode(RENDERMODE_NORMAL)
+		if state.PassengerFlashlightAllowed ~= nil then passenger:AllowFlashlight(state.PassengerFlashlightAllowed) end
+		if hg.ApplySetCollisionGroupNow then
+			hg.ApplySetCollisionGroupNow(passenger, COLLISION_GROUP_PLAYER)
+		else
+			passenger:SetCollisionGroup(COLLISION_GROUP_PLAYER)
+		end
+		applyLoadout(passenger, loadout or state.PassengerLoadout)
+		passenger:SetNetVar("wounds", organism.wounds or {})
+		passenger:SetNetVar("arterialwounds", organism.arterialwounds or {})
+		passenger.fullsend = true
+		if hg.send_bareinfo then hg.send_bareinfo(organism) end
+		if hg.send_organism then hg.send_organism(organism, passenger) end
+		return false
+	end
+	restoreRevenantRagdollPose(body, pose)
+	prepareRevenantReturnRagdoll(passenger, body)
+
+	applyLoadout(passenger, loadout or state.PassengerLoadout)
+	passenger:SetNetVar("wounds", organism.wounds or {})
+	passenger:SetNetVar("arterialwounds", organism.arterialwounds or {})
+	passenger.fullsend = true
+	if hg.send_bareinfo then hg.send_bareinfo(organism) end
+	if hg.send_organism then hg.send_organism(organism, passenger) end
+	if not silent then passenger:Notify("The neural link released your body.", 0, "revenant_passenger_released", 3, nil, Color(90, 210, 235)) end
+	timer.Simple(0, function()
+		if not IsValid(passenger) or not IsValid(body) or passenger.FakeRagdoll ~= body then return end
+		passenger:SetPos((getRevenantRagdollPhysicsPos(body) or body:GetPos()) + Vector(0, 0, 8))
+		prepareRevenantReturnRagdoll(passenger, body)
+	end)
+	return true
+end
+
+local function killRevenantPassengerInShell(state, body, loadout)
+	local passenger = state and state.Passenger
+	if not IsValid(passenger) or not passenger:Alive() then return false end
+	if not IsValid(body) then
+		body = createRevenantRagdoll(passenger, state.PassengerVisuals and state.PassengerVisuals.appearance)
+		if IsValid(body) and state.ShellLastPos then body:SetPos(state.ShellLastPos) end
+	end
+	if not IsValid(body) then return false end
+
+	clearRevenantPassengerLock(passenger)
+	passenger:SetMoveType(MOVETYPE_WALK)
+	passenger:SetNotSolid(false)
+	passenger:SetNoTarget(state.PassengerNoTarget == true)
+	passenger:SetNoDraw(false)
+	passenger:DrawWorldModel(true)
+	passenger:DrawShadow(true)
+	passenger:SetRenderMode(RENDERMODE_NORMAL)
+	passenger:SetPos((getRevenantRagdollPhysicsPos(body) or body:GetPos()) + Vector(0, 0, 8))
+	applyRevenantVisuals(passenger, state.PassengerVisuals)
+	passenger:SetMaxHealth(state.PassengerMaxHealth or passenger:GetMaxHealth())
+	passenger:SetHealth(1)
+
+	local organism = table.Copy(body.organism or state.PassengerOrganism or {})
+	organism.owner = passenger
+	organism.alive = true
+	passenger.organism = organism
+	if hg.organism and hg.organism.list then
+		hg.organism.list[body] = nil
+		hg.organism.list[passenger] = organism
+	end
+
+	body:SetNWBool("HMCD_RevenantLiveEligible", false)
+	body:SetNWBool("HMCD_RevenantUsed", true)
+	body.ply = passenger
+	body:SetNWEntity("ply", passenger)
+	body.override = nil
+	prepareRevenantReturnRagdoll(passenger, body)
+	forceAttachRevenantPassenger(passenger, body)
+	applyLoadout(passenger, loadout or state.PassengerLoadout)
+	passenger:SetNetVar("wounds", organism.wounds or {})
+	passenger:SetNetVar("arterialwounds", organism.arterialwounds or {})
+	passenger:SetNWEntity("RagdollDeath", body)
+	passenger.RagdollDeath = body
+	passenger:Kill()
+	return true
 end
 
 local function playCannibalStackedSound(cannibal)
@@ -1494,19 +1923,123 @@ function MODE.StopRevenantImplant(ply)
 	ply:SetNWFloat("HMCD_RevenantImplantReadyAt", 0)
 end
 
+local function isRevenantPassengerIncapacitated(org)
+	if not istable(org) then return false end
+	if org.otrub == true or org.needotrub == true then return true end
+
+	local forcedDown = (org.tranquilizer or 0) > 0 or (org.neckBrainOxygenPenalty or 0) > 0
+	return forcedDown and (org.needfake == true or (org.consciousness or 1) <= 0.4)
+end
+
+local function stabilizeInheritedRevenantIncapacitation(org)
+	if not istable(org) then return end
+
+	org.tranquilizer = 0
+	org.needotrub = false
+	org.otrub = false
+	org.consciousness = math.max(org.consciousness or 0, 0.95)
+	org.uncon_timer = 0
+	org.choking = false
+	org.neckBrainOxygenPenalty = 0
+	org.stun = math.min(org.stun or 0, CurTime() - 1)
+	org.lightstun = math.min(org.lightstun or 0, CurTime() - 1)
+	org.canmove = (org.spine2 or 0) < hg.organism.fake_spine2 and (org.spine3 or 0) < hg.organism.fake_spine3
+	org.canmovehead = (org.spine3 or 0) < hg.organism.fake_spine3
+end
+
+local function markRevenantShellDamage(ply, damagedEntity, damage)
+	local state = IsValid(ply) and getRevenantState(ply) or nil
+	if not state or state.Ending or (tonumber(damage) or 0) <= 0 then return state end
+	if IsValid(damagedEntity) and damagedEntity ~= ply and damagedEntity ~= state.ShellRagdoll then return state end
+	if CurTime() < (state.ShellDamageArmedAt or 0) then return state end
+
+	state.ShellDamageUntil = math.max(state.ShellDamageUntil or 0, CurTime() + 6)
+	return state
+end
+
+local function releaseRevenantFiberwire(body)
+	if not IsValid(body) then return end
+
+	local strangler = body.Strangler
+	if IsValid(strangler) and strangler:IsPlayer() then
+		for _, wep in ipairs(strangler:GetWeapons()) do
+			if IsValid(wep) and wep:GetClass() == "weapon_hg_fiberwire" and wep.StrangleRag == body and wep.StopStrangling then
+				wep:StopStrangling()
+				return
+			end
+		end
+	end
+
+	body.Strangler = nil
+	body.StrangleLocked = nil
+	if body._oldCollisionGroup then
+		body:SetCollisionGroup(body._oldCollisionGroup)
+		body._oldCollisionGroup = nil
+	end
+end
+
+function MODE.UpdateRevenantLiveBodyEligibility(ply)
+	if not IsValid(ply) or not ply:IsPlayer() then return end
+	if (ply.HMCD_RevenantLiveEligibilityNext or 0) > CurTime() then return end
+	ply.HMCD_RevenantLiveEligibilityNext = CurTime() + 0.1
+
+	local body = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply:GetNWEntity("FakeRagdoll", NULL)
+	local previous = ply.HMCD_RevenantLiveBody
+	if IsValid(previous) and previous ~= body then previous:SetNWBool("HMCD_RevenantLiveEligible", false) end
+	ply.HMCD_RevenantLiveBody = IsValid(body) and body or nil
+	if not IsValid(body) then return end
+
+	local org = ply.organism or {}
+	local validBrain = not org.headamputated and not org.noHead and not body.headamputated and not body.noHead and not body.headexploded
+	local eligible = ply:Alive()
+		and isRevenantPassengerIncapacitated(org)
+		and not ply.isTraitor
+		and not ply.HMCD_RevenantBodyUsed
+		and not ply:GetNWBool("HMCD_RevenantPassenger", false)
+		and not body:GetNWBool("HMCD_RevenantUsed", false)
+		and validBrain
+
+	local wasEligible = body:GetNWBool("HMCD_RevenantLiveEligible", false)
+	if wasEligible ~= eligible then
+		body:SetNWBool("HMCD_RevenantLiveEligible", eligible)
+	end
+	if eligible and (not wasEligible or not body.HMCD_RevenantVisuals) then
+		body.HMCD_RevenantVisuals = captureRevenantVisuals(body, ply.CurAppearance or body.CurAppearance)
+	end
+end
+
 function MODE.EndRevenantPossession(ply, reason, originalDead, skipShell)
 	local state = getRevenantState(ply)
 	if not state or state.Ending then return end
 	state.Ending = true
+	local passengerShellKilled = IsValid(state.Passenger) and reason == "shell_killed"
 	local originalVisuals = state.OriginalVisuals
 	local anchor = state.OriginalBody
 	local returnPos = IsValid(anchor) and anchor:GetPos() + Vector(0, 0, 8) or state.OriginalReturnPos or state.OriginalPos
 	local remainingHealth = IsValid(anchor) and anchor:Health() or state.Health
 	local originalBodyMaxHealth = state.OriginalBodyMaxHealth or MODE.RevenantOriginalBodyHealth or 180
 	local returnHealth = math.max(1, math.floor((state.Health or 100) * math.Clamp(remainingHealth / originalBodyMaxHealth, 0, 1)))
+	local passengerLoadout
+	if IsValid(state.Passenger) then
+		if skipShell and IsValid(state.ShellRagdoll) then
+			passengerLoadout = captureCorpseLoadout(state.ShellRagdoll)
+		else
+			passengerLoadout = capturePlayerLoadout(ply)
+		end
+	end
+	if IsValid(state.Passenger) and state.ShellStanding and not skipShell and ply:Alive() then
+		local standingShell = createRevenantRagdoll(ply, ply.CurAppearance)
+		if IsValid(standingShell) then
+			standingShell:SetNWBool("HMCD_RevenantLiveEligible", false)
+			standingShell:SetNWBool("HMCD_RevenantUsed", true)
+			state.ShellRagdoll = standingShell
+			state.ShellLastPos = getRevenantRagdollPhysicsPos(standingShell) or standingShell:GetPos()
+			state.ShellStanding = nil
+		end
+	end
 
 	local shellRag
-	if not skipShell and ply:Alive() then
+	if not IsValid(state.Passenger) and not skipShell and ply:Alive() then
 		shellRag = state.ShellRagdoll
 		if not IsValid(shellRag) then
 			shellRag = createRevenantRagdoll(ply, ply.CurAppearance)
@@ -1578,7 +2111,7 @@ function MODE.EndRevenantPossession(ply, reason, originalDead, skipShell)
 		if IsValid(anchor) then anchor:Remove() end
 		timer.Simple(0, function() if IsValid(ply) and ply:Alive() then ply:Kill() end end)
 	elseif IsValid(anchor) and hg.Fake then
-	prepareRevenantReturnRagdoll(ply, anchor)
+		prepareRevenantReturnRagdoll(ply, anchor)
 		hg.Fake(ply, anchor, true, true)
 		timer.Simple(0, function()
 			if IsValid(ply) and ply.FakeRagdoll == anchor then
@@ -1586,12 +2119,27 @@ function MODE.EndRevenantPossession(ply, reason, originalDead, skipShell)
 			end
 		end)
 	end
+
+	if IsValid(state.Passenger) then
+		if ply.FakeRagdoll == state.ShellRagdoll then
+			ply.FakeRagdoll = nil
+			ply:SetNWEntity("FakeRagdoll", NULL)
+			if hg.ragdollFake then hg.ragdollFake[ply] = nil end
+		end
+		if passengerShellKilled then
+			killRevenantPassengerInShell(state, state.ShellRagdoll, passengerLoadout or state.PassengerLoadout)
+		else
+			restoreRevenantPassenger(state, state.ShellRagdoll, passengerLoadout or state.PassengerLoadout)
+		end
+	end
 end
 
 function MODE.BeginRevenantPossession(ply, corpse)
 	if not IsValid(ply) or not IsValid(corpse) or not ply:Alive() then return false end
 	if not MODE.IsRevenantRole(ply.SubRole) or getRevenantState(ply) then return false end
-	if corpse:GetNWBool("HMCD_RevenantUsed", false) or not corpse:GetNWBool("HMCD_RevenantEligible", false) then return false end
+	local passenger = MODE.GetRevenantPassengerOwner and MODE.GetRevenantPassengerOwner(corpse) or nil
+	if corpse:GetNWBool("HMCD_RevenantUsed", false) or (not IsValid(passenger) and not corpse:GetNWBool("HMCD_RevenantEligible", false)) then return false end
+	if IsValid(passenger) and (passenger == ply or passenger.isTraitor or not isRevenantPassengerIncapacitated(passenger.organism)) then return false end
 	if (ply.Ability_RevenantCharges or 0) <= 0 or (ply.Ability_RevenantCooldownUntil or 0) > CurTime() then return false end
 
 	local appearance = table.Copy(ply.CurAppearance or {})
@@ -1624,6 +2172,21 @@ function MODE.BeginRevenantPossession(ply, corpse)
 		OriginalReturnPos = originalBody:GetPos() + Vector(0, 0, 8),
 		EndsAt = CurTime() + (MODE.RevenantPossessionTime or 32)
 	}
+	if IsValid(passenger) then
+		local flashlightAllowed = passenger.oldCanUseFlashlight
+		if flashlightAllowed == nil then flashlightAllowed = passenger:CanUseFlashlight() end
+		state.Passenger = passenger
+		state.PassengerOrganism = table.Copy(passenger.organism or {})
+		state.PassengerLoadout = capturePlayerLoadout(passenger)
+		state.PassengerHealth = passenger:Health()
+		state.PassengerMaxHealth = passenger:GetMaxHealth()
+		state.PassengerVisuals = captureRevenantVisuals(passenger, passenger.CurAppearance)
+		state.PassengerEyeAngles = passenger:EyeAngles()
+		state.PassengerFlashlightAllowed = flashlightAllowed
+		state.PassengerNoTarget = passenger:IsFlagSet(FL_NOTARGET)
+		state.SuppressInheritedIncapacitation = true
+		state.ShellDamageArmedAt = CurTime() + 4
+	end
 
 	if hg.organism and hg.organism.Add and state.OriginalOrganism then
 		local originalBodyOrganism = hg.organism.Add(originalBody)
@@ -1637,6 +2200,11 @@ function MODE.BeginRevenantPossession(ply, corpse)
 
 	local function rollback()
 		if hg.organism and hg.organism.list then hg.organism.list[ply] = nil end
+		if ply.FakeRagdoll == corpse then
+			ply.FakeRagdoll = nil
+			ply:SetNWEntity("FakeRagdoll", NULL)
+			if hg.ragdollFake then hg.ragdollFake[ply] = nil end
+		end
 		ply.organism = state.OriginalBodyOrganism or state.OriginalOrganism
 		if ply.organism then
 			ply.organism.owner = ply
@@ -1646,12 +2214,19 @@ function MODE.BeginRevenantPossession(ply, corpse)
 			if hg.organism and hg.organism.list then hg.organism.list[ply] = ply.organism end
 		end
 		ply:SetPos(state.OriginalPos)
-		corpse.ply = IsValid(state.ShellOriginalPly) and state.ShellOriginalPly or nil
-		corpse:SetNWEntity("ply", IsValid(state.ShellOriginalOwner) and state.ShellOriginalOwner or NULL)
+		if IsValid(state.Passenger) then
+			restoreRevenantPassenger(state, corpse, state.PassengerLoadout, false, true)
+		else
+			corpse.ply = IsValid(state.ShellOriginalPly) and state.ShellOriginalPly or nil
+			corpse:SetNWEntity("ply", IsValid(state.ShellOriginalOwner) and state.ShellOriginalOwner or NULL)
+		end
 		originalBody:Remove()
 	end
 
-	local shellOrg = table.Copy(corpse.organism or {})
+	if IsValid(passenger) then releaseRevenantFiberwire(corpse) end
+
+	local shellSourceOrg = IsValid(passenger) and passenger.organism or corpse.organism
+	local shellOrg = table.Copy(shellSourceOrg or {})
 	shellOrg.owner = ply
 	shellOrg.alive = true
 	shellOrg.otrub = false
@@ -1675,7 +2250,7 @@ function MODE.BeginRevenantPossession(ply, corpse)
 	shellOrg.avgpain = math.min(shellOrg.avgpain or 0, 30)
 	shellOrg.pain = math.min(shellOrg.pain or 0, 30)
 	shellOrg.painadd = math.min(shellOrg.painadd or 0, 10)
-	shellOrg.tranquilizer = 0
+	stabilizeInheritedRevenantIncapacitation(shellOrg)
 	shellOrg.holdingbreath = false
 	shellOrg.choking = false
 	shellOrg.CO = 0
@@ -1699,7 +2274,13 @@ function MODE.BeginRevenantPossession(ply, corpse)
 		rollback()
 		return false
 	end
+	if IsValid(passenger) and not lockRevenantPassenger(state, ply, corpse) then
+		rollback()
+		return false
+	end
 
+	corpse.override = nil
+	timer.Remove("faking_up" .. ply:EntIndex())
 	corpse.ply = ply
 	hg.Fake(ply, corpse, true, true)
 	if ply.FakeRagdoll ~= corpse then
@@ -1707,11 +2288,15 @@ function MODE.BeginRevenantPossession(ply, corpse)
 		return false
 	end
 
-	local corpseLoadout = captureCorpseLoadout(corpse)
+	local corpseLoadout = IsValid(passenger) and state.PassengerLoadout or captureCorpseLoadout(corpse)
 	corpse:SetNWBool("HMCD_RevenantUsed", true)
 	setRevenantState(ply, state)
 	ply.Ability_RevenantCharges = ply.Ability_RevenantCharges - 1
 	ply:SetNWInt("HMCD_RevenantCharges", ply.Ability_RevenantCharges)
+	if IsValid(passenger) then
+		applyLoadout(passenger, {weapons = {}, ammo = {}, inventory = {}})
+		passenger:Notify("A neural signal has seized your body. You are only a passenger.", 0, "revenant_passenger_seized", 4, nil, Color(90, 210, 235))
+	end
 	applyRevenantVisuals(ply, shellVisuals)
 	applyLoadout(ply, corpseLoadout)
 	ply:SetHealth(math.min(ply:GetMaxHealth(), math.max(25, math.floor((shellOrg.blood or 2500) / 65))))
@@ -2147,8 +2732,48 @@ end
 
 hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 	if(MODE.RoleChooseRoundTypes[MODE.Type])then
+		if ply:GetNWBool("HMCD_RevenantPassenger", false) and (ply.HMCD_RevenantPassengerSyncNext or 0) <= CurTime() then
+			ply.HMCD_RevenantPassengerSyncNext = CurTime() + 0.1
+			local controller = ply.HMCD_RevenantPassengerController
+			local state = IsValid(controller) and getRevenantState(controller) or nil
+			local body = ply:GetNWEntity("HMCD_RevenantPassengerBody", NULL)
+			if state and state.Passenger == ply and not state.Ending and IsValid(body) then
+				local bodyPos = getRevenantRagdollPhysicsPos(body) or body:GetPos()
+				if ply:GetPos():DistToSqr(bodyPos) > 64 then ply:SetPos(bodyPos + Vector(0, 0, 8)) end
+			elseif state and not state.Ending then
+				MODE.EndRevenantPossession(controller, "passenger_link_lost")
+			elseif not IsValid(controller) or not state then
+				clearRevenantPassengerLock(ply)
+				ply.FakeRagdoll = nil
+				ply:SetNWEntity("FakeRagdoll", NULL)
+				if hg.ragdollFake then hg.ragdollFake[ply] = nil end
+				ply:SetMoveType(MOVETYPE_WALK)
+				ply:SetNotSolid(false)
+				ply:SetNoTarget(false)
+				ply:SetNoDraw(false)
+				ply:DrawWorldModel(true)
+				ply:DrawShadow(true)
+				ply:SetRenderMode(RENDERMODE_NORMAL)
+				if hg.ApplySetCollisionGroupNow then
+					hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_PLAYER)
+				else
+					ply:SetCollisionGroup(COLLISION_GROUP_PLAYER)
+				end
+			end
+		end
+
+		MODE.UpdateRevenantLiveBodyEligibility(ply)
 		local revenantState = getRevenantState(ply)
 		if revenantState and ply:Alive() then
+			if not revenantState.ReturningFromDeath and not ensureRevenantShellControl(ply, revenantState) then
+				MODE.EndRevenantPossession(ply, "shell_link_lost")
+				return
+			end
+			if IsValid(revenantState.ShellRagdoll) then revenantState.ShellLastPos = getRevenantRagdollPhysicsPos(revenantState.ShellRagdoll) or revenantState.ShellRagdoll:GetPos() end
+			local shellDamageActive = (revenantState.ShellDamageUntil or 0) > CurTime()
+			if revenantState.SuppressInheritedIncapacitation and not shellDamageActive then
+				stabilizeInheritedRevenantIncapacitation(ply.organism)
+			end
 			local anchor = revenantState.OriginalBody
 			local anchorOrg = IsValid(anchor) and anchor.organism or nil
 			local anchorDestroyed = not IsValid(anchor)
@@ -2159,7 +2784,7 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 
 			if anchorDestroyed then
 				MODE.EndRevenantPossession(ply, "original_killed", true)
-			elseif CurTime() >= revenantState.EndsAt or not ply.organism or ply.organism.otrub or (ply.organism.consciousness or 1) < 0.2 then
+			elseif CurTime() >= revenantState.EndsAt or not ply.organism or ((ply.organism.otrub or (ply.organism.consciousness or 1) < 0.2) and (not revenantState.SuppressInheritedIncapacitation or shellDamageActive)) then
 				MODE.EndRevenantPossession(ply, "shell_ended")
 			end
 		end
@@ -2456,6 +3081,8 @@ end)
 hook.Add("HomigradDamage", "HMCD_SubRoles_ManiacFuryTrigger", function(victim, dmgInfo, hitgroup, ent, harm)
 	local ply = IsValid(victim) and victim or ent
 	ply = hg.RagdollOwner and (hg.RagdollOwner(ply) or ply) or ply
+	local rawDamage = dmgInfo and dmgInfo.GetDamage and dmgInfo:GetDamage() or 0
+	markRevenantShellDamage(ply, IsValid(ent) and ent or victim, math.max(tonumber(harm) or 0, rawDamage))
 
 	MODE.TryTriggerManiacFury(ply, dmgInfo, harm)
 	MODE.ApplyManiacPainConversion(ply, harm)
@@ -2552,6 +3179,75 @@ hook.Add("HG_PlayerFootstep", "HMCD_SubRoles_StalkerSilentPursuit", function(ply
 	return true
 end)
 
+hook.Add("StartCommand", "HMCD_RevenantPassengerInput", function(ply, cmd)
+	if not ply:GetNWBool("HMCD_RevenantPassenger", false) then return end
+	cmd:ClearButtons()
+	cmd:ClearMovement()
+end)
+
+hook.Add("SetupPlayerVisibility", "HMCD_RevenantPassengerVisibility", function(ply)
+	if not ply:GetNWBool("HMCD_RevenantPassenger", false) then return end
+	local body = ply:GetNWEntity("HMCD_RevenantPassengerBody", NULL)
+	if IsValid(body) then AddOriginToPVS(body:GetPos()) end
+end)
+
+hook.Add("Should Fake Up", "HMCD_RevenantPassengerFakeUp", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return false end
+	if getRevenantState(ply) and not ply.HG_FakeUpRequestedByPlayer then return false end
+end, -1)
+
+hook.Add("Fake Up", "HMCD_RevenantShellFakeUp", function(ply, rag)
+	local state = getRevenantState(ply)
+	if not state or not ply.HG_FakeUpRequestedByPlayer or rag ~= state.ShellRagdoll then return end
+
+	state.ShellLastPos = getRevenantRagdollPhysicsPos(rag) or rag:GetPos()
+	state.ShellStanding = true
+	state.ShellRagdoll = nil
+	if IsValid(state.Passenger) then
+		state.Passenger:SetNWEntity("HMCD_RevenantPassengerBody", ply)
+	end
+end, -1)
+
+hook.Add("PlayerSwitchWeapon", "HMCD_RevenantPassengerWeapon", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return true end
+end, -1)
+
+hook.Add("PlayerUse", "HMCD_RevenantPassengerUse", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return false end
+end, -1)
+
+hook.Add("PlayerCanPickupWeapon", "HMCD_RevenantPassengerWeaponPickup", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return false end
+end, -1)
+
+hook.Add("AllowPlayerPickup", "HMCD_RevenantPassengerPickup", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return false end
+end, -1)
+
+hook.Add("CanPlayerEnterVehicle", "HMCD_RevenantPassengerVehicle", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return false end
+end, -1)
+
+hook.Add("PlayerSay", "HMCD_RevenantPassengerPlayerSay", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return "" end
+end, -1)
+
+hook.Add("HG_PlayerSay", "HMCD_RevenantPassengerChat", function(ply, text)
+	if not ply:GetNWBool("HMCD_RevenantPassenger", false) or not istable(text) then return end
+	text[1] = ""
+	return true
+end, -1)
+
+hook.Add("HG_PlayerCanHearPlayersVoice", "HMCD_RevenantPassengerVoice", function(listener, speaker)
+	if IsValid(speaker) and speaker:GetNWBool("HMCD_RevenantPassenger", false) then return false, false end
+end, -1)
+
+hook.Add("EntityTakeDamage", "HMCD_RevenantPassengerDamage", function(victim, dmgInfo)
+	if IsValid(victim) and victim:IsPlayer() and victim:GetNWBool("HMCD_RevenantPassenger", false) then
+		dmgInfo:SetDamage(0)
+	end
+end, -2)
+
 hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(victim, dmgInfo)
 	if IsValid(victim) and IsValid(victim.HMCD_RevenantOriginalOwner) then
 		local owner = victim.HMCD_RevenantOriginalOwner
@@ -2564,7 +3260,9 @@ hook.Add("EntityTakeDamage", "HMCD_SubRoles_ManiacFuryFallTrigger", function(vic
 		return
 	end
 
-	if IsValid(victim) and victim:IsPlayer() and getRevenantState(victim) and dmgInfo:GetDamage() >= victim:Health() then
+	local revenantState = IsValid(victim) and victim:IsPlayer() and markRevenantShellDamage(victim, victim, dmgInfo:GetDamage()) or nil
+
+	if revenantState and dmgInfo:GetDamage() >= victim:Health() then
 		dmgInfo:SetDamage(0)
 		timer.Simple(0, function() if IsValid(victim) then MODE.EndRevenantPossession(victim, "shell_killed") end end)
 		return
@@ -2620,12 +3318,36 @@ hook.Add("PostEntityTakeDamage", "HMCD_RevenantOriginalBodyDamage", function(vic
 end)
 
 hook.Add("CanPlayerSuicide", "HMCD_RevenantShellSuicide", function(ply)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return false end
 	if not getRevenantState(ply) then return end
 	MODE.EndRevenantPossession(ply, "shell_killed")
 	return false
-end)
+end, -1)
 
 hook.Add("PlayerSpawn", "HMCD_SubRoles_ShadowCamouflage", function(ply)
+	local passengerController = ply.HMCD_RevenantPassengerController
+	local passengerState = IsValid(passengerController) and getRevenantState(passengerController) or nil
+	if passengerState and passengerState.Passenger == ply and not passengerState.Ending then
+		timer.Simple(0, function()
+			if not IsValid(passengerController) or getRevenantState(passengerController) ~= passengerState or passengerState.Ending then return end
+
+			local body = passengerState.ShellRagdoll
+			if IsValid(body) then
+				lockRevenantPassenger(passengerState, passengerController, body)
+				applyLoadout(ply, {weapons = {}, ammo = {}, inventory = {}})
+			else
+				MODE.EndRevenantPossession(passengerController, "passenger_link_lost")
+			end
+		end)
+		return
+	end
+
+	if not OverrideSpawn then
+		clearRevenantPassengerLock(ply)
+		ply.HMCD_RevenantBodyUsed = nil
+		if IsValid(ply.HMCD_RevenantLiveBody) then ply.HMCD_RevenantLiveBody:SetNWBool("HMCD_RevenantLiveEligible", false) end
+		ply.HMCD_RevenantLiveBody = nil
+	end
 	ply.HMCD_JuggernautBlackoutUntil = nil
 	MODE.ResetShadowCamouflage(ply)
 	if not OverrideSpawn then
@@ -2642,6 +3364,16 @@ hook.Add("PlayerSpawn", "HMCD_SubRoles_ShadowCamouflage", function(ply)
 end)
 
 hook.Add("PlayerDeath", "HMCD_SubRoles_ShadowCamouflage", function(ply)
+	local passengerController = ply.HMCD_RevenantPassengerController
+	if IsValid(passengerController) then
+		local controllerState = getRevenantState(passengerController)
+		if controllerState and controllerState.Passenger == ply and not controllerState.Ending then
+			recoverRevenantPassenger(controllerState, passengerController, ply)
+			return
+		end
+		clearRevenantPassengerLock(ply)
+	end
+
 	local revenantState = getRevenantState(ply)
 	if revenantState and not revenantState.Ending then
 		if revenantState.ReturningFromDeath then return end
@@ -2685,6 +3417,7 @@ end
 hook.Add("RagdollDeath", "HMCD_RevenantMarkCorpseEarly", function(ply, rag)
 	if not IsValid(ply) or not ply:IsPlayer() or getRevenantState(ply) then return end
 	markRevenantCorpse(rag, ply.isTraitor == true, captureRevenantVisuals(rag, ply.CurAppearance or rag.CurAppearance), true)
+	if ply.HMCD_RevenantBodyUsed and IsValid(rag) then rag:SetNWBool("HMCD_RevenantUsed", true) end
 end)
 
 hook.Add("PostPostPlayerDeath", "HMCD_RevenantMarkCorpse", function(ply, rag)
@@ -2692,17 +3425,25 @@ hook.Add("PostPostPlayerDeath", "HMCD_RevenantMarkCorpse", function(ply, rag)
 	local revenantState = getRevenantState(ply)
 	if revenantState and revenantState.PendingShellReturn and not revenantState.Ending then
 		revenantState.PendingShellReturn = nil
+		revenantState.ShellRagdoll = rag
+		revenantState.ShellLastPos = getRevenantRagdollPhysicsPos(rag) or rag:GetPos()
+		if IsValid(revenantState.Passenger) then
+			revenantState.Passenger:SetNWEntity("HMCD_RevenantPassengerBody", rag)
+		end
 		if istable(rag.organism) then restoreRevenantNeurology(rag.organism, revenantState.ShellNeurology) end
 		rag:SetNWBool("HMCD_RevenantUsed", true)
 		timer.Simple(0, function()
-			if IsValid(ply) and getRevenantState(ply) == revenantState then
-				MODE.EndRevenantPossession(ply, "shell_killed", false, true)
-			end
+			timer.Simple(0, function()
+				if IsValid(ply) and getRevenantState(ply) == revenantState then
+					MODE.EndRevenantPossession(ply, "shell_killed", false, true)
+				end
+			end)
 		end)
 		return
 	end
 
 	markRevenantCorpse(rag, ply.isTraitor == true, captureRevenantVisuals(rag, ply.CurAppearance or rag.CurAppearance), true)
+	if ply.HMCD_RevenantBodyUsed then rag:SetNWBool("HMCD_RevenantUsed", true) end
 end)
 
 hook.Add("PlayerDisconnected", "HMCD_RevenantDisconnectedCorpse", function(ply)
@@ -2713,32 +3454,64 @@ hook.Add("PlayerDisconnected", "HMCD_RevenantDisconnectedCorpse", function(ply)
 
 	local rag = ply:GetNWEntity("RagdollDeath", NULL)
 	if not IsValid(rag) then rag = ply.RagdollDeath end
+	if not IsValid(rag) then rag = ply.FakeRagdoll end
 	if not IsValid(rag) or rag:GetNWBool("HMCD_RevenantUsed", false) then return end
 
 	markRevenantCorpse(rag, wasTraitor, visuals, false)
-end)
+end, 1)
 
-hook.Add("ZB_CanLootInventory", "HMCD_RevenantFinalSecondsLootLock", function(ply)
+hook.Add("ZB_CanLootInventory", "HMCD_RevenantFinalSecondsLootLock", function(ply, ent)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return ply, ent, false end
 	local state = getRevenantState(ply)
-	if state and state.EndsAt - CurTime() <= (MODE.RevenantLootLockTime or 5) then return nil, nil, false end
-end)
+	if state and state.EndsAt - CurTime() <= (MODE.RevenantLootLockTime or 5) then return ply, ent, false end
+end, -1)
 
 hook.Add("PlayerDisconnected", "HMCD_RevenantCleanup", function(ply)
 	local state = getRevenantState(ply)
-	if state and IsValid(state.OriginalBody) then state.OriginalBody:Remove() end
+	if state then
+		if IsValid(state.Passenger) then
+			local loadout = ply:Alive() and capturePlayerLoadout(ply) or state.PassengerLoadout
+			ply.FakeRagdoll = nil
+			ply:SetNWEntity("FakeRagdoll", NULL)
+			if hg.ragdollFake then hg.ragdollFake[ply] = nil end
+			restoreRevenantPassenger(state, state.ShellRagdoll, loadout)
+		end
+		if IsValid(state.OriginalBody) then state.OriginalBody:Remove() end
+	end
 	setRevenantState(ply, nil)
+end)
+
+hook.Add("PlayerDisconnected", "HMCD_RevenantPassengerCleanup", function(ply)
+	local controller = ply.HMCD_RevenantPassengerController
+	if not IsValid(controller) then return end
+	local state = getRevenantState(controller)
+	clearRevenantPassengerLock(ply)
+	if state and state.Passenger == ply and not state.Ending then
+		state.Passenger = nil
+		MODE.EndRevenantPossession(controller, "passenger_disconnected")
+	end
 end)
 
 hook.Add("ZB_PreRoundStart", "HMCD_RevenantRoundCleanup", function()
 	for _, ply in player.Iterator() do
 		local state = getRevenantState(ply)
-		if state and IsValid(state.OriginalBody) then state.OriginalBody:Remove() end
+		if state then
+			if IsValid(state.Passenger) then
+				ply.FakeRagdoll = nil
+				ply:SetNWEntity("FakeRagdoll", NULL)
+				if hg.ragdollFake then hg.ragdollFake[ply] = nil end
+				restoreRevenantPassenger(state, state.ShellRagdoll, state.PassengerLoadout)
+			end
+			if IsValid(state.OriginalBody) then state.OriginalBody:Remove() end
+		end
 		setRevenantState(ply, nil)
 		ply.Ability_RevenantImplant = nil
 		ply.Ability_RevenantCooldownUntil = nil
 		ply.Ability_RevenantCharges = nil
+		ply.HMCD_RevenantBodyUsed = nil
 		ply:SetNWInt("HMCD_RevenantCharges", 0)
 		clearRevenantNW(ply)
+		clearRevenantPassengerLock(ply)
 	end
 	for _, rag in ipairs(ents.FindByClass("prop_ragdoll")) do
 		if rag:GetNWBool("HMCD_RevenantOriginalBody", false) then rag:Remove() end

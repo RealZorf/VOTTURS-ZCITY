@@ -383,6 +383,10 @@ local function StopStrangle(self)
     end
     self._fw_lock_until = nil
 end
+
+function SWEP:StopStrangling()
+    StopStrangle(self)
+end
 -- ========================================================================
 
 function SWEP:OnRemove()

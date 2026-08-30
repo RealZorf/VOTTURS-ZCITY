@@ -95,6 +95,13 @@ function SWEP:OnReloaded()
 	hook.Run("OnReloadedWep", self)
 end
 
+function SWEP:GetLMSFinalStandMultiplier()
+	local owner = self:GetOwner()
+	if self:GetClass() ~= "weapon_delisle" or not IsValid(owner) or not owner:GetNWBool("HMCD_LMSFinalStand", false) then return 1 end
+
+	return math.Clamp(owner:GetNWFloat("HMCD_LMSFinalStandMultiplier", 0.5), 0.1, 1)
+end
+
 SWEP.CanSuicide = true
 
 game.AddParticles("particles/tfa_smoke.pcf")
@@ -504,11 +511,7 @@ function SWEP:Shoot(override)
 	if !override and IsValid(owner) and !owner:IsNPC() and primary.Next > CurTime() then return false end
 	if !override and IsValid(owner) and !owner:IsNPC() and (primary.NextFire or 0) > CurTime() then return false end
 	
-	local cycle_mul = 1
-	if self:GetClass() == "weapon_delisle" and IsValid(owner) and owner:GetNWBool("HMCD_LMSFinalStand", false) then
-		cycle_mul = owner:GetNWFloat("HMCD_LMSFinalStandMultiplier", 0.5)
-	end
-	primary.Next = CurTime() + primary.Wait * 1.1 * cycle_mul
+	primary.Next = CurTime() + primary.Wait * 1.1 * self:GetLMSFinalStandMultiplier()
 	primary.RealAutomatic = primary.RealAutomatic or weapons_Get(self:GetClass()).Primary.Automatic
 	primary.Automatic = primary.RealAutomatic
 	
@@ -1960,8 +1963,9 @@ function SWEP:GetAdditionalValues()
 		self.AdditionalAng2[3] = self.AdditionalAng2[3] + angle_difference[2] * 0.5
 	end
 	
-	self.AdditionalPosPreLerp[2] = self.AdditionalPosPreLerp[2] + math.cos(pranktime) * math.sin(pranktime - 2) * math.cos(pranktime + 1) * 1 -- * (ply.organism and ply.organism.holdingbreath and 0 or 1)
-	self.AdditionalPosPreLerp[3] = self.AdditionalPosPreLerp[3] + math.sin(pranktime) * math.sin(pranktime) * math.cos(pranktime + 1) * 0.7 -- * (ply.organism and ply.organism.holdingbreath and 0 or 1)
+	local finalStandMul = self:GetLMSFinalStandMultiplier()
+	self.AdditionalPosPreLerp[2] = self.AdditionalPosPreLerp[2] + math.cos(pranktime) * math.sin(pranktime - 2) * math.cos(pranktime + 1) * finalStandMul -- * (ply.organism and ply.organism.holdingbreath and 0 or 1)
+	self.AdditionalPosPreLerp[3] = self.AdditionalPosPreLerp[3] + math.sin(pranktime) * math.sin(pranktime) * math.cos(pranktime + 1) * 0.7 * finalStandMul -- * (ply.organism and ply.organism.holdingbreath and 0 or 1)
 	
 	self.AdditionalPosPreLerp[2] = self.AdditionalPosPreLerp[2] - (ply:IsFlagSet(FL_ANIMDUCKING) and 1 or 0)
 
@@ -2183,7 +2187,7 @@ function SWEP:SetHandPos(noset)
 		rhmat:SetAngles(ang1)
 	
 		if SERVER or CLIENT and self:IsLocal() then
-			addvec = LerpFT(0.1, addvec, VectorRand(-0.03,0.03) * (ply.organism and ply.organism.holdingbreath and 0 or 1) * ((ent.organism and (ent.organism.adrenaline or 0) + (36.6 - (ent.organism.temperature or 36.6)) or 0) + 3) / 5)
+			addvec = LerpFT(0.1, addvec, VectorRand(-0.03,0.03) * (ply.organism and ply.organism.holdingbreath and 0 or 1) * ((ent.organism and (ent.organism.adrenaline or 0) + (36.6 - (ent.organism.temperature or 36.6)) or 0) + 3) / 5 * self:GetLMSFinalStandMultiplier())
 			addvec2 = LerpFT(0.05 * ((ent.organism and (ent.organism.adrenaline or 0) + (36.6 - (ent.organism.temperature or 36.6)) or 0) + 1) * 15, addvec2, addvec)
 		end
 

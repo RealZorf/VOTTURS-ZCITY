@@ -320,6 +320,59 @@ function zb.AddModePlaytime(name, add)
 	zb.ModesPlaytime[name] = (zb.ModesPlaytime[name] or 0) + add
 end
 
+local ONCE_PER_MAP_MODES = {
+	zombiesurvival = true,
+	assassinsgreed = true,
+	ww2 = true,
+	cstrike = true
+}
+
+local mapName = game.GetMap()
+
+if zb.OncePerMapModesMap ~= mapName then
+	zb.OncePerMapModesMap = mapName
+	zb.OncePerMapModesPlayed = {}
+else
+	zb.OncePerMapModesPlayed = zb.OncePerMapModesPlayed or {}
+end
+
+function zb.IsOncePerMapMode(name)
+	return ONCE_PER_MAP_MODES[name] == true
+end
+
+function zb.HasPlayedOncePerMapMode(name)
+	return zb.OncePerMapModesPlayed[name] == true
+end
+
+function zb.SanitizeOncePerMapRoundList()
+	if not zb.RoundListIsAutomatic then return end
+
+	local seen = {}
+	if zb.IsOncePerMapMode(zb.nextround) then
+		seen[zb.nextround] = true
+	end
+
+	local index = 1
+	while index <= #(zb.RoundList or {}) do
+		local name = zb.RoundList[index]
+		if zb.IsOncePerMapMode(name) and (zb.HasPlayedOncePerMapMode(name) or seen[name]) then
+			table.remove(zb.RoundList, index)
+		elseif zb.IsOncePerMapMode(name) then
+			seen[name] = true
+			index = index + 1
+		else
+			index = index + 1
+		end
+	end
+end
+
+function zb.MarkOncePerMapModePlayed(name)
+	if not zb.IsOncePerMapMode(name) then return end
+
+	zb.OncePerMapModesPlayed[name] = true
+	zb.SanitizeOncePerMapRoundList()
+end
+
 function zb.AddCurrentModePlayed()
 	if not CurrentRound() then return end
 	local mode = CurrentRound()
@@ -330,6 +383,7 @@ function zb.AddCurrentModePlayed()
 	end
 
 	zb.AddModePlaytime(name, 1)
+	zb.MarkOncePerMapModePlayed(name)
 end
 
 function zb.GetChance(name, addtbl)
@@ -407,11 +461,14 @@ end
 
 zb.RoundList = zb.RoundList or {}
 zb.QueuedModes = zb.QueuedModes or {}
+if zb.RoundListIsAutomatic == nil then zb.RoundListIsAutomatic = true end
+zb.SanitizeOncePerMapRoundList()
 
 function zb.CheckChances()
 	if #zb.RoundList == 0 then
 		zb.RerollChances()
 	end
+	zb.SanitizeOncePerMapRoundList()
 
 	local nextrnd = zb.nextround or zb.RoundList[1]
 	print("Next round is: "..zb.GetRoundName(nextrnd).." ("..nextrnd..")")
@@ -440,6 +497,7 @@ end
 
 function zb.RerollChances()
     zb.RoundList = {}
+	zb.RoundListIsAutomatic = true
 
     local chances = zb.GetModesChances()
 
@@ -447,11 +505,13 @@ function zb.RerollChances()
     local specialPool = {}
 
     for name, chance in pairs(chances) do
-        if zb.IsStandardMode(name) then
-            standardPool[name] = chance
-        else
-            specialPool[name] = chance
-        end
+		if not zb.IsOncePerMapMode(name) or not zb.HasPlayedOncePerMapMode(name) then
+			if zb.IsStandardMode(name) then
+				standardPool[name] = chance
+			else
+				specialPool[name] = chance
+			end
+		end
     end
 
     for i = 1, 20 do
@@ -465,9 +525,15 @@ function zb.RerollChances()
         end
 
         zb.RoundList[i] = round
+
+		if zb.IsOncePerMapMode(round) then
+			standardPool[round] = nil
+			specialPool[round] = nil
+		end
     end
 
     zb.nextround = table.remove(zb.RoundList, 1)
+	zb.SanitizeOncePerMapRoundList()
 end
 
 function zb.GetModesInfo()
@@ -517,12 +583,11 @@ end
 function zb.SetRoundList(newList)
 	local newLista = table.Copy(newList)
 	if #newLista > 0 then
+		zb.RoundListIsAutomatic = false
 		zb.nextround = table.remove(newLista, 1)
 		zb.RoundList = newLista
 	else
 		zb.RerollChances()
-
-		zb.nextround = table.remove(zb.RoundList, 1)
 	end
 end
 
@@ -542,6 +607,7 @@ end
 
 
 function zb.SendRoundListToClient(ply)
+	zb.SanitizeOncePerMapRoundList()
 	net.Start("ZB_SendRoundList")
 		net.WriteTable(zb.RoundList)
 		net.WriteString(zb.nextround or "")
@@ -616,6 +682,7 @@ function zb:RoundStart()
 	if #zb.RoundList == 0 then
 		zb.RerollChances()
 	end
+	zb.SanitizeOncePerMapRoundList()
 
 	nextMode = table.remove(zb.RoundList, 1)
 
