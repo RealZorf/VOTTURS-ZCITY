@@ -4,6 +4,165 @@ net.Receive("HMCD_CannibalStacked", function()
 	surface.PlaySound("cannibalstacked.wav")
 end)
 
+hook.Add("PreDrawHalos", "HMCD_RevenantTraitorMarker", function()
+	local viewer = LocalPlayer()
+	if not IsValid(viewer) or not viewer:Alive() or not viewer.isTraitor then return end
+	local anchors = {}
+	for _, ply in player.Iterator() do
+		if ply ~= viewer and ply:GetNWBool("HMCD_RevenantPossessing", false) then
+			local anchor = ply:GetNWEntity("HMCD_RevenantOriginalBody")
+			if IsValid(anchor) then
+				anchors[#anchors + 1] = anchor
+			end
+		end
+	end
+	if #anchors > 0 then
+		halo.Add(anchors, Color(255, 155, 40), 1, 1, 1, true, false)
+	end
+end)
+
+local revenantOverlay = Material("sprites/mat_jack_helmoverlay_r")
+local revenantWasPossessing = false
+local revenantBootUntil = 0
+local revenantBootDuration = MODE.RevenantBootDuration or 2
+local revenantBootRows = {}
+local revenantBootRowWidth = 0
+local revenantBootRowCount = 0
+
+surface.CreateFont("HMCDRevenantBootTitle", {
+	font = "Roboto Light",
+	extended = true,
+	size = ScreenScale(30),
+	weight = 650,
+	scanlines = 3,
+	antialias = true,
+})
+
+surface.CreateFont("HMCDRevenantBootText", {
+	font = "Roboto Light",
+	extended = true,
+	size = ScreenScale(6.5),
+	weight = 1100,
+	scanlines = 2,
+	antialias = true,
+})
+
+surface.CreateFont("HMCDRevenantBootData", {
+	font = "Roboto Light",
+	extended = true,
+	size = ScreenScale(5),
+	weight = 700,
+	antialias = true,
+})
+
+local function getRevenantBootRows(width, height)
+	local rowHeight = math.max(18, math.floor(ScreenScale(6)))
+	local rowCount = math.ceil(height / rowHeight) + 1
+	if revenantBootRowWidth == width and revenantBootRowCount == rowCount then
+		return rowHeight
+	end
+
+	local columns = math.ceil(width / math.max(12, ScreenScale(4)))
+	revenantBootRows = {}
+	for row = 1, rowCount do
+		local values = {}
+		for column = 1, columns do
+			values[column] = ((row * 17 + column * 29 + row * column) % 7 < 3) and "1" or "0"
+		end
+		revenantBootRows[row] = table.concat(values, " ")
+	end
+	revenantBootRowWidth = width
+	revenantBootRowCount = rowCount
+
+	return rowHeight
+end
+
+local function drawRevenantBoot(width, height, remaining)
+	local progress = math.Clamp(1 - remaining / revenantBootDuration, 0, 1)
+	local alpha = 255
+	local rowHeight = getRevenantBootRows(width, height)
+	local dataOffset = math.floor(CurTime() * 18) % rowHeight
+
+	surface.SetAlphaMultiplier(1)
+	surface.SetDrawColor(0, 0, 0, 255)
+	surface.DrawRect(0, 0, width, height)
+	for row, data in ipairs(revenantBootRows) do
+		local y = (row - 1) * rowHeight - dataOffset
+		draw.SimpleText(data, "HMCDRevenantBootData", 0, y, Color(25, 105, 145, 72), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+	end
+
+	local diagnosticX = math.max(20, width * 0.035)
+	local diagnosticY = math.max(20, height * 0.04)
+	local diagnostics = {
+		"NEURAL LINK INITIALIZATION",
+		"ANCHOR SIGNAL: STABLE",
+		"MOTOR CORTEX: ONLINE",
+		"MEMORY ISOLATION: ACTIVE",
+		"SHELL CONTROL: READY",
+	}
+	for index, text in ipairs(diagnostics) do
+		draw.SimpleText(text, "HMCDRevenantBootText", diagnosticX, diagnosticY + (index - 1) * ScreenScale(7), Color(125, 210, 240, alpha), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+	end
+
+	surface.SetFont("HMCDRevenantBootTitle")
+	local _, titleHeight = surface.GetTextSize("REVENANT")
+	surface.SetFont("HMCDRevenantBootText")
+	local _, textHeight = surface.GetTextSize("SYNCHRONIZING")
+	local titleY = height * 0.42
+	local subtitleY = titleY + titleHeight * 0.5 + ScreenScale(3)
+	local statusY = subtitleY + textHeight + ScreenScale(4)
+	draw.SimpleText("REV3NANT", "HMCDRevenantBootTitle", width * 0.5, titleY, Color(120, 220, 245, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	draw.SimpleText("LINKING TO REANIMATED SHELL", "HMCDRevenantBootText", width * 0.5, subtitleY, Color(195, 225, 235, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+
+	local barWidth = math.max(260, width * 0.24)
+	local barHeight = math.max(8, ScreenScale(3))
+	local barX = width * 0.5 - barWidth * 0.5
+	local barY = statusY + textHeight + ScreenScale(3)
+	surface.SetDrawColor(0, 8, 14, alpha)
+	surface.DrawRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4)
+	surface.SetDrawColor(115, 215, 245, alpha)
+	surface.DrawOutlinedRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4, 1)
+	surface.DrawRect(barX, barY, barWidth * progress, barHeight)
+	draw.SimpleText(string.format("SYNCHRONIZING  %d%%", math.floor(progress * 100)), "HMCDRevenantBootText", width * 0.5, statusY, Color(195, 225, 235, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+end
+
+hook.Add("RenderScreenspaceEffects", "HMCD_RevenantPossessionOverlay", function()
+	local ply = LocalPlayer()
+	local possessing = IsValid(ply) and ply:Alive() and ply:GetNWBool("HMCD_RevenantPossessing", false)
+	if possessing and not revenantWasPossessing then
+		revenantBootUntil = CurTime() + revenantBootDuration
+		ply.HMCD_RevenantBootUntil = revenantBootUntil
+	end
+	revenantWasPossessing = possessing
+	if not possessing then return end
+	if CurTime() < revenantBootUntil then return end
+
+	if not revenantOverlay:IsError() then
+		surface.SetDrawColor(40, 165, 195, 185)
+		surface.SetMaterial(revenantOverlay)
+		surface.DrawTexturedRectRotated((ScrW() / 2) - 5, (ScrH() / 2) - 5, ScrW() + 10, ScrH() + 450, 180)
+	end
+
+	local width, height = ScrW(), ScrH()
+	local lineSpacing = math.max(4, math.floor(ScreenScale(2)))
+	local lineAlpha = 10 + math.floor((math.sin(CurTime() * 1.5) + 1) * 3)
+	surface.SetDrawColor(70, 190, 225, lineAlpha)
+	for y = 0, height, lineSpacing do
+		surface.DrawRect(0, y, width, 1)
+	end
+
+end)
+
+hook.Add("PostDrawHUD", "HMCD_RevenantPossessionBoot", function()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() or not ply:GetNWBool("HMCD_RevenantPossessing", false) then return end
+
+	local remaining = (ply.HMCD_RevenantBootUntil or 0) - CurTime()
+	if remaining > 0 then
+		drawRevenantBoot(ScrW(), ScrH(), remaining)
+	end
+end)
+
 --\\Neck Break
 net.Receive("HMCD_BeingVictimOfNeckBreak", function(len, ply)
 	LocalPlayer().BeingVictimOfNeckBreak = net.ReadBool()
@@ -306,7 +465,53 @@ hook.Add("hg_AdjustMouseSensitivity", "HMCD_SubRole_Abilities", function(sensiti
 	end
 end)
 
+hook.Add("PlayerBindPress", "HMCD_RevenantPassengerCommunication", function(ply, bind)
+	if ply ~= LocalPlayer() or not ply:GetNWBool("HMCD_RevenantPassenger", false) then return end
+	bind = string.lower(bind or "")
+	if string.find(bind, "messagemode", 1, true) or string.find(bind, "+voicerecord", 1, true) then return true end
+end)
+
+hook.Add("PostPostHGCalcView", "HMCD_RevenantPassengerView", function(ply, view)
+	local passenger = LocalPlayer()
+	if ply ~= passenger or not passenger:GetNWBool("HMCD_RevenantPassenger", false) then return end
+
+	local controller = passenger:GetNWEntity("HMCD_RevenantPassengerController", NULL)
+	local body = passenger:GetNWEntity("HMCD_RevenantPassengerBody", NULL)
+	if not IsValid(body) and IsValid(controller) then body = controller:GetNWEntity("FakeRagdoll", NULL) end
+	if not IsValid(body) then return end
+
+	body:SetupBones()
+	local target
+	local eyes = body:LookupAttachment("eyes")
+	local attachment = eyes and eyes > 0 and body:GetAttachment(eyes) or nil
+	if attachment then target = attachment.Pos end
+	if not target then
+		local head = body:LookupBone("ValveBiped.Bip01_Head1")
+		local matrix = head and body:GetBoneMatrix(head) or nil
+		target = matrix and matrix:GetTranslation() or body:WorldSpaceCenter()
+	end
+
+	local angles = IsValid(controller) and controller:EyeAngles() or view.angles
+	local desired = target - angles:Forward() * 95 + Vector(0, 0, 14)
+	local trace = util.TraceHull({
+		start = target,
+		endpos = desired,
+		mins = Vector(-4, -4, -4),
+		maxs = Vector(4, 4, 4),
+		filter = {passenger, controller, body},
+		mask = MASK_SOLID
+	})
+
+	view.origin = trace.StartSolid and target or trace.HitPos
+	view.angles = angles
+	view.drawviewer = true
+	view.znear = 2
+	return view
+end, -1)
+
 hook.Add("PrePlayerDraw", "HMCD_SubRoles_Abilities", function(ply, flags)
+	if ply:GetNWBool("HMCD_RevenantPassenger", false) then return true end
+
 	-- if(ply.Ability_NeckBreak)then
 		-- local ability = ply.Ability_NeckBreak
 		-- local victim = ability.Victim

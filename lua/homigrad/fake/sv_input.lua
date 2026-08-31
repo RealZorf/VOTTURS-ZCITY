@@ -8,7 +8,9 @@ concommand.Add("fake", function(ply)
 	if not IsValid(ply.FakeRagdoll) then
 		hg.Fake(ply)
 	else
+		ply.HG_FakeUpRequestedByPlayer = true
 		hg.FakeUp(ply)
+		ply.HG_FakeUpRequestedByPlayer = nil
 	end
 end)
 

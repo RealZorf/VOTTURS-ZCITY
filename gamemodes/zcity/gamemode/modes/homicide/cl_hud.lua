@@ -20,6 +20,24 @@ local mat_shadow_camouflage = CreateMaterial("hmcd_shadow_camouflage_refract", "
 })
 local color_white = Color(255, 255, 255, 255)
 
+surface.CreateFont("HMCDRevenantStatus", {
+	font = "Roboto Light",
+	extended = true,
+	size = ScreenScale(5.5),
+	weight = 1200,
+	scanlines = 2,
+	antialias = true,
+})
+
+surface.CreateFont("HMCDRevenantTimer", {
+	font = "Roboto Light",
+	extended = true,
+	size = ScreenScale(15),
+	weight = 700,
+	scanlines = 2,
+	antialias = true,
+})
+
 local function draw_shadow_text(text, cx, cy)
 	draw.DrawText(text, "HomigradFontMedium", cx + 1, cy + 1, vgui_color_text_shadow, TEXT_ALIGN_CENTER)
 	draw.DrawText(text, "HomigradFontMedium", cx, cy, vgui_color_text_main, TEXT_ALIGN_CENTER)
@@ -235,6 +253,57 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 					end
 
 					y_offset = y_offset + th + after_text_offset
+				end
+			end
+
+			if(MODE.IsRevenantRole and MODE.IsRevenantRole(ply.SubRole))then
+				if ply:GetNWBool("HMCD_RevenantPossessing", false) then
+					if CurTime() >= (ply.HMCD_RevenantBootUntil or 0) then
+						local remaining = math.max(0, ply:GetNWFloat("HMCD_RevenantEndsAt", 0) - CurTime())
+						local visibleDuration = math.max(1, (MODE.RevenantPossessionTime or 32) - (MODE.RevenantBootDuration or 2))
+						local fraction = math.Clamp(remaining / visibleDuration, 0, 1)
+						local width = math.max(ScrW() * 0.17, 330)
+						local height = math.max(ScrH() * 0.06, 62)
+						local x = ScrW() * 0.5 - width * 0.5
+						local y = ScrH() * 0.84
+						local timerWidth = math.max(width * 0.48, 158)
+						local timerX = x + width - timerWidth
+
+						surface.SetDrawColor(0, 10, 14, 195)
+						surface.DrawRect(x, y, width, height)
+						surface.SetDrawColor(40, 165, 195, 235)
+						surface.DrawOutlinedRect(x, y, width, height, 1)
+						surface.DrawRect(x, y, 3, height)
+						surface.SetDrawColor(40, 165, 195, 165)
+						surface.DrawRect(timerX, y + 7, 1, height - 14)
+
+						draw.SimpleText("NEURAL LINK", "HMCDRevenantStatus", x + 10, y + 8, Color(90, 220, 235), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+						draw.SimpleText("ANCHOR AT RISK", "HMCDRevenantStatus", x + 10, y + height - 12, Color(175, 210, 215), TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+						draw.SimpleText(string.format("%02d:%02d", math.floor(remaining / 60), math.floor(remaining % 60)), "HMCDRevenantTimer", x + width - 10, y + height * 0.5 + 1, Color(90, 220, 235), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+
+						surface.SetDrawColor(8, 40, 46, 230)
+						surface.DrawRect(x + 10, y + height - 5, timerX - x - 20, 2)
+						surface.SetDrawColor(40, 210, 225, 255)
+						surface.DrawRect(x + 10, y + height - 5, (timerX - x - 20) * fraction, 2)
+					end
+				else
+					local active = ply:GetNWEntity("HMCD_RevenantImplantCorpse")
+					local corpse, trace = MODE.GetRevenantCorpseTarget(ply)
+					local draw_ent = IsValid(active) and active or corpse
+					if IsValid(draw_ent) then
+						local charges = ply:GetNWInt("HMCD_RevenantCharges", 0)
+						local text = "(HOLD)[" .. special_bind .. "] Implant Neural Chip [" .. charges .. "/" .. (MODE.RevenantCharges or 3) .. "]"
+						local tw, th = surface.GetTextSize(text)
+						local pos = trace and trace.HitPos or draw_ent:WorldSpaceCenter()
+						local screen = pos:ToScreen()
+						draw_shadow_text(text, screen.x, screen.y + y_offset)
+						local frac = MODE.GetRevenantImplantProgress(ply)
+						if frac > 0 then
+							surface.SetDrawColor(vgui_color_text_main)
+							surface.DrawRect(screen.x - tw / 2, screen.y + y_offset + th, tw * frac, math.max(ScreenScale(1), 2))
+						end
+						y_offset = y_offset + th + after_text_offset
+					end
 				end
 			end
 

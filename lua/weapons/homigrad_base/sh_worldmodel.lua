@@ -248,8 +248,9 @@ function SWEP:PosAngChanges(ply, desiredPos, desiredAng, bNoAdditional, closeani
 	local pranktime = CurTime() / 20
 	
 	if not (IsValid(lply) and lply:IsSuperAdmin() and hg_setzoompos:GetBool()) then
-		self.prankang[2] = 4 * math.cos(pranktime) * math.sin(pranktime - 2) * math.cos(pranktime + 1)
-		self.prankang[1] = 2 * math.sin(pranktime) * math.sin(pranktime - 5) * math.cos(pranktime + 15)
+		local finalStandMul = self:GetLMSFinalStandMultiplier()
+		self.prankang[2] = 4 * math.cos(pranktime) * math.sin(pranktime - 2) * math.cos(pranktime + 1) * finalStandMul
+		self.prankang[1] = 2 * math.sin(pranktime) * math.sin(pranktime - 5) * math.cos(pranktime + 15) * finalStandMul
 	end
 
 	if ply.posture == 7 or ply.posture == 8 then

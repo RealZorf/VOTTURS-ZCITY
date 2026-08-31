@@ -187,6 +187,7 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 	local org = ply.organism or {}
 	local inpain = org.pain and org.pain > 50
 	local painmul = 0.5 - math.Clamp((((org.pain or 0) - 50) / 50), 0, 0.5)
+	local finalStandMul = self:GetLMSFinalStandMultiplier()
 	
 	painmul = painmul * 2
 	--local noZoomHelmet = (ply.armors and (not ply.armors["head"] or not hg.armor.head[ply.armors["head"]] or not hg.armor.head[ply.armors["head"]].cantsight or self:IsPistolHoldType()))
@@ -204,7 +205,7 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 	if lastPosSelected + 0.1 * (inpain and 0.1 or 1) < CurTime() then
 		lastPosSelected = CurTime()
 		--randomPos = 0.75 * VectorRand(-0.75, 0.75)
-		randomPos = (inpain and 1.5 - (1 * painmul) or 1) * ((lastzoom - CurTime() + tta) < 0 and ply.organism and ply.organism.holdingbreath and 0.25 or 1) * 0.5 * Vector(math.random(2) == 1 and math.Rand(-0.75, -0.5) or math.Rand(0.5, 0.75), math.random(2) == 1 and math.Rand(-0.75, -0.5) or math.Rand(0.5, 0.75), math.random(2) == 1 and math.Rand(-0.75, -0.5) or math.Rand(0.5, 0.75))
+		randomPos = (inpain and 1.5 - (1 * painmul) or 1) * ((lastzoom - CurTime() + tta) < 0 and ply.organism and ply.organism.holdingbreath and 0.25 or 1) * 0.5 * finalStandMul * Vector(math.random(2) == 1 and math.Rand(-0.75, -0.5) or math.Rand(0.5, 0.75), math.random(2) == 1 and math.Rand(-0.75, -0.5) or math.Rand(0.5, 0.75), math.random(2) == 1 and math.Rand(-0.75, -0.5) or math.Rand(0.5, 0.75))
 	end
 
 	randomPosL = LerpFT(0.05 * (inpain and 25 - (24 * painmul) or 1), randomPosL, randomPos)
@@ -255,7 +256,7 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen, ply)
 	local shakeMul = (((larm > 0.75 and (larm - 0.75) * (ply.posture != 7 and ply.posture != 8 and 1 or 0)) or 0)
 		+ ((rarm > 0.1 and (rarm - 0.1)) or 0)) / 4
 
-	local addview = AngleRand(-shakeMul - 0.01, shakeMul + 0.01) * (organism.holdingbreath and 0.1 or 1)
+	local addview = AngleRand(-shakeMul - 0.01, shakeMul + 0.01) * (organism.holdingbreath and 0.1 or 1) * finalStandMul
 	addview[3] = 0
 
 	if ply == LocalPlayer() then
