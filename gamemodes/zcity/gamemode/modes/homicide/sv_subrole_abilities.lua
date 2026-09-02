@@ -1746,7 +1746,11 @@ function MODE.SplatCannibalCorpse(ply, corpse, victim)
 	local center = corpse:WorldSpaceCenter()
 	local force = VectorRand(-250, 250) + Vector(0, 0, 450)
 
-	sound.Play("physics/body/body_medium_break3.wav", center, 78, math.random(85, 100), 1)
+	local breakSound = "physics/body/body_medium_break3.wav"
+	local breakPitch = math.random(85, 100)
+	if not hg.EmitOccludedSound or not hg.EmitOccludedSound(corpse, breakSound, 58, breakPitch, 0.75, CHAN_AUTO, center) then
+		sound.Play(breakSound, center, 58, breakPitch, 0.75)
+	end
 	for i = 1, 7 do
 		local offset = VectorRand(-22, 22)
 		util.Decal("Blood", center + offset + Vector(0, 0, 30), center + offset - Vector(0, 0, 70), corpse)
@@ -1841,7 +1845,11 @@ function MODE.FinishCannibalConsume(ply, corpse, victim)
 	end
 
 	local pos = corpse:WorldSpaceCenter()
-	sound.Play("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", pos, 65, math.random(75, 90), 0.85)
+	local consumeSound = "physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav"
+	local consumePitch = math.random(75, 90)
+	if not hg.EmitOccludedSound or not hg.EmitOccludedSound(corpse, consumeSound, 55, consumePitch, 0.65, CHAN_AUTO, pos) then
+		sound.Play(consumeSound, pos, 55, consumePitch, 0.65)
+	end
 
 	if victim:Alive() then
 		victim.HMCD_CannibalConsumedBy = ply
@@ -2538,8 +2546,17 @@ function MODE.FinishJuggernautStomp(ply, rag, victim)
 		victim.organism.neck = 1
 	end
 
-	rag:EmitSound("physics/body/body_medium_break3.wav", 80, math.random(82, 95), 1)
-	rag:EmitSound("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", 78, math.random(75, 90), 1)
+	local stompBreakSound = "physics/body/body_medium_break3.wav"
+	local stompBreakPitch = math.random(82, 95)
+	if not hg.EmitOccludedSound or not hg.EmitOccludedSound(rag, stompBreakSound, 58, stompBreakPitch, 0.75) then
+		rag:EmitSound(stompBreakSound, 58, stompBreakPitch, 0.75)
+	end
+
+	local stompFleshSound = "physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav"
+	local stompFleshPitch = math.random(75, 90)
+	if not hg.EmitOccludedSound or not hg.EmitOccludedSound(rag, stompFleshSound, 56, stompFleshPitch, 0.7) then
+		rag:EmitSound(stompFleshSound, 56, stompFleshPitch, 0.7)
+	end
 
 	if util and util.Effect then
 		local effect = EffectData()

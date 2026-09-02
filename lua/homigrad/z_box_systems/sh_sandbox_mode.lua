@@ -112,12 +112,30 @@ HG_SANDBOX.BlockedWeaponCategoryPatterns = {
 
 HG_SANDBOX.BlockedEntityClasses = {
     ["sent_ball"] = true,
+    ["bomb"] = true,
+    ["ent_hg_molotov"] = true,
+    ["npc_grenade_frag"] = true,
+    ["rpg_projectile"] = true,
     ["npc_swarm"] = true,
     ["npc_swarm_mother"] = true,
     ["npc_swarm_sentinel"] = true,
     ["npc_swarm_sentry"] = true,
     ["nextbot_fear"] = true,
     ["bot_fear"] = true
+}
+
+HG_SANDBOX.BlockedEntityClassPatterns = {
+    ["grenade"] = true,
+    ["molotov"] = true,
+    ["pipebomb"] = true,
+    ["flashbang"] = true,
+    ["smokenade"] = true,
+    ["rpg_projectile"] = true,
+    ["rocket"] = true,
+    ["claymore"] = true,
+    ["breachcharge"] = true,
+    ["_c4"] = true,
+    ["c4_"] = true
 }
 
 HG_SANDBOX.BlockedVehicleClasses = {
@@ -304,7 +322,7 @@ function HG_SANDBOX.IsBlockedWeaponClass(class)
 end
 
 function HG_SANDBOX.IsBlockedEntityClass(class)
-    return HG_SANDBOX.BlockedEntityClasses[normalizeText(class)] or false
+    return matchesBlockedText(class, HG_SANDBOX.BlockedEntityClasses, HG_SANDBOX.BlockedEntityClassPatterns)
 end
 
 function HG_SANDBOX.IsBlockedVehicleClass(class)

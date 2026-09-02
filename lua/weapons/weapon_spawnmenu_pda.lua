@@ -111,7 +111,6 @@ local CategoresAllowed = {
     ["Weapons - Melee"] = true,
     ["Weapons - Shotguns"] = true,
     ["Weapons - Sniper Rifles"] = true,
-    ["Weapons - Explosive"] = true,
     ["Medicine"] = true,
     ["ZCity Other"] = true,
     ["ZCity Ammo"] = true,
@@ -145,6 +144,7 @@ if SERVER then
             CartWeight = CartWeight + 5
             if not entTbl or not CategoresAllowed[entTbl.Category] then wep:AddNotificate("No.") return end
             if not item[1] or BlackList[item[1]] then wep:AddNotificate("No.") return end
+            if HG_SANDBOX and HG_SANDBOX.IsBlockedWeaponClass and HG_SANDBOX.IsBlockedWeaponClass(item[1]) then wep:AddNotificate("No.") return end
         end
 
         if CartWeight > 140 then wep:AddNotificate("Too much weight to ship.") return end

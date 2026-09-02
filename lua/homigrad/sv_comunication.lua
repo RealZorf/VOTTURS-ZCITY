@@ -11,6 +11,7 @@ local voice_up = Vector(0, 0, 1)
 local voice_chest_offset = Vector(0, 0, 12)
 
 local voice_occlusion_cache = setmetatable({}, {__mode = "k"})
+local positional_occlusion_cache = setmetatable({}, {__mode = "k"})
 
 local function VoiceTraceFilter(ent)
 	if ent:IsPlayer() or ent:IsRagdoll() then return false end
@@ -39,6 +40,16 @@ local function GetVoicePairCache(listener, speaker)
 	return pairs, second
 end
 
+local function GetPositionalPairCache(listener, source)
+	local pairs = positional_occlusion_cache[source]
+	if not pairs then
+		pairs = setmetatable({}, {__mode = "k"})
+		positional_occlusion_cache[source] = pairs
+	end
+
+	return pairs, listener
+end
+
 local function TraceVoicePath(traceData, startPos, endPos)
 	traceData.start = startPos
 	traceData.endpos = endPos
@@ -46,11 +57,11 @@ local function TraceVoicePath(traceData, startPos, endPos)
 	return util.TraceLine(traceData)
 end
 
-local function ClassifyVoicePath(listener, speaker)
+local function ClassifyVoicePath(listener, speaker, sourcePos)
 	local listenerHead = listener:EyePos()
-	local speakerHead = speaker:EyePos()
+	local speakerHead = sourcePos or speaker:EyePos()
 	local listenerChest = listener:WorldSpaceCenter() + voice_chest_offset
-	local speakerChest = speaker:WorldSpaceCenter() + voice_chest_offset
+	local speakerChest = sourcePos and sourcePos + voice_chest_offset or speaker:WorldSpaceCenter() + voice_chest_offset
 	local directDistance = speakerHead:Distance(listenerHead)
 	local traceData = {
 		mask = MASK_SOLID,
@@ -123,6 +134,80 @@ local function GetVoiceAcousticRange(listener, speaker)
 	}
 
 	return allowedDistance, pathDistance
+end
+
+local acoustic_volume = {
+	clear = 1,
+	partial = 0.75,
+	indirect = 0.55,
+	wall = 0.42,
+	floor = 0.24,
+	multiple = 0.12
+}
+
+local function GetPositionalAcousticRange(listener, source, sourcePos)
+	local pairs, key = GetPositionalPairCache(listener, source)
+	local cached = pairs[key]
+	local now = CurTime()
+	local listenerPos = listener:EyePos()
+	if cached and cached.expires > now and cached.sourcePos:DistToSqr(sourcePos) <= 4096 and cached.listenerPos:DistToSqr(listenerPos) <= 4096 then
+		return cached.range, cached.pathDistance, cached.classification
+	end
+
+	local classification, pathDistance = ClassifyVoicePath(listener, source, sourcePos)
+	local allowedDistance = classification == "clear" and voice_dist_normal
+		or classification == "partial" and voice_dist_partial
+		or classification == "indirect" and voice_dist_indirect
+		or classification == "floor" and voice_dist_floor
+		or classification == "multiple" and voice_dist_multiple
+		or voice_dist_wall
+
+	pairs[key] = {
+		expires = now + voice_occlusion_cache_time,
+		range = allowedDistance,
+		pathDistance = pathDistance,
+		classification = classification,
+		sourcePos = sourcePos,
+		listenerPos = listenerPos
+	}
+
+	return allowedDistance, pathDistance, classification
+end
+
+function hg.EmitOccludedSound(source, soundName, soundLevel, pitch, volume, channel, sourcePos)
+	if not IsValid(source) or not isstring(soundName) then return false end
+
+	sourcePos = sourcePos or source:WorldSpaceCenter()
+	soundLevel = tonumber(soundLevel) or 75
+	pitch = tonumber(pitch) or 100
+	volume = math.Clamp(tonumber(volume) or 1, 0, 1)
+	channel = channel or CHAN_AUTO
+
+	local filters = {}
+	local hasRecipients = {}
+	for _, listener in player.Iterator() do
+		if not IsValid(listener) or listener:EyePos():DistToSqr(sourcePos) > voice_dist_normal * voice_dist_normal then continue end
+
+		local allowedDistance, pathDistance, classification = GetPositionalAcousticRange(listener, source, sourcePos)
+		if pathDistance > allowedDistance then continue end
+
+		classification = classification or "clear"
+		local filter = filters[classification]
+		if not filter then
+			filter = RecipientFilter()
+			filters[classification] = filter
+		end
+
+		filter:AddPlayer(listener)
+		hasRecipients[classification] = true
+	end
+
+	for classification, filter in pairs(filters) do
+		if not hasRecipients[classification] then continue end
+		EmitSound(soundName, sourcePos, source:EntIndex(), channel, volume * (acoustic_volume[classification] or 1), soundLevel, 0, pitch, 1, filter)
+	end
+
+	return true
 end
 
 --\\Whisper

@@ -118,7 +118,16 @@ local function PhysCallback( ent, data )
 	if (ent.hg_nextImpact or 0) > now then return end
 	ent.hg_nextImpact = now + 0.15
 
-	ent:EmitSound("physics/flesh/flesh_squishy_impact_hard"..math.random(4)..".wav")
+	local soundGroup = ent.hg_meat_gib_sound_group
+	if not soundGroup or (soundGroup.nextSound or 0) <= now then
+		if soundGroup then soundGroup.nextSound = now + 0.1 end
+		local soundName = "physics/flesh/flesh_squishy_impact_hard"..math.random(4)..".wav"
+		local soundPitch = math.random(92, 108)
+		local acousticSource = IsValid(ent.hg_meat_gib_sound_source) and ent.hg_meat_gib_sound_source or ent
+		if not hg.EmitOccludedSound or not hg.EmitOccludedSound(acousticSource, soundName, 48, soundPitch, 0.3, CHAN_AUTO, ent:GetPos()) then
+			ent:EmitSound(soundName, 48, soundPitch, 0.3)
+		end
+	end
 	-- if !data.HitEntity:IsPlayer() and !data.HitEntity:IsRagdoll() and math.abs(data.HitNormal.z) < 0.75 then
 	-- 	ent:SetMoveType(MOVETYPE_NONE)
 	-- 	ent:SetSolid(SOLID_NONE)
@@ -155,6 +164,7 @@ local meatModels = {
 function SpawnMeatGore(mainent, pos, count, force, scale)
 	force = force or Vector(0,0,0)
 	local gibRemoveTime = hg_gib_lifetime:GetFloat()
+	local soundGroup = {nextSound = 0}
 	for i = 1, (count or math.random(8, 10)) do
 		local ent = ents_Create("prop_physics")
 		ent:SetModel(meatModels[math.random(#meatModels)])
@@ -179,6 +189,8 @@ function SpawnMeatGore(mainent, pos, count, force, scale)
 		end
 
 		TrackMeatGib(ent)
+		ent.hg_meat_gib_sound_group = soundGroup
+		ent.hg_meat_gib_sound_source = mainent
 		ent:AddCallback( "PhysicsCollide", PhysCallback )
 	end
 end
@@ -221,7 +233,11 @@ function Gib_Input(rag, bone, force)
 		--sound.Emit(rag,"physics/flesh/flesh_squishy_impact_hard" .. math.random(2, 4) .. ".wav")
 		--sound.Emit(rag,"physics/body/body_medium_break3.wav")
 		--sound.Emit(rag,"physics/glass/glass_sheet_step" .. math.random(1,4) .. ".wav", 90, 50, 2)
-		rag:EmitSound(sounds[math.random(#sounds)], 70, math.random(95, 105), 2)
+		local soundName = sounds[math.random(#sounds)]
+		local soundPitch = math.random(95, 105)
+		if not hg.EmitOccludedSound or not hg.EmitOccludedSound(rag, soundName, 58, soundPitch, 0.75) then
+			rag:EmitSound(soundName, 58, soundPitch, 0.75)
+		end
 
 		Gib_RemoveBone(rag, bone, phys_bone)
 		
