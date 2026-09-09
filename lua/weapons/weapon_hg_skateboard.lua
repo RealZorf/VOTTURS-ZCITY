@@ -42,7 +42,7 @@ SWEP.DamageType = DMG_CLUB
 SWEP.DamagePrimary = 20
 SWEP.DamageSecondary = 15
 
-SWEP.PenetrationPrimary = 4
+SWEP.PenetrationPrimary = 3
 SWEP.PenetrationSecondary = 2
 
 SWEP.MaxPenLen = 5

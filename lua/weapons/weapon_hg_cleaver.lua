@@ -80,11 +80,11 @@ SWEP.DeploySnd = "physics/metal/metal_grenade_impact_soft2.wav"
 SWEP.AttackPos = Vector(0, 0, 0)
 
 SWEP.DamageType = DMG_SLASH
-SWEP.DamagePrimary = 14
+SWEP.DamagePrimary = 20
 SWEP.DamageSecondary = 1
 
-SWEP.PenetrationPrimary = 3
-SWEP.PenetrationSecondary = 0
+SWEP.PenetrationPrimary = 4
+SWEP.PenetrationSecondary = 1
 
 SWEP.MaxPenLen = 6
 

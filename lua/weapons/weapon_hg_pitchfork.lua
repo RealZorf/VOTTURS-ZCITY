@@ -38,7 +38,7 @@ SWEP.weaponPos = Vector(0,0, -29)
 SWEP.weaponAng = Angle(180,200,0)
 
 SWEP.DamageType = DMG_SLASH
-SWEP.DamagePrimary = 43
+SWEP.DamagePrimary = 35
 SWEP.DamageSecondary = 15
 
 SWEP.BreakBoneMul = 1.4

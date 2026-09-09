@@ -49,10 +49,10 @@ SWEP.weaponAng = Angle(0,100,0)
 SWEP.modelscale = 0.75 -- Scale of the WorldModelExchange (pickaxe model)
 
 SWEP.DamageType = DMG_SLASH
-SWEP.DamagePrimary = 45
+SWEP.DamagePrimary = 35
 SWEP.DamageSecondary = 20
 
-SWEP.PenetrationPrimary = 5
+SWEP.PenetrationPrimary = 10
 SWEP.PenetrationSecondary = 7
 
 SWEP.MaxPenLen = 6

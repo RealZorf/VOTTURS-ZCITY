@@ -52,11 +52,11 @@ SWEP.weaponPos = Vector(0, 0, -17.9)
 SWEP.weaponAng = Angle(0, -90, 0)
 
 SWEP.DamageType = DMG_CLUB
-SWEP.DamagePrimary = 28
+SWEP.DamagePrimary = 30
 SWEP.NeckBreakChance = 0.02
 SWEP.DamageSecondary = 11
 
-SWEP.PenetrationPrimary = 2
+SWEP.PenetrationPrimary = 4
 SWEP.PenetrationSecondary = 3
 
 SWEP.MaxPenLen = 4

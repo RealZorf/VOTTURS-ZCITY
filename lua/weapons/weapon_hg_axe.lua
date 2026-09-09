@@ -60,7 +60,7 @@ SWEP.DamagePrimary = 35
 SWEP.NeckBreakChance = 0.01
 SWEP.DamageSecondary = 14
 
-SWEP.PenetrationPrimary = 8
+SWEP.PenetrationPrimary = 10
 SWEP.PenetrationSecondary = 3
 
 SWEP.MaxPenLen = 10

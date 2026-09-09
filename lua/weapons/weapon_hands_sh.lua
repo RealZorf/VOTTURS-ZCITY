@@ -13,9 +13,9 @@ SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/c_arms.mdl"
 SWEP.UseHands = true
 SWEP.AttackSlowDown = .5
-SWEP.SwingCooldown = 0.75
-SWEP.SwingGateTime = 0.28
-SWEP.AttackTime = 0.10
+SWEP.SwingCooldown = 0.6
+SWEP.SwingGateTime = 0.25
+SWEP.AttackTime = 0.08
 SWEP.SwingDamageMul = 1.25
 SWEP.SwingBackDuration = 1
 SWEP.JabAnimTime = 1
@@ -27,7 +27,7 @@ SWEP.Secondary.ClipSize = -1
 SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "none"
-SWEP.ReachDistance = 40
+SWEP.ReachDistance = 45
 SWEP.HomicideSWEP = true
 SWEP.NoDrop = true
 SWEP.ShockMultiplier = 1
@@ -1697,7 +1697,7 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 	end
 end
 
-SWEP.DamagePrimary = 10
+SWEP.DamagePrimary = 15
 
 function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 	local ent = hg.RagdollOwner(ent) or ent

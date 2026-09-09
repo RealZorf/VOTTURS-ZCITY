@@ -25,7 +25,7 @@ if CLIENT then
 end
 
 SWEP.DamageType = DMG_CLUB
-SWEP.DamagePrimary = 26
+SWEP.DamagePrimary = 18
 SWEP.NeckBreakChance = 0.02
 SWEP.DamageSecondary = 11
 
@@ -34,10 +34,10 @@ SWEP.PenetrationSecondary = 3.5
 
 SWEP.MaxPenLen = 2
 
-SWEP.PenetrationSizePrimary = 3
+SWEP.PenetrationSizePrimary = 2
 SWEP.PenetrationSizeSecondary = 1.5
 
-SWEP.StaminaPrimary = 30
+SWEP.StaminaPrimary = 22
 SWEP.StaminaSecondary = 21
 
 SWEP.HoldPos = Vector(-8,0,0)

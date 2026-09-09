@@ -100,7 +100,7 @@ SWEP.Attack_Charge_Begin = "Attack_Charge_Begin"
 SWEP.Attack_Charge_Idle = "Attack_Charge_Idle"
 SWEP.Attack_Charge_End = "Attack_Charge_End"
 
-SWEP.HeavyAttackDamageMul = 2.1 -- Max damage multiplier at full charge
+SWEP.HeavyAttackDamageMul = 2.5 -- Max damage multiplier at full charge
 SWEP.HeavyAttackWaitTime = 1.5 -- Time before you can attack again
 SWEP.HeavyAttackAnimTimeBegin = 1.0 -- Duration of the wind-up/start animation
 SWEP.HeavyAttackAnimTimeIdle = 1 -- Duration of the idle loop

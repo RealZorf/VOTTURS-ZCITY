@@ -62,10 +62,10 @@ SWEP.DeploySnd = ""
 
 SWEP.AttackPos = Vector(0,0,0)
 SWEP.DamageType = DMG_SLASH
-SWEP.DamagePrimary = 45
+SWEP.DamagePrimary = 35
 SWEP.DamageSecondary = 12
 
-SWEP.PenetrationPrimary = 5
+SWEP.PenetrationPrimary = 20
 SWEP.PenetrationSecondary = 3
 SWEP.BleedMultiplier = 1.5
 
