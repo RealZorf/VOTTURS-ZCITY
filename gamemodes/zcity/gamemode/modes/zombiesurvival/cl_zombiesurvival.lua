@@ -454,7 +454,10 @@ function MODE:HUDPaint()
 			title = "INFECTED  |  " .. FormatTime(remaining)
 			role = "ZOMBIE"
 		else
-			title = "SURVIVE  |  " .. FormatTime(remaining)
+			local extractionOpen = GetGlobalBool("ZS_ExtractionEnabled", false)
+				and GetGlobalBool("ZS_ExtractionRevealed", false)
+				and remaining <= MODE.ExtractionOpenTime
+			title = (extractionOpen and "EVACUATE  |  " or "SURVIVE  |  ") .. FormatTime(remaining)
 			role = "SURVIVOR"
 		end
 	end

@@ -1240,6 +1240,8 @@ function SWEP:SecondaryAttack()
 	local owner = self:GetOwner()
 	if owner:InVehicle() then return end
 	if not IsFirstTimePredicted() then return end
+	local mode = CurrentRound and CurrentRound()
+	if mode and mode.TryZombieDrag and mode:TryZombieDrag(self) then return end
 	if self:GetFists() and owner.PlayerClassName == "sc_infiltrator" then
 		self:PrimaryAttack(true)
 	end

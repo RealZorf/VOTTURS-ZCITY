@@ -5,8 +5,8 @@ MODE.PrintName = "Zombie Survival"
 
 MODE.start_time = 5
 MODE.end_time = 7
-MODE.ROUND_TIME = 420
-MODE.InfectionDelay = 45
+MODE.ROUND_TIME = 360
+MODE.InfectionDelay = 30
 MODE.FastZombieRespawnDelay = 5
 MODE.ZombieRespawnDelay = 15
 MODE.ZombieCameraSpawnMinDistance = 650

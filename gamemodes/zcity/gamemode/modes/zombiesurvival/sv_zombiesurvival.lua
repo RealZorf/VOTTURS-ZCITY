@@ -195,6 +195,7 @@ end
 local RestoreZombieBuffs
 
 local function ClearZombieState(ply)
+    ply.ZSPendingDeathZombieClass = nil
 	timer.Remove(RespawnTimerName(ply))
 	timer.Remove(PreInfectionRespawnTimerName(ply))
 	timer.Remove(LateJoinTimerName(ply))
@@ -700,6 +701,7 @@ function MODE:ValidateCameraZombieSpawn(ply, cameraPos)
 		if IsValid(physics) and physics:IsMotionEnabled() then continue end
 
 		local spawnPos = trace.HitPos + Vector(0, 0, 1)
+		if self:IsExtractionSpawnBlocked(spawnPos) then continue end
 		if not IsZombieSpawnClear(spawnPos, ply) then continue end
 
 		sawClearGround = true
@@ -749,6 +751,7 @@ function MODE:SelectZombieSpawn(ply)
 	local now = CurTime()
 
 	for index, pos in RandomPairs(self.ZombieSpawnPoints or {}) do
+		if self:IsExtractionSpawnBlocked(pos) then continue end
 		if not IsZombieSpawnClear(pos, ply) then continue end
 
 		local nearestDistance = 3200
@@ -763,7 +766,7 @@ function MODE:SelectZombieSpawn(ply)
 				nearbyCount = nearbyCount + 1
 			end
 
-			if distance < 2800 and SurvivorCanSeeSpawn(survivor, pos) then
+			if distance < 2800 and SurvivorCanSeeSpawn(survivor, pos, 2800 ^ 2, self.ZombieCameraSpawnViewDot or 0.3) then
 				visibleCount = visibleCount + 1
 			end
 		end
@@ -789,7 +792,9 @@ function MODE:SelectZombieSpawn(ply)
 		self.RecentZombieSpawns[bestIndex] = now
 	end
 
-	return bestPos or zb:GetRandomSpawn(ply)
+	if bestPos then return bestPos end
+	local fallback = zb:GetRandomSpawn(ply)
+	if isvector(fallback) and not self:IsExtractionSpawnBlocked(fallback) then return fallback end
 end
 
 function MODE:SetZombieState(ply, patientZero, zombieClass)
@@ -809,6 +814,7 @@ function MODE:SetZombieState(ply, patientZero, zombieClass)
 end
 
 function MODE:SyncZombieStateFromPlayerClass(ply, className)
+    if ply.ZSExtracted then return false end
 	if not IsValid(ply) or zb.ROUND_STATE ~= 1 or CurrentRound() ~= self or not self.InfectionStarted then return false end
 
 	className = className or ply.PlayerClassName
@@ -987,6 +993,7 @@ function MODE:QueuePreInfectionRespawn(ply, delay)
 end
 
 function MODE:QueueOutbreakLateJoin(ply)
+    if ply.ZSExtracted then return false end
 	if not IsValid(ply) then return false end
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self or not self.InfectionStarted then return false end
 
@@ -1018,6 +1025,7 @@ function MODE:QueueOutbreakLateJoin(ply)
 end
 
 function MODE:BeginLateJoinEnrollment(ply)
+    if ply.ZSExtracted then return end
 	if not IsValid(ply) then return end
 
 	local roundSerial = self.RoundSerial
@@ -1025,6 +1033,7 @@ function MODE:BeginLateJoinEnrollment(ply)
 	ply.ZSLateJoinPendingSerial = roundSerial
 	timer.Remove(timerName)
 	timer.Create(timerName, 0.5, 40, function()
+		if IsValid(ply) and ply.ZSExtracted then timer.Remove(timerName) return end
 		if not IsValid(ply) then
 			timer.Remove(timerName)
 			return
@@ -1078,6 +1087,7 @@ function MODE:BeginLateJoinEnrollment(ply)
 end
 
 function MODE:PlayerSpawn(ply)
+    if ply.ZSExtracted then return end
 	if self.SpawningRoundPlayers or ply.ZSSurvivorSpawnInProgress or ply.ZSIsZombie then return end
 
 	local initialJoin = ply.initialspawn == true
@@ -1085,6 +1095,7 @@ function MODE:PlayerSpawn(ply)
 	timer.Simple(0, function()
 		if not IsValid(ply) or zb.ROUND_STATE ~= 1 then return end
 		if CurrentRound() ~= MODE or MODE.RoundSerial ~= roundSerial then return end
+		if ply.ZSExtracted then return end
 		if ply.ZSIsZombie then return end
 		if ply:Team() == TEAM_SPECTATOR and not initialJoin then return end
 
@@ -1176,6 +1187,7 @@ function MODE:ReconcileLateJoiners()
 end
 
 function MODE:SpawnZombie(ply, requestedSpawnPos)
+    if ply.ZSExtracted then return end
 	if not IsValid(ply) or not ply.ZSIsZombie then return end
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self then return end
 
@@ -1187,6 +1199,11 @@ function MODE:SpawnZombie(ply, requestedSpawnPos)
 	ply:SetNWBool("ZS_SpawnReady", false)
 	ply:SetTeam(1)
 	local spawnPos = isvector(requestedSpawnPos) and requestedSpawnPos or self:SelectZombieSpawn(ply)
+	if not isvector(spawnPos) or self:IsExtractionSpawnBlocked(spawnPos) then
+		ply.ZSSpawnReady = true
+		ply:SetNWBool("ZS_SpawnReady", true)
+		return
+	end
 	ply:Spawn()
 	if not ply:Alive() then
 		self:QueueZombieRespawn(ply, 1)
@@ -1336,6 +1353,7 @@ function MODE:StartInfection()
 end
 
 function MODE:Intermission()
+    self:ResetExtraction()
 	game.CleanUpMap()
 	self:ClearRoundTimers()
 	self.RoundSerial = (self.RoundSerial or 0) + 1
@@ -1375,6 +1393,7 @@ function MODE:RoundStart()
 	self.InfectionFailed = false
 	self.InfectionAt = CurTime() + self.InfectionDelay
 	self.RoundEndsAt = CurTime() + self.ROUND_TIME
+    self:SetupExtraction()
 	self.NextZombieAbilityUpdate = 0
 	self.NextPatientZeroCheck = 0
 	self.NextPoisonZombieAt = CurTime() + self.PoisonZombieInterval
@@ -1413,6 +1432,7 @@ function MODE:RoundStart()
 end
 
 function MODE:RoundThink()
+    self:UpdateExtraction()
 	local now = CurTime()
 	if now >= (self.NextLateJoinReconcile or 0) then
 		self.NextLateJoinReconcile = now + 1
@@ -1443,6 +1463,7 @@ function MODE:RoundThink()
 end
 
 function MODE:HandleZombieSurvivalDeath(victim)
+    if victim.ZSExtracted then return end
 	if zb.ROUND_STATE ~= 1 then return end
 	if not IsParticipant(victim) then return end
 	if CurTime() - (victim.ZSDeathHandledAt or -math.huge) < 0.25 then return end
@@ -1456,7 +1477,9 @@ function MODE:HandleZombieSurvivalDeath(victim)
 			return
 		end
 
-		self:SetZombieState(victim, false)
+		local infectedClass = victim.ZSPendingDeathZombieClass
+		victim.ZSPendingDeathZombieClass = nil
+		self:SetZombieState(victim, false, infectedClass)
 		victim.PreZombClass = victim.PlayerClassName ~= "none" and victim.PlayerClassName or "Rebel"
 		self:QueueZombieRespawn(victim, self.ZombieRespawnDelay)
 		return
@@ -1503,12 +1526,16 @@ end
 
 function MODE:EndRound()
 	self:ClearRoundTimers()
+    if self.ExtractionZone then
+        local escaped = self.ExtractedCount or 0
+        PrintMessage(HUD_PRINTTALK, escaped > 0 and (escaped .. " survivor(s) evacuated. Everyone left behind was lost.") or "Nobody escaped the outbreak.")
+        return
+    end
 
 	local survivorCount = 0
 	for _, ply in player.Iterator() do
 		if IsParticipant(ply) and ply:Alive() and not ply.ZSIsZombie then
 			survivorCount = survivorCount + 1
-			ply:GiveExp(math.random(15, 30))
 		end
 	end
 
@@ -1520,6 +1547,7 @@ function MODE:EndRound()
 end
 
 function MODE:CanSpawn(ply)
+    if IsValid(ply) and ply.ZSExtracted then return false end
 	return zb.ROUND_STATE == 1
 		and CurrentRound() == self
 		and not self.InfectionStarted
