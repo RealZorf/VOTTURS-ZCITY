@@ -160,7 +160,7 @@ local sounds = {
 }
 
 local ents_Create = ents.Create
-function hg.organism.AmputateLimb(org, limb)
+function hg.organism.AmputateLimb(org, limb, attacker)
 	if org[limb.."amputated"] == nil then return end
 
 	local bone = limbs[limb]
@@ -200,7 +200,7 @@ function hg.organism.AmputateLimb(org, limb)
 
 	SpawnMeatGore(ent, select(1, ent:GetBonePosition(ent:LookupBone(bone))), 4)
 
-	hook.Run("OnAmputateLimb", org, ent, limb)
+	hook.Run("OnAmputateLimb", org, ent, limb, attacker)
 
 	if org.owner:IsNPC() then
 		org.shock = 100
@@ -1147,6 +1147,8 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	local instant = org.dmgstack[hitgroup][1] > hitgroup_max
 	--print(damageStack, org.dmgstack[hitgroup][1], org.dmgstack[hitgroup][3])
 	local blast = dmgInfo:IsDamageType(DMG_BLAST)
+	-- DamageInfo is reused; retain the responsible entity for delayed amputation.
+	local amputationAttacker = dmgInfo:GetAttacker()
 	
 	timer.Create("dmgstack"..org.entindex, !instant and 1 or 0, 1, function()
 		--if !IsValid(ply) then return end
@@ -1172,12 +1174,12 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 				if blast then
 					for i, limb in ipairs(limbs) do
 						if !org[limb.."amputated"] and math.random(5) < 200 / lend then
-							hg.organism.AmputateLimb(org, limb)
+							hg.organism.AmputateLimb(org, limb, amputationAttacker)
 						end
 					end
 				else
 					if !org[hitgrouptolimb[hitgroup].."amputated"] then
-						hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup])
+						hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker)
 					end
 				end
 			end

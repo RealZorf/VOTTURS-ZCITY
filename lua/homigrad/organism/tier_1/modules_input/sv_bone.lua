@@ -83,7 +83,7 @@ local function legs(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 	local dmg = dmg * 4
 
 	if dmgInfo:IsDamageType(DMG_CRUSH) and dmg > 4 and !org[key.."amputated"] then
-		hg.organism.AmputateLimb(org, key)
+		hg.organism.AmputateLimb(org, key, dmgInfo:GetAttacker())
 
 		return 0
 	end
@@ -149,7 +149,7 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 	end
 	
 	if dmgInfo:IsDamageType(DMG_CRUSH) and dmg > 4 and !org[key.."amputated"] then
-		hg.organism.AmputateLimb(org, key)
+		hg.organism.AmputateLimb(org, key, dmgInfo:GetAttacker())
 
 		return 0
 	end

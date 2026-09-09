@@ -194,6 +194,10 @@ local function GetStrikeContext(attacker, victim, threatIncoming)
     local atkFirst = atkCombat and (tonumber(atkCombat.first) or math.huge) or math.huge
     local vicFirst = vicCombat and (tonumber(vicCombat.first) or math.huge) or math.huge
     local recentIncoming = vicCombat and (tonumber(vicCombat.harm) or 0) or 0
+    local victimStruckFirst = vicFirst < atkFirst
+    if vicFirst == atkFirst and vicCombat and atkCombat and vicCombat.firstSequence and atkCombat.firstSequence then
+        victimStruckFirst = vicCombat.firstSequence < atkCombat.firstSequence
+    end
 
     threatIncoming = tonumber(threatIncoming) or 0
     if recentIncoming < threatIncoming then
@@ -201,7 +205,7 @@ local function GetStrikeContext(attacker, victim, threatIncoming)
     end
 
     return {
-        victimStruckFirst = vicFirst < atkFirst,
+        victimStruckFirst = victimStruckFirst,
         recentIncoming = recentIncoming,
     }
 end
@@ -210,7 +214,7 @@ local function RecordGuiltCombatHarm(victim, attacker, amount, source)
     if not IsValid(victim) or not IsValid(attacker) then return end
 
     amount = math.max(0, tonumber(amount) or 0)
-    if amount <= 0 then return end
+    if amount <= 0 and source ~= "gunfire" and source ~= "melee_threat" then return end
 
     local now = CurTime()
     zb.GuiltCombatHistory[victim] = zb.GuiltCombatHistory[victim] or {}
@@ -221,11 +225,45 @@ local function RecordGuiltCombatHarm(victim, attacker, amount, source)
     end
 
     entry.first = entry.first or now
+    if not entry.firstSequence then
+        zb.GuiltCombatSequence = (zb.GuiltCombatSequence or 0) + 1
+        entry.firstSequence = zb.GuiltCombatSequence
+    end
 
     entry.harm = math.min((tonumber(entry.harm) or 0) + amount, zb.MaximumHarm or 10)
     entry.last = now
     entry.source = tostring(source or "damage")
     zb.GuiltCombatHistory[victim][attacker] = entry
+end
+
+-- Judge the weapon's unmitigated attack capability, not the damage of a glancing hit.
+local LETHAL_MELEE_DAMAGE_THRESHOLD = 25
+
+local function IsLethalMeleeWeapon(weapon)
+    if not IsValid(weapon) or not weapon:IsWeapon() then return false end
+    if not weapon.ismelee and not weapon.ismelee2 then return false end
+
+    local primary = math.max(0, tonumber(weapon.DamagePrimary) or 0)
+    local secondary = math.max(0, tonumber(weapon.DamageSecondary) or 0)
+    local heavy = weapon.CanHeavyAttack and primary * math.max(1, tonumber(weapon.HeavyAttackDamageMul) or 1) or 0
+    return math.max(primary, secondary, heavy) >= LETHAL_MELEE_DAMAGE_THRESHOLD
+end
+
+local function RecordGuiltMeleeThreat(victim, attacker, dmgInfo, harm)
+    if not IsValid(victim) or not IsValid(attacker) or victim == attacker then return end
+    if (tonumber(harm) or 0) <= 0 or not dmgInfo then return end
+    if not dmgInfo:IsDamageType(DMG_CLUB + DMG_SLASH) then return end
+
+    -- Use the weapon responsible for this injury, not a later active-weapon swap.
+    local inflictor = dmgInfo:GetInflictor()
+    if not IsLethalMeleeWeapon(inflictor) then return end
+    local weaponName = tostring(inflictor.PrintName or "lethal melee weapon")
+
+    -- A glancing hit is evidence of a lethal attack, without inflating harm totals.
+    RecordGuiltCombatHarm(victim, attacker, 0, "melee_threat")
+    local entry = zb.GuiltCombatHistory[victim][attacker]
+    entry.meleeThreatAt = CurTime()
+    entry.meleeThreatWeapon = weaponName
 end
 
 local function GetSelfDefenseKarmaMul(responseRatio, retaliation)
@@ -267,7 +305,11 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
 
     local maxHarm = math.max(tonumber(zb.MaximumHarm) or 10, 1)
     local incomingHarm = math.Clamp(tonumber(reciprocal.harm) or 0, 0, maxHarm)
-    if incomingHarm < RETALIATION_MIN_INCOMING then return state end
+    local gunfireAt = tonumber(reciprocal.firearmThreatAt)
+    local recentGunfire = gunfireAt and CurTime() >= gunfireAt and CurTime() - gunfireAt <= threatWindow
+    local meleeAt = tonumber(reciprocal.meleeThreatAt)
+    local recentMelee = meleeAt and CurTime() >= meleeAt and CurTime() - meleeAt <= threatWindow
+    if incomingHarm < RETALIATION_MIN_INCOMING and not recentGunfire and not recentMelee then return state end
 
     local nativeResponse = zb.HarmDone[victim] and zb.HarmDone[victim][attacker] or 0
     local response = math.Clamp(tonumber(responseHarm) or tonumber(nativeResponse) or 0, 0, maxHarm)
@@ -291,6 +333,37 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
         strike.victimStruckFirst and "Victim struck before the attacker's response in this exchange." or "Attacker responded before the victim's latest hit.",
         "Threat was active " .. math.Round(age, 1) .. " seconds before this response."
     }
+
+    local severeAt = tonumber(reciprocal.severeInjuryAt)
+    if strike.victimStruckFirst and severeAt and CurTime() >= severeAt and CurTime() - severeAt <= threatWindow then
+        state.severeSelfDefense = true
+        state.protectedSelfDefense = true
+        state.karmaMul = 0
+        state.reasons = {
+            "Victim caused a limb amputation and struck first in this exchange.",
+            "Response to this recent severe injury is protected self-defense."
+        }
+    end
+
+    if strike.victimStruckFirst and recentGunfire then
+        state.protectedSelfDefense = true
+        state.karmaMul = 0
+        state.reasons = {
+            "Victim fired a bullet at or close to the attacker and initiated this exchange.",
+            "Response to this recent incoming gunfire is protected self-defense."
+        }
+    end
+
+    if strike.victimStruckFirst and recentMelee then
+        state.protectedSelfDefense = true
+        state.meleeSelfDefense = true
+        state.karmaMul = 0
+        state.reasons = {
+            "Victim struck first with a " .. tostring(reciprocal.meleeThreatWeapon or "lethal melee weapon") .. ".",
+            "A glancing hit from this weapon is still a lethal threat.",
+            "Response to this recent attack is protected self-defense."
+        }
+    end
 
     return state
 end
@@ -448,6 +521,84 @@ local function ResolveGuiltPlayer(ent)
 
     return nil
 end
+
+local GUILT_NEAR_MISS_RADIUS = 24
+local guiltNearMissMins = Vector(-24, -24, -24)
+local guiltNearMissMaxs = Vector(24, 24, 24)
+
+-- Called only for a server-simulated, unobstructed bullet travel segment.
+function zb.RecordGuiltBulletThreat(shooter, trace, damage, inflictor)
+    if not zb.IsRoundGuiltActive() or (tonumber(damage) or 0) <= 0 then return end
+    if not istable(trace) or trace.StartSolid or trace.AllSolid then return end
+    if not isvector(trace.StartPos) or not isvector(trace.HitPos) then return end
+    local rnd = CurrentRound()
+    if not rnd or rnd.GuiltDisabled or GetConVar("zb_dev"):GetBool() then return end
+    if IsValid(inflictor) and inflictor.RubberBullets then return end
+    shooter = ResolveGuiltPlayer(shooter)
+    if not IsValid(shooter) then return end
+
+    local delta = trace.HitPos - trace.StartPos
+    local lengthSqr = delta:LengthSqr()
+    if lengthSqr <= 0 then return end
+    local seen = {}
+    local hitPlayer = ResolveGuiltPlayer(trace.Entity)
+    for _, candidate in ipairs(ents.FindAlongRay(trace.StartPos, trace.HitPos, guiltNearMissMins, guiltNearMissMaxs)) do
+        local victim = ResolveGuiltPlayer(candidate)
+        local character = IsValid(victim) and hg.GetCurrentCharacter(victim) or nil
+        if IsValid(victim) and victim ~= shooter and not seen[victim] and victim:Alive() and victim:Team() ~= TEAM_SPECTATOR
+            and (candidate == victim or candidate == character) then
+            seen[victim] = true
+            if not IsValid(character) then character = victim end
+            local head = victim:EyePos()
+            if character ~= victim then
+                local bone = character:LookupBone("ValveBiped.Bip01_Head1")
+                head = bone and character:GetBonePosition(bone) or character:WorldSpaceCenter()
+            end
+
+            local threatened = hitPlayer == victim
+            for _, point in ipairs({head, character:WorldSpaceCenter()}) do
+                if not threatened and isvector(point) then
+                    -- Do not extend the trajectory behind the muzzle or beyond its impact.
+                    local fraction = (point - trace.StartPos):Dot(delta) / lengthSqr
+                    if fraction >= 0 and fraction <= 1 then
+                        local closest = trace.StartPos + delta * fraction
+                        if closest:DistToSqr(point) <= GUILT_NEAR_MISS_RADIUS * GUILT_NEAR_MISS_RADIUS then
+                            local visibility = util.TraceLine({start = closest, endpos = point,
+                                filter = {shooter, victim, character}, mask = MASK_SHOT})
+                            threatened = not visibility.Hit and not visibility.StartSolid
+                        end
+                    end
+                end
+            end
+            if threatened then
+                RecordGuiltCombatHarm(victim, shooter, 0, "gunfire")
+                zb.GuiltCombatHistory[victim][shooter].firearmThreatAt = CurTime()
+            end
+        end
+    end
+end
+
+hook.Add("PostEntityFireBullets", "GuiltIncomingGunfire", function(ent, bullet)
+    if not istable(bullet) then return end
+    local shooter = ResolveGuiltPlayer(bullet.Attacker) or ResolveGuiltPlayer(ent)
+    if not IsValid(shooter) and IsValid(ent) then shooter = ResolveGuiltPlayer(ent:GetOwner()) end
+    zb.RecordGuiltBulletThreat(shooter, bullet.Trace, bullet.Damage, ent)
+end)
+
+hook.Add("OnAmputateLimb", "GuiltSevereInjury", function(org, ent, limb, attacker)
+    if not zb.IsRoundGuiltActive() then return end
+    if limb ~= "lleg" and limb ~= "rleg" and limb ~= "larm" and limb ~= "rarm" then return end
+
+    local victim = ResolveGuiltPlayer(ent) or ResolveGuiltPlayer(org and org.owner)
+    attacker = ResolveGuiltPlayer(attacker)
+    if not IsValid(victim) or not IsValid(attacker) or attacker == victim then return end
+    if not victim:Alive() or not org or org.alive == false then return end
+
+    -- Some amputation paths run before HomigradDamage. Seed only combat evidence,
+    -- not native harm/karma totals, so even those injuries have an attributed threat.
+    RecordGuiltCombatHarm(victim, attacker, RETALIATION_MIN_INCOMING, "amputation")
+    zb.GuiltCombatHistory[victim][attacker].severeInjuryAt = CurTime()
+end)
 
 local function GetPlayerLifeGuilt(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return 0 end
@@ -607,6 +758,16 @@ function zb.EvaluateEngagement(attacker, victim, opts)
         result.maxKarmaPenalty = nil
     end
 
+    if threatState.protectedSelfDefense == true or threatState.severeSelfDefense == true then
+        karmaMul = 0
+        guiltMul = 0
+        result.retaliation = true
+        result.aggressor = victim
+        result.defender = attacker
+        result.maxKarmaPenalty = 0
+        reasons[#reasons + 1] = "Protected response to a recent lethal threat from the initiator."
+    end
+
     result.karmaMultiplier = math.Clamp(karmaMul, 0, 1.25)
     result.guiltMultiplier = math.Clamp(guiltMul, 0, 1.25)
     result.confidence = math.Clamp(confidence, 0, 1)
@@ -676,12 +837,14 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     zb.HarmAttacked[Attacker] = zb.HarmAttacked[Attacker] or 0
     zb.HarmAttacked[Attacker] = zb.HarmAttacked[Attacker] + harm
 
+    local reportedHarm = harm
     local newharm = math.min(harm + oldharmdone, maxharm)
     local harm = newharm - oldharmdone
     local amt = harm / maxharm
     local damageSource = GetGuiltDamageSource(Attacker, dmgInfo)
 
     RecordGuiltCombatHarm(Victim, Attacker, harm, damageSource)
+    RecordGuiltMeleeThreat(Victim, Attacker, dmgInfo, reportedHarm)
     zb.GuiltThreatStates[Victim] = zb.GuiltThreatStates[Victim] or {}
     local threatState = zb.GetGuiltThreatState(Victim, Attacker, damageSource, newharm)
     zb.GuiltThreatStates[Victim][Attacker] = threatState
@@ -860,6 +1023,11 @@ hook.Add("Player Spawn","SlowlyRestoreKarma",function(ply)
     
     ply.Guilt = 0
     ply.GuiltAggressionScore = 0
+    -- Combat justification belongs to this life, including attributed limb loss.
+    zb.GuiltCombatHistory[ply] = nil
+    for _, history in pairs(zb.GuiltCombatHistory) do
+        history[ply] = nil
+    end
 end)
 
 hook.Add("Player Think", "karmagain", function(ply)

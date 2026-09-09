@@ -439,6 +439,10 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 			end
 			
 			trace_hit = trace.Hit
+
+			if SERVER and not self.PenetratingMaterial and zb and zb.RecordGuiltBulletThreat then
+				zb.RecordGuiltBulletThreat(self.Shooter, trace, self.Damage, self.Inflictor)
+			end
 			
 			if(self.PenetratingMaterial)then
 				if(!trace.AllSolid)then
