@@ -29,6 +29,72 @@ local tab2 = {
 }
 
 local cc = Material( "effects/shaders/merc_chromaticaberration" )
+local cannibalTint = {
+	["$pp_colour_addr"] = 0.035, ["$pp_colour_addg"] = 0, ["$pp_colour_addb"] = 0,
+	["$pp_colour_brightness"] = -0.015, ["$pp_colour_contrast"] = 1.10,
+	["$pp_colour_colour"] = 0.68, ["$pp_colour_mulr"] = 0,
+	["$pp_colour_mulg"] = 0, ["$pp_colour_mulb"] = 0
+}
+local cannibalVisualStrength = 0
+local cannibalVignetteMaterial = CreateMaterial("HMCD_CannibalVignette", "UnlitGeneric", {
+	["$basetexture"] = "color/white", ["$model"] = 1,
+	["$vertexcolor"] = 1, ["$vertexalpha"] = 1,
+	["$translucent"] = 1, ["$ignorez"] = 1, ["$nocull"] = 1
+})
+local vignetteWidth, vignetteHeight = 0, 0
+local function BuildCannibalVignette(w, h)
+	if hg.cannibalVignetteMesh then hg.cannibalVignetteMesh:Destroy() end
+	hg.cannibalVignetteMesh = Mesh()
+	vignetteWidth, vignetteHeight = w, h
+	local segments, rings = 128, 16
+	local function vertex(index, ring)
+		local angle = index / segments * math.pi * 2
+		local t = ring / rings
+		local irregularity = math.sin(angle * 3 + 0.8) * 0.018 + math.sin(angle * 7 - 1.3) * 0.008
+		local radius = 0.76 + irregularity + t * 0.76
+		local opacity = t * t * (3 - 2 * t)
+		mesh.Position(Vector(w * (0.5 + math.cos(angle) * radius * 0.5), h * (0.5 + math.sin(angle) * radius * 0.5), 0))
+		mesh.TexCoord(0, 0.5, 0.5)
+		mesh.Color(65 - t * 48, 2, 6, math.floor(opacity * 215))
+		mesh.AdvanceVertex()
+	end
+	mesh.Begin(hg.cannibalVignetteMesh, MATERIAL_TRIANGLES, segments * rings * 2)
+	for ring = 0, rings - 1 do
+		for index = 0, segments - 1 do
+			vertex(index, ring)
+			vertex(index + 1, ring)
+			vertex(index + 1, ring + 1)
+			vertex(index, ring)
+			vertex(index + 1, ring + 1)
+			vertex(index, ring + 1)
+		end
+	end
+	mesh.End()
+end
+
+hook.Add("Post Post Pre Post Processing", "CannibalFuryVisuals", function()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() then cannibalVisualStrength = 0 return end
+	local org = ply.organism
+	local active = org and ply:GetNWBool("HMCD_CannibalFury", false)
+		and (org.berserk or 0) > 0.0001 and (org.consciousness or 1) > 0.4
+	cannibalVisualStrength = math.Approach(cannibalVisualStrength, active and 1 or 0, FrameTime() * 1.5)
+	if cannibalVisualStrength <= 0 then return end
+	local strength = cannibalVisualStrength
+	cannibalTint["$pp_colour_addr"] = 0.018 * strength
+	cannibalTint["$pp_colour_brightness"] = -0.008 * strength
+	cannibalTint["$pp_colour_contrast"] = 1 + 0.08 * strength
+	cannibalTint["$pp_colour_colour"] = 1 - 0.20 * strength
+	DrawColorModify(cannibalTint)
+	local w, h = ScrW(), ScrH()
+	if vignetteWidth ~= w or vignetteHeight ~= h then BuildCannibalVignette(w, h) end
+	local pulse = 0.94 + math.sin(CurTime() * 1.7) * 0.06
+	cam.Start2D()
+		cannibalVignetteMaterial:SetFloat("$alpha", strength * pulse)
+		render.SetMaterial(cannibalVignetteMaterial)
+		hg.cannibalVignetteMesh:Draw()
+	cam.End2D()
+end)
 
 local offset = CreateClientConVar("berserk_offset", "0.85", true, false, "Set berserk music offset from start", 0, 5)
 local bpm = CreateClientConVar("berserk_bpm", "70", true, false, "Set berserk effect bpm", 1, 280)
@@ -54,6 +120,15 @@ hook.Add("RenderScreenspaceEffects", "berserkEffect", function()
 	end
 
 	local berserk = (organism.berserk or 0)
+	if lply:GetNWBool("HMCD_CannibalFury", false) then
+		hg.underberserk = false
+		hg.underberserk2 = false
+		hg.berserkIntensity = 0
+		hg.berserkClamped = 0
+		hg.notificationFont = "HuyFont"
+		if IsValid(hg.berserkStation) then hg.berserkStation:Stop() hg.berserkStation = nil end
+		return
+	end
 	local berserkClamped = math.Clamp(berserk, 0, 3) * (organism.consciousness or 1)
 
 	if berserk > 0.0001 and (!hg.underberserk and !hg.underberserk2) then
@@ -72,9 +147,11 @@ hook.Add("RenderScreenspaceEffects", "berserkEffect", function()
 			if IsValid(part) then
 				part:StopEmission( false, true, false )
 			end
+			if LocalPlayer():GetNWBool("HMCD_CannibalFury", false) then return end
 
 			for i = 1, 120 do
 				timer.Simple(i/90,function()
+					if LocalPlayer():GetNWBool("HMCD_CannibalFury", false) then return end
 					ViewPunch(AngleRand(-1.5,1.5))
 				end)
 			end
@@ -82,6 +159,8 @@ hook.Add("RenderScreenspaceEffects", "berserkEffect", function()
 			hg.underberserk = false
 			hg.underberserk2 = true
 			sound.PlayFile(path:GetString(), "noblock", function(channel)
+				if not IsValid(channel) then return end
+				if LocalPlayer():GetNWBool("HMCD_CannibalFury", false) then channel:Stop() return end
 				hg.berserkStation = channel
 				channel:EnableLooping(true)
 				-- atlaschat.font:SetString("BerserkChatFont")

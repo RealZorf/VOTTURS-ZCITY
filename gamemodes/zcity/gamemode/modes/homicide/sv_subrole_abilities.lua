@@ -1642,6 +1642,22 @@ function MODE.PulseCannibalWitnessFear(cannibal, corpse, victim, force)
 	end
 end
 
+function MODE.ResetCannibalFury(ply)
+	if not IsValid(ply) then return end
+	local dose = ply.HMCDCannibalFuryDose
+	if dose and dose.org == ply.organism then
+		local remaining = math.max(2 - (CurTime() - dose.at) / 60, 0)
+		ply.organism.berserk = math.max((ply.organism.berserk or 0) - remaining, 0)
+	end
+	ply.HMCDCannibalFuryDose = nil
+	ply:SetNWBool("HMCD_CannibalFury", false)
+end
+
+hook.Add("PlayerDeath", "HMCD_CannibalFuryCleanup", function(ply) MODE.ResetCannibalFury(ply) end)
+hook.Add("ZB_EndRound", "HMCD_CannibalFuryCleanup", function()
+	for _, ply in player.Iterator() do MODE.ResetCannibalFury(ply) end
+end)
+
 function MODE.ApplyCannibalStacks(ply)
 	if not IsValid(ply) or not ply.organism or not MODE.IsCannibalRole or not MODE.IsCannibalRole(ply.SubRole) then return end
 
@@ -1649,6 +1665,12 @@ function MODE.ApplyCannibalStacks(ply)
 	if not stamina then return end
 
 	local stacks = MODE.GetCannibalStacks(ply)
+	if stacks == 0 and ply.HMCDCannibalFuryDose then MODE.ResetCannibalFury(ply) end
+	if stacks >= (MODE.CannibalMaxConsumedBodies or 6) and ply:Alive() and not ply.HMCDCannibalFuryDose then
+		ply.HMCDCannibalFuryDose = {org = ply.organism, at = CurTime()}
+		ply.organism.berserk = (ply.organism.berserk or 0) + 2
+		ply:SetNWBool("HMCD_CannibalFury", true)
+	end
 	local base = ply.Ability_CannibalBaseStaminaRange or stamina.range or 180
 	ply.Ability_CannibalBaseStaminaRange = base
 
@@ -1661,6 +1683,7 @@ end
 
 function MODE.ResetCannibal(ply)
 	if not IsValid(ply) then return end
+	MODE.ResetCannibalFury(ply)
 
 	MODE.StopCannibalConsume(ply)
 	ply.Ability_CannibalConsumedBodies = nil
