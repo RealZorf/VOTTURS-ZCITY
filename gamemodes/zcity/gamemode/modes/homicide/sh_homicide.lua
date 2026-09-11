@@ -122,7 +122,7 @@ You are equipped with various weapons, poisons and explosives, grenades and your
 			if not IsValid(rugermk4) then return end
 			ply:GiveAmmo(rugermk4:GetMaxClip1() * 2, rugermk4:GetPrimaryAmmoType(), true)
 			
-			hg.AddAttachmentForce(ply, rugermk4, {"supressor4","ent_att_holo7"}),
+			hg.AddAttachmentForce(ply, rugermk4, "supressor4","ent_att_holo7")
 			
 			ply:Give("weapon_buck200knife")	
 			ply:Give("weapon_hg_rgd_tpik")
@@ -156,7 +156,7 @@ You are equipped with various weapons, poisons and explosives, grenades and your
 			if not IsValid(rugermk4) then return end
 			ply:GiveAmmo(rugermk4:GetMaxClip1() * 2, rugermk4:GetPrimaryAmmoType(), true)
 			
-			hg.AddAttachmentForce(ply, rugermk4, {"supressor4","ent_att_holo7"}),
+			hg.AddAttachmentForce(ply, rugermk4, "supressor4","ent_att_holo7")
 			
 			ply:Give("weapon_sogknife")	
 			ply:Give("weapon_hg_rgd_tpik")
