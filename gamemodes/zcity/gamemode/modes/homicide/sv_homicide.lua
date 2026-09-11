@@ -51,9 +51,9 @@ MODE.LootTable = {
 		{1.2,"weapon_pat_beer"},
 		{0.6,"weapon_pat_whiskey"},
 
-		{0.6,"ent_armor_mask2"},
-		{0.4,"ent_armor_helmet2"},
-		{0.6,"ent_armor_mask3"},
+		{0.6,"mask2"},
+		{0.4,"helmet2"},
+		{0.6,"mask3"},
 	}},
 	{23,{
 		{8,"weapon_hammer"},
@@ -77,22 +77,22 @@ MODE.LootTable = {
 
 		{0.25,"hg_brassknuckles"},
 		{0.13,"weapon_hg_spear"},
-		{0.13, "weapon_hg_spear_pro"},
-		{0.13, "weapon_hg_pitchfork"},
-		{0.13, "iron_sword"},
+		{0.13,"weapon_hg_spear_pro"},
+		{0.13,"weapon_hg_pitchfork"},
+		{0.13,"iron_sword"},
 	}},
 	{9,{
-		{10,"ent_att_laser5"},
-		{10,"ent_att_laser1"},
-		{8,"ent_att_holo7"},
+		{10,"laser5"},
+		{10,"laser1"},
+		{8,"holo7"},
 
-		{6,"ent_armor_helmet1"},
-		{4,"ent_armor_vest3"},
-		{6, "ent_armor_helmet7"},
+		{6,"helmet1"},
+		{4,"vest3"},
+		{6,"helmet7"},
 	}},
 	{9,{
-		{4,"ent_att_holo16"},
-		{5,"ent_att_supressor4"},
+		{4,"holo16"},
+		{5,"supressor4"},
 
 		{12,"weapon_mp-80"},
 		{12,"weapon_osapb"},
@@ -109,7 +109,7 @@ MODE.LootTable = {
 		{3,"weapon_musket"},
 		{2,"weapon_ruger"},
 	}},
-	{6, {
+	{7, {
 		{8,"weapon_hk_usp"},
 		{8,"weapon_glock17"},
 		{8,"weapon_cz75"},
@@ -149,10 +149,10 @@ MODE.LootTable = {
 		{1,"weapon_pm63rak"},
 	}},
 	{4,{
-		{5,"ent_armor_vest1"},
-		{3,"ent_armor_vest8"},
-		{3,"ent_armor_helmet6"},
-		{5, "ent_armor_helmet5"},
+		{5,"vest1"},
+		{3,"vest8"},
+		{3,"helmet6"},
+		{5,"helmet5"},
 	}},
 	{2, {
 		{5,"weapon_remington870"},
@@ -183,7 +183,7 @@ MODE.LootTable = {
 }
 
 MODE.LootTableStandard = {
-	{65, {
+	{50, {
 		{7,"weapon_smallconsumable"},
 		{6,"weapon_bigconsumable"},
 		{5,"weapon_tourniquet"},
@@ -210,7 +210,7 @@ MODE.LootTableStandard = {
 		{1.2,"weapon_pat_beer"},
 		{0.6,"weapon_pat_whiskey"},
 	}},
-	{35, {
+	{31, {
 		{8,"weapon_hammer"},
 		{10,"weapon_hg_wrench"},
 		{8,"weapon_brick"},
@@ -232,9 +232,25 @@ MODE.LootTableStandard = {
 
 		{0.25,"hg_brassknuckles"},
 		{0.13,"weapon_hg_spear"},
-		{0.13, "weapon_hg_spear_pro"},
-		{0.13, "weapon_hg_pitchfork"},
-		{0.13, "iron_sword"},
+		{0.13,"weapon_hg_spear_pro"},
+		{0.13,"weapon_hg_pitchfork"},
+		{0.13,"iron_sword"},
+	}},
+	{9,  {
+		{12,"weapon_mp-80"},
+		{12,"weapon_osapb"},
+		{8,"weapon_makarov"},
+		{8,"weapon_m70zastavapist"},
+		{8,"weapon_tokarev"},
+		{7,"weapon_hkp7"},
+		{8,"weapon_rugermk3"},
+		{7,"weapon_revolversw686"},
+		{7,"weapon_revolverswr8"},
+		{6,"weapon_m1911"},
+		{4,"weapon_glock26"},
+		{3,"weapon_flintlock"},
+		{3,"weapon_musket"},
+		{2,"weapon_ruger"},
 	}},
 }
 
