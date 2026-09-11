@@ -1861,6 +1861,10 @@ end
 
 
 hook.Add("SetupMove", "AntiCrouchSpam", function(ply, mvd, cmd) --actually pretty useless crap you just can't spam crouch lol
+	if ply.HG_FakeUpCrouchPending or ply:GetNWBool("HG_FakeUpCrouched", false) then
+		ply.CrouchCD = nil
+		return
+	end
 	if !ply:Alive() or !hg.GetCurrentCharacter( ply ):IsPlayer() then return end
 
 	ply.OldCrouchState = ply.OldCrouchState or false

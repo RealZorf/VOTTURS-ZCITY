@@ -507,6 +507,25 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 
 
 
+	if ply:Alive() and not ply:InVehicle() and not IsValid(ply.FakeRagdoll)
+		and (ply.HG_FakeUpCrouchPending or ply:GetNWBool("HG_FakeUpCrouched", false)) then
+		if IsValid(follow) and hg.ClearLocalFakeFollow then hg.ClearLocalFakeFollow() end
+		view.origin = ply:GetPos() + ply:GetViewOffsetDucked()
+		local eye = getPreferredEyeAttachment(ply)
+		if eye and isvector(eye.Pos) then
+			local tr = util.TraceHull({start = view.origin, endpos = eye.Pos,
+				mins = Vector(-1, -1, -1), maxs = Vector(1, 1, 1),
+				filter = {ply, ply.OldRagdoll}, mask = MASK_SOLID})
+			if not tr.StartSolid and not tr.AllSolid then view.origin = tr.HitPos end
+		end
+		view.angles = angles
+		view.fov = math.Clamp(hg_fov:GetFloat(), 75, 100) + lerpfovadd + lerpfovadd2
+		view.znear = 1
+		view.drawviewer = true
+		SetLocalFirstPersonHeadHidden(ply, ply == lply)
+		return view
+	end
+
 	if IsValid(follow) then
 		return hg.CalcViewFake(ply, origin, angles, fov, znear, zfar)
 	end
@@ -555,6 +574,14 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	--selfdraw = nil
 	--hg.DoTPIK(lply, lply)
 	local tr, hullcheck, headm = hg.eyeTrace(ply, 10, ply, att.Ang, att.Pos)
+	if not tr or not isvector(tr.StartPos) then
+		view.origin = origin
+		view.angles = angles
+		view.fov = fov
+		view.znear = 1
+		view.drawviewer = true
+		return view
+	end
 	
 	--[[if hg_realismcam:GetBool() and ishgweapon(ply:GetActiveWeapon()) then
 		tr = hg.torsoTrace(ply)

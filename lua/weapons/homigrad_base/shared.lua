@@ -526,13 +526,28 @@ function SWEP:PrimaryAttack(broadcast)
 	if CLIENT and not self:IsClient() then return end
 	if self:KeyDown(IN_USE) and !IsValid(self:GetOwner().FakeRagdoll) then return false end
 	
-	local huy = self:Shoot() ~= false
-	
-	if SERVER and huy then
+	local clipBefore = self:Clip1()
+	if clipBefore == 0 then
+		if not self:CanPrimaryAttack() or not self:CanUse() then return false end
+		self.LastPrimaryDryFire = CurTime()
+		self:PrimaryShootEmpty()
+		return false
+	end
+	self.HG_PrimaryAttackRunning = true
+	local ok, result = pcall(self.Shoot, self)
+	self.HG_PrimaryAttackRunning = nil
+	if not ok then error(result, 0) end
+	local fired = result ~= false and (result == true or self:Clip1() < clipBefore)
+	if SERVER and fired then self:BroadcastShot(broadcast) end
+end
+
+function SWEP:BroadcastShot(broadcast, effectsOnly)
+	if SERVER then
 		net.Start("hgwep shoot", true)
 		net.WriteEntity(self)
-		net.WriteBool(huy)
-		net.WriteBool(broadcast)
+		net.WriteBool(true)
+		net.WriteBool(broadcast == true)
+		net.WriteBool(effectsOnly == true)
 		local owner = self:GetOwner()
 		if IsValid(owner) then
 			local rf = RecipientFilter()
@@ -565,6 +580,10 @@ SWEP.ShootAnimMul = 2
 SWEP.shot2 = 0
 SWEP.shot = 0
 function SWEP:PrimaryShoot()
+	local owner = self:GetOwner()
+	if SERVER and (not IsValid(owner) or self:Clip1() == 0 or
+		(owner:IsPlayer() and owner:GetActiveWeapon() ~= self) or not self:CanUse()) then return false end
+	local clipBefore = self:Clip1()
 	local ammotype = hg.ammotypeshuy[self.Primary.Ammo].BulletSettings
 	if ammotype.IsBlank then
 		self.dwr_reverbDisable = nil
@@ -600,6 +619,9 @@ function SWEP:PrimaryShoot()
 	self.drawBullet = false
 	if self.AutomaticDraw then self:Draw() end
 	self:PrimarySpread()
+	if SERVER and not self.HG_PrimaryAttackRunning and self:Clip1() < clipBefore then
+		self:BroadcastShot(false, true)
+	end
 end
 
 SWEP.SightSlideOffset = 1
@@ -2360,7 +2382,7 @@ end
 
 function SWEP:GetWM()
 	local wm = self.worldModel
-	return IsValid(wm) and wm or nil
+	return IsValid(wm) and wm or (SERVER and self or nil)
 end
 
 function SWEP:SafeBoneScale(ent, bone, scale)
@@ -2390,6 +2412,7 @@ function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient)
 	end
 
 	if SERVER then
+        if hg.ScheduleWeaponDiscard then hg.ScheduleWeaponDiscard(self, anim, time, start) end
         net.Start("hg_animation")
             local netTbl = {
                 anim = anim,

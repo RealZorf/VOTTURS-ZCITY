@@ -433,6 +433,7 @@ end
 
 local Ragdoll_Create = hg.Ragdoll_Create
 util.AddNetworkString("Player Ragdoll")
+util.AddNetworkString("HG Fake Up")
 local function NET_Fake(self, ply, send)
 	ply:SetNWEntity("FakeRagdoll",self)
 	net.Start("Player Ragdoll")
@@ -460,10 +461,19 @@ local function NET_Fake2(num, ply, send)
 end
 
 local function NET_Up(ply, send)
+	ply:SetNWEntity("FakeRagdoll", NULL)
 	net.Start("Player Ragdoll")
 	net.WriteEntity(ply)
 	net.WriteEntity(NULL)
 	--net.WriteInt(0,32)
+	if IsValid(send) and send:IsPlayer() then
+		net.Send(send)
+	else
+		net.Broadcast()
+	end
+	net.Start("HG Fake Up")
+	net.WriteEntity(ply)
+	net.WriteBool(ply:GetNWBool("HG_FakeUpCrouched", false))
 	if IsValid(send) and send:IsPlayer() then
 		net.Send(send)
 	else
@@ -475,6 +485,9 @@ hook.Add("PlayerSpawn", "Fake", function(ply)
 	ply:RemoveFlags(FL_NOTARGET)
 	hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_PLAYER)
 	if OverrideSpawn then return end
+	ply:SetNWBool("HG_FakeUpCrouched", false)
+	ply.HG_FakeUpCrouchPending = nil
+	timer.Remove("fake_up_crouch_hull" .. ply:EntIndex())
 	if ply.gottarespawn then
 		ply:SetNWEntity("RagdollDeath", NULL)
 		ply.gottarespawn = nil
@@ -727,9 +740,18 @@ end)
 
 hook.Add("SetupPlayerVisibility", "ragdollview", function( ply )
 	local ent = IsValid(hg.ragdollFake[ply]) and hg.ragdollFake[ply] or ply:GetNWEntity("FakeRagdoll")
-	
-	if IsValid(ent) and !ent:TestPVS(ply) then
-		AddOriginToPVS(ent:GetPos())
+	if not IsValid(ent) then return end
+
+	-- The player's bounds can be visible from the body while the engine eye is above a vent.
+	-- Include the actual fake view every snapshot, independent of TestPVS on those bounds.
+	AddOriginToPVS(ent:GetPos())
+	AddOriginToPVS(ply:GetPos())
+
+	if ent.ZCHeadPhysBone == nil then cacheFakeRagdollData(ent) end
+	local headIndex = ent.ZCHeadPhysBone
+	if headIndex and headIndex >= 0 then
+		local head = ent:GetPhysicsObjectNum(headIndex)
+		if IsValid(head) then AddOriginToPVS(head:GetPos()) end
 	end
 end)
 
@@ -942,27 +964,24 @@ local function BeginFakeUpCrouchTransition(ply, ragdoll)
 
 	local scale = hg.GetEntityModelScale and hg.GetEntityModelScale(ply) or 1
 	local radius = math.max(2, 10 * scale)
-	local crouchHeight = math.max(8, 36 * scale)
 	local standHeight = math.max(12, 72 * scale)
 	local crouchMins = Vector(-radius, -radius, 0)
-	local crouchMaxs = Vector(radius, radius, crouchHeight)
 	local standMaxs = Vector(radius, radius, standHeight)
-	local crouchView = Vector(0, 0, math.max(6, 38 * scale))
 	local timerName = "fake_up_crouch_hull" .. ply:EntIndex()
 
-	ply:SetHull(crouchMins, crouchMaxs)
-	ply:SetHullDuck(crouchMins, crouchMaxs)
-	ply:SetViewOffset(crouchView)
-	ply:SetViewOffsetDucked(crouchView)
+	ply:SetNWBool("HG_FakeUpCrouched", true)
+	hg.EnterFakeUpCrouch(ply)
 
 	timer.Remove(timerName)
 	timer.Create(timerName, 0.05, 0, function()
 		if not IsValid(ply) or not ply:Alive() then
+			if IsValid(ply) then ply:SetNWBool("HG_FakeUpCrouched", false) end
 			timer.Remove(timerName)
 			return
 		end
 
 		if IsValid(ply.FakeRagdoll) then
+			ply:SetNWBool("HG_FakeUpCrouched", false)
 			timer.Remove(timerName)
 			return
 		end
@@ -977,11 +996,8 @@ local function BeginFakeUpCrouchTransition(ply, ragdoll)
 			collisiongroup = COLLISION_GROUP_PLAYER
 		})
 
-		if ply:Crouching() or not (standingTrace.Hit or standingTrace.StartSolid or standingTrace.AllSolid) then
-			if hg.ApplyScaledPlayerHull then
-				hg.ApplyScaledPlayerHull(ply, true)
-			end
-
+		if not ply.HG_FakeUpCrouchPending and not (standingTrace.Hit or standingTrace.StartSolid or standingTrace.AllSolid) then
+			ply:SetNWBool("HG_FakeUpCrouched", false)
 			timer.Remove(timerName)
 		end
 	end)
@@ -1021,10 +1037,14 @@ function hg.FakeUp(ply, forced, instant)
 	end
 
 	local ent = (IsValid(ragdoll) and ragdoll or ply)
-	local posit = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Pelvis")):GetTranslation()
+	local pelvis = ent:LookupBone("ValveBiped.Bip01_Pelvis")
+	local matrix = pelvis and ent:GetBoneMatrix(pelvis)
+	local posit = matrix and matrix:GetTranslation() or ent:WorldSpaceCenter()
 	local pos, crouchOnly = hg.GetUpPos(ply, posit, 50, 50)
 	
-	if not pos and not forced then return end
+	if not pos then return false end
+	timer.Remove("fake_up_crouch_hull" .. ply:EntIndex())
+	ply:SetNWBool("HG_FakeUpCrouched", false)
 	local oldpos = pos
 
 	hook_Run("Fake Up", ply, ragdoll)
@@ -1063,20 +1083,17 @@ function hg.FakeUp(ply, forced, instant)
 	hg.OverrideSpawn(ply)
 	--local pos = ply:GetPos()
 	ply:Spawn()
-	ply:ConCommand("+duck")
 
 	if crouchOnly then
+		instant = true
 		BeginFakeUpCrouchTransition(ply, ragdoll)
+	elseif hg.ApplyScaledPlayerHull then
+		hg.ApplyScaledPlayerHull(ply, true)
 	end
-
-	timer.Simple(0.5,function()
-		if IsValid(ply) then
-			ply:ConCommand("-duck")
-		end
-	end)
 
 	--ply:SetPos(pos)
 	ply:SetRenderMode(RENDERMODE_NORMAL)
+	ply:SetNoDraw(false)
 	ply.LastFakeUp = CurTime()
 	ply:DrawWorldModel(true)
 	ply:SetHealth(hp)
@@ -1124,16 +1141,16 @@ function hg.FakeUp(ply, forced, instant)
 			ply:DrawShadow(false)
 
 			timer.Create("faking_up"..ply:EntIndex(), 1, 1, function()
-				if IsValid(ragdoll) then
-					local posit = ragdoll:GetBoneMatrix(ragdoll:LookupBone("ValveBiped.Bip01_Spine4")):GetTranslation()
-					--pos = hg.GetUpPos(ply, posit, 50, 50) or oldpos
-				end
+				if not IsValid(ply) or not ply:Alive() or IsValid(ply.FakeRagdoll) then return end
 
 				if IsValid(ragdoll) then
 					ragdoll:Remove()
 				end
 
 				ply:SetNWEntity("FakeRagdoll",NULL)
+				ply:SetNWEntity("FakeRagdollOld", NULL)
+				ply.OldRagdoll = nil
+				ply.FakeRagdollOld = nil
 
 				ply:DrawShadow(true)
 				ply:SetRenderMode(RENDERMODE_NORMAL)
@@ -1159,8 +1176,10 @@ function hg.FakeUp(ply, forced, instant)
 			
 			--ply:SetSolidFlags(bit.band(ply:GetSolidFlags(), bit.bnot(FSOLID_NOT_SOLID), bit.bnot(FSOLID_TRIGGER), bit.bnot(FSOLID_USE_TRIGGER_BOUNDS)))
 			hg.ragdollFake[ply] = nil
-			NET_Up(ply)
 			ply:SetNWEntity("FakeRagdoll",NULL)
+			ply:SetNWEntity("FakeRagdollOld", NULL)
+			ply.OldRagdoll = nil
+			ply.FakeRagdollOld = nil
 
 			if IsValid(ragdoll) then
 				ragdoll:Remove()
@@ -1374,19 +1393,17 @@ function hg.GetUpPos(target,pos,tries,starttries)
 	local standingMaxs = Vector(radius, radius, standingHeight)
 	local filter = {target, target.FakeRagdoll, target.ply}
 	local groundLift = Vector(0, 0, math.max(1, scale))
-	local centerLift = Vector(0, 0, math.min(height * 0.5, 18 * scale))
 	local footInset = math.min(0.5 * scale, radius * 0.1)
 	local footRadius = math.max(radius - footInset, radius * 0.9)
 	local footMins = Vector(-footRadius, -footRadius, 0)
 	local footMaxs = Vector(footRadius, footRadius, math.max(2 * scale, 1))
-	local groundUp = math.max(radius * 2.25, 12 * scale, 12)
 	local groundDown = math.max(height + 96 * scale, 128)
 	local maxRadius = math.Clamp(math.max(48 * scale, radius * 3), 24, 96)
 	local step = math.max(radius * 1.35, 12)
 
 	local function CheckCandidate(candidate)
 		local groundTrace = util.TraceHull({
-			start = candidate + Vector(0, 0, groundUp),
+			start = candidate,
 			endpos = candidate - Vector(0, 0, groundDown),
 			mins = footMins,
 			maxs = footMaxs,
@@ -1395,7 +1412,7 @@ function hg.GetUpPos(target,pos,tries,starttries)
 			collisiongroup = COLLISION_GROUP_PLAYER
 		})
 
-		if not groundTrace.Hit or groundTrace.HitSky or groundTrace.HitNormal.z < 0.45 then return end
+		if groundTrace.StartSolid or groundTrace.AllSolid or not groundTrace.Hit or groundTrace.HitSky or groundTrace.HitNormal.z < 0.45 then return end
 
 		local standPos = groundTrace.HitPos + groundLift
 		local spaceTrace = util.TraceHull({
@@ -1411,16 +1428,14 @@ function hg.GetUpPos(target,pos,tries,starttries)
 		if spaceTrace.Hit or spaceTrace.StartSolid or spaceTrace.AllSolid then return end
 
 		local pathTrace = util.TraceLine({
-			start = pos + centerLift,
-			endpos = standPos + centerLift,
+			start = pos,
+			endpos = standPos + groundLift,
 			filter = filter,
 			mask = MASK_PLAYERSOLID,
 			collisiongroup = COLLISION_GROUP_PLAYER
 		})
 
-		if pathTrace.Hit then
-			if not pathTrace.StartSolid or standPos:DistToSqr(pos) > maxRadius * maxRadius then return end
-		end
+		if pathTrace.Hit or pathTrace.StartSolid or pathTrace.AllSolid then return end
 
 		local standingTrace = util.TraceHull({
 			start = standPos,

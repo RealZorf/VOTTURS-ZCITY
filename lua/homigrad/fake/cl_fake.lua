@@ -329,6 +329,41 @@ local CalcView
 local angleZero = Angle(0,0,0)
 
 local tblfollow = {}
+local fakeCameraHull = Vector(2, 2, 2)
+local function SafeFakeCameraOrigin(ply, rag, desired)
+	if not IsValid(rag) or ply:InVehicle() then return desired end
+	local filter = {ply, rag, ply.OldRagdoll}
+	for _, boneName in ipairs({"ValveBiped.Bip01_Neck1", "ValveBiped.Bip01_Spine2", "ValveBiped.Bip01_Pelvis"}) do
+		local bone = rag:LookupBone(boneName)
+		local matrix = bone and rag:GetBoneMatrix(bone)
+		local start = matrix and matrix:GetTranslation()
+		if start then
+			local trace = util.TraceHull({start = start, endpos = desired,
+				mins = -fakeCameraHull, maxs = fakeCameraHull, filter = filter, mask = MASK_SOLID})
+			if not trace.StartSolid and not trace.AllSolid then return trace.HitPos end
+		end
+	end
+	return desired
+end
+
+local lastCrouchTransition
+hook.Add("Think", "HG_FakeUpCrouchHull", function()
+	local ply = LocalPlayer()
+	if not IsValid(ply) then return end
+	local transition = ply:GetNWBool("HG_FakeUpCrouched", false)
+	if transition == lastCrouchTransition then return end
+	lastCrouchTransition = transition
+	if transition and not IsValid(ply.FakeRagdoll) then hg.EnterFakeUpCrouch(ply) end
+end)
+hook.Add("FakeUp", "HG_FakeUpCrouchHull", function(ply)
+	if not IsValid(ply) then return end
+	if ply:GetNWBool("HG_FakeUpCrouched", false) then
+		hg.EnterFakeUpCrouch(ply)
+	else
+		hg.ApplyScaledPlayerHull(ply, true)
+	end
+end)
+
 CalcView = function(ply, origin, angles, fov, znear, zfar)
 	if GetViewEntity() ~= (ply or LocalPlayer()) then return end
 	local oldorigin = -(-origin)
@@ -421,11 +456,14 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 		angEye = att_Ang
 	end
 
-	local cshs_fake = hg_cshs_fake:GetBool() or (ply.organism and ply.organism.otrub) or (!hg.KeyDown(ply, IN_USE) and !ply:InVehicle()) or (follow:GetVelocity():Length() > 350 and !ply:InVehicle())
+	local cshs_fake = hg_cshs_fake:GetBool() or not ply:Alive() or (ply.organism and ply.organism.otrub)
 	
 	if IsValid(ply.OldRagdoll) then DrawPlayerRagdoll(follow, ply) end
 
-	local pos = hg.eye(ply, 10, follow, att_Ang, getScaledRagdollPoint(follow, att.Pos))
+	local desired = hg.eye(ply, 10, follow, att_Ang, nil, true)
+	if not isvector(desired) then desired = ply:GetPos() end
+	desired = getScaledRagdollPoint(follow, desired)
+	local pos = SafeFakeCameraOrigin(ply, follow, desired)
 
 	--local dot = ang:Forward():Dot((pos - att.Pos):GetNormalized())
 	
@@ -449,7 +487,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	hg.cam_things(ply, view, angleZero)
 	
 	if hg_thirdperson:GetBool() or hg.RagdollCombatInUse(ply) or (fakeTimer and fakeTimer > CurTime()) then
-		if hg_firstperson_death:GetBool() then
+		if hg_firstperson_death:GetBool() and not ply:Alive() then
 			deathlerp = LerpFT(0.05,deathlerp,1)
 			local angdeath = LerpAngle(deathlerp,deathLocalAng,att_Ang)
 
@@ -501,6 +539,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 	--view.angles = angles
 
 	view = hook.Run("Camera", ply, view.origin, view.angles, view, vector_origin) or view
+	view.origin = SafeFakeCameraOrigin(ply, follow, view.origin)
 	
 	if GetCoolCameraBool() and !hg_cshs_fake:GetBool() and ply:Alive() then
 		local angcool = realangle + GetViewPunchAngles() * 0.2 - vpang
@@ -574,11 +613,33 @@ end
 net.Receive("Player Ragdoll", function()
 	--local ply, ragdoll_index = net.ReadEntity(), net.ReadInt(32) --,net_ReadTable()
 	local ply, ragdoll, ragdoll_index = net.ReadEntity(), net.ReadEntity2() --,net_ReadTable()
-	if not ragdoll_index then return end
+	if not IsValid(ply) or not ragdoll_index then return end
 	local ragdoll = IsValid(ragdoll) and ragdoll
 	--print(ragdoll)
 
 	ply.ragdoll_index = ragdoll_index
+end)
+
+net.Receive("HG Fake Up", function()
+	local ply = net.ReadEntity()
+	if not IsValid(ply) then return end
+	ply.ragdoll_index = 0
+	local crouchOnly = net.ReadBool()
+	local oldrag = ply.FakeRagdoll
+	ply.FakeRagdoll = nil
+	if IsValid(oldrag) then oldrag.ply = nil end
+	if ply == LocalPlayer() then clearLocalFollow() end
+	ply:SetNoDraw(false)
+	ply:SetRenderMode(RENDERMODE_NORMAL)
+	if crouchOnly then
+		ply.OldRagdoll = nil
+		ply.FakeRagdollOld = nil
+		ply.gettingup = nil
+		ply.prevragdoll_index = 0
+		hg.EnterFakeUpCrouch(ply)
+	else
+		hg.ApplyScaledPlayerHull(ply, true)
+	end
 end)
 
 hook.Add("NetworkEntityCreated", "HG_GiveRenderOverride", function(ragdoll)
@@ -678,6 +739,7 @@ hook.Add("RagdollEntityCreated", "RagdollFinder", function(ply, ent, key)
 	end
 
 	if ragdoll then
+		if not hg.RagdollCombatInUse(ply) then hg.ApplyScaledPlayerHull(ply, false) end
 		--ragdoll:SetPredictable(true)--causes ragdoll to shake bruh lol
 		ragdoll.ply = ply
 		ragdoll.organism = ply.organism

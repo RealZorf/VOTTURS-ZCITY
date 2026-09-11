@@ -53,6 +53,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 
 	local vomitVPAng, vecZero = Angle(1, 0, 0), Vector()
 	hook.Add("SetupMove", "HG(StartCommand)", function(ply, mv, cmd)
+		if IsValid(ply) and ply:Alive() then hg.SyncFakeMovement(ply, mv, cmd) end
 		--\\ DeltaTime
 			ply.LastStartCommand = ply.LastStartCommand or SysTime()
 			local delta_time = SysTime() - ply.LastStartCommand--FrameTime()
@@ -163,7 +164,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 				end
 			end
 
-			if brainadjust < -1 then
+			if brainadjust < -1 and not ply.HG_FakeUpCrouchPending and not ply:GetNWBool("HG_FakeUpCrouched", false) then
 				local in_duck = cmd:KeyDown(IN_DUCK)
 
 				if in_duck then

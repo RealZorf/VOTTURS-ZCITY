@@ -113,6 +113,7 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		end
 
 		scale = math_Clamp(tonumber(scale) or 1, 0.1, 10)
+		if scale == 1 and ent.ZCLastRenderModelScale == nil then return 1 end
 		if ent.ZCLastRenderModelScale == scale and ent.ZCLastRenderModelScaleMode == "bones" then return scale end
 
 		ent.ZCLastRenderModelScale = scale

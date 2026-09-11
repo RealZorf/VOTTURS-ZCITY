@@ -4,6 +4,7 @@ if CLIENT then
 		local self = net.ReadEntity()
 		local shoot = net.ReadBool()
 		local broadcastAnyways = net.ReadBool()
+		local effectsOnly = net.ReadBool()
 		
 		if not IsValid(self) then return end
 		if !broadcastAnyways and self:GetOwner() == LocalPlayer() and !game.SinglePlayer() then
@@ -14,7 +15,11 @@ if CLIENT then
 			return
 		end
 		
-		if self.Shoot then
+		if effectsOnly and self.PrimaryShoot then
+			self:SetLastShootTime(CurTime())
+			self:PrimaryShoot()
+			if self.PrimaryShootPost then self:PrimaryShootPost() end
+		elseif self.Shoot then
 			self:Shoot(broadcastAnyways or shoot)
 		end
 	end)

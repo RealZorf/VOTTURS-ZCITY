@@ -324,7 +324,11 @@ hg.ConVars = hg.ConVars or {}
 		local height = math.max(12, 72 * scale)
 		local duck_height = math.max(8, 36 * scale)
 		local view_height = math.max(8, 64 * scale)
-		local duck_view_height = math.max(6, 38 * scale)
+		local duck_view_height = math.max(6, 34 * scale)
+		if ply.HG_FakeUpCrouchPending and not ply:Crouching() then
+			height = duck_height
+			view_height = duck_view_height
+		end
 
 		local mins = Vector(-radius, -radius, 0)
 		local maxs = Vector(radius, radius, height)
@@ -332,9 +336,51 @@ hg.ConVars = hg.ConVars or {}
 
 		ply:SetHull(mins, maxs)
 		ply:SetHullDuck(mins, duck_maxs)
-		ply:SetViewOffset(Vector(0, 0, view_height))
+		ply:SetViewOffset(Vector(0, 0, ply:Crouching() and duck_view_height or view_height))
 		ply:SetViewOffsetDucked(Vector(0, 0, duck_view_height))
 	end
+
+	function hg.EnterFakeUpCrouch(ply)
+		if not ply.HG_FakeUpCrouchPending then ply.HG_FakeUpDuckPrimed = nil end
+		ply.HG_FakeUpCrouchPending = not ply:Crouching()
+		hg.ApplyScaledPlayerHull(ply, true)
+		ply.CrouchCD = nil
+	end
+
+	function hg.SyncFakeMovement(ply, mv, cmd)
+		local fake = IsValid(ply.FakeRagdoll) and not hg.RagdollCombatInUse(ply)
+		local pending = ply.HG_FakeUpCrouchPending and not ply:Crouching()
+		local scale = hg.GetEntityModelScale(ply)
+		local height = fake and math.max(1, scale) or pending and math.max(8, 36 * scale) or math.max(12, 72 * scale)
+		local _, maxs = ply:GetHull()
+		if maxs.z ~= height then hg.ApplyScaledPlayerHull(ply, not fake) end
+		if not fake and (pending or ply:GetNWBool("HG_FakeUpCrouched", false)) then
+			if pending and not ply.HG_FakeUpDuckPrimed then
+				mv:SetOldButtons(bit.band(mv:GetOldButtons(), bit.bnot(IN_DUCK)))
+				ply.HG_FakeUpDuckPrimed = true
+			end
+			cmd:SetButtons(bit.bor(cmd:GetButtons(), IN_DUCK))
+			mv:SetButtons(bit.bor(mv:GetButtons(), IN_DUCK))
+			ply.CrouchCD = nil
+		end
+	end
+
+	hook.Add("StartCommand", "HG_FakeUpCrouch", function(ply, cmd)
+		if not ply:Alive() or IsValid(ply.FakeRagdoll) then
+			ply.HG_FakeUpCrouchPending = nil
+			return
+		end
+		if not ply.HG_FakeUpCrouchPending and not ply:GetNWBool("HG_FakeUpCrouched", false) then return end
+		cmd:SetButtons(bit.bor(cmd:GetButtons(), IN_DUCK))
+		ply.CrouchCD = nil
+	end)
+
+	hook.Add("FinishMove", "HG_FakeUpCrouch", function(ply)
+		if not ply:Alive() or IsValid(ply.FakeRagdoll) then return end
+		if not ply.HG_FakeUpCrouchPending or not ply:Crouching() then return end
+		ply.HG_FakeUpCrouchPending = nil
+		hg.ApplyScaledPlayerHull(ply, true)
+	end)
 
 	local gridsize = 24
 	local tpGrid = hg.spiralGrid(gridsize)
@@ -671,6 +717,7 @@ local IsValid = IsValid
 	end
 --
 --\\ Render Override
+	local localBodyRenderPass = 0
 	hg.renderOverride = function(self, ent, flags)
 		if bit.band(flags, STUDIO_RENDER) != STUDIO_RENDER then return end
 		--if self == lply and !selfdraw then return end
@@ -708,17 +755,31 @@ local IsValid = IsValid
 		end
 
 		hook_Run("PostDrawAppearance", ent, self)
+		if CLIENT and forceLocalDraw then ent.ZC_LastLocalBodyRenderPass = localBodyRenderPass end
 	end
 
 	if CLIENT then
+		hook.Add("PreDrawOpaqueRenderables", "ZC_LocalBodyRenderPass", function(depth, skybox)
+			if not depth and not skybox then localBodyRenderPass = localBodyRenderPass + 1 end
+		end)
 		hook.Add("PostDrawOpaqueRenderables", "ZC_ForceFirstPersonBodyRender", function(depth, skybox)
-			if skybox then return end
+			if depth or skybox then return end
 			if not IsValid(lply) or not lply:Alive() then return end
 			if GetViewEntity() != lply then return end
-			if lply.ZC_LastLocalRenderFrame == FrameNumber() then return end
-			if IsValid(lply.FakeRagdoll) then return end
+			local body = IsValid(lply.FakeRagdoll) and lply.FakeRagdoll or lply
+			lply.ZC_BodyFallbackFrame = FrameNumber()
+			if body.ZC_LastLocalBodyRenderPass == localBodyRenderPass then
+				lply.ZC_BodyFallbackStatus = "already_drawn"
+				return
+			end
+			if body:IsDormant() then
+				lply.ZC_BodyFallbackStatus = "dormant"
+				return
+			end
 
-			hg.renderOverride(lply, lply, STUDIO_RENDER)
+			lply.ZC_BodyFallbackStatus = "drawing"
+			hg.renderOverride(lply, body, STUDIO_RENDER)
+			lply.ZC_BodyFallbackStatus = body.ZC_LastLocalBodyRenderPass == localBodyRenderPass and "draw_completed" or "draw_skipped"
 		end)
 	end
 --
@@ -821,7 +882,7 @@ local IsValid = IsValid
 		return hg.eyeTrace(ply, dist, ent, aim_vector, pos)
 	end
 
-	function hg.eye(ply, dist, ent, aimvec, startpos)
+	function hg.eye(ply, dist, ent, aimvec, startpos, ragdollCamera)
 		if !ply:IsPlayer() then return false end
 		local fakeCam = false--IsValid(ent) and ent != ply
 		local ent = (IsValid(ent) and ent) or (IsValid(ply.FakeRagdoll) and ply.FakeRagdoll) or ply
@@ -872,7 +933,8 @@ local IsValid = IsValid
 		--local pos = startpos or headm:GetTranslation() + (fakeCam and (headm:GetAngles():Forward() * 5 + headm:GetAngles():Up() * 0 + headm:GetAngles():Right() * 6) or (eyeAng:Up() * 1 + eyeang2:Forward() * 4))
 		local pos = startpos or headm:GetTranslation() + (fakeCam and (headm:GetAngles():Forward() * 2 + headm:GetAngles():Up() * -2 + headm:GetAngles():Right() * 3) or (eyeAng:Up() * 2 + headm:GetAngles():Right() * 4 + headm:GetAngles():Up() * 0  + headm:GetAngles():Forward() * (4 + (ply.PlayerClassName == "Combine" and 4 or 0))))
 
-		local trace = hg.hullCheck(ply:EyePos() - vector_up * 10, pos, ply)
+		local traceOrigin = ragdollCamera and headm:GetTranslation() or ply:EyePos() - vector_up * 10
+		local trace = hg.hullCheck(traceOrigin, pos, ply)
 
 		--[[if CLIENT then
 			cam.Start3D()
