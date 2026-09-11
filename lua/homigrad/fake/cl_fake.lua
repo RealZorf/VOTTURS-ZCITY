@@ -601,7 +601,7 @@ local directZombieRagdollModels = {
 }
 
 local function RagdollReadyToRender(ragdoll)
-	if not IsValid(ragdoll) or ragdoll:IsDormant() then return false end
+	if not IsValid(ragdoll) or ragdoll:IsDormant() or ragdoll.ZCFakeUpPoseSource then return false end
 	if directZombieRagdollModels[string.lower(ragdoll:GetModel() or "")] then
 		return true
 	end
@@ -627,7 +627,11 @@ net.Receive("HG Fake Up", function()
 	local crouchOnly = net.ReadBool()
 	local oldrag = ply.FakeRagdoll
 	ply.FakeRagdoll = nil
-	if IsValid(oldrag) then oldrag.ply = nil end
+	if IsValid(oldrag) then
+		oldrag.ply = nil
+		oldrag.ZCFakeUpPoseSource = true
+		oldrag:DrawShadow(false)
+	end
 	if ply == LocalPlayer() then clearLocalFollow() end
 	ply:SetNoDraw(false)
 	ply:SetRenderMode(RENDERMODE_NORMAL)
@@ -694,6 +698,7 @@ hook.Add("RagdollEntityCreated", "RagdollFinder", function(ply, ent, key)
 	end
 	
 	if IsValid(ent) then
+		ent.ZCFakeUpPoseSource = nil
 		ent.RenderOverride = function(self, flags)
 			if not RagdollReadyToRender(self) then return end
 			local ply = (IsValid(ply) and ply:IsPlayer() and ply:Alive() and ply.FakeRagdoll == self) and ply or self
@@ -768,6 +773,8 @@ hook.Add("RagdollEntityCreated", "RagdollFinder", function(ply, ent, key)
 		
 		if IsValid(oldrag) then
 			oldrag.ply = nil
+			oldrag.ZCFakeUpPoseSource = true
+			oldrag:DrawShadow(false)
 		end
 		--ply.FakeRagdollOld = oldrag
 

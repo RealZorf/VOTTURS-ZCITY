@@ -1424,6 +1424,66 @@ function MODE:SubModes()
 end
 
 local homicide_traitoramount = ConVarExists("homicide_traitoramount") and GetConVar("homicide_traitoramount") or CreateConVar("homicide_traitoramount", 1, FCVAR_SERVER_CAN_EXECUTE + FCVAR_ARCHIVE, "Homicide Only: Determine how many traitors should innocents face in homicide.", 1, 20)
+local TRAITOR_DROUGHT_PDATA_KEY = "zb_hmcd_traitor_drought"
+local TRAITOR_DROUGHT_CAP = 20
+local TRAITOR_RECENT_WEIGHT = 0.1
+MODE.TraitorDroughts = MODE.TraitorDroughts or {}
+
+local function HMCDTraitorDroughtKey(ply)
+	if ply:IsBot() then return "bot:" .. ply:UserID() end
+
+	local steamID64 = ply:SteamID64()
+	return steamID64 and steamID64 ~= "0" and steamID64 or ply:SteamID()
+end
+
+local function HMCDGetTraitorDrought(ply)
+	local key = HMCDTraitorDroughtKey(ply)
+	local drought = MODE.TraitorDroughts[key]
+	if drought ~= nil then return drought end
+
+	drought = ply:IsBot() and 1 or tonumber(ply:GetPData(TRAITOR_DROUGHT_PDATA_KEY, "1")) or 1
+	drought = math.Clamp(math.floor(drought), 0, TRAITOR_DROUGHT_CAP)
+	MODE.TraitorDroughts[key] = drought
+
+	return drought
+end
+
+local function HMCDSetTraitorDrought(ply, drought)
+	drought = math.Clamp(math.floor(tonumber(drought) or 0), 0, TRAITOR_DROUGHT_CAP)
+	MODE.TraitorDroughts[HMCDTraitorDroughtKey(ply)] = drought
+
+	if not ply:IsBot() then
+		ply:SetPData(TRAITOR_DROUGHT_PDATA_KEY, tostring(drought))
+	end
+end
+
+local function HMCDTraitorSelectionWeight(ply)
+	local drought = HMCDGetTraitorDrought(ply)
+	local droughtWeight = drought == 0 and TRAITOR_RECENT_WEIGHT or drought * drought
+	local karmaWeight = math.Clamp((tonumber(ply.Karma) or 100) / 100, 0.05, 1)
+
+	return droughtWeight * karmaWeight
+end
+
+local function HMCDTakeWeightedTraitor(pool)
+	if #pool == 0 then return end
+
+	local totalWeight = 0
+	for _, ply in ipairs(pool) do
+		totalWeight = totalWeight + HMCDTraitorSelectionWeight(ply)
+	end
+
+	local roll = math.Rand(0, totalWeight)
+	local accumulated = 0
+	for index, ply in ipairs(pool) do
+		accumulated = accumulated + HMCDTraitorSelectionWeight(ply)
+		if roll <= accumulated then
+			return table.remove(pool, index)
+		end
+	end
+
+	return table.remove(pool)
+end
 
 local function HMCDRestoreRoundAppearance(ply)
 	local appearanceApi = hg and hg.Appearance
@@ -1499,60 +1559,42 @@ function MODE:Intermission()
 		return true
 	end
 
-	-- local players = {}
-	-- for i, ply in player.Iterator() do
-	-- 	if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
+	local preferredPool = {}
+	local fallbackPool = {}
+	local eligiblePlayers = {}
 
-	-- 	players[#players + 1] = {ply, ply.Karma}
-	-- end
-	
-	-- -- potom
-	
-	for i, ply in RandomPairs(player.GetAll()) do
-		if not CanPickTraitor(ply, false) then continue end
-		if math.random(100) > (ply.Karma or 100) then continue end
-
-		if traitors_needed > 0 then
-			ply.isTraitor = true
-			traitors_needed = traitors_needed - 1
-			traitors[#traitors + 1] = ply
-
-			main_traitor = ply
-			ply.MainTraitor = true
+	for _, ply in player.Iterator() do
+		if CanPickTraitor(ply, false) then
+			preferredPool[#preferredPool + 1] = ply
+			eligiblePlayers[#eligiblePlayers + 1] = ply
+		elseif CanPickTraitor(ply, true) then
+			fallbackPool[#fallbackPool + 1] = ply
 		end
 	end
 
-	--MODE.NextRoundMainTraitors = MODE.NextRoundMainTraitors or {}
-	for i, ply in RandomPairs(player.GetAll()) do
-		if not CanPickTraitor(ply, false) then continue end
-		--if not MODE.NextRoundMainTraitors[ply:SteamID()] then continue end
+	local function AssignWeightedTraitors(pool, preferred)
+		while traitors_needed > 0 and #pool > 0 do
+			local ply = HMCDTakeWeightedTraitor(pool)
+			if not IsValid(ply) then continue end
 
-		if traitors_needed > 0 then
 			ply.isTraitor = true
 			traitors_needed = traitors_needed - 1
 			traitors[#traitors + 1] = ply
-			
-			if not main_traitor then
+			HMCDSetTraitorDrought(ply, 0)
+
+			if preferred or not main_traitor then
 				main_traitor = ply
 				ply.MainTraitor = true
 			end
 		end
 	end
 
-	if traitors_needed > 0 then
-		for i, ply in RandomPairs(player.GetAll()) do
-			if not CanPickTraitor(ply, true) then continue end
+	AssignWeightedTraitors(preferredPool, true)
+	AssignWeightedTraitors(fallbackPool, false)
 
-			if traitors_needed > 0 then
-				ply.isTraitor = true
-				traitors_needed = traitors_needed - 1
-				traitors[#traitors + 1] = ply
-
-				if not main_traitor then
-					main_traitor = ply
-					ply.MainTraitor = true
-				end
-			end
+	for _, ply in ipairs(eligiblePlayers) do
+		if not ply.isTraitor then
+			HMCDSetTraitorDrought(ply, HMCDGetTraitorDrought(ply) + 1)
 		end
 	end
 
