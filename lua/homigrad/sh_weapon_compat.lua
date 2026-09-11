@@ -1,5 +1,6 @@
 local sourceCache = {}
 local function noReload() end
+local mechanicalPatchVersion = 3
 
 -- Legacy packs encode disposal in client callbacks, without shared weapon metadata.
 -- Inspect those callbacks only when definitions load; retain their animation timings.
@@ -16,6 +17,105 @@ local function callbackSource(fn)
 		sourceCache[path] = lines
 	end
 	return table.concat(lines, "\n", info.linedefined, math.min(info.lastlinedefined, #lines))
+end
+
+local function isHomigradWeapon(swep)
+	local seen = {}
+	while swep do
+		local base = swep.Base
+		if base == "homigrad_base" then return true end
+		if not base or seen[base] then return false end
+		seen[base] = true
+		swep = weapons.GetStored(base)
+	end
+	return false
+end
+
+local function runMechanicalEvents(self, animation, data)
+	local sequence = (self.AnimList or {})[animation] or animation
+	local events = self.HG_CompleteMechanicalEvents and (self.HG_CompleteMechanicalEvents[animation] or self.HG_CompleteMechanicalEvents[sequence])
+	if not events then return end
+	local model = self.GetWM and self:GetWM()
+	if not IsValid(model) then return end
+	local duration = 1
+	if istable(data) then
+		duration = tonumber(data[1]) or duration
+	else
+		duration = tonumber(data) or duration
+	end
+
+	self.HG_MechanicalEventGeneration = (self.HG_MechanicalEventGeneration or 0) + 1
+	local generation = self.HG_MechanicalEventGeneration
+	local index = 0
+	for fraction, event in pairs(events) do
+		if not isnumber(fraction) or not isfunction(event) then continue end
+		local delay = duration * fraction
+		index = index + 1
+		local eventCallback = event
+		local timerName = "HG_CompleteMechanicalEvent_" .. self:EntIndex() .. "_" .. generation .. "_" .. index
+		timer.Create(timerName, delay, 1, function()
+			if not IsValid(self) or self.HG_MechanicalEventGeneration != generation then return end
+			eventCallback(self, model)
+		end)
+	end
+end
+
+if SERVER then
+	util.AddNetworkString("HG_CompleteMechanicalAnimation")
+else
+	net.Receive("HG_CompleteMechanicalAnimation", function()
+		local weapon = net.ReadEntity()
+		local animation = net.ReadString()
+		local payload = net.ReadTable()
+		if IsValid(weapon) then runMechanicalEvents(weapon, animation, payload.data) end
+	end)
+end
+
+local function patchMechanicalEvents(swep)
+	if not swep.AnimsEvents or not swep.AnimList or not isHomigradWeapon(swep) then return end
+	local base = weapons.GetStored("homigrad_base")
+	local inheritedPlayAnim = base and base.PlayAnim
+	if not isfunction(inheritedPlayAnim) then return end
+	if swep.HG_MechanicalPatchVersion == mechanicalPatchVersion and swep.HG_MechanicalBasePlayAnim == inheritedPlayAnim then return end
+	local animation = swep.AnimList.cycle
+	local events = animation and swep.AnimsEvents[animation]
+	if not events then return end
+	local eventCount = 0
+	for fraction, event in pairs(events) do
+		if isnumber(fraction) and isfunction(event) then eventCount = eventCount + 1 end
+	end
+	if eventCount < 2 then return end
+
+	swep.HG_CompleteMechanicalEvents = {[animation] = events}
+	swep.HG_MechanicalPatchVersion = mechanicalPatchVersion
+	swep.HG_MechanicalBasePlayAnim = inheritedPlayAnim
+	swep.PlayAnim = function(self, animation, data, cycling, callback, reverse, sendtoclient)
+		local sequence = (self.AnimList or {})[animation] or animation
+		local events = self.HG_CompleteMechanicalEvents and (self.HG_CompleteMechanicalEvents[animation] or self.HG_CompleteMechanicalEvents[sequence])
+		if not events then
+			return inheritedPlayAnim(self, animation, data, cycling, callback, reverse, sendtoclient)
+		end
+
+		if SERVER then
+			local result = inheritedPlayAnim(self, animation, data, cycling, callback, reverse, sendtoclient)
+			local owner = self:GetOwner()
+			if IsValid(owner) and owner:IsPlayer() then
+				net.Start("HG_CompleteMechanicalAnimation")
+					net.WriteEntity(self)
+					net.WriteString(animation)
+					net.WriteTable({data = data})
+				net.Send(owner)
+			end
+			return result
+		end
+
+		local animationEvents = self.AnimsEvents
+		self.AnimsEvents = false
+		local result = inheritedPlayAnim(self, animation, data, cycling, callback, reverse, sendtoclient)
+		self.AnimsEvents = animationEvents
+		runMechanicalEvents(self, animation, data)
+		return result
+	end
 end
 
 local function dropSpentTube(self)
@@ -98,12 +198,18 @@ local function patchRegistered()
 	for _, entry in ipairs(weapons.GetList()) do
 		if weapons.IsBasedOn(entry.ClassName, "homigrad_base") then
 			local swep = weapons.GetStored(entry.ClassName)
-			if swep then patchDisposableEvents(swep) end
+			if swep then
+				patchDisposableEvents(swep)
+				patchMechanicalEvents(swep)
+			end
 		end
 	end
 	sourceCache = {}
 end
 
-hook.Add("PreRegisterSWEP", "HG_DisposableWeaponCompatibility", patchDisposableEvents)
+hook.Add("PreRegisterSWEP", "HG_DisposableWeaponCompatibility", function(swep)
+	patchDisposableEvents(swep)
+	patchMechanicalEvents(swep)
+end)
 hook.Add("OnReloaded", "HG_DisposableWeaponCompatibility", patchRegistered)
 patchRegistered()
