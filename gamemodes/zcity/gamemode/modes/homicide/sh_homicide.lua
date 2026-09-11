@@ -118,11 +118,12 @@ You are equipped with various weapons, poisons and explosives, grenades and your
 		Objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
 		SpawnFunction = function(ply)
 			if not IsValid(ply) then return end
-			local p22 = ply:Give("weapon_p22")
-			if not IsValid(p22) then return end
-			ply:GiveAmmo(p22:GetMaxClip1() * 1, p22:GetPrimaryAmmoType(), true)
+			local rugermk4 = ply:Give("weapon_rugermk4")
+			if not IsValid(rugermk4) then return end
+			ply:GiveAmmo(rugermk4:GetMaxClip1() * 2, rugermk4:GetPrimaryAmmoType(), true)
 			
-			hg.AddAttachmentForce(ply, p22, "supressor4")
+			hg.AddAttachmentForce(ply, rugermk4, "supressor4")
+			hg.AddAttachmentForce(ply, rugermk4, "ent_att_holo7")
 			
 			ply:Give("weapon_buck200knife")	
 			ply:Give("weapon_hg_rgd_tpik")
@@ -152,11 +153,13 @@ You are equipped with various weapons, poisons and explosives, grenades and your
 		Objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
 		SpawnFunction = function(ply)
 			if not IsValid(ply) then return end
-			local p22 = ply:Give("weapon_p22")
-			if not IsValid(p22) then return end
-			ply:GiveAmmo(p22:GetMaxClip1() * 1, p22:GetPrimaryAmmoType(), true)
+			local rugermk4 = ply:Give("weapon_rugermk4")
+			if not IsValid(rugermk4) then return end
+			ply:GiveAmmo(rugermk4:GetMaxClip1() * 2, rugermk4:GetPrimaryAmmoType(), true)
 			
-			hg.AddAttachmentForce(ply, p22, "supressor4")
+			hg.AddAttachmentForce(ply, rugermk4, "supressor4")
+			hg.AddAttachmentForce(ply, rugermk4, "ent_att_holo7")
+			
 			ply:Give("weapon_sogknife")	
 			ply:Give("weapon_hg_rgd_tpik")
 			ply:Give("weapon_walkie_talkie")

@@ -391,8 +391,8 @@ local function getRoleSummary(info)
 end
 
 local traitorLoadoutText = {
-	traitor_default = "Suppressed P22 + spare ammo\nBuck 200 knife, RGD grenade, smoke grenade\nIED, poison vial, traitor suit, jam, shuriken\nAdrenaline, fiber wire, flashlight",
-	traitor_default_soe = "Suppressed P22 + spare ammo\nSOG knife, RGD grenade, smoke grenade\nIED, poison 2 and poison 3\nWalkie-talkie, adrenaline, fiber wire, flashlight",
+	traitor_default = "Suppressed Ruger MK IV + spare ammo\nBuck 200 knife, RGD grenade, smoke grenade\nIED, poison vial, traitor suit, jam, shuriken\nAdrenaline, fiber wire, flashlight",
+	traitor_default_soe = "Suppressed Ruger MK IV + spare ammo\nSOG knife, RGD grenade, smoke grenade\nIED, poison 2 and poison 3\nWalkie-talkie, adrenaline, fiber wire, flashlight",
 	traitor_infiltrator = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight",
 	traitor_infiltrator_soe = "Taser + 2 extra heads\nSOG knife, smoke grenade\nWalkie-talkie, adrenaline\nFiber wire, flashlight",
 	traitor_thief = "SOG knife\nAdrenaline\nSmoke grenade\nHidden starter gear tracking, flashlight",
