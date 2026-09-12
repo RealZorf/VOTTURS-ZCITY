@@ -24,7 +24,7 @@ function MODE:SetupChances()
 end
 
 MODE.LootTable = {
-	{37, {
+	{34, {
 		{7,"weapon_smallconsumable"},
 		{6,"weapon_bigconsumable"},
 		{5,"weapon_tourniquet"},
@@ -39,21 +39,21 @@ MODE.LootTable = {
 
 		{1.2,"weapon_matches"},
 
-		{0.3,"weapon_morphine"},
-		{0.3,"weapon_mannitol"},
-		{0.6,"weapon_naloxone"},
-		{0.2,"weapon_fentanyl"},
+		{0.4,"weapon_morphine"},
+		{0.4,"weapon_mannitol"},
+		{0.8,"weapon_naloxone"},
+		{0.4,"weapon_fentanyl"},
 		{1,"weapon_betablock"},
-		{0.6,"weapon_adrenaline"},
+		{0.8,"weapon_adrenaline"},
 		
-		{0.6,"weapon_defibrilator_homigrad"},
+		{0.8,"weapon_defibrilator_homigrad"},
 		{1.2,"weapon_hg_cigarette"},
 		{1.2,"weapon_pat_beer"},
-		{0.6,"weapon_pat_whiskey"},
+		{0.8,"weapon_pat_whiskey"},
 
-		{0.6,"mask2"},
-		{0.4,"helmet2"},
-		{0.6,"mask3"},
+		{1,"ent_armor_mask2"},
+		{1.2,"ent_armor_helmet2"},
+		{1,"ent_armor_mask3"},
 	}},
 	{23,{
 		{8,"weapon_hammer"},
@@ -86,11 +86,11 @@ MODE.LootTable = {
 		{10,"laser1"},
 		{8,"holo7"},
 
-		{6,"helmet1"},
-		{4,"vest3"},
-		{6,"helmet7"},
+		{6,"ent_armor_helmet1"},
+		{4,"ent_armor_vest3"},
+		{6,"ent_armor_helmet7"},
 	}},
-	{9,{
+	{10,{
 		{4,"holo16"},
 		{5,"supressor4"},
 
@@ -109,7 +109,7 @@ MODE.LootTable = {
 		{3,"weapon_musket"},
 		{2,"weapon_ruger"},
 	}},
-	{7, {
+	{8, {
 		{8,"weapon_hk_usp"},
 		{8,"weapon_glock17"},
 		{8,"weapon_cz75"},
@@ -149,10 +149,10 @@ MODE.LootTable = {
 		{1,"weapon_pm63rak"},
 	}},
 	{4,{
-		{5,"vest1"},
-		{3,"vest8"},
-		{3,"helmet6"},
-		{5,"helmet5"},
+		{5,"ent_armor_vest1"},
+		{3,"ent_armor_vest8"},
+		{3,"ent_armor_helmet6"},
+		{5,"ent_armor_helmet5"},
 	}},
 	{2, {
 		{5,"weapon_remington870"},
@@ -183,7 +183,7 @@ MODE.LootTable = {
 }
 
 MODE.LootTableStandard = {
-	{50, {
+	{45, {
 		{7,"weapon_smallconsumable"},
 		{6,"weapon_bigconsumable"},
 		{5,"weapon_tourniquet"},
@@ -236,7 +236,7 @@ MODE.LootTableStandard = {
 		{0.13,"weapon_hg_pitchfork"},
 		{0.13,"iron_sword"},
 	}},
-	{9,  {
+	{14,  {
 		{12,"weapon_mp-80"},
 		{12,"weapon_osapb"},
 		{8,"weapon_makarov"},
