@@ -703,6 +703,13 @@ function MODE.ResetProfessionStats(ply)
 	ply.MeleeDamageMul = nil
 	ply.StaminaExhaustMul = nil
 	ply.JumpPowerMul = nil
+	ply.ClimbStaminaMul = nil
+	ply.ClimbPullMul = nil
+	ply.ClimbArmDamageMul = nil
+	ply.ClimbArmDislocationThreshold = nil
+	ply.ClimbArmDislocationPain = nil
+	ply.FallDamageMul = nil
+	ply:SetLadderClimbSpeed(150)
 
 	if(ply:Alive())then
 		ply:SetHealth(math.Clamp(math.Round(base_health * health_ratio), 1, base_health))
@@ -781,6 +788,17 @@ function MODE.ApplyProfessionLoadout(ply)
 
 		if(profession_info.LegStrengthMultiplier and profession_info.LegStrengthMultiplier != 1 and ply.organism)then
 			ply.organism.legstrength = profession_info.LegStrengthMultiplier
+		end
+
+		ply.ClimbStaminaMul = profession_info.ClimbStaminaMultiplier
+		ply.ClimbPullMul = profession_info.ClimbPullMultiplier
+		ply.ClimbArmDamageMul = profession_info.ClimbArmDamageMultiplier
+		ply.ClimbArmDislocationThreshold = profession_info.ClimbArmDislocationThreshold
+		ply.ClimbArmDislocationPain = profession_info.ClimbArmDislocationPain
+		ply.FallDamageMul = profession_info.FallDamageMultiplier
+
+		if(profession_info.LadderClimbMultiplier and profession_info.LadderClimbMultiplier != 1)then
+			ply:SetLadderClimbSpeed(150 * profession_info.LadderClimbMultiplier)
 		end
 	end
 

@@ -909,6 +909,19 @@ MODE.Professions = {
 			--; It's a bad practice to give professions any weapons or tools
 		end,
 	},
+	["climber"] = {
+		Name = "Climber",
+		Objective = "You are the Climber. Your grip is stronger, lasts longer and protects your arms while climbing.",
+		ClimbStaminaMultiplier = 0.45,
+		ClimbPullMultiplier = 1.4,
+		ClimbArmDamageMultiplier = 0.2,
+		ClimbArmDislocationThreshold = 0.92,
+		ClimbArmDislocationPain = 12,
+		LadderClimbMultiplier = 1.45,
+		FallDamageMultiplier = 0.8,
+		SpawnFunction = function(ply)
+		end,
+	},
 	["thug"] = {
 		Name = "Thug",
 		Objective = "You are the Thug. Use your bat and fentanyl to dominate close fights and stay alive.",
@@ -987,6 +1000,7 @@ MODE.Professions = {
 		end,
 	},
 }
+
 --
 
 --\\
@@ -1023,6 +1037,9 @@ MODE.RoleChooseRoundTypes = {
 			["athlete"] = {
 				Chance = 1,
 			},
+			["climber"] = {
+				Chance = 1,
+			},
 			["thug"] = {
 				Chance = 1,
 			},
@@ -1057,6 +1074,9 @@ MODE.RoleChooseRoundTypes = {
 				Chance = 1,
 			},
 			["athlete"] = {
+				Chance = 1,
+			},
+			["climber"] = {
 				Chance = 1,
 			},
 			["huntsman"] = {
@@ -1098,6 +1118,9 @@ MODE.RoleChooseRoundTypes = {
 				Chance = 1,
 			},
 			["athlete"] = {
+				Chance = 1,
+			},
+			["climber"] = {
 				Chance = 1,
 			},
 			["thug"] = {

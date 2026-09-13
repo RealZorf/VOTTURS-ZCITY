@@ -237,7 +237,13 @@ function Glide.SwitchSeat( ply, seatIndex )
     ply:ExitVehicle()
     ply:SetAllowWeaponsInVehicle( false )
     timer.Simple(0.1, function()
-        ply:EnterVehicle( seat )
+        if not IsValid( ply ) then return end
+
+        if IsValid( seat ) then
+            ply:EnterVehicle( seat )
+        end
+
+        ply.switchingseat = nil
     end)
 
     hook.Run( "Glide_PostSwitchSeat", ply, seatIndex )

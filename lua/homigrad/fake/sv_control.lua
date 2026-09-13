@@ -83,6 +83,14 @@ local function isDislocatedPhysicsBone(ragdoll, physNumber, org)
 	return key and org[key .. "dislocation"] or false
 end
 
+local function isClimbSurface(ent, choking, hitWorld)
+	if IsValid(choking) then return false end
+	if hitWorld or ent == game.GetWorld() then return true end
+	if not IsValid(ent) then return false end
+	if ent:IsPlayer() or ent:IsNPC() or ent:IsVehicle() or ent:IsRagdoll() then return false end
+	return true
+end
+
 hg.cachedmodels = hg.cachedmodels or {}
 
 local function realPhysNum(ragdoll, physNumber)
@@ -559,7 +567,7 @@ hook.Add("Think", "Fake", function()
 				angl:RotateAroundAxis(angl:Up(), 90)
 				angl:RotateAroundAxis(angl:Forward(), ishgweapon(wep) and not wep:IsPistolHoldType() and 120 or 180)
 				angl:RotateAroundAxis(angl:Up(), ishgweapon(wep) and wep:IsResting() and 50 - ply:EyeAngles().p or 0)
-				shadowControl(ragdoll, 1, 0.1, angl, 120, 20)
+				shadowControl(ragdoll, 1, 0.1, angl, 180, 20)
 			end
 
 			if org.canmovehead then
@@ -666,7 +674,8 @@ hook.Add("Think", "Fake", function()
 
 					local force = angles2:Forward()
 					force:Normalize()
-					force = force * 2000 * math.max((hand:GetPos() - torso:GetPos()):GetNormalized():Dot(angles2:Forward()) + 0.1, 0) * ragdoll.dtime / 0.015 * ragdoll.power
+					local climbPullMul = ragdoll.ConsRH.ZCClimbGrip and (ply.ClimbPullMul or 1) or 1
+					force = force * 2000 * math.max((hand:GetPos() - torso:GetPos()):GetNormalized():Dot(angles2:Forward()) + 0.1, 0) * ragdoll.dtime / 0.015 * ragdoll.power * climbPullMul
 					
 					force = force * 1 / math.max(torso:GetVelocity():Dot(angles2:Forward()) / 25, 1)
 
@@ -688,7 +697,8 @@ hook.Add("Think", "Fake", function()
 
 					local force = angles2:Forward()
 					force:Normalize()
-					force = force * 2000 * math.max((hand:GetPos() - torso:GetPos()):GetNormalized():Dot(angles2:Forward()) + 0.1, 0) * ragdoll.dtime / 0.015 * ragdoll.power
+					local climbPullMul = ragdoll.ConsLH.ZCClimbGrip and (ply.ClimbPullMul or 1) or 1
+					force = force * 2000 * math.max((hand:GetPos() - torso:GetPos()):GetNormalized():Dot(angles2:Forward()) + 0.1, 0) * ragdoll.dtime / 0.015 * ragdoll.power * climbPullMul
 					
 					force = force * 1 / math.max(torso:GetVelocity():Dot(angles2:Forward()) / 25, 1)
 
@@ -871,7 +881,7 @@ hook.Add("Think", "Fake", function()
 						if IsValid(cons) then
 							ragdoll.cooldownLH = time + 0.5
 							ragdoll.ConsLH = cons
-							cons.ZCClimbGrip = ent:IsWorld() and not IsValid(choking)
+							cons.ZCClimbGrip = isClimbSurface(ent, choking, trace.HitWorld)
 
 							cons:CallOnRemove("fingersback", function()
 								manipulateFingerChainSafe(ragdoll, "L", Angle(0, 0, 0))
@@ -951,7 +961,7 @@ hook.Add("Think", "Fake", function()
 						if IsValid(cons) then
 							ragdoll.cooldownRH = time + 0.5
 							ragdoll.ConsRH = cons
-							cons.ZCClimbGrip = ent:IsWorld() and not IsValid(choking)
+							cons.ZCClimbGrip = isClimbSurface(ent, choking, trace.HitWorld)
 
 							cons:CallOnRemove("fingersback", function()
 								manipulateFingerChainSafe(ragdoll, "R", Angle(0, 0, 0))

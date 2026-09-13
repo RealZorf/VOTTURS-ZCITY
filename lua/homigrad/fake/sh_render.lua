@@ -97,7 +97,6 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		return headBone ~= false and headBone or nil
 	end
 
-	local hg_no_camera_in_cars = CreateConVar("hg_no_camera_in_cars","0",FCVAR_ARCHIVE + FCVAR_REPLICATED, "disables camera in cars", 0, 1)
 	local function prepareRenderModelScale(ent, ply)
 		if SERVER then return 1 end
 		if not IsValid(ent) then return 1 end
@@ -228,7 +227,9 @@ local IsValid, math_Clamp = IsValid, math.Clamp
     			local mat = ent:GetBoneMatrix(lkp)
     			if mat then
             	-- glide vehicle camera exclusion gate
-            	local blockGlide = Glide and Glide.Camera and not Glide.Camera.isInFirstPerson and lply == ply and lply:InVehicle() and hg_no_camera_in_cars:GetBool()
+				local glideThirdperson = Glide and Glide.AdminThirdperson
+				local usingAdminThirdperson = glideThirdperson and isfunction(glideThirdperson.IsActive) and glideThirdperson.IsActive(lply)
+				local blockGlide = Glide and Glide.Camera and not Glide.Camera.isInFirstPerson and lply == ply and lply:InVehicle() and (usingAdminThirdperson or isfunction(hg.NoCameraInCar) and hg.NoCameraInCar(lply:GetVehicle()))
 
         		if not blockGlide then
             		if ((!hg_thirdperson:GetBool() and !hg_gopro:GetBool() and (ent == ply or spectatorFirstPerson or (!hg_ragdollcombat:GetBool() or hg_firstperson_ragdoll:GetBool()))) or (hg_firstperson_death:GetBool() and follow == ent))

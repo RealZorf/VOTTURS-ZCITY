@@ -22,7 +22,32 @@ function Glide.GetCameraAimPos()
 end
 
 local Config = Glide.Config
-local hg_no_camera_in_cars = CreateConVar("hg_no_camera_in_cars","0",FCVAR_ARCHIVE + FCVAR_REPLICATED, "disables camera in cars", 0, 1)
+
+local function ShouldUseGlideCamera( vehicle )
+    local thirdperson = Glide.AdminThirdperson
+
+    if thirdperson and isfunction( thirdperson.IsActive ) and thirdperson.IsActive( LocalPlayer() ) then
+        return true
+    end
+
+    if
+        thirdperson and
+        isfunction( thirdperson.IsEnabled ) and
+        isfunction( thirdperson.IsAvailable ) and
+        thirdperson.IsEnabled() and
+        thirdperson.IsAvailable( LocalPlayer() )
+    then
+        return true
+    end
+
+    if hg and isfunction( hg.NoCameraInCar ) then
+        return hg.NoCameraInCar( vehicle ) == true
+    end
+
+    local convar = GetConVar( "hg_no_camera_in_cars" )
+    return convar and convar:GetBool() or false
+end
+
 function Camera:Activate( vehicle, seatIndex )
     Config = Glide.Config
 
@@ -54,7 +79,7 @@ function Camera:Activate( vehicle, seatIndex )
     end )
 
     hook.Add( "PostPostHGCalcView", "GlideCamera.CalcView", function()
-        if hg_no_camera_in_cars:GetBool() and !self.isInFirstPerson then return self:CalcView() end
+        if ShouldUseGlideCamera( self.vehicle ) and !self.isInFirstPerson then return self:CalcView() end
     end, HOOK_HIGH )
 
     hook.Add( "CreateMove", "GlideCamera.CreateMove", function( cmd )
@@ -62,7 +87,7 @@ function Camera:Activate( vehicle, seatIndex )
     end, HOOK_HIGH )
 
     hook.Add( "InputMouseApply", "GlideCamera.InputMouseApply", function( tbl, x, y, ang )
-        if hg_no_camera_in_cars:GetBool() then self:InputMouseApply( {x = x,y = y} ) end
+        if ShouldUseGlideCamera( self.vehicle ) then self:InputMouseApply( {x = x, y = y} ) end
     end, HOOK_HIGH )
 
     hook.Add( "PlayerBindPress", "GlideCamera.PlayerBindPress", function( ply, bind )
@@ -97,7 +122,7 @@ function Camera:Deactivate()
 
     if IsValid( self.user ) then
         self.user:SetDSP( 1 )
-        --self.user:SetEyeAngles( Angle() )
+        //self.user:SetEyeAngles( Angle() )
     end
 
     self.isActive = false
@@ -432,7 +457,7 @@ function Camera:CalcView()
 end
 
 function Camera:CreateMove( cmd )
-    --cmd:SetViewAngles( self.viewAngles )
+    //cmd:SetViewAngles( self.viewAngles )
 end
 
 function Camera:InputMouseApply( tbl )

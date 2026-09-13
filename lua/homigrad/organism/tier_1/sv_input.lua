@@ -688,6 +688,9 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	if not org then return end
 	
 	local ply = (ent:IsPlayer() and ent) or hg.RagdollOwner(ent)
+	if IsValid(ply) and dmgInfo:IsDamageType(DMG_FALL) then
+		dmgInfo:ScaleDamage(tonumber(ply.FallDamageMul) or 1)
+	end
 
 	org.isPly = IsValid(ply)
 	

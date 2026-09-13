@@ -358,7 +358,7 @@ local function DrawWorldModel(self, force)
 
 	local willdraw = false
 	
-	local localdraw = (self:IsLocal2() and (owner:GetActiveWeapon() == self)) and not force
+	local localdraw = (self:IsLocal2() and owner:GetActiveWeapon() == self and not owner:InVehicle()) and not force
 	
 	if not owner:IsNPC() then self:DrawPost() end
 	--self.worldModel:SetRenderOrigin(self:GetPos())

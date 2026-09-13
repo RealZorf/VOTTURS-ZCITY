@@ -31,13 +31,6 @@ local function isHMCDThief(ent)
 	return IsValid(ent) and ent.HMCD_IsThief == true
 end
 
-local function isHMCDStandard()
-	local mode = CurrentRound and CurrentRound()
-	return istable(mode)
-		and mode.name == "hmcd"
-		and mode.Type == "standard"
-end
-
 local function canThiefSearchLive(ply, ent)
 	return isHMCDThief(ply)
 		and IsValid(ent)
@@ -53,10 +46,7 @@ end
 local function canSearchPlayerInventory(ply, ent)
 	if not IsValid(ent) or not ent:IsPlayer() then return true end
 	if not IsValid(ent.FakeRagdoll) then return canThiefSearchLive(ply, ent) end
-	if not isHMCDStandard() or isHMCDThief(ply) or not ent:Alive() then return true end
-
-	local organism = ent.organism
-	return istable(organism) and organism.otrub == true
+	return true
 end
 
 function hg.HMCDCanThiefSearchLive(ply, ent)

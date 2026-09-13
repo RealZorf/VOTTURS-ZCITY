@@ -145,7 +145,7 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 	local climbGrip = hasClimbGripActive(org.owner)
 
 	if climbGrip and (dmgInfo:IsDamageType(DMG_CRUSH) or dmgInfo:IsDamageType(DMG_FALL)) then
-		dmg = dmg * 0.35
+		dmg = dmg * (tonumber(org.owner.ClimbArmDamageMul) or 0.35)
 	end
 	
 	if dmgInfo:IsDamageType(DMG_CRUSH) and dmg > 4 and !org[key.."amputated"] then
@@ -159,7 +159,7 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 	local result, vecrand = damageBone(org, 0.3, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 	
 	local dmg = org[key]
-	local dislocationThreshold = climbGrip and 0.82 or 0.6
+	local dislocationThreshold = climbGrip and (tonumber(org.owner.ClimbArmDislocationThreshold) or 0.82) or 0.6
 	
 	org[key] = org[key] * 0.5
 
@@ -188,7 +188,7 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		end
 		--org[key] = 0.5
 
-		org.painadd = org.painadd + (climbGrip and 20 or 35)
+		org.painadd = org.painadd + (climbGrip and (tonumber(org.owner.ClimbArmDislocationPain) or 20) or 35)
 		org.owner:AddNaturalAdrenaline(0.5)
 		org.fearadd = org.fearadd + 0.5
 

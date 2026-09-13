@@ -330,11 +330,13 @@ function hg.Ragdoll_Create(ply)
 				ragdoll.welds = ragdoll.welds or {}
 				table.insert(ragdoll.welds, weld)
 				weld:CallOnRemove("removeOwO", function()
-					if ragdoll.removingwelds then return end
-					--hook.Run("CanExitVehicle", ply, veh)
-					if !hg.leaveveh then hg.fallfromveh = true end
-					hg.leaveveh = true
-					if IsValid(ply) then ply:ExitVehicle() end
+					if not IsValid(ragdoll) or ragdoll.removingwelds then return end
+					ragdoll.removingwelds = true
+
+					if IsValid(ply) and ply:InVehicle() then
+						ply.HGVehicleForcedExit = true
+						ply:ExitVehicle()
+					end
 
 					table.RemoveByValue(veh.rags, ragdoll)
 
@@ -359,6 +361,9 @@ function hg.Ragdoll_Create(ply)
 						
 						ragdoll.welds = nil
 					end
+
+					ragdoll:SetParent()
+					ragdoll.removingwelds = nil
 
 					if IsValid(ply.nocollide1) then
 						ply.nocollide1:Remove()
@@ -1003,15 +1008,13 @@ local function BeginFakeUpCrouchTransition(ply, ragdoll)
 	end)
 end
 
-function hg.FakeUp(ply, forced, instant)
+function hg.FakeUp(ply, forced, instant, preferredPos, preferredVelocity, usePreferredPos)
 	local ragdoll = ply.FakeRagdoll
 	
 	if !IsValid(ragdoll) then return end
 
 	if ragdoll.welds then
 		if ply:InVehicle() then
-			local veh = ply:GetVehicle()
-			hg.leaveveh = true
 			ply:ExitVehicle()
 		end
 
@@ -1039,8 +1042,20 @@ function hg.FakeUp(ply, forced, instant)
 	local ent = (IsValid(ragdoll) and ragdoll or ply)
 	local pelvis = ent:LookupBone("ValveBiped.Bip01_Pelvis")
 	local matrix = pelvis and ent:GetBoneMatrix(pelvis)
-	local posit = matrix and matrix:GetTranslation() or ent:WorldSpaceCenter()
-	local pos, crouchOnly = hg.GetUpPos(ply, posit, 50, 50)
+	local posit = isvector(preferredPos) and preferredPos or matrix and matrix:GetTranslation() or ent:WorldSpaceCenter()
+	local pos, crouchOnly
+
+	if usePreferredPos and isvector(preferredPos) then
+		pos = preferredPos
+		crouchOnly = false
+	else
+		pos, crouchOnly = hg.GetUpPos(ply, posit, 50, 50)
+	end
+
+	if not pos and isvector(preferredPos) then
+		pos = preferredPos
+		crouchOnly = false
+	end
 	
 	if not pos then return false end
 	timer.Remove("fake_up_crouch_hull" .. ply:EntIndex())
@@ -1068,11 +1083,14 @@ function hg.FakeUp(ply, forced, instant)
 	end	
 
 	if IsValid(ragdoll) and ragdoll.welds then
+		ragdoll.removingwelds = true
+
 		for i, weld in pairs(ragdoll.welds) do
 			if IsValid(weld) then weld:Remove() end
 		end
 
 		ragdoll.welds = nil
+		ragdoll.removingwelds = nil
 	end
 
 	local fakeUpLoadout = IsSandboxFakeLoadoutFixActive() and CaptureFakeUpLoadout(ply) or nil
@@ -1123,7 +1141,8 @@ function hg.FakeUp(ply, forced, instant)
 
 	if IsValid(ragdoll) then
 		local phys = ragdoll:GetPhysicsObject()
-		ply:SetVelocity(-ply:GetVelocity() + (IsValid(phys) and phys:GetVelocity() or vecZero)) --how the fuck does this work
+		local wakeVelocity = isvector(preferredVelocity) and preferredVelocity or IsValid(phys) and phys:GetVelocity() or vecZero
+		ply:SetVelocity(-ply:GetVelocity() + wakeVelocity)
 		--hg.SetFreemove(ply, true)
 
 		if pos then
@@ -1271,9 +1290,10 @@ hook.Add("CanPlayerEnterVehicle","fake_enterveh",function(ply, veh)
 	
 	return true--not IsValid(ply.FakeRagdoll)-- or IsValid(ply.wasveh)
 end)
-local hg_no_fake_in_cars = CreateConVar("hg_no_fake_in_cars","0",FCVAR_ARCHIVE + FCVAR_REPLICATED, "disables fake in cars", 0, 1)
 hook.Add("PlayerEnteredVehicle","allowweapons",function(ply,veh,role)
-	if hg_no_fake_in_cars:GetBool() then return end
+	ply.HGVehicleForcedExit = nil
+	ply:SetAllowWeaponsInVehicle(true)
+	if isfunction(hg.NoFakeInCar) and hg.NoFakeInCar(veh) then return end
 	ply:SetEyeAngles(angle_zero)
 	--local veh2 = veh:GetParent()
 
@@ -1287,11 +1307,6 @@ hook.Add("PlayerEnteredVehicle","allowweapons",function(ply,veh,role)
 		--ply:SetSolidFlags(bit.band(ply:GetSolidFlags(), bit.bnot(FSOLID_NOT_SOLID), bit.bnot(FSOLID_TRIGGER), bit.bnot(FSOLID_USE_TRIGGER_BOUNDS)))
 	end)
 
-	if (role != 0) or (veh:GetClass() == "prop_vehicle_prisoner_pod") then
-		ply:SetAllowWeaponsInVehicle(true)
-	else
-		ply:SetAllowWeaponsInVehicle(true)
-	end
 end)
 
 hook.Add("HG_OnWakeOtrub", "enterveh", function(ply)
@@ -1327,43 +1342,79 @@ hook.Add("PlayerLeaveVehicle","allowweapons",function(ply,veh)
 		timer.Remove("EnterVehicleRag"..ply:EntIndex())
 	end
 
-	--if !hg.fallfromveh then
-	--	hg.FakeUp(ply, true)
-	--end
+	local parent = IsValid(veh) and veh:GetParent() or NULL
+	local carrier = IsValid(parent) and parent or veh
+	local carrierPhys = IsValid(carrier) and carrier:GetPhysicsObject()
+	local exitVelocity = IsValid(carrierPhys) and carrierPhys:GetVelocity() or IsValid(carrier) and carrier:GetVelocity() or vecZero
 	local ragdoll = ply.FakeRagdoll
-	local fast = IsValid(ragdoll) and ragdoll:GetVelocity():Length() > 200
-	
-	if (!fast or ply.switchingseat) and ply:Alive() then
-		hg.FakeUp(ply, true, ply.switchingseat)
-	else
-		if ragdoll then
-			hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_IN_VEHICLE)
-			--ply:SetSolidFlags(bit.bor(ply:GetSolidFlags(), FSOLID_NOT_SOLID, FSOLID_TRIGGER, FSOLID_USE_TRIGGER_BOUNDS))
-			ragdoll.removingwelds = true
+	local ragdollVelocity = IsValid(ragdoll) and ragdoll:GetVelocity() or vecZero
 
-			if ragdoll.welds then
-				for i, weld in pairs(ragdoll.welds) do
-					if IsValid(weld) then weld:Remove() end
-				end
-			end
-			
-			ragdoll.welds = nil
-			ragdoll.removingwelds = nil
-			ragdoll:SetParent()
-
-			if fast then
-				ragdoll:GetPhysicsObject():ApplyForceCenter(ragdoll:GetVelocity():GetNormalized() * 10000)
-				ragdoll:GetPhysicsObject():ApplyForceCenter(vector_up * 10000)
-
-				veh:EmitSound("zbattle/glass_shatter.ogg")
-			end
-		else
-			hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_PLAYER)
-			--ply:SetSolidFlags(bit.band(ply:GetSolidFlags(), bit.bnot(FSOLID_NOT_SOLID), bit.bnot(FSOLID_TRIGGER), bit.bnot(FSOLID_USE_TRIGGER_BOUNDS)))
-		end
+	if ragdollVelocity:LengthSqr() > exitVelocity:LengthSqr() then
+		exitVelocity = ragdollVelocity
 	end
 
-	hg.fallfromveh = nil
+	if IsValid(carrier) and isvector(carrier.localVelocity) then
+		local cachedVelocity = carrier:LocalToWorld(carrier.localVelocity) - carrier:GetPos()
+		if cachedVelocity:LengthSqr() > exitVelocity:LengthSqr() then exitVelocity = cachedVelocity end
+	end
+
+	local exitSpeed = exitVelocity:Length()
+	local forcedExit = ply.HGVehicleForcedExit == true
+	local dangerousExit = forcedExit or exitSpeed > 200
+	local switchingSeat = ply.switchingseat == true
+	local exitPos
+	ply.HGVehicleForcedExit = nil
+
+	if IsValid(carrier) and carrier.IsGlideVehicle and isfunction(carrier.GetSeatExitPos) then
+		local seatIndex = IsValid(veh) and veh.GlideSeatIndex
+		if isnumber(seatIndex) then exitPos = carrier:GetSeatExitPos(seatIndex) end
+	end
+
+	if IsValid(ragdoll) then
+		ragdoll.removingwelds = true
+
+		if ragdoll.welds then
+			for _, weld in pairs(ragdoll.welds) do
+				if IsValid(weld) then weld:Remove() end
+			end
+		end
+
+		ragdoll.welds = nil
+		ragdoll:SetParent()
+		ragdoll.removingwelds = nil
+	end
+
+	if ply:Alive() and (switchingSeat or not dangerousExit) then
+		timer.Simple(0, function()
+			if not IsValid(ply) or not ply:Alive() or ply:InVehicle() then return end
+			if not IsValid(ply.FakeRagdoll) then return end
+
+			hg.FakeUp(ply, true, true, exitPos, exitVelocity, isvector(exitPos))
+		end)
+	elseif IsValid(ragdoll) then
+		hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_IN_VEHICLE)
+
+		if dangerousExit then
+			local launchDirection = forcedExit and IsValid(carrier) and carrier:GetForward() or exitSpeed > 1 and exitVelocity / exitSpeed or vector_up
+			local inheritedVelocity = launchDirection * exitSpeed + vector_up * math.min(exitSpeed * 0.12, 90)
+
+			for physIndex = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+				local phys = ragdoll:GetPhysicsObjectNum(physIndex)
+				if IsValid(phys) then phys:SetVelocity(inheritedVelocity) end
+			end
+
+			local rootPhys = ragdoll:GetPhysicsObject()
+			if forcedExit and IsValid(rootPhys) then
+				rootPhys:ApplyForceCenter(launchDirection * 10000 + vector_up * 10000)
+			end
+
+			if IsValid(veh) then
+				veh:EmitSound("zbattle/glass_shatter.ogg")
+			end
+		end
+	else
+		hg.ApplySetCollisionGroupNow(ply, COLLISION_GROUP_PLAYER)
+	end
 end)
 
 /*
@@ -1376,10 +1427,6 @@ function PLAYER:ExitVehicle()
 	hg.ExitVehicle(self)
 end
 */
-
-hook.Add("CanExitVehicle","huyhuy",function(ply, veh)
-	--return false
-end)
 
 function hg.GetUpPos(target,pos,tries,starttries)
 	if not IsValid(target) or not isvector(pos) then return end

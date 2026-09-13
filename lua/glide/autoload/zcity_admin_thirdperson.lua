@@ -71,9 +71,11 @@ function Thirdperson.IsAvailable( ply )
     return IsValid( vehicle )
 end
 
-local function ShouldUseThirdperson( ply )
+function Thirdperson.IsActive( ply )
     return Thirdperson.IsEnabled() and Thirdperson.IsAvailable( ply )
 end
+
+local ShouldUseThirdperson = Thirdperson.IsActive
 
 local function BuildThirdpersonView( ply, znear, zfar )
     local vehicle = GetGlideVehicle( ply )

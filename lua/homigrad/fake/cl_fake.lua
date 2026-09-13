@@ -247,7 +247,13 @@ hook.Add("HG.InputMouseApply", "fakeCameraAngles2", function(tbl)
 		follow = follow or lply
 	end]]
 
-	if lply:InVehicle() and not IsValid(follow) then
+	local vehicle = lply:GetVehicle()
+	local glideThirdperson = Glide and Glide.AdminThirdperson
+	local blockVehicleCamera = glideThirdperson and isfunction(glideThirdperson.IsActive) and glideThirdperson.IsActive(lply)
+	blockVehicleCamera = blockVehicleCamera or IsValid(vehicle) and isfunction(hg.NoCameraInCar) and hg.NoCameraInCar(vehicle)
+	local blockVehicleFake = IsValid(vehicle) and isfunction(hg.NoFakeInCar) and hg.NoFakeInCar(vehicle)
+
+	if lply:InVehicle() and not blockVehicleCamera and not blockVehicleFake and not IsValid(follow) then
 		tbl.override_angle = true
 		tbl.angle = angle_zero
 		return true
