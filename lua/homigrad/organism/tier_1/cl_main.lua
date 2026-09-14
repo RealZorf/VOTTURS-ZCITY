@@ -1695,12 +1695,14 @@ local modelPlacements = {
 		["ValveBiped.Bip01_R_Calf"] = {Vector(15.5, 0, 0), Angle(0, 90, 0)},
 		["ValveBiped.Bip01_R_Forearm"] = {Vector(11, 0.5, 0.5), Angle(0, 90, 0)},
 		["ValveBiped.Bip01_L_Forearm"] = {Vector(11, 0.5, -0.5), Angle(0, 90, 0)},
+		["ValveBiped.Bip01_Head1"] = {Vector(4, 0, 0), Angle(0, 90, 0)},
 	},
 	[0] = {
 		["ValveBiped.Bip01_L_Calf"] = {Vector(17.5, 0, 0), Angle(0, 90, 0)},
 		["ValveBiped.Bip01_R_Calf"] = {Vector(17.5, 0, 0), Angle(0, 90, 0)},
 		["ValveBiped.Bip01_R_Forearm"] = {Vector(11, 0.5, 0.5), Angle(0, 90, 0)},
 		["ValveBiped.Bip01_L_Forearm"] = {Vector(11, 0, -1), Angle(0, 90, 0)},
+		["ValveBiped.Bip01_Head1"] = {Vector(5, 0, 0), Angle(0, 90, 0)},
 	}
 }
 
@@ -1752,7 +1754,8 @@ function hg.GoreCalc(ent, ply)
 		bon = bon == false and nil or bon
 		if not bon then continue end
 
-		if !org[bone.."amputated"] then
+		local amputated = org[bone.."amputated"] or (bone == "head" and ent:GetNWBool("HGDecapitated", false))
+		if !amputated then
 			if !ent:GetManipulateBoneScale(bon):IsEqualTol(vecFull, 0.01) then
 				ent:ManipulateBoneScale(bon, vecFull)
 			end
@@ -1761,7 +1764,8 @@ function hg.GoreCalc(ent, ply)
 		end
 		
 		local mat = ent:GetBoneMatrix(bon)
-		local mat2 = ent:GetBoneMatrix(bon - 1)
+		local parentBone = ent:GetBoneParent(bon)
+		local mat2 = ent:GetBoneMatrix(parentBone and parentBone >= 0 and parentBone or bon - 1)
 		if not mat or not mat2 then continue end
 		mat:SetScale(vecalmostzero)
 		
@@ -1771,6 +1775,7 @@ function hg.GoreCalc(ent, ply)
 			hg.bone_apply_matrix(ply, bon, mat)
 		end
 
+		if bone == "head" and not ent:GetNWBool("HGDecapitated", false) then continue end
 		if !modelPlacements[fem][nam] then continue end
 
 		local pos, ang = LocalToWorld(modelPlacements[fem][nam][1], modelPlacements[fem][nam][2], mat2:GetTranslation(), mat2:GetAngles())

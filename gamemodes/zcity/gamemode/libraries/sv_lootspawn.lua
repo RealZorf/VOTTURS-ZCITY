@@ -427,6 +427,15 @@ function hg.GenerateLoot(ply,ent,func)
 			local att = tbl[math.random(#tbl)]
 			entName = "ent_att_" .. att
 			Tab = "Attachments"
+		elseif isstring(entName) then
+			local attachmentName = string.Replace(entName, "ent_att_", "")
+			for _, attachments in pairs(hg.validattachments or {}) do
+				if attachments[attachmentName] then
+					entName = "ent_att_" .. attachmentName
+					Tab = "Attachments"
+					break
+				end
+			end
 		end
 		
 		if not entName then return end

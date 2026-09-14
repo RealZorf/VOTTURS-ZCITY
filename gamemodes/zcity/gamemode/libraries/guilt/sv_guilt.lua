@@ -587,12 +587,13 @@ end)
 
 hook.Add("OnAmputateLimb", "GuiltSevereInjury", function(org, ent, limb, attacker)
     if not zb.IsRoundGuiltActive() then return end
-    if limb ~= "lleg" and limb ~= "rleg" and limb ~= "larm" and limb ~= "rarm" then return end
+    local fatal = limb == "head"
+    if not fatal and limb ~= "lleg" and limb ~= "rleg" and limb ~= "larm" and limb ~= "rarm" then return end
 
     local victim = ResolveGuiltPlayer(ent) or ResolveGuiltPlayer(org and org.owner)
     attacker = ResolveGuiltPlayer(attacker)
     if not IsValid(victim) or not IsValid(attacker) or attacker == victim then return end
-    if not victim:Alive() or not org or org.alive == false then return end
+    if not fatal and (not victim:Alive() or not org or org.alive == false) then return end
 
     -- Some amputation paths run before HomigradDamage. Seed only combat evidence,
     -- not native harm/karma totals, so even those injuries have an attributed threat.

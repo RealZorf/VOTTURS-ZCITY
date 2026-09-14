@@ -84,14 +84,14 @@ MODE.LootTable = {
 	{9,{
 		{10,"laser5"},
 		{10,"laser1"},
-		{8,"holo7"},
+		{8,"ent_att_holo7"},
 
 		{6,"ent_armor_helmet1"},
 		{4,"ent_armor_vest3"},
 		{6,"ent_armor_helmet7"},
 	}},
 	{10,{
-		{4,"holo16"},
+		{4,"ent_att_holo16"},
 		{5,"supressor4"},
 
 		{12,"weapon_mp-80"},

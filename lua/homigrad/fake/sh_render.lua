@@ -220,6 +220,8 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		local fountains = GetNetVar("fountains") or {}
 		local spectatorFirstPerson = !lply:Alive() and lply:GetNWEntity("spect") == ply and viewmode == 1
 		local wawanted = (GetViewEntity() != ply) and !fountains[ent] and (!spectatorFirstPerson and !(hg_firstperson_death:GetBool() and follow == ent)) and vector_full or vector_small
+		local renderOrg = ent.new_organism or ent.organism
+		local headSevered = ent:GetNWBool("HGDecapitated", false) or (istable(renderOrg) and renderOrg.headamputated)
 		--print(ent, wawanted, GetViewEntity(), ply, (GetViewEntity() != ply), !fountains[ent], !(!lply:Alive() and lply:GetNWEntity("spect") == ply and viewmode == 1))
 		--if !current:IsEqualTol(wawanted, 0.01) then
 			--ent:ManipulateBoneScale(lkp, wawanted)
@@ -231,7 +233,9 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 				local usingAdminThirdperson = glideThirdperson and isfunction(glideThirdperson.IsActive) and glideThirdperson.IsActive(lply)
 				local blockGlide = Glide and Glide.Camera and not Glide.Camera.isInFirstPerson and lply == ply and lply:InVehicle() and (usingAdminThirdperson or isfunction(hg.NoCameraInCar) and hg.NoCameraInCar(lply:GetVehicle()))
 
-        		if not blockGlide then
+				if headSevered then
+					mat:SetScale(vector_small)
+				elseif not blockGlide then
             		if ((!hg_thirdperson:GetBool() and !hg_gopro:GetBool() and (ent == ply or spectatorFirstPerson or (!hg_ragdollcombat:GetBool() or hg_firstperson_ragdoll:GetBool()))) or (hg_firstperson_death:GetBool() and follow == ent))
 					then
                 		mat:SetScale(wawanted)

@@ -1639,17 +1639,30 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 	if not IsValid(owner) then return end
 
 	if IsValid(ent) or game.GetWorld() == ent then
+		local severedCarry = false
+		if ent:GetNWBool("IsSeveredLimb", false) then
+			local rootPhysNum = ent:GetNWInt("SeveredRootPhys", -1)
+			if rootPhysNum >= 0 and IsValid(ent:GetPhysicsObjectNum(rootPhysNum)) then
+				bone = rootPhysNum
+				severedCarry = true
+			end
+		end
+
 		self.CarryEnt = ent
 		self.CarryBone = bone
 		self.CarryDist = dist
 
 		local phys = self.CarryEnt:GetPhysicsObjectNum(self.CarryBone)
-		self.CarryCentered = shouldCenterCarry(ent, phys)
+		if not IsValid(phys) then
+			self:SetCarrying()
+			return
+		end
+		self.CarryCentered = severedCarry or shouldCenterCarry(ent, phys)
 
 		if ent:GetClass() ~= "prop_ragdoll" then
 			self.CarryPos = self.CarryCentered and ent:OBBCenter() or ent:WorldToLocal(pos)
 		else
-			self.CarryPos = WorldToLocal(pos, angle_zero, phys:GetPos(), phys:GetAngles())
+			self.CarryPos = severedCarry and vector_origin or WorldToLocal(pos, angle_zero, phys:GetPos(), phys:GetAngles())
 		end
 
 		if not IsValid(owner:GetNetVar("carryent")) then

@@ -160,15 +160,29 @@ local sounds = {
 }
 
 local ents_Create = ents.Create
-function hg.organism.AmputateLimb(org, limb, attacker)
-	if org[limb.."amputated"] == nil then return end
+function hg.organism.AmputateLimb(org, limb, attacker, damageContext)
+	if org[limb.."amputated"] == nil or org[limb.."amputated"] then return end
+	local recentContext = org.HGRecentAmputationDamage
+	if not istable(damageContext) and istable(recentContext) and (recentContext.time or 0) + 0.25 >= CurTime() then
+		damageContext = recentContext
+	end
+	if not IsValid(attacker) and istable(damageContext) and IsValid(damageContext.attacker) then
+		attacker = damageContext.attacker
+	end
 
 	local bone = limbs[limb]
 	if !IsValid(org.owner) then return end
-	local len = org.owner:BoneLength(org.owner:LookupBone(bone))
+	local ownerBone = org.owner:LookupBone(bone)
+	if not ownerBone then return end
+	local ent = hg.GetCurrentCharacter(org.owner)
+	if not IsValid(ent) then return end
+	local entBone = ent:LookupBone(bone)
+	if not entBone then return end
+	local len = org.owner:BoneLength(ownerBone) or 12
 	local vec = Vector(len, 0, 0)
 	local ang = Angle()
-	local boneup = org.owner:GetBoneName(org.owner:LookupBone(bone) - 1)
+	local ownerParentBone = org.owner:GetBoneParent(ownerBone)
+	local boneup = org.owner:GetBoneName(ownerParentBone and ownerParentBone >= 0 and ownerParentBone or ownerBone - 1)
 	
 	local wnds = {}
 
@@ -191,14 +205,17 @@ function hg.organism.AmputateLimb(org, limb, attacker)
 	local dmgInfo = DamageInfo()
 	hg.organism.input_list[limb.."up"](org, 0, 5, dmgInfo)
 
-	local ent = hg.GetCurrentCharacter(org.owner)
 	local soundName = sounds[math.random(#sounds)]
 	local soundPitch = math.random(95, 105)
 	if not hg.EmitOccludedSound or not hg.EmitOccludedSound(ent, soundName, 58, soundPitch, 0.75) then
 		org.owner:EmitSound(soundName, 58, soundPitch, 0.75)
 	end
 
-	SpawnMeatGore(ent, select(1, ent:GetBonePosition(ent:LookupBone(bone))), 4)
+	local severedLimb = hg.SpawnSeveredLimb and hg.SpawnSeveredLimb(ent, limb, damageContext)
+	if not IsValid(severedLimb) then
+		local force = istable(damageContext) and damageContext.force or vector_origin
+		SpawnMeatGore(ent, select(1, ent:GetBonePosition(entBone)), 4, force)
+	end
 
 	hook.Run("OnAmputateLimb", org, ent, limb, attacker)
 
@@ -810,6 +827,15 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 	
 	local dmg_before = dmgInfo:GetDamage()
+	org.HGRecentAmputationDamage = {
+		time = time,
+		damage = dmg_before,
+		damageType = dmgtype,
+		position = Vector(dmgPos.x, dmgPos.y, dmgPos.z),
+		force = Vector(dmgInfo:GetDamageForce().x, dmgInfo:GetDamageForce().y, dmgInfo:GetDamageForce().z),
+		attacker = dmgInfo:GetAttacker(),
+		inflictor = dmgInfo:GetInflictor()
+	}
 
 	local lastPos, hitBoxs, inputHole, outputHole, outputDir, distance, tracePoses = nil,{},{},{},{},nil,nil
 	if dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT+DMG_SLASH+DMG_CLUB+DMG_GENERIC) then
@@ -956,6 +982,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 
 	local bonename = ent:GetBoneName(ent:TranslatePhysBoneToBone(bone))
 	local hitgroup = bonetohitgroup[bonename] or 0
+	org.HGRecentAmputationDamage.hitgroup = hitgroup
 	--print(dmg_before, 1)
 	--if ent:IsRagdoll() then
 		if RagdollForceBoneMul[hitgroup] then len = len * RagdollForceBoneMul[hitgroup] end
@@ -1149,12 +1176,24 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	org.dmgstack[hitgroup][3] = (org.dmgstack[hitgroup][3] or 0) + damageStack / 500
 
 	local mat = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(bone))
-	local hitgroup_max = 100--hitgroup == HITGROUP_HEAD and 150 or 30
-	local instant = org.dmgstack[hitgroup][1] > hitgroup_max
+	local slashDamage = bit.band(dmgtype, DMG_SLASH) > 0
+	local slashHeadHit = slashDamage and hitgroup == HITGROUP_HEAD
+	local slashSeverHit = slashDamage and (slashHeadHit or hitgrouptolimb[hitgroup] ~= nil)
+	local hitgroup_max = slashSeverHit and 25 or 100
+	local instant = org.dmgstack[hitgroup][1] >= hitgroup_max
 	--print(damageStack, org.dmgstack[hitgroup][1], org.dmgstack[hitgroup][3])
 	local blast = dmgInfo:IsDamageType(DMG_BLAST)
 	-- DamageInfo is reused; retain the responsible entity for delayed amputation.
 	local amputationAttacker = dmgInfo:GetAttacker()
+	local amputationContext = {
+		damage = dmg_before,
+		damageType = dmgtype,
+		hitgroup = hitgroup,
+		position = Vector(dmgPos.x, dmgPos.y, dmgPos.z),
+		force = Vector(dmgInfo:GetDamageForce().x, dmgInfo:GetDamageForce().y, dmgInfo:GetDamageForce().z),
+		attacker = amputationAttacker,
+		inflictor = dmgInfo:GetInflictor()
+	}
 	
 	timer.Create("dmgstack"..org.entindex, !instant and 1 or 0, 1, function()
 		--if !IsValid(ply) then return end
@@ -1167,7 +1206,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			if !org.dmgstack then return end
 			if !org.dmgstack[hitgroup] then return end
 			if !org.dmgstack[hitgroup][1] then return end
-			local should = org.dmgstack[hitgroup][1] > hitgroup_max
+			local should = org.dmgstack[hitgroup][1] >= hitgroup_max
 
 			local limbs = {
 				"lleg",
@@ -1180,14 +1219,22 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 				if blast then
 					for i, limb in ipairs(limbs) do
 						if !org[limb.."amputated"] and math.random(5) < 200 / lend then
-							hg.organism.AmputateLimb(org, limb, amputationAttacker)
+							hg.organism.AmputateLimb(org, limb, amputationAttacker, amputationContext)
 						end
 					end
 				else
 					if !org[hitgrouptolimb[hitgroup].."amputated"] then
-						hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker)
+						hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker, amputationContext)
 					end
 				end
+			end
+
+			local headAlreadySevered = org.headamputated or (IsValid(org.owner) and org.owner.HGDecapitated)
+			local shouldDecapitate = should and slashHeadHit and not headAlreadySevered
+			if shouldDecapitate and hg.organism.Decapitate and hg.organism.Decapitate(org, amputationAttacker, amputationContext) then
+				org.dmgstack[hitgroup][1] = nil
+				org.dmgstack[hitgroup][2] = nil
+				return
 			end
 
 			if !IsValid(rag) then
@@ -1204,9 +1251,9 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 				return
 			end
 
-			should = org.dmgstack[hitgroup][1] > hitgroup_max
+			should = org.dmgstack[hitgroup][1] >= hitgroup_max
 			--print(rag, should, hitgroup == HITGROUP_HEAD, bonename, hitgroup, HITGROUP_HEAD)
-			if should and hitgroup == HITGROUP_HEAD then
+			if should and hitgroup == HITGROUP_HEAD and not headAlreadySevered then
 				hg.ExplodeHead(ent)
 
 				org.dmgstack[hitgroup][1] = nil
