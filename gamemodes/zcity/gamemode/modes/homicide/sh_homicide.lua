@@ -599,6 +599,7 @@ The body keeps its appearance, wounds, limbs and equipment.]],
 		Objective = "You are the Revenant. Use stolen bodies to deceive and support your teammate without losing your own.",
 		SpawnFunction = function(ply)
 			ply:Give("weapon_sogknife")
+			ply:Give("weapon_osapb")
 			ply:Give("weapon_hg_fiberwire")
 			ply:Give("weapon_hg_smokenade_tpik")
 			ply:Give("weapon_traitor_suit")
