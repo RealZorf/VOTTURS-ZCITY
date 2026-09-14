@@ -374,7 +374,7 @@ if SERVER then
 	end
 
 	local function isRecentHeadSlash(context, maxAge)
-		return istable(context) and context.hitgroup == HITGROUP_HEAD and isRecentSlash(context, maxAge)
+		return istable(context) and context.headSeverReady == true and context.hitgroup == HITGROUP_HEAD and isRecentSlash(context, maxAge)
 	end
 
 	local function findHeadSlashOrganism(owner, maxAge, requireAmputated)

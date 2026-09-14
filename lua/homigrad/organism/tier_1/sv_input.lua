@@ -64,6 +64,13 @@ local RagdollDamageBoneMul = {
 	[HITGROUP_HEAD] = 2
 }
 
+local SLASH_LIMB_SEVER_THRESHOLD = 25
+local SLASH_HEAD_SEVER_DAMAGE_THRESHOLD = 70
+local SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD = 90
+local SLASH_HEAD_SEVER_MIN_HITS = 2
+local SLASH_HEAD_SEVER_WINDOW = 4
+local FIREARM_HEAD_GIB_THRESHOLD = 250
+
 local RagdollForceBoneMul = {
 	[HITGROUP_LEFTLEG] = 0.5,
 	[HITGROUP_RIGHTLEG] = 0.5,
@@ -1176,11 +1183,34 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	org.dmgstack[hitgroup][3] = (org.dmgstack[hitgroup][3] or 0) + damageStack / 500
 
 	local mat = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(bone))
-	local slashDamage = bit.band(dmgtype, DMG_SLASH) > 0
+	local firearmDamage = bit.band(dmgtype, DMG_BULLET + DMG_BUCKSHOT + DMG_SNIPER) > 0
+	local slashDamage = bit.band(dmgtype, DMG_SLASH) > 0 and not firearmDamage and bit.band(dmgtype, DMG_BLAST) == 0
 	local slashHeadHit = slashDamage and hitgroup == HITGROUP_HEAD
-	local slashSeverHit = slashDamage and (slashHeadHit or hitgrouptolimb[hitgroup] ~= nil)
-	local hitgroup_max = slashSeverHit and 25 or 100
-	local instant = org.dmgstack[hitgroup][1] >= hitgroup_max
+	local slashLimbHit = slashDamage and hitgrouptolimb[hitgroup] ~= nil
+	local headSeverReady = false
+	if slashHeadHit then
+		local now = CurTime()
+		if (org.HGHeadSeverUntil or 0) < now then
+			org.HGHeadSeverDamage = 0
+			org.HGHeadSeverHits = 0
+		end
+
+		local severDamage = math.max(damageStack, 0)
+		org.HGHeadSeverDamage = (org.HGHeadSeverDamage or 0) + severDamage
+		org.HGHeadSeverHits = (org.HGHeadSeverHits or 0) + 1
+		org.HGHeadSeverUntil = now + SLASH_HEAD_SEVER_WINDOW
+		headSeverReady = severDamage >= SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD
+			or org.HGHeadSeverHits >= SLASH_HEAD_SEVER_MIN_HITS and org.HGHeadSeverDamage >= SLASH_HEAD_SEVER_DAMAGE_THRESHOLD
+
+		if istable(org.HGRecentAmputationDamage) then
+			org.HGRecentAmputationDamage.headSeverReady = headSeverReady
+		end
+	end
+
+	local hitgroup_max = slashLimbHit and SLASH_LIMB_SEVER_THRESHOLD
+		or firearmDamage and hitgroup == HITGROUP_HEAD and FIREARM_HEAD_GIB_THRESHOLD
+		or 100
+	local instant = headSeverReady or org.dmgstack[hitgroup][1] >= hitgroup_max
 	--print(damageStack, org.dmgstack[hitgroup][1], org.dmgstack[hitgroup][3])
 	local blast = dmgInfo:IsDamageType(DMG_BLAST)
 	-- DamageInfo is reused; retain the responsible entity for delayed amputation.
@@ -1192,7 +1222,8 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		position = Vector(dmgPos.x, dmgPos.y, dmgPos.z),
 		force = Vector(dmgInfo:GetDamageForce().x, dmgInfo:GetDamageForce().y, dmgInfo:GetDamageForce().z),
 		attacker = amputationAttacker,
-		inflictor = dmgInfo:GetInflictor()
+		inflictor = dmgInfo:GetInflictor(),
+		headSeverReady = headSeverReady
 	}
 	
 	timer.Create("dmgstack"..org.entindex, !instant and 1 or 0, 1, function()
@@ -1230,8 +1261,11 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			end
 
 			local headAlreadySevered = org.headamputated or (IsValid(org.owner) and org.owner.HGDecapitated)
-			local shouldDecapitate = should and slashHeadHit and not headAlreadySevered
+			local shouldDecapitate = headSeverReady and slashHeadHit and not headAlreadySevered
 			if shouldDecapitate and hg.organism.Decapitate and hg.organism.Decapitate(org, amputationAttacker, amputationContext) then
+				org.HGHeadSeverDamage = nil
+				org.HGHeadSeverHits = nil
+				org.HGHeadSeverUntil = nil
 				org.dmgstack[hitgroup][1] = nil
 				org.dmgstack[hitgroup][2] = nil
 				return
