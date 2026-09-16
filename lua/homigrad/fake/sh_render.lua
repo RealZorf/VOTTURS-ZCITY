@@ -215,6 +215,7 @@ local IsValid, math_Clamp = IsValid, math.Clamp
 		if fullPoseRender then
 			hg.GoreCalc(ent, ply)
 		end
+		if hg.ApplyTorsoSeparationRender then hg.ApplyTorsoSeparationRender(ent, ply) end
 
 		--local current = ent:GetManipulateBoneScale(lkp)
 		local fountains = GetNetVar("fountains") or {}

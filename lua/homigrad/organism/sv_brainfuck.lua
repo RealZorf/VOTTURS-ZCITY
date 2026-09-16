@@ -12,11 +12,11 @@ hook.Remove("HomigradDamage", "BrainfuckFencing")
 hg.applySpasm = nil
 hg.getRandomSpasm = nil
 
-local FENCING_DURATION = 3.8
+local FENCING_DURATION = 2
 local FENCING_FADE = 0.45
-local FENCING_RECENT_DAMAGE = 1.5
+local FENCING_RECENT_DAMAGE = 30
 local FENCING_HEAVY_DURATION = 0.18
-local FENCING_HEAVY_FORCE = 15
+local FENCING_HEAVY_FORCE = 50
 local SHAKE_REFRESH_MIN = 0.035
 local SHAKE_REFRESH_MAX = 0.095
 

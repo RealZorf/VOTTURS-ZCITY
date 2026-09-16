@@ -70,6 +70,18 @@ local SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD = 90
 local SLASH_HEAD_SEVER_MIN_HITS = 2
 local SLASH_HEAD_SEVER_WINDOW = 4
 local FIREARM_HEAD_GIB_THRESHOLD = 250
+local SLASH_TORSO_SEVER_DAMAGE_THRESHOLD = 60
+local SLASH_TORSO_SEVER_SINGLE_HIT_THRESHOLD = 95
+local SLASH_TORSO_SEVER_MIN_HITS = 3
+local SLASH_TORSO_SEVER_WINDOW = 6
+local TORSO_SEVER_CONTACT_RADIUS = 18
+local SHOTGUN_TORSO_SEVER_DAMAGE_THRESHOLD = 90
+local SHOTGUN_TORSO_SEVER_SINGLE_HIT_THRESHOLD = 90
+local SHOTGUN_TORSO_SEVER_MIN_PELLETS = 6
+local SHOTGUN_TORSO_SEVER_WINDOW = 0.12
+local SHOTGUN_TORSO_SEVER_CONTACT_RADIUS = 24
+local BLAST_TORSO_SEVER_DAMAGE_THRESHOLD = 25
+local BLAST_TORSO_SEVER_RADIUS = 85
 
 local RagdollForceBoneMul = {
 	[HITGROUP_LEFTLEG] = 0.5,
@@ -509,6 +521,23 @@ local headcrabsmodels = {
 	["npc_headcrab_fast"] = "models/headcrab.mdl",
 	["npc_headcrab_black"] = "models/headcrabblack.mdl",
 }
+
+local function getBonePositionSafe(ent, boneName)
+	if not IsValid(ent) then return end
+	local bone = ent:LookupBone(boneName)
+	if not bone then return end
+	local matrix = ent:GetBoneMatrix(bone)
+	if matrix then return matrix:GetTranslation() end
+	local position = ent:GetBonePosition(bone)
+	return isvector(position) and position or nil
+end
+
+local function getWaistPosition(ent)
+	local lower = getBonePositionSafe(ent, "ValveBiped.Bip01_Spine1")
+	local upper = getBonePositionSafe(ent, "ValveBiped.Bip01_Spine2")
+	if lower and upper then return LerpVector(0.2, lower, upper) end
+	return lower or upper
+end
 
 local headcrabZombieClasses = {
 	["npc_headcrab"] = "headcrabzombie",
@@ -1184,7 +1213,13 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 
 	local mat = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(bone))
 	local firearmDamage = bit.band(dmgtype, DMG_BULLET + DMG_BUCKSHOT + DMG_SNIPER) > 0
-	local slashDamage = bit.band(dmgtype, DMG_SLASH) > 0 and not firearmDamage and bit.band(dmgtype, DMG_BLAST) == 0
+	local blastDamage = bit.band(dmgtype, DMG_BLAST) > 0
+	local ammoName = istable(bullet) and bullet.AmmoType or IsValid(inf) and istable(inf.Primary) and inf.Primary.Ammo
+	local ammoDefinition = ammoName and hg.ammotypeshuy and hg.ammotypeshuy[ammoName]
+	local ammoSettings = istable(ammoDefinition) and ammoDefinition.BulletSettings
+	local pelletCount = istable(ammoSettings) and tonumber(ammoSettings.NumBullet) or 1
+	local shotgunDamage = bit.band(dmgtype, DMG_BUCKSHOT) > 0 or firearmDamage and pelletCount > 1
+	local slashDamage = bit.band(dmgtype, DMG_SLASH) > 0 and bit.band(dmgInfo:GetDamageType(), DMG_SLASH) > 0 and not firearmDamage and not blastDamage
 	local slashHeadHit = slashDamage and hitgroup == HITGROUP_HEAD
 	local slashLimbHit = slashDamage and hitgrouptolimb[hitgroup] ~= nil
 	local headSeverReady = false
@@ -1207,13 +1242,63 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		end
 	end
 
+	local waistPosition = getWaistPosition(ent)
+	local torsoSeverReady = false
+	local torsoSlashHit = false
+	local torsoShotgunHit = false
+	local postArmorBlastDamage = 0
+	if not org.torsoamputated and isvector(waistPosition) then
+		local modelScale = IsValid(ply) and hg.GetPlayerModelScale and hg.GetPlayerModelScale(ply) or ent:GetNWFloat("ZCModelScale", ent:GetModelScale())
+		modelScale = math.Clamp(tonumber(modelScale) or 1, 0.1, 10)
+		local contactRadius = TORSO_SEVER_CONTACT_RADIUS * modelScale
+		local shotgunContactRadius = SHOTGUN_TORSO_SEVER_CONTACT_RADIUS * modelScale
+		torsoSlashHit = slashDamage
+			and (hitgroup == HITGROUP_STOMACH or hitgroup == HITGROUP_CHEST)
+			and dmgPos:DistToSqr(waistPosition) <= contactRadius * contactRadius
+		torsoShotgunHit = shotgunDamage
+			and (hitgroup == HITGROUP_STOMACH or hitgroup == HITGROUP_CHEST)
+			and dmgPos:DistToSqr(waistPosition) <= shotgunContactRadius * shotgunContactRadius
+
+		if torsoSlashHit then
+			local now = CurTime()
+			if (org.HGTorsoSeverUntil or 0) < now then
+				org.HGTorsoSeverDamage = 0
+				org.HGTorsoSeverHits = 0
+			end
+			local severDamage = math.max(dmg_before, 0)
+			org.HGTorsoSeverDamage = (org.HGTorsoSeverDamage or 0) + severDamage
+			org.HGTorsoSeverHits = (org.HGTorsoSeverHits or 0) + 1
+			org.HGTorsoSeverUntil = now + SLASH_TORSO_SEVER_WINDOW
+			torsoSeverReady = severDamage >= SLASH_TORSO_SEVER_SINGLE_HIT_THRESHOLD
+				or org.HGTorsoSeverHits >= SLASH_TORSO_SEVER_MIN_HITS and org.HGTorsoSeverDamage >= SLASH_TORSO_SEVER_DAMAGE_THRESHOLD
+		elseif torsoShotgunHit then
+			local now = CurTime()
+			local shotgunAttacker = dmgInfo:GetAttacker()
+			if (org.HGShotgunTorsoSeverUntil or 0) < now or org.HGShotgunTorsoAttacker ~= shotgunAttacker then
+				org.HGShotgunTorsoSeverDamage = 0
+				org.HGShotgunTorsoSeverHits = 0
+			end
+			local severDamage = math.max(dmg_before, 0)
+			org.HGShotgunTorsoSeverDamage = (org.HGShotgunTorsoSeverDamage or 0) + severDamage
+			org.HGShotgunTorsoSeverHits = (org.HGShotgunTorsoSeverHits or 0) + 1
+			org.HGShotgunTorsoSeverUntil = now + SHOTGUN_TORSO_SEVER_WINDOW
+			org.HGShotgunTorsoAttacker = shotgunAttacker
+			torsoSeverReady = severDamage >= SHOTGUN_TORSO_SEVER_SINGLE_HIT_THRESHOLD
+				or org.HGShotgunTorsoSeverHits >= SHOTGUN_TORSO_SEVER_MIN_PELLETS and org.HGShotgunTorsoSeverDamage >= SHOTGUN_TORSO_SEVER_DAMAGE_THRESHOLD
+		elseif blastDamage and (not IsValid(inf) or not inf:IsNPC()) then
+			local explosionCenter = dmgInfo:GetDamagePosition()
+			local blastRadius = BLAST_TORSO_SEVER_RADIUS * modelScale
+			postArmorBlastDamage = math.max(dmg_before, 0)
+			torsoSeverReady = isvector(explosionCenter)
+				and explosionCenter:DistToSqr(waistPosition) <= blastRadius * blastRadius
+				and postArmorBlastDamage >= BLAST_TORSO_SEVER_DAMAGE_THRESHOLD
+		end
+	end
+
 	local hitgroup_max = slashLimbHit and SLASH_LIMB_SEVER_THRESHOLD
 		or firearmDamage and hitgroup == HITGROUP_HEAD and FIREARM_HEAD_GIB_THRESHOLD
 		or 100
-	local instant = headSeverReady or org.dmgstack[hitgroup][1] >= hitgroup_max
-	--print(damageStack, org.dmgstack[hitgroup][1], org.dmgstack[hitgroup][3])
 	local blast = dmgInfo:IsDamageType(DMG_BLAST)
-	-- DamageInfo is reused; retain the responsible entity for delayed amputation.
 	local amputationAttacker = dmgInfo:GetAttacker()
 	local amputationContext = {
 		damage = dmg_before,
@@ -1223,9 +1308,25 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		force = Vector(dmgInfo:GetDamageForce().x, dmgInfo:GetDamageForce().y, dmgInfo:GetDamageForce().z),
 		attacker = amputationAttacker,
 		inflictor = dmgInfo:GetInflictor(),
-		headSeverReady = headSeverReady
+		headSeverReady = headSeverReady,
+		torsoSeverReady = torsoSeverReady,
+		torsoPosition = isvector(waistPosition) and Vector(waistPosition.x, waistPosition.y, waistPosition.z) or nil,
+		postArmorBlastDamage = postArmorBlastDamage
 	}
-	
+	local torsoSeparatedNow = torsoSeverReady and hg.organism.SeparateTorso and hg.organism.SeparateTorso(org, amputationAttacker, amputationContext) or false
+	if torsoSeparatedNow then
+		org.HGTorsoSeverDamage = nil
+		org.HGTorsoSeverHits = nil
+		org.HGTorsoSeverUntil = nil
+		org.HGShotgunTorsoSeverDamage = nil
+		org.HGShotgunTorsoSeverHits = nil
+		org.HGShotgunTorsoSeverUntil = nil
+		org.HGShotgunTorsoAttacker = nil
+		dmgInfo:SetDamage(math.min(dmgInfo:GetDamage(), 1))
+	end
+	local instant = torsoSeparatedNow or headSeverReady or org.dmgstack[hitgroup][1] >= hitgroup_max
+	--print(damageStack, org.dmgstack[hitgroup][1], org.dmgstack[hitgroup][3])
+
 	timer.Create("dmgstack"..org.entindex, !instant and 1 or 0, 1, function()
 		--if !IsValid(ply) then return end
 		
@@ -1233,6 +1334,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		local org = rag and rag.organism or ent.organism
 
 		timer.Simple(0.01, function()
+			if torsoSeparatedNow then return end
 			if !org then return end
 			if !org.dmgstack then return end
 			if !org.dmgstack[hitgroup] then return end

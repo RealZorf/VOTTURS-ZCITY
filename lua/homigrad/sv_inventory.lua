@@ -156,12 +156,14 @@ local function resolveLootEntityFromTrace(ply, trace)
 	if not trace then return nil end
 
 	local tracedEnt = trace.Entity
+	if IsValid(tracedEnt) and (tracedEnt.IsSeveredPart or tracedEnt:GetNWBool("IsSeveredPart", false)) then return nil end
 	local tracedOwner = hg.RagdollOwner(tracedEnt)
 	local ent = IsValid(tracedOwner) and tracedOwner or tracedEnt
 	if isOwnInventoryTarget(ply, tracedEnt) or ent == ply then ent = nil end
 
 	local function getBodyTarget(candidate)
 		if not IsValid(candidate) or not candidate:IsRagdoll() then return nil end
+		if candidate.IsSeveredPart or candidate:GetNWBool("IsSeveredPart", false) then return nil end
 		if isOwnInventoryTarget(ply, candidate) then return nil end
 
 		local owner = hg.RagdollOwner(candidate)
@@ -603,9 +605,10 @@ net.Receive("ply_take_item", function(len, ply)
     local tblIndex = net.ReadString()
     local thing = net.ReadString()
     local tbl = net.ReadTable()
-    local ent = net.ReadEntity()
-    
-    if !IsValid(ent) or !IsValid(ply) then return end
+	local ent = net.ReadEntity()
+
+	if !IsValid(ent) or !IsValid(ply) then return end
+	if ent.IsSeveredPart or ent:GetNWBool("IsSeveredPart", false) then return end
 	local ragdollOwner = hg.RagdollOwner(ent)
 	if IsValid(ragdollOwner) then ent = ragdollOwner end
 	if isOwnInventoryTarget(ply, ent) then return end
@@ -628,7 +631,8 @@ end)
 util.AddNetworkString("should_open_inv")
 local playerMeta = FindMetaTable("Player")
 function playerMeta:OpenInventory(ent)
-    if not IsValid(ent) then return end
+	if not IsValid(ent) then return end
+	if ent.IsSeveredPart or ent:GetNWBool("IsSeveredPart", false) then return end
 	if isOwnInventoryTarget(self, ent) then return end
     if not canSearchPlayerInventory(self, ent) then return end
     hook.Run("ZB_InventoryOpened",self,ent)

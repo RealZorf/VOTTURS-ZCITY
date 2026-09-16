@@ -585,9 +585,9 @@ hook.Add("PostEntityFireBullets", "GuiltIncomingGunfire", function(ent, bullet)
     zb.RecordGuiltBulletThreat(shooter, bullet.Trace, bullet.Damage, ent)
 end)
 
-hook.Add("OnAmputateLimb", "GuiltSevereInjury", function(org, ent, limb, attacker)
+hook.Add("OnAmputateLimb", "GuiltSevereInjury", function(org, ent, limb, attacker, damageContext)
     if not zb.IsRoundGuiltActive() then return end
-    local fatal = limb == "head"
+    local fatal = limb == "head" or limb == "torso"
     if not fatal and limb ~= "lleg" and limb ~= "rleg" and limb ~= "larm" and limb ~= "rarm" then return end
 
     local victim = ResolveGuiltPlayer(ent) or ResolveGuiltPlayer(org and org.owner)
@@ -599,6 +599,22 @@ hook.Add("OnAmputateLimb", "GuiltSevereInjury", function(org, ent, limb, attacke
     -- not native harm/karma totals, so even those injuries have an attributed threat.
     RecordGuiltCombatHarm(victim, attacker, RETALIATION_MIN_INCOMING, "amputation")
     zb.GuiltCombatHistory[victim][attacker].severeInjuryAt = CurTime()
+
+    if limb ~= "torso" then return end
+    local maxHarm = math.max(tonumber(zb.MaximumHarm) or 10, 1)
+    local oldHarm = zb.HarmDone[victim] and tonumber(zb.HarmDone[victim][attacker]) or 0
+    local missingHarm = math.max(maxHarm - oldHarm, 0)
+    if missingHarm <= 0 then return end
+
+    local context = istable(damageContext) and damageContext or {}
+    local fatalDamage = DamageInfo()
+    fatalDamage:SetAttacker(attacker)
+    fatalDamage:SetInflictor(IsValid(context.inflictor) and context.inflictor or attacker)
+    fatalDamage:SetDamageType(tonumber(context.damageType) or DMG_SLASH)
+    fatalDamage:SetDamage(missingHarm * 100)
+    fatalDamage:SetDamagePosition(isvector(context.position) and context.position or ent:WorldSpaceCenter())
+    fatalDamage:SetDamageForce(isvector(context.force) and context.force or vector_origin)
+    hook.Run("HomigradDamage", victim, fatalDamage, HITGROUP_STOMACH, ent, missingHarm)
 end)
 
 local function GetPlayerLifeGuilt(ply)

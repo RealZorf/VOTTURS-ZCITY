@@ -1,10 +1,11 @@
 --\\ CL Bones
 	if CLIENT then
-		hg.cached_children = hg.cached_children or {}
-		local huytimer = CurTime()
+		local childrenCacheVersion = 2
+		local cached_children = hg.cached_children_version == childrenCacheVersion and istable(hg.cached_children) and hg.cached_children or {}
+		hg.cached_children = cached_children
+		hg.cached_children_version = childrenCacheVersion
 		hook.Add("PostCleanupMap", "just_in_case_children", function()
-			hg.cached_children = {}
-			huytimer = CurTime()
+			table.Empty(cached_children)
 		end)
 
 		local entmeta = FindMetaTable("Entity")
@@ -38,24 +39,32 @@
 
 		hg.recursive_get_children = recursive_get_children
 		
-		local cached_children = hg.cached_children
-		local mdl
-
-		function hg.get_children(ent, bone, endbone)		
+		function hg.get_children(ent, bone, endbone, copyResult)
 			bone = isstring(bone) and ent:LookupBone(bone) or bone
-			
+			endbone = isstring(endbone) and ent:LookupBone(endbone) or endbone
+
 			if not bone or isstring(bone) or bone == -1 then return end
-			local bones = {}
+			local model = ent:GetModel() or ""
+			local modelCache = cached_children[model]
+			if not modelCache then
+				modelCache = {}
+				cached_children[model] = modelCache
+			end
 
-			mdl = ent:GetModel()
-			--if ((math.max(huytimer) + 1) < CurTime()) and cached_children[mdl] and cached_children[mdl][bone] then return cached_children[mdl][bone] end
-			
+			local boneCache = modelCache[bone]
+			if not boneCache then
+				boneCache = {}
+				modelCache[bone] = boneCache
+			end
+
+			local endboneKey = endbone or -1
+			local bones = boneCache[endboneKey]
+			if bones then return copyResult and table.Copy(bones) or bones end
+
+			bones = {}
 			recursive_get_children(ent, bone, bones, endbone)
-			
-			cached_children[mdl] = cached_children[mdl] or {}
-			cached_children[mdl][bone] = bones
-
-			return bones
+			boneCache[endboneKey] = bones
+			return copyResult and table.Copy(bones) or bones
 		end
 
 		function hg.bone_apply_matrix(ent, bone, new_matrix, endbone)

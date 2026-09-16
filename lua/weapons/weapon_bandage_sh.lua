@@ -1177,7 +1177,7 @@ else
 			end
 
 			for k, v in pairs(hg.amputatedlimbs2) do
-				local children = hg.get_children(ent, k)
+				local children = hg.get_children(ent, k, nil, true)
 				table.insert(children, k)
 				
 				for k2, v2 in ipairs(children) do

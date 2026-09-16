@@ -1234,6 +1234,7 @@ hook.Add("PlayerDisconnected", "Fake", function(ply) hg.ragdollFake[ply] = nil e
 hook.Add("PlayerFootstep", "CustomFootstep", function(ply) if IsValid(ply.FakeRagdoll) then return true end end)
 function hg.RagdollOwner(ragdoll)
 	if not IsValid(ragdoll) then return end
+	if ragdoll.IsSeveredPart or ragdoll:GetNWBool("IsSeveredPart", false) then return end
 	local ply = ragdoll.ply
 	return IsValid(ply) and ply.FakeRagdoll == ragdoll and ply
 end

@@ -6,7 +6,8 @@ hg.SeveredLimbBones = {
 	rarm = "ValveBiped.Bip01_R_Forearm",
 	lleg = "ValveBiped.Bip01_L_Calf",
 	rleg = "ValveBiped.Bip01_R_Calf",
-	head = "ValveBiped.Bip01_Head1"
+	head = "ValveBiped.Bip01_Head1",
+	lower_torso = "ValveBiped.Bip01_Pelvis"
 }
 
 hg.SeveredLimbStumps = {
@@ -14,8 +15,24 @@ hg.SeveredLimbStumps = {
 	rarm = {"ValveBiped.Bip01_R_UpperArm", Vector(11, 0, 0)},
 	lleg = {"ValveBiped.Bip01_L_Thigh", Vector(16, 0, 0)},
 	rleg = {"ValveBiped.Bip01_R_Thigh", Vector(16, 0, 0)},
-	head = {"ValveBiped.Bip01_Neck1", Vector(5, 0, 0)}
+	head = {"ValveBiped.Bip01_Neck1", Vector(5, 0, 0)},
+	lower_torso = {"ValveBiped.Bip01_Spine1", Vector(1, 1.7, 0)}
 }
+
+hg.SeveredTorsoUpperBone = "ValveBiped.Bip01_Spine2"
+hg.SeveredTorsoLowerCapModel = "models/noob_dev2323/gib/l4d/half_bottom.mdl"
+hg.SeveredTorsoUpperCapModel = "models/noob_dev2323/gib/l4d/half2.mdl"
+
+local torsoUpperLimbs = {"larm", "rarm", "head"}
+local torsoMissingNetKeys = {
+	larm = "HGTorsoMissingLArm",
+	rarm = "HGTorsoMissingRArm",
+	head = "HGTorsoMissingHead"
+}
+
+for _, model in ipairs({hg.SeveredTorsoLowerCapModel, hg.SeveredTorsoUpperCapModel}) do
+	util.PrecacheModel(model)
+end
 
 if SERVER then
 	util.AddNetworkString("hg_severed_limb_effect")
@@ -26,6 +43,9 @@ if SERVER then
 	local limbLifetime = ConVarExists("hg_severed_limb_lifetime") and GetConVar("hg_severed_limb_lifetime") or CreateConVar("hg_severed_limb_lifetime", "120", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Detached body part lifetime in seconds. 0 disables timed cleanup.", 0, 600)
 	local trackedLimbs = hg.severedLimbs or {}
 	hg.severedLimbs = trackedLimbs
+	local activeTorsoRagdolls = setmetatable({}, {__mode = "k"})
+	local torsoLifetime = 12
+	local nextDetachedPhysicsSync = 0
 
 	local function copyVector(vec)
 		if not isvector(vec) then return Vector(0, 0, 0) end
@@ -89,6 +109,27 @@ if SERVER then
 		end
 	end
 
+	local function buildBoneMask(ent, limb, rootBone)
+		local keepBones = {}
+		local keepLookup = {}
+		if limb ~= "lower_torso" then
+			collectBones(ent, rootBone, keepBones, keepLookup)
+			return keepBones, keepLookup
+		end
+
+		local upperRoot = ent:LookupBone(hg.SeveredTorsoUpperBone)
+		if not upperRoot then return keepBones, keepLookup end
+		local upperLookup = {}
+		collectBones(ent, upperRoot, {}, upperLookup)
+		for bone = 0, ent:GetBoneCount() - 1 do
+			if not upperLookup[bone] then
+				keepBones[#keepBones + 1] = bone
+				keepLookup[bone] = true
+			end
+		end
+		return keepBones, keepLookup
+	end
+
 	local function trimLimbs(requiredSpace)
 		for index = #trackedLimbs, 1, -1 do
 			if not IsValid(trackedLimbs[index]) then table.remove(trackedLimbs, index) end
@@ -114,24 +155,80 @@ if SERVER then
 		end)
 	end
 
+	local function getCachedPhysics(ent, cacheKey, physNumbers)
+		local cached = ent[cacheKey]
+		if cached then return cached end
+		cached = {}
+		for index = 1, #(physNumbers or {}) do
+			local phys = ent:GetPhysicsObjectNum(physNumbers[index])
+			if IsValid(phys) then cached[#cached + 1] = phys end
+		end
+		ent[cacheKey] = cached
+		return cached
+	end
+
+	local function syncHiddenPhysics(rootPhys, hiddenPhysics)
+		if not IsValid(rootPhys) then return end
+		local position = rootPhys:GetPos()
+		local angles = rootPhys:GetAngles()
+		for index = 1, #hiddenPhysics do
+			local phys = hiddenPhysics[index]
+			if not IsValid(phys) then continue end
+			phys:SetPos(position)
+			phys:SetAngles(angles)
+		end
+	end
+
+	local function syncHiddenTorsoPhysics(ragdoll)
+		local rootPhys = ragdoll.HGTorsoUpperRootPhysics
+		if not IsValid(rootPhys) then
+			rootPhys = ragdoll:GetPhysicsObjectNum(ragdoll.HGTorsoUpperRootPhys or -1)
+			ragdoll.HGTorsoUpperRootPhysics = rootPhys
+		end
+		local hiddenPhysics = getCachedPhysics(ragdoll, "HGTorsoHiddenPhysics", ragdoll.HGTorsoHiddenPhys)
+		syncHiddenPhysics(rootPhys, hiddenPhysics)
+	end
+
+	local function syncDetachedPhysics(piece)
+		local rootPhys = piece.HGSeverRootPhysics
+		if not IsValid(rootPhys) then
+			rootPhys = piece:GetPhysicsObjectNum(piece.HGSeverRootPhys or -1)
+			piece.HGSeverRootPhysics = rootPhys
+		end
+		if not IsValid(rootPhys) then return end
+		local hiddenPhysics = getCachedPhysics(piece, "HGSeverHiddenPhysics", piece.HGSeverHiddenPhys)
+		syncHiddenPhysics(rootPhys, hiddenPhysics)
+	end
+
 	hook.Add("Think", "HGSeveredLimbPhysics", function()
-		for index = #trackedLimbs, 1, -1 do
-			local piece = trackedLimbs[index]
-			if not IsValid(piece) then
-				table.remove(trackedLimbs, index)
+		local now = CurTime()
+		if nextDetachedPhysicsSync <= now then
+			nextDetachedPhysicsSync = now + 0.05
+			for index = #trackedLimbs, 1, -1 do
+				local piece = trackedLimbs[index]
+				if not IsValid(piece) then
+					table.remove(trackedLimbs, index)
+					continue
+				end
+
+				local rootPhys = piece.HGSeverRootPhysics
+				if not IsValid(rootPhys) then
+					rootPhys = piece:GetPhysicsObjectNum(piece.HGSeverRootPhys or -1)
+					piece.HGSeverRootPhysics = rootPhys
+				end
+				if not IsValid(rootPhys) then continue end
+				local asleep = rootPhys:IsAsleep()
+				if not asleep or not piece.HGSeverRootWasAsleep then syncDetachedPhysics(piece) end
+				piece.HGSeverRootWasAsleep = asleep
+			end
+		end
+
+		for ragdoll in pairs(activeTorsoRagdolls) do
+			if not IsValid(ragdoll) or not ragdoll.HGTorsoSeparated then
+				activeTorsoRagdolls[ragdoll] = nil
 				continue
 			end
-
-			local rootPhys = piece:GetPhysicsObjectNum(piece.HGSeverRootPhys or -1)
-			if not IsValid(rootPhys) then continue end
-			local position = rootPhys:GetPos()
-			local angles = rootPhys:GetAngles()
-			for hiddenIndex = 1, #(piece.HGSeverHiddenPhys or {}) do
-				local phys = piece:GetPhysicsObjectNum(piece.HGSeverHiddenPhys[hiddenIndex])
-				if not IsValid(phys) then continue end
-				phys:SetPos(position)
-				phys:SetAngles(angles)
-			end
+			syncHiddenTorsoPhysics(ragdoll)
 		end
 	end)
 
@@ -150,6 +247,123 @@ if SERVER then
 		net.Send(recipients)
 	end
 
+	local function configureUpperTorsoPhysics(ragdoll)
+		local rootBone = ragdoll:LookupBone(hg.SeveredTorsoUpperBone)
+		local rootPhysNum = rootBone and ragdoll:TranslateBoneToPhysBone(rootBone) or -1
+		local rootPhys = rootPhysNum >= 0 and ragdoll:GetPhysicsObjectNum(rootPhysNum) or nil
+		if not IsValid(rootPhys) then return false end
+
+		local originalMasses = ragdoll.HGTorsoOriginalPhysMasses
+		if not originalMasses then
+			originalMasses = {}
+			local modelScale = math.Clamp(tonumber(ragdoll.ZCPhysicsModelScale) or 1, 0.1, 10)
+			local massMultiplier = math.Clamp(modelScale * modelScale * modelScale, 0.05, 8)
+			for physNum = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+				local phys = ragdoll:GetPhysicsObjectNum(physNum)
+				if not IsValid(phys) then continue end
+				local baseMass = ragdoll.ZCOriginalPhysMasses and ragdoll.ZCOriginalPhysMasses[physNum]
+				originalMasses[physNum] = baseMass and math.max(1, baseMass * massMultiplier) or phys:GetMass()
+			end
+			ragdoll.HGTorsoOriginalPhysMasses = originalMasses
+		end
+
+		local keepLookup = {}
+		collectBones(ragdoll, rootBone, {}, keepLookup)
+		for index = 1, #torsoUpperLimbs do
+			local limb = torsoUpperLimbs[index]
+			if not ragdoll:GetNWBool(torsoMissingNetKeys[limb], false) then continue end
+			local missingRoot = ragdoll:LookupBone(hg.SeveredLimbBones[limb])
+			if not missingRoot then continue end
+			local missingLookup = {}
+			collectBones(ragdoll, missingRoot, {}, missingLookup)
+			for bone in pairs(missingLookup) do keepLookup[bone] = nil end
+		end
+
+		local hiddenPhys = {}
+		local hiddenLookup = {}
+		local totalMass = 0
+		local activeMass = 0
+		for physNum = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+			local mass = originalMasses[physNum] or 0
+			totalMass = totalMass + mass
+			local bone = ragdoll:TranslatePhysBoneToBone(physNum)
+			if bone and bone >= 0 and keepLookup[bone] then
+				activeMass = activeMass + mass
+				continue
+			end
+			hiddenPhys[#hiddenPhys + 1] = physNum
+			hiddenLookup[physNum] = true
+		end
+
+		local previousHiddenLookup = ragdoll.HGTorsoHiddenPhysLookup or {}
+		if not ragdoll.HGTorsoPhysicsConfigured then ragdoll:RemoveInternalConstraint(rootPhysNum) end
+		for index = 1, #hiddenPhys do
+			local physNum = hiddenPhys[index]
+			local phys = ragdoll:GetPhysicsObjectNum(physNum)
+			if not IsValid(phys) then continue end
+			if not previousHiddenLookup[physNum] then ragdoll:RemoveInternalConstraint(physNum) end
+			phys:EnableCollisions(false)
+			phys:EnableGravity(false)
+			phys:EnableMotion(false)
+			phys:SetMass(0.01)
+		end
+
+		ragdoll.HGTorsoUpperRootPhys = rootPhysNum
+		ragdoll.HGTorsoUpperRootPhysics = rootPhys
+		ragdoll.HGTorsoHiddenPhys = hiddenPhys
+		ragdoll.HGTorsoHiddenPhysLookup = hiddenLookup
+		ragdoll.HGTorsoHiddenPhysics = nil
+		ragdoll.HGTorsoControlScale = math.Clamp(activeMass / math.max(totalMass, 1), 0.25, 1)
+		ragdoll.HGTorsoPhysicsConfigured = true
+		ragdoll:SetNWInt("HGTorsoUpperRootPhys", rootPhysNum)
+		activeTorsoRagdolls[ragdoll] = true
+		syncHiddenTorsoPhysics(ragdoll)
+		return true
+	end
+
+	local function applyTorsoMissingLimbState(ragdoll, owner)
+		local missing = IsValid(owner) and owner.HGTorsoMissingLimbs or nil
+		local organism = IsValid(owner) and owner.organism or ragdoll.organism
+		if not istable(missing) and not istable(organism) then return end
+		for index = 1, #torsoUpperLimbs do
+			local limb = torsoUpperLimbs[index]
+			local isMissing = istable(missing) and missing[limb] == true or istable(organism) and organism[limb .. "amputated"] == true
+			ragdoll:SetNWBool(torsoMissingNetKeys[limb], isMissing)
+		end
+	end
+
+	local function applyTorsoBodyState(ragdoll, owner)
+		if not IsValid(ragdoll) then return false end
+		ragdoll.HGTorsoSeparated = true
+		ragdoll:SetNWBool("HGTorsoSeparated", true)
+		applyTorsoMissingLimbState(ragdoll, owner)
+		if IsValid(ragdoll.HGTorsoUpperCap) then ragdoll.HGTorsoUpperCap:Remove() end
+		ragdoll.HGTorsoUpperCap = nil
+		return configureUpperTorsoPhysics(ragdoll)
+	end
+
+	local function clearTorsoBodyState(ragdoll)
+		if not IsValid(ragdoll) then return end
+		ragdoll.HGTorsoSeparated = nil
+		ragdoll:SetNWBool("HGTorsoSeparated", false)
+		activeTorsoRagdolls[ragdoll] = nil
+		if IsValid(ragdoll.HGTorsoUpperCap) then ragdoll.HGTorsoUpperCap:Remove() end
+		ragdoll.HGTorsoUpperCap = nil
+	end
+
+	hook.Add("OnAmputateLimb", "HGTorsoMissingLimbState", function(org, ent, limb)
+		local netKey = torsoMissingNetKeys[limb]
+		if not netKey or not istable(org) or not org.torsoamputated then return end
+		local owner = org.owner
+		if not IsValid(owner) or not owner:IsPlayer() then return end
+		owner.HGTorsoMissingLimbs = owner.HGTorsoMissingLimbs or {}
+		owner.HGTorsoMissingLimbs[limb] = true
+		local ragdoll = getCharacter(owner)
+		if not IsValid(ragdoll) or not ragdoll:IsRagdoll() then return end
+		ragdoll:SetNWBool(netKey, true)
+		applyTorsoBodyState(ragdoll, owner)
+	end)
+
 	function hg.SpawnSeveredLimb(source, limb, damageContext)
 		local rootName = hg.SeveredLimbBones[limb]
 		if not IsValid(source) or not rootName then return end
@@ -167,32 +381,51 @@ if SERVER then
 		if not IsValid(piece) then return end
 
 		local modelScale = getModelScale(source, owner)
-		local bleedUntil = CurTime() + (limb == "head" and 8 or 12)
+		local bleedUntil = CurTime() + (limb == "head" and 8 or limb == "lower_torso" and 14 or 12)
+		local sourceOrganism = source.organism or IsValid(owner) and owner.organism
+		local missingLeftLeg = limb == "lower_torso" and istable(sourceOrganism) and sourceOrganism.llegamputated == true
+		local missingRightLeg = limb == "lower_torso" and istable(sourceOrganism) and sourceOrganism.rlegamputated == true
 		piece:SetModel(source:GetModel())
 		piece:SetPos(source:GetPos())
 		piece:SetAngles(source:GetAngles())
 		piece:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 		piece:SetNWBool("IsSeveredLimb", true)
+		piece:SetNWBool("IsSeveredPart", true)
 		piece:SetNWString("SeveredLimb", limb)
 		piece:SetNWFloat("ZCModelScale", modelScale)
 		piece:SetNWFloat("SeverBleedUntil", bleedUntil)
 		piece:SetNWEntity("SeveredOwner", IsValid(owner) and owner or NULL)
+		piece:SetNWBool("HGSeveredMissingLLeg", missingLeftLeg)
+		piece:SetNWBool("HGSeveredMissingRLeg", missingRightLeg)
 		piece:SetModelScale(modelScale, 0)
 		piece:Spawn()
 		piece:Activate()
 		piece:AddEFlags(EFL_DONTBLOCKLOS)
 		piece.IsSeveredLimb = true
 		piece.HGSeveredLimb = true
+		piece.IsSeveredPart = true
 		piece.severedLimb = limb
 		piece.organism = nil
 		piece.ply = nil
 		copyAppearance(source, piece, owner)
+		piece.organism = nil
+		piece.ply = nil
+		if limb == "lower_torso" then piece:SetNWString("PlayerName", "Severed lower body") end
 
 		local rootBone = piece:LookupBone(rootName)
 		if not rootBone then piece:Remove() return end
-		local keepBones = {}
-		local keepLookup = {}
-		collectBones(piece, rootBone, keepBones, keepLookup)
+		local keepBones, keepLookup = buildBoneMask(piece, limb, rootBone)
+		if limb == "lower_torso" then
+			for missingLimb, missing in pairs({lleg = missingLeftLeg, rleg = missingRightLeg}) do
+				if not missing then continue end
+				local missingRoot = piece:LookupBone(hg.SeveredLimbBones[missingLimb])
+				if not missingRoot then continue end
+				local missingLookup = {}
+				collectBones(piece, missingRoot, {}, missingLookup)
+				for bone in pairs(missingLookup) do keepLookup[bone] = nil end
+			end
+		end
+		if not next(keepLookup) then piece:Remove() return end
 		local keepPhys = {}
 		local hiddenPhys = {}
 		local rootPhysNum
@@ -252,14 +485,15 @@ if SERVER then
 			if not IsValid(phys) then continue end
 			phys:EnableMotion(true)
 			phys:EnableGravity(true)
-			phys:EnableCollisions(physNum == rootPhysNum)
+			phys:EnableCollisions(true)
 			phys:SetMass(physNum == rootPhysNum and 6 or 2)
 		end
 
 		piece.HGSeverRootPhys = rootPhysNum
+		piece.HGSeverRootPhysics = rootPhys
 		piece.HGSeverHiddenPhys = hiddenPhys
+		piece.HGSeverHiddenPhysics = nil
 		piece:SetNWInt("SeveredRootPhys", rootPhysNum)
-
 		local context = istable(damageContext) and damageContext or {}
 		local force = copyVector(context.force)
 		local forceLength = force:Length()
@@ -295,6 +529,107 @@ if SERVER then
 		trackLimb(piece)
 		sendEffect(source, owner, piece, limb, rootPhys:GetPos(), force, bleedUntil)
 		return piece
+	end
+
+	local function addTorsoWounds(org, owner)
+		local wounds = {}
+		for _, wound in pairs(org.arterialwounds or {}) do
+			if wound[7] ~= "torsoartery_l" and wound[7] ~= "torsoartery_r" then wounds[#wounds + 1] = wound end
+		end
+		local now = CurTime()
+		wounds[#wounds + 1] = {14, Vector(1, 3, 0), angle_zero, "ValveBiped.Bip01_Spine1", now, Vector(-125, 24, 0), "torsoartery_l"}
+		wounds[#wounds + 1] = {14, Vector(1, -3, 0), angle_zero, "ValveBiped.Bip01_Spine1", now, Vector(-125, -24, 0), "torsoartery_r"}
+		org.arterialwounds = wounds
+		owner:SetNetVar("arterialwounds", wounds)
+		for index = 1, 6 do
+			hg.organism.AddWoundManual(owner, 70, Vector(1, math.Rand(-4, 4), math.Rand(-2, 2)), angle_zero, "ValveBiped.Bip01_Spine1", now + math.Rand(0, 0.3))
+		end
+	end
+
+	function hg.organism.SeparateTorso(org, attacker, damageContext)
+		if not istable(org) or org.torsoamputated then return false end
+		local owner = org.owner
+		if not IsValid(owner) or not owner:IsPlayer() or owner.HGTorsoSeparated then return false end
+		local context = istable(damageContext) and damageContext or {}
+		local previousNeedFake = org.needfake
+		local previousFake = org.fake
+		local previousMissingLimbs = owner.HGTorsoMissingLimbs
+
+		local function rollback(source)
+			org.torsoamputated = false
+			org.needfake = previousNeedFake
+			org.fake = previousFake
+			owner.HGTorsoSeparated = nil
+			owner.HGTorsoMissingLimbs = previousMissingLimbs
+			owner:SetNWBool("HGTorsoSeparated", false)
+			clearTorsoBodyState(source)
+		end
+
+		org.torsoamputated = true
+		org.needfake = true
+		org.fake = true
+		owner.HGTorsoSeparated = true
+		owner.HGTorsoMissingLimbs = {}
+		for index = 1, #torsoUpperLimbs do
+			local limb = torsoUpperLimbs[index]
+			owner.HGTorsoMissingLimbs[limb] = org[limb .. "amputated"] == true
+		end
+		owner:SetNWBool("HGTorsoSeparated", true)
+		if owner:Alive() and not IsValid(owner.FakeRagdoll) then hg.Fake(owner, nil, true, true) end
+
+		local source = getCharacter(owner)
+		if not IsValid(source) or not source:IsRagdoll() or not source:LookupBone(hg.SeveredTorsoUpperBone) then
+			rollback(IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or source)
+			return false
+		end
+
+		local lowerHalf = hg.SpawnSeveredLimb(source, "lower_torso", context)
+		if not IsValid(lowerHalf) then
+			rollback(source)
+			return false
+		end
+
+		if not applyTorsoBodyState(source, owner) then
+			lowerHalf:Remove()
+			rollback(source)
+			return false
+		end
+		source:SetNWEntity("TorsoLowerHalf", lowerHalf)
+		lowerHalf:SetNWEntity("TorsoUpperHalf", source)
+		org.internalBleed = math.max(org.internalBleed or 0, 90)
+		org.blood = math.max((org.blood or 5000) - 700, 1)
+		org.painadd = math.max(org.painadd or 0, 100)
+		org.shock = math.max(org.shock or 0, 18)
+		org.canmove = true
+		addTorsoWounds(org, owner)
+
+		local soundName = "physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav"
+		if not hg.EmitOccludedSound or not hg.EmitOccludedSound(source, soundName, 68, math.random(91, 103), 0.9) then
+			source:EmitSound(soundName, 68, math.random(91, 103), 0.9)
+		end
+
+		hook.Run("OnAmputateLimb", org, source, "torso", attacker, context)
+		owner.fullsend = true
+		if hg.send_bareinfo then hg.send_bareinfo(org) end
+
+		owner.HGTorsoSeverToken = (owner.HGTorsoSeverToken or 0) + 1
+		local token = owner.HGTorsoSeverToken
+		local timerName = "HGTorsoFatal" .. owner:EntIndex()
+		timer.Create(timerName, torsoLifetime, 1, function()
+			if not IsValid(owner) or not owner:Alive() or owner.HGTorsoSeverToken ~= token then return end
+			if not owner.organism or not owner.organism.torsoamputated then return end
+			local lethal = DamageInfo()
+			local responsible = IsValid(attacker) and attacker or game.GetWorld()
+			local inflictor = IsValid(context.inflictor) and context.inflictor or responsible
+			lethal:SetAttacker(responsible)
+			lethal:SetInflictor(inflictor)
+			lethal:SetDamageType(tonumber(context.damageType) or DMG_SLASH)
+			lethal:SetDamage(10000)
+			lethal:SetDamagePosition(isvector(context.position) and context.position or source:GetPos())
+			lethal:SetDamageForce(isvector(context.force) and context.force or vector_origin)
+			owner:TakeDamageInfo(lethal)
+		end)
+		return true
 	end
 
 	local function dropHeadArmor(source, piece)
@@ -426,7 +761,7 @@ if SERVER then
 	hook.Add("Think", "HGExternalDecapitationBridge", function()
 		local now = CurTime()
 		if nextExternalDecapitationCheck > now then return end
-		nextExternalDecapitationCheck = now + 0.05
+		nextExternalDecapitationCheck = now + 0.1
 
 		for _, owner in ipairs(player.GetAll()) do
 			if owner.HGDecapitated then continue end
@@ -494,6 +829,15 @@ if SERVER then
 		end)
 	end)
 
+	hook.Add("Ragdoll_Create", "HGSeveredTorsoState", function(ply, ragdoll)
+		if not IsValid(ply) or not IsValid(ragdoll) then return end
+		if not ply.HGTorsoSeparated and not (ply.organism and ply.organism.torsoamputated) then return end
+		timer.Simple(0, function()
+			if not IsValid(ragdoll) or not IsValid(ply) then return end
+			if ply.HGTorsoSeparated or ply.organism and ply.organism.torsoamputated then applyTorsoBodyState(ragdoll, ply) end
+		end)
+	end)
+
 	hook.Add("Org Clear", "HGSeveredHeadReset", function(org)
 		local owner = org and org.owner
 		if not IsValid(owner) then return end
@@ -509,11 +853,22 @@ if SERVER then
 		end
 	end)
 
+	hook.Add("Org Clear", "HGSeveredTorsoReset", function(org)
+		local owner = org and org.owner
+		if not IsValid(owner) or not owner:IsPlayer() then return end
+		timer.Remove("HGTorsoFatal" .. owner:EntIndex())
+		owner.HGTorsoSeverToken = (owner.HGTorsoSeverToken or 0) + 1
+		owner.HGTorsoSeparated = nil
+		owner.HGTorsoMissingLimbs = nil
+		owner:SetNWBool("HGTorsoSeparated", false)
+	end)
+
 	return
 end
 
 local zeroScale = Vector(0, 0, 0)
-local clientSeveredLimbs = setmetatable({}, {__mode = "k"})
+local clientTorsoCaps = setmetatable({}, {__mode = "k"})
+local pendingSeveredLimbs = setmetatable({}, {__mode = "k"})
 
 local function collectClientBones(ent, bone, keep)
 	if keep[bone] then return end
@@ -526,22 +881,160 @@ end
 local function getClientBoneCache(ent)
 	local limb = ent:GetNWString("SeveredLimb", "")
 	local model = ent:GetModel()
+	local missingLegMask = limb == "lower_torso" and (ent:GetNWBool("HGSeveredMissingLLeg", false) and 1 or 0) + (ent:GetNWBool("HGSeveredMissingRLeg", false) and 2 or 0) or 0
 	local cache = ent.HGSeverBoneCache
-	if cache and cache.limb == limb and cache.model == model then return cache end
+	if cache and cache.limb == limb and cache.model == model and cache.missingLegMask == missingLegMask then return cache end
 
 	local rootName = hg.SeveredLimbBones[limb]
 	local root = rootName and ent:LookupBone(rootName)
 	if not root then return end
-	local keep = {}
-	collectClientBones(ent, root, keep)
 	local hidden = {}
-	for bone = 0, ent:GetBoneCount() - 1 do
-		if not keep[bone] then hidden[#hidden + 1] = bone end
+	if limb == "lower_torso" then
+		local upperRoot = ent:LookupBone(hg.SeveredTorsoUpperBone)
+		if not upperRoot then return end
+		local upper = {}
+		collectClientBones(ent, upperRoot, upper)
+		if bit.band(missingLegMask, 1) ~= 0 then
+			local missingRoot = ent:LookupBone(hg.SeveredLimbBones.lleg)
+			if missingRoot then collectClientBones(ent, missingRoot, upper) end
+		end
+		if bit.band(missingLegMask, 2) ~= 0 then
+			local missingRoot = ent:LookupBone(hg.SeveredLimbBones.rleg)
+			if missingRoot then collectClientBones(ent, missingRoot, upper) end
+		end
+		for bone in pairs(upper) do hidden[#hidden + 1] = bone end
+	else
+		local keep = {}
+		collectClientBones(ent, root, keep)
+		for bone = 0, ent:GetBoneCount() - 1 do
+			if not keep[bone] then hidden[#hidden + 1] = bone end
+		end
 	end
 
-	cache = {limb = limb, model = model, root = root, hidden = hidden}
+	cache = {limb = limb, model = model, root = root, hidden = hidden, missingLegMask = missingLegMask}
 	ent.HGSeverBoneCache = cache
 	return cache
+end
+
+local function getUpperTorsoMaskCache(ent)
+	local model = ent:GetModel()
+	local missingLimbMask = 0
+	for index = 1, #torsoUpperLimbs do
+		local limb = torsoUpperLimbs[index]
+		if ent:GetNWBool(torsoMissingNetKeys[limb], false) then missingLimbMask = missingLimbMask + 2 ^ (index - 1) end
+	end
+	local cache = ent.HGTorsoMaskCache
+	if cache and cache.model == model and cache.missingLimbMask == missingLimbMask then return cache end
+	local root = ent:LookupBone(hg.SeveredTorsoUpperBone)
+	if not root then return end
+	local keep = {}
+	collectClientBones(ent, root, keep)
+	local hiddenLookup = {}
+	for bone = 0, ent:GetBoneCount() - 1 do
+		if not keep[bone] then hiddenLookup[bone] = true end
+	end
+	for index = 1, #torsoUpperLimbs do
+		if bit.band(missingLimbMask, 2 ^ (index - 1)) == 0 then continue end
+		local missingRoot = ent:LookupBone(hg.SeveredLimbBones[torsoUpperLimbs[index]])
+		if missingRoot then collectClientBones(ent, missingRoot, hiddenLookup) end
+	end
+	local hidden = {}
+	for bone in pairs(hiddenLookup) do hidden[#hidden + 1] = bone end
+	cache = {model = model, root = root, hidden = hidden, missingLimbMask = missingLimbMask}
+	ent.HGTorsoMaskCache = cache
+	return cache
+end
+
+local function isTorsoSeparated(ent, ply)
+	return ent:GetNWBool("HGTorsoSeparated", false)
+		or IsValid(ply) and ply:GetNWBool("HGTorsoSeparated", false)
+		or istable(ent.new_organism) and ent.new_organism.torsoamputated
+		or istable(ent.organism) and ent.organism.torsoamputated
+end
+
+local function removeClientTorsoCap(ent)
+	local data = clientTorsoCaps[ent]
+	if data and IsValid(data.entity) then data.entity:Remove() end
+	clientTorsoCaps[ent] = nil
+end
+
+local function getClientTorsoCap(ent, lower)
+	local kind = lower and "lower" or "upper"
+	local model = lower and hg.SeveredTorsoLowerCapModel or hg.SeveredTorsoUpperCapModel
+	local data = clientTorsoCaps[ent]
+	if data and data.kind == kind and data.model == model and IsValid(data.entity) then return data.entity end
+	removeClientTorsoCap(ent)
+
+	local cap = ClientsideModel(model, RENDERGROUP_OPAQUE)
+	if not IsValid(cap) then return end
+	cap:SetNoDraw(true)
+	cap:DrawShadow(false)
+	cap:SetPos(ent:GetPos())
+	cap:SetAngles(ent:GetAngles())
+
+	if lower then
+		local spine2 = ent:LookupBone(hg.SeveredTorsoUpperBone)
+		local parentBone = spine2 and ent:GetBoneParent(spine2) or nil
+		if not parentBone or parentBone < 0 then
+			cap:Remove()
+			return
+		end
+		local modelScale = math.Clamp(ent:GetNWFloat("ZCModelScale", ent:GetModelScale()), 0.1, 10)
+		cap:SetModelScale(modelScale, 0)
+		cap:ManipulateBoneScale(0, Vector(0.9, 1.02, 0.85))
+		cap:FollowBone(ent, parentBone)
+		cap:SetLocalAngles(Angle(0, 90, 90))
+		cap:SetLocalPos(Vector(1, 1.7, 0) * modelScale)
+	else
+		cap:SetParent(ent)
+		cap:SetLocalPos(vector_origin)
+		cap:SetLocalAngles(angle_zero)
+		cap:AddEffects(EF_BONEMERGE)
+		cap:AddEffects(EF_BONEMERGE_FASTCULL)
+		if EF_PARENT_ANIMATES then cap:AddEffects(EF_PARENT_ANIMATES) end
+	end
+
+	clientTorsoCaps[ent] = {entity = cap, kind = kind, model = model}
+	return cap
+end
+
+local function drawClientTorsoCap(ent, lower)
+	local cap = getClientTorsoCap(ent, lower)
+	if not IsValid(cap) then return end
+	cap:SetupBones()
+	cap:DrawModel()
+end
+
+function hg.ApplyTorsoSeparationRender(ent, ply)
+	if not IsValid(ent) then return end
+	if not isTorsoSeparated(ent, ply) then
+		removeClientTorsoCap(ent)
+		return
+	end
+	local cache = getUpperTorsoMaskCache(ent)
+	if not cache then return end
+	ent:SetupBones()
+	local rootMatrix = ent:GetBoneMatrix(cache.root)
+	if not rootMatrix then return end
+	local rootPosition = rootMatrix:GetTranslation()
+	local rootAngles = rootMatrix:GetAngles()
+	for index = 1, #cache.hidden do
+		local matrix = ent:GetBoneMatrix(cache.hidden[index])
+		if not matrix then continue end
+		matrix:SetTranslation(rootPosition)
+		matrix:SetAngles(rootAngles)
+		matrix:SetScale(zeroScale)
+		ent:SetBoneMatrix(cache.hidden[index], matrix)
+	end
+end
+
+function hg.DrawTorsoSeparationCap(ent, ply)
+	if not IsValid(ent) then return end
+	if not isTorsoSeparated(ent, ply) then
+		removeClientTorsoCap(ent)
+		return
+	end
+	drawClientTorsoCap(ent, false)
 end
 
 local function drawHeadAccessories(ent)
@@ -575,33 +1068,47 @@ local function drawSeveredLimb(ent)
 		ent:SetBoneMatrix(cache.hidden[index], matrix)
 	end
 	ent:DrawModel()
+	if ent:GetNWString("SeveredLimb", "") == "lower_torso" then drawClientTorsoCap(ent, true) end
 	drawHeadAccessories(ent)
 end
 
 local function setupClientSeveredLimb(ent)
-	if not IsValid(ent) or ent:GetClass() ~= "prop_ragdoll" or not ent:GetNWBool("IsSeveredLimb", false) then return end
-	if ent.HGSeverRenderInstalled then return end
+	if not IsValid(ent) or ent:GetClass() ~= "prop_ragdoll" or not ent:GetNWBool("IsSeveredLimb", false) then return false end
 	ent.HGSeverRenderInstalled = true
-	clientSeveredLimbs[ent] = true
-	ent.RenderOverride = drawSeveredLimb
+	if ent.RenderOverride ~= drawSeveredLimb then ent.RenderOverride = drawSeveredLimb end
+	return true
+end
+
+local function queueClientSeveredLimb(ent)
+	if not IsValid(ent) or ent:GetClass() ~= "prop_ragdoll" then return end
+	if setupClientSeveredLimb(ent) then
+		pendingSeveredLimbs[ent] = nil
+		return
+	end
+	pendingSeveredLimbs[ent] = CurTime() + 2
 end
 
 hook.Add("OnEntityCreated", "HGSeveredLimbClientSetup", function(ent)
-	timer.Simple(0, function() setupClientSeveredLimb(ent) end)
+	timer.Simple(0, function() queueClientSeveredLimb(ent) end)
 end)
 
-hook.Add("NetworkEntityCreated", "HGSeveredLimbClientSetup", setupClientSeveredLimb)
+hook.Add("NetworkEntityCreated", "HGSeveredLimbClientSetup", queueClientSeveredLimb)
 
 hook.Add("Think", "HGSeveredLimbClientSetup", function()
 	local now = CurTime()
 	if (hg.HGNextSeveredLimbScan or 0) > now then return end
-	hg.HGNextSeveredLimbScan = now + 0.35
-	for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do
-		setupClientSeveredLimb(ent)
+	hg.HGNextSeveredLimbScan = now + 0.2
+	for ent, deadline in pairs(pendingSeveredLimbs) do
+		if not IsValid(ent) or now > deadline or setupClientSeveredLimb(ent) then pendingSeveredLimbs[ent] = nil end
 	end
 end)
 
+timer.Simple(0, function()
+	for _, ent in ipairs(ents.FindByClass("prop_ragdoll")) do queueClientSeveredLimb(ent) end
+end)
+
 local activeBleeds = {}
+local nextArteryUpdate = 0
 
 local function getStumpTransform(source, limb)
 	local data = hg.SeveredLimbStumps[limb]
@@ -637,6 +1144,7 @@ net.Receive("hg_severed_limb_effect", function()
 	local position = net.ReadVector()
 	local force = net.ReadVector()
 	local bleedUntil = net.ReadFloat()
+	queueClientSeveredLimb(piece)
 
 	for index = 1, limb == "head" and 5 or 7 do
 		local velocity = force * 0.035 + VectorRand(-55, 55)
@@ -655,8 +1163,10 @@ net.Receive("hg_severed_limb_effect", function()
 end)
 
 hook.Add("Think", "HGSeveredLimbArteries", function()
-	if not hg.addBloodPart then return end
+	if not hg.addBloodPart or #activeBleeds == 0 then return end
 	local now = CurTime()
+	if nextArteryUpdate > now then return end
+	nextArteryUpdate = now + 1 / 30
 	local localPlayer = LocalPlayer()
 
 	for index = #activeBleeds, 1, -1 do

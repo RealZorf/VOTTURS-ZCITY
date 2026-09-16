@@ -669,6 +669,8 @@ function hg.ResetTPIKState(ply)
     ply.last_rh_pos2 = nil
     ply.segmentsl = nil
     ply.segmentsr = nil
+    if ply.ZCTPIKSolverScratchL then ply.ZCTPIKSolverScratchL.depth = 0 end
+    if ply.ZCTPIKSolverScratchR then ply.ZCTPIKSolverScratchR.depth = 0 end
     ply.lerp_lh = 0
     ply.lerp_rh = 0
     ply.lerpedsegmenthit = nil
@@ -998,53 +1000,154 @@ function hg.CoolGloves(ent, ply)
     mdl:DrawModel()
 end
 
-local function backward(final, segments)
-    local inverse = {}
+local function createSolverBuffer(count)
+    local values = {}
+    local records = {}
 
-    for i = #final, 1, -1 do
-        if i == #final then
-            inverse[i] = segments[i]
+    for i = 1, count do
+        local record = {Pos = Vector(), Len = 0}
+        values[i] = record
+        records[i] = record
+    end
+
+    return {values = values, records = records}
+end
+
+local function acquireSolverWorkspace(pool, count)
+    pool.depth = (pool.depth or 0) + 1
+
+    local workspace = pool[pool.depth]
+    if not workspace or workspace.count ~= count then
+        workspace = {
+            count = count,
+            source = createSolverBuffer(count),
+            first = createSolverBuffer(count),
+            second = createSolverBuffer(count)
+        }
+        pool[pool.depth] = workspace
+    end
+
+    return workspace
+end
+
+local function copySegment(record, source)
+    local pos = record.Pos
+    pos:Set(source.Pos)
+    record.Len = source.Len
+end
+
+local function copySegments(buffer, segments, count)
+    for i = 1, count do
+        local record = buffer.records[i]
+        buffer.values[i] = record
+        copySegment(record, segments[i])
+    end
+end
+
+local function setSegmentPosition(record, base, target, length)
+    local pos = record.Pos
+
+    pos:Set(target)
+    pos:Sub(base)
+    pos:Normalize()
+    pos:Mul(length)
+    pos:Add(base)
+end
+
+local function backward(final, segments, buffer, count)
+    local inverse = buffer.values
+    local records = buffer.records
+
+    for i = count, 1, -1 do
+        if i == count then
+            local record = records[i]
+            inverse[i] = record
+            copySegment(record, segments[i])
         else
+            local record = records[i]
             local nextpos = inverse[i + 1].Pos
-            inverse[i] = {Pos = nextpos + ((final[i].Pos - nextpos):GetNormalized() * final[i].Len), Len = segments[i].Len}
+            local source = final[i]
+
+            inverse[i] = record
+            setSegmentPosition(record, nextpos, source.Pos, source.Len)
+            record.Len = segments[i].Len
         end
     end
-    
+
     return inverse
 end
 
-local function forward(inverse, segments)
-    local forward = {}
+local function forward(inverse, segments, buffer, count)
+    local result = buffer.values
+    local records = buffer.records
 
-    for i = 1, #inverse do
+    for i = 1, count do
         if i == 1 then
-            forward[i] = segments[i]
+            local record = records[i]
+            result[i] = record
+            copySegment(record, segments[i])
         else
-            local prev = forward[i - 1].Pos
-            forward[i] = {Pos = prev + ((inverse[i].Pos - prev):GetNormalized() * segments[i - 1].Len), Len = segments[i].Len}
+            local record = records[i]
+            local prev = result[i - 1].Pos
+            local source = inverse[i]
+
+            result[i] = record
+            setSegmentPosition(record, prev, source.Pos, segments[i - 1].Len)
+            record.Len = segments[i].Len
         end
     end
 
-    return forward
+    return result
 end
 
-local function solve(segments, iter, turn)
-    local final = {}
+local function solve(segments, iter, pool)
+    local count = #segments
+    local workspace = acquireSolverWorkspace(pool, count)
+    local rootSegment = segments[1]
+    local targetSegment = segments[count]
+    local sourceBuffer = workspace.source
+    local first = workspace.first
+    local second = workspace.second
 
-    for i = 1, #segments do
-        final[i] = segments[i]
-    end
+    copySegments(sourceBuffer, segments, count)
+    local source = sourceBuffer.values
 
+    local final = source
     for i = 1, iter do
-        final = backward(final, segments)
-        final = forward(final, segments)
-    end
-    
-    if segments[1].Pos:DistToSqr(segments[#segments].Pos) < 225 then
-        final = backward(final, segments)
+        final = backward(final, source, first, count)
+        final = forward(final, source, second, count)
     end
 
+    if source[1].Pos:DistToSqr(source[count].Pos) < 225 then
+        final = backward(final, source, first, count)
+        copySegment(targetSegment, source[count])
+        final[count] = targetSegment
+    else
+        copySegment(rootSegment, source[1])
+        final[1] = rootSegment
+    end
+
+    pool.depth = pool.depth - 1
     return final
+end
+
+local function getCachedBoneLength(ply, bone)
+    local model = ply:GetModel() or ""
+    local scale = ply.GetModelScale and ply:GetModelScale() or 1
+    local cache = ply.BonesLength
+
+    if not cache or cache.model ~= model or cache.scale ~= scale then
+        cache = {model = model, scale = scale}
+        ply.BonesLength = cache
+    end
+
+    local length = cache[bone]
+    if length == nil then
+        length = ply:BoneLength(bone)
+        cache[bone] = length or false
+    end
+
+    return length == false and nil or length
 end
 
 local function ensureArmSegments( segments, upperarmMatrix, forearmMatrix, handMatrix, limbLength )
@@ -1065,17 +1168,16 @@ local function ensureArmSegments( segments, upperarmMatrix, forearmMatrix, handM
 end
 
 function hg.DoTPIK(ply, ent)
-    local ply_spine_index = cachedLookupBone(ent, "ValveBiped.Bip01_Head1")
-    if !ply_spine_index then return end
-    local ply_spine_matrix = ent:GetBoneMatrix(ply_spine_index)
+    local ply_head_index = cachedLookupBone(ent, "ValveBiped.Bip01_Head1")
+    if !ply_head_index then return end
+    local ply_head_matrix = ent:GetBoneMatrix(ply_head_index)
+    if !ply_head_matrix then return end
+    local ply_spine_index = ply_head_index
+    local ply_spine_matrix = ply_head_matrix
 
     local ply_pelvis_index = cachedLookupBone(ent, "ValveBiped.Bip01_Pelvis")
     if !ply_pelvis_index then return end
     local ply_pelvis_matrix = ent:GetBoneMatrix(ply_pelvis_index)
-
-    local ply_head_index = cachedLookupBone(ent, "ValveBiped.Bip01_Head1")
-    if !ply_head_index then return end
-    local ply_head_matrix = ent:GetBoneMatrix(ply_head_index)
 
     local ply_l_clavicle_index = cachedLookupBone(ent, "ValveBiped.Bip01_L_Clavicle")
     local ply_r_clavicle_index = cachedLookupBone(ent, "ValveBiped.Bip01_R_Clavicle")
@@ -1184,7 +1286,7 @@ function hg.DoTPIK(ply, ent)
 
     --if lerp_rh == 0 and lerp_lh == 0 then return end
 
-    local limblength = ply:BoneLength(ply_l_forearm_index) - 0
+    local limblength = getCachedBoneLength(ply, ply_l_forearm_index)
 
     if !limblength or limblength == 0 then limblength = 12 end
 
@@ -1199,14 +1301,6 @@ function hg.DoTPIK(ply, ent)
     ply.segmentsl = ply.segmentsl or {}
     ensureArmSegments( ply.segmentsl, ply_l_upperarm_matrix, ply_l_forearm_matrix, ply_l_hand_matrix, limblength )
     
-    if not ply.BonesLength then
-        ply.BonesLength = {}
-
-        for i = 0, ent:GetBoneCount() - 1 do
-            ply.BonesLength[i] = ply:BoneLength(i)
-        end
-    end
-
     local spinepos = ply_spine_matrix:GetTranslation()
     local spineang = ply_spine_matrix:GetAngles()
 
@@ -1258,7 +1352,8 @@ function hg.DoTPIK(ply, ent)
                 segments[3] = segments[3] or {Pos = hand, Len = limblength}
                 segments[3].Pos = LerpVector(ply.leftClicking, segments[3].Pos + (-vector_up * 0.8 + eyeang:Forward() * 0.4 + ent:GetVelocity() / 400) * 0.5, hand)
             else
-                segments[3] = {Pos = Lerp(1 - lerp_rh, ply.last_rh and ply.last_rh:GetTranslation() or segments[3].Pos, ply_r_hand_matrix_old and ply_r_hand_matrix_old:GetTranslation() or hand), Len = 12}
+                segments[3].Pos = Lerp(1 - lerp_rh, ply.last_rh and ply.last_rh:GetTranslation() or segments[3].Pos, ply_r_hand_matrix_old and ply_r_hand_matrix_old:GetTranslation() or hand)
+                segments[3].Len = 12
             end
 
             if lply:IsSuperAdmin() then
@@ -1267,7 +1362,8 @@ function hg.DoTPIK(ply, ent)
                 end
             end
 
-            segments = solve(segments, 4)
+            ply.ZCTPIKSolverScratchR = ply.ZCTPIKSolverScratchR or {depth = 0}
+            segments = solve(segments, 4, ply.ZCTPIKSolverScratchR)
 
             --[[if lply:IsSuperAdmin() then
                 for i = 2, #segments do
@@ -1394,7 +1490,8 @@ function hg.DoTPIK(ply, ent)
                 segments[3] = segments[3] or {Pos = hand, Len = limblength}
                 segments[3].Pos = LerpVector(!(ishgweapon(self) and self:IsPistolHoldType()) and 0.05 or 0.01, segments[3].Pos + (-vector_up * 0.6 + eyeang:Forward() * 0.4 + ((ishgweapon(self) and !self:IsPistolHoldType()) and eyeang:Right() * 0.7 or vector_origin) + ent:GetVelocity() / 400) * 0.5, hand)
             else
-                segments[3] = {Pos = Lerp(1 - lerp_lh, ply.last_lh and ply.last_lh:GetTranslation() or segments[3].Pos, ply_l_hand_matrix_old and ply_l_hand_matrix_old:GetTranslation() or hand), Len = 12}
+                segments[3].Pos = Lerp(1 - lerp_lh, ply.last_lh and ply.last_lh:GetTranslation() or segments[3].Pos, ply_l_hand_matrix_old and ply_l_hand_matrix_old:GetTranslation() or hand)
+                segments[3].Len = 12
             end
 
             if lply:IsSuperAdmin() then
@@ -1403,7 +1500,8 @@ function hg.DoTPIK(ply, ent)
                 end
             end
 
-            segments = solve(segments, 4)
+            ply.ZCTPIKSolverScratchL = ply.ZCTPIKSolverScratchL or {depth = 0}
+            segments = solve(segments, 4, ply.ZCTPIKSolverScratchL)
 
             --[[if lply:IsSuperAdmin() then
                 for i = 2, #segments do

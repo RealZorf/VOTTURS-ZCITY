@@ -108,9 +108,19 @@ end
 
 
 hg.realPhysNum = realPhysNum
+
+local function getRagdollControlPhysics(ragdoll)
+	local torsoRoot = ragdoll.HGTorsoUpperRootPhys
+	if torsoRoot ~= nil then
+		local phys = ragdoll:GetPhysicsObjectNum(torsoRoot)
+		if IsValid(phys) then return phys end
+	end
+	return ragdoll:GetPhysicsObject()
+end
 local oldtime
 function hg.ShadowControl(ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp)
 	physNumber = realPhysNum(ragdoll, physNumber) or 0
+	if ragdoll.HGTorsoHiddenPhysLookup and ragdoll.HGTorsoHiddenPhysLookup[physNumber] then return end
 	local owner = ragdoll.ply
 	if IsValid(owner) and isDislocatedPhysicsBone(ragdoll, physNumber, owner.organism) then return end
 	local phys = ragdoll:GetPhysicsObjectNum(physNumber)
@@ -432,7 +442,9 @@ hook.Add("Think", "Fake", function()
 		ragdoll.dtime = (SysTime() - (ragdoll.lastCallTime or SysTime())) * game.GetTimeScale()
 		ragdoll.lastCallTime = SysTime()
 
-		local vellen = ragdoll:GetPhysicsObject():GetVelocity():Length()
+		local velocityPhys = getRagdollControlPhysics(ragdoll)
+		local ragdollVelocity = IsValid(velocityPhys) and velocityPhys:GetVelocity() or vector_zero
+		local vellen = ragdollVelocity:Length()
 
 		local org = ply.organism
 		local wep = ply:GetActiveWeapon()
@@ -446,7 +458,8 @@ hook.Add("Think", "Fake", function()
 		local power = org.pain and ((org.pain > 50 or org.blood < 2900 or org.o2[1] < 5) and 0.3) or ((org.pain > 20 or org.blood < 4200 or org.o2[1] < 10) and 0.5) or 1
 		power = power * org.consciousness
 		local model_scale = ragdoll.GetNWFloat and math.Clamp(ragdoll:GetNWFloat("ZCModelScale", 1), 0.1, 10) or 1
-		ragdoll.power = power * math.Clamp(model_scale, 0.35, 2)
+		local torsoControlScale = ragdoll.HGTorsoSeparated and (ragdoll.HGTorsoControlScale or 0.5) or 1
+		ragdoll.power = power * math.Clamp(model_scale, 0.35, 2) * torsoControlScale
 
 		local inmove = false
 		
@@ -461,6 +474,7 @@ hook.Add("Think", "Fake", function()
 			
 			local ragbonecount = ragdoll.ZCPhysicsObjectCount or ragdoll:GetPhysicsObjectCount()
 			for i = 0, ragbonecount - 1 do
+				if ragdoll.HGTorsoHiddenPhysLookup and ragdoll.HGTorsoHiddenPhysLookup[i] then continue end
 				local bone = ragdoll:TranslatePhysBoneToBone(i)
 				local bonepos, boneang = ply:GetBonePosition(bone)
 				if bonepos and boneang then
@@ -648,7 +662,7 @@ hook.Add("Think", "Fake", function()
 						shadowControl(ragdoll, 4, 0.002, ang2, forceArm * force, forceArm_dump)
 						ang2:RotateAroundAxis(ang2:Forward(), 135)
 						ang2:RotateAroundAxis(ang2:Up(), 20)
-						shadowControl(ragdoll, 5, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,5)):GetPos() + ang2:Forward() * 15 + ((vellen > 150 and ragdoll:GetPhysicsObject():GetVelocity() / 224) or vector_zero), 500, 50)
+						shadowControl(ragdoll, 5, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,5)):GetPos() + ang2:Forward() * 15 + ((vellen > 150 and ragdollVelocity / 224) or vector_zero), 500, 50)
 						if ply:WaterLevel() == 1 then shadowControl(ragdoll, 1, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,5)):GetPos(), 5, 0) end
 					/*else
 						ang2:Set(angles)
@@ -768,7 +782,7 @@ hook.Add("Think", "Fake", function()
 						ang2:RotateAroundAxis(ang2:Forward(), 135)
 						ang2:RotateAroundAxis(ang2:Up(), ishgweapon(wep) and 1 or 20)
 						ang2:RotateAroundAxis(ang2:Forward(), ishgweapon(wep) and 120 or 0)
-						shadowControl(ragdoll, 7, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + ang2:Forward() * 15 + ((vellen > 150 and ragdoll:GetPhysicsObject():GetVelocity() / 224) or vector_zero), ishgweapon(wep) and 500 or 500, ishgweapon(wep) and 50 or 50)
+						shadowControl(ragdoll, 7, 0.001, ang2, forceArm * 2, forceArm_dump, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + ang2:Forward() * 15 + ((vellen > 150 and ragdollVelocity / 224) or vector_zero), ishgweapon(wep) and 500 or 500, ishgweapon(wep) and 50 or 50)
 						if ply:WaterLevel() == 1 then shadowControl(ragdoll, 1, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(7):GetPos(), 5, 0) end
 					/*else
 						ang2:Set(angles)
@@ -985,7 +999,7 @@ hook.Add("Think", "Fake", function()
 		else
 			if ply:KeyDown(IN_ATTACK2) and org.canmove then
 				if wep.RagdollFunc then
-					wep:RagdollFunc(ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + angles:Forward() * 15 + ((vellen > 150 and ragdoll:GetPhysicsObject():GetVelocity() / 224) or vector_zero), angles, ragdoll)
+					wep:RagdollFunc(ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7)):GetPos() + angles:Forward() * 15 + ((vellen > 150 and ragdollVelocity / 224) or vector_zero), angles, ragdoll)
 				end
 			end
 		end

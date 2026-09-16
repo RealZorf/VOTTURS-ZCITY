@@ -887,6 +887,7 @@ end)
 
 function hg.RagdollOwner(ragdoll)
 	if not IsValid(ragdoll) then return end
+	if ragdoll:GetNWBool("IsSeveredPart", false) then return end
 	local ply = ragdoll:GetNWEntity("ply")
 	return IsValid(ply) and ply:GetNWEntity("FakeRagdoll") == ragdoll and ply
 end

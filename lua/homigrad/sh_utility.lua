@@ -748,6 +748,7 @@ local IsValid = IsValid
 		else
 			DrawConversion(ent, self)
 		end
+		if CLIENT and hg.DrawTorsoSeparationCap then hg.DrawTorsoSeparationCap(ent, self) end
 		if IsValid(self.OldRagdoll) then
 			DrawAppearance(ent, self)
 		else

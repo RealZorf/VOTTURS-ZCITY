@@ -57,6 +57,7 @@ hook.Add("Org Clear", "Main", function(org)
 	org.rarmamputated = false
 	org.larmamputated = false
 	org.headamputated = false
+	org.torsoamputated = false
 
 	org.furryinfected = false
 
@@ -133,7 +134,7 @@ end)
 
 hook.Add("Should Fake Up", "organism", function(ply)
 	local org = ply.organism
-	if org.otrub or org.seizureActive or org.fake or org.spine1 >= hg.organism.fake_spine1 or org.spine2 >= hg.organism.fake_spine2 or org.spine3 >= hg.organism.fake_spine3 or (org.lleg == 1 and org.rleg == 1) and org.berserk <= 0.3 or (org.blood < 2900) or org.consciousness <= 0.4 then
+	if org.torsoamputated or org.otrub or org.seizureActive or org.fake or org.spine1 >= hg.organism.fake_spine1 or org.spine2 >= hg.organism.fake_spine2 or org.spine3 >= hg.organism.fake_spine3 or (org.lleg == 1 and org.rleg == 1) and org.berserk <= 0.3 or (org.blood < 2900) or org.consciousness <= 0.4 then
 		return false
 	end
 end)
@@ -509,6 +510,7 @@ local function send_organism(org, ply)
 	sendtable.rarmamputated = org.rarmamputated
 	sendtable.larmamputated = org.larmamputated
 	sendtable.headamputated = org.headamputated
+	sendtable.torsoamputated = org.torsoamputated
 	sendtable.lungsfunction = org.lungsfunction
 	sendtable.consciousness = org.consciousness
 	sendtable.assimilated = org.assimilated
@@ -597,6 +599,7 @@ local function send_bareinfo(org)
 	sendtable.rarmamputated = org.rarmamputated
 	sendtable.larmamputated = org.larmamputated
 	sendtable.headamputated = org.headamputated
+	sendtable.torsoamputated = org.torsoamputated
 	sendtable.LodgedEntities = org.LodgedEntities
 	sendtable.berserkActive2 = org.berserkActive2
 	sendtable.CantCheckPulse = org.CantCheckPulse
@@ -858,6 +861,7 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 	
 	org.needotrub = false
 	org.needfake = false
+	if org.torsoamputated then org.needfake = true end
 	if isPly then
 		org.ownerFake = org.FakeRagdoll and true
 	else
