@@ -17,6 +17,7 @@ local FENCING_FADE = 0.45
 local FENCING_RECENT_DAMAGE = 30
 local FENCING_HEAVY_DURATION = 0.18
 local FENCING_HEAVY_FORCE = 50
+local FENCING_DEATH_CHANCE = 1
 local SHAKE_REFRESH_MIN = 0.035
 local SHAKE_REFRESH_MAX = 0.095
 
@@ -238,9 +239,12 @@ hook.Add("RagdollDeath", "BrainfuckStart", function(ply, rag)
 		or (org.skull or 0) > 0.05
 		or org.dmgstack and org.dmgstack[HITGROUP_HEAD]
 
-	if headDamage then
-		startFencing(org, FENCING_DURATION, 0.75 + getBrainSeverity(org) * 0.25)
+	if not headDamage or math_random(100) > FENCING_DEATH_CHANCE then
+		clearFencing(org, rag)
+		return
 	end
+
+	startFencing(org, FENCING_DURATION, 0.75 + getBrainSeverity(org) * 0.25)
 end)
 
 hook.Add("Org Think", "BrainfuckThink", function(owner, passedOrg)
