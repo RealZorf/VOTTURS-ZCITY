@@ -653,6 +653,7 @@ local blackmans = {
 
 local hg, LocalToWorld = hg, LocalToWorld
 local durachok = "models/epangelmatikes/e3_elite_suit.mdl"
+local TPIK_SOLVER_VERSION = 2
 
 function hg.ResetTPIKState(ply)
     if not IsValid(ply) then return end
@@ -669,8 +670,9 @@ function hg.ResetTPIKState(ply)
     ply.last_rh_pos2 = nil
     ply.segmentsl = nil
     ply.segmentsr = nil
-    if ply.ZCTPIKSolverScratchL then ply.ZCTPIKSolverScratchL.depth = 0 end
-    if ply.ZCTPIKSolverScratchR then ply.ZCTPIKSolverScratchR.depth = 0 end
+    ply.ZCTPIKSolverScratchL = nil
+    ply.ZCTPIKSolverScratchR = nil
+    ply.ZCTPIKSolverVersion = TPIK_SOLVER_VERSION
     ply.lerp_lh = 0
     ply.lerp_rh = 0
     ply.lerpedsegmenthit = nil
@@ -1103,8 +1105,6 @@ end
 local function solve(segments, iter, pool)
     local count = #segments
     local workspace = acquireSolverWorkspace(pool, count)
-    local rootSegment = segments[1]
-    local targetSegment = segments[count]
     local sourceBuffer = workspace.source
     local first = workspace.first
     local second = workspace.second
@@ -1120,15 +1120,14 @@ local function solve(segments, iter, pool)
 
     if source[1].Pos:DistToSqr(source[count].Pos) < 225 then
         final = backward(final, source, first, count)
-        copySegment(targetSegment, source[count])
-        final[count] = targetSegment
-    else
-        copySegment(rootSegment, source[1])
-        final[1] = rootSegment
+    end
+
+    for i = 1, count do
+        copySegment(segments[i], final[i])
     end
 
     pool.depth = pool.depth - 1
-    return final
+    return segments
 end
 
 local function getCachedBoneLength(ply, bone)
@@ -1168,6 +1167,14 @@ local function ensureArmSegments( segments, upperarmMatrix, forearmMatrix, handM
 end
 
 function hg.DoTPIK(ply, ent)
+    if ply.ZCTPIKSolverVersion ~= TPIK_SOLVER_VERSION then
+        ply.segmentsl = nil
+        ply.segmentsr = nil
+        ply.ZCTPIKSolverScratchL = nil
+        ply.ZCTPIKSolverScratchR = nil
+        ply.ZCTPIKSolverVersion = TPIK_SOLVER_VERSION
+    end
+
     local ply_head_index = cachedLookupBone(ent, "ValveBiped.Bip01_Head1")
     if !ply_head_index then return end
     local ply_head_matrix = ent:GetBoneMatrix(ply_head_index)

@@ -853,14 +853,21 @@ if SERVER then
 		end
 	end)
 
-	hook.Add("Org Clear", "HGSeveredTorsoReset", function(org)
-		local owner = org and org.owner
+	local function resetTorsoPlayer(owner)
 		if not IsValid(owner) or not owner:IsPlayer() then return end
 		timer.Remove("HGTorsoFatal" .. owner:EntIndex())
 		owner.HGTorsoSeverToken = (owner.HGTorsoSeverToken or 0) + 1
 		owner.HGTorsoSeparated = nil
 		owner.HGTorsoMissingLimbs = nil
 		owner:SetNWBool("HGTorsoSeparated", false)
+	end
+
+	hook.Add("Org Clear", "HGSeveredTorsoReset", function(org)
+		resetTorsoPlayer(org and org.owner)
+	end)
+
+	hook.Add("PlayerSpawn", "HGSeveredTorsoReset", function(owner)
+		resetTorsoPlayer(owner)
 	end)
 
 	return
@@ -946,10 +953,16 @@ local function getUpperTorsoMaskCache(ent)
 end
 
 local function isTorsoSeparated(ent, ply)
-	return ent:GetNWBool("HGTorsoSeparated", false)
-		or IsValid(ply) and ply:GetNWBool("HGTorsoSeparated", false)
-		or istable(ent.new_organism) and ent.new_organism.torsoamputated
-		or istable(ent.organism) and ent.organism.torsoamputated
+	if ent:GetNWBool("HGTorsoSeparated", false) then return true end
+	if ent:IsPlayer() or not ent:IsRagdoll() or not IsValid(ply) then return false end
+
+	local fakeRagdoll = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply:GetNWEntity("FakeRagdoll", NULL)
+	local deathRagdoll = ply:GetNWEntity("RagdollDeath", NULL)
+	if ent ~= fakeRagdoll and ent ~= deathRagdoll then return false end
+
+	return ply:GetNWBool("HGTorsoSeparated", false)
+		or istable(ent.new_organism) and ent.new_organism.torsoamputated == true
+		or istable(ent.organism) and ent.organism.torsoamputated == true
 end
 
 local function removeClientTorsoCap(ent)
