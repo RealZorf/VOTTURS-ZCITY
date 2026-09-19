@@ -397,7 +397,7 @@ players : 1 humans, 0 bots (20 max)
 			[ "$pp_colour_mulb" ] = 0
 		}
 
-		local hg_potatopc = GetConVar("hg_potatopc") or CreateClientConVar("hg_potatopc", "0", true, false, "Toggle potato (low-end pc) mode", 0, 1)
+		local hg_potatopc = GetConVar("hg_potatopc") or CreateClientConVar("hg_potatopc", "0", true, false, "Skip extra Homigrad effects (blur, shells). Does not change Source engine graphics", 0, 1)
 
 		hg.ConVars.potatopc = hg_potatopc
 
@@ -683,6 +683,7 @@ players : 1 humans, 0 bots (20 max)
 		else
 			v.NotSeen = false
 			if v == lply then LocalPlayerSeen = true end
+			hook.Run("HG.OverrideNotSeen", v)
 			hg.seenents[#hg.seenents + 1] = v
 		end
 	end

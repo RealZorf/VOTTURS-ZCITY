@@ -1,0 +1,222 @@
+local enabled = CreateClientConVar("hg_player_occlusion", "0", true, false, "Skip drawing players who are behind walls", 0, 1)
+local fullHide = CreateClientConVar("hg_player_occlusion_full", "0", true, false, "Also hide their weapons, armor, and third-person gun animations", 0, 1)
+local checksPerFrame = CreateClientConVar("hg_player_occlusion_checks", "6", true, false, "How many players to wall-check each frame", 1, 60)
+local checkDelay = CreateClientConVar("hg_player_occlusion_delay", "0.01", true, false, "Minimum seconds between wall checks for one player", 0.01, 5)
+local hideDelay = CreateClientConVar("hg_player_occlusion_hide_delay", "0", true, false, "Seconds to wait before hiding someone behind a wall", 0, 1)
+local sideWidth = CreateClientConVar("hg_player_occlusion_side", "2", true, false, "How far left/right traces reach around a player", 0, 10)
+local topHeight = CreateClientConVar("hg_player_occlusion_top", "0.6", true, false, "How high the head traces go on a player", 0, 10)
+
+local cache = setmetatable({}, {__mode = "k"})
+local queued = setmetatable({}, {__mode = "k"})
+local queue, queueIndex, queueEnd = {}, 1, 0
+local dirty = false
+
+local up = Vector(0, 0, 1)
+local points = {}
+local traceData = {mask = MASK_VISIBLE, filter = {}}
+local closeDistanceSqr = 96 * 96
+
+local function getData(ply)
+	local data = cache[ply]
+	if data then return data end
+
+	data = { visible = true, nextCheck = 0, hiddenSince = nil, lastCheck = nil, lastVisiblePoint = 1}
+	cache[ply] = data
+	dirty = true
+	return data
+end
+
+local function setHidden(ply, hidden)
+	if ply.HG_WallHidden == hidden then return end
+
+	ply.HG_WallHidden = hidden or nil
+
+	if hidden and fullHide:GetBool() then
+		ply.NotSeen = true
+	end
+end
+
+local function getCheckInterval(data, distanceSqr)
+	local delay
+	if distanceSqr < 700 * 700 then
+		delay = 0.03
+	elseif distanceSqr < 1800 * 1800 then
+		delay = 0.07
+	elseif distanceSqr < 3500 * 3500 then
+		delay = data.visible and 0.15 or 0.3
+	else
+		delay = data.visible and 0.25 or 0.5
+	end
+
+	return math.max(checkDelay:GetFloat(), delay)
+end
+
+local function queuePlayer(ply, data, now, distanceSqr)
+	if data.nextCheck > now or queued[ply] then return end
+
+	data.nextCheck = now + getCheckInterval(data, distanceSqr)
+	queueEnd = queueEnd + 1
+	queue[queueEnd] = ply
+	queued[ply] = true
+	dirty = true
+end
+
+local function checkOcclusion(ply, data, origin)
+	local center = ply:WorldSpaceCenter()
+	if origin:DistToSqr(center) <= closeDistanceSqr then return true end
+
+	local mins, maxs = ply:GetModelBounds()
+	local height = math.max(maxs.z - mins.z, 32)
+	local lower = center - up * math.min(height * 0.3, 28)
+
+	points[1] = center
+	points[2] = center + up * math.min(height * 0.35, 36)
+	points[3] = lower
+
+	local pointCount = 3
+	local width = sideWidth:GetFloat()
+
+	if width > 0 then
+		local side = (center - origin):Cross(up)
+		if side:LengthSqr() > 0.001 then
+			side:Normalize()
+			local offset = side * (math.max(maxs.x - mins.x, maxs.y - mins.y, 16) * 0.5 * width)
+			local top = center + up * (height * topHeight:GetFloat())
+
+			points[4], points[5] = center + offset, center - offset
+			points[6], points[7] = top + offset, top - offset
+			points[8], points[9] = lower + offset, lower - offset
+			pointCount = 9
+		end
+	end
+
+	traceData.start = origin
+	traceData.filter[1] = LocalPlayer()
+	traceData.filter[2] = GetViewEntity()
+
+	local first = math.Clamp(data.lastVisiblePoint or 1, 1, pointCount)
+	for step = 0, pointCount - 1 do
+		local i = ((first + step - 1) % pointCount) + 1
+		traceData.endpos = points[i]
+
+		local trace = util.TraceLine(traceData)
+		if not trace.Hit or trace.Entity == ply then
+			data.lastVisiblePoint = i
+			return true
+		end
+	end
+
+	return false
+end
+
+local function applyResult(ply, data, now, visible)
+	data.lastCheck = now
+
+	if visible then
+		data.visible = true
+		data.hiddenSince = nil
+		setHidden(ply, false)
+		return
+	end
+
+	data.hiddenSince = data.hiddenSince or now
+	if now - data.hiddenSince >= hideDelay:GetFloat() then
+		data.visible = false
+		setHidden(ply, true)
+	end
+end
+
+local function processQueue(origin, now)
+	local processed, limit = 0, checksPerFrame:GetInt()
+
+	while processed < limit and queueIndex <= queueEnd do
+		local ply = queue[queueIndex]
+		queue[queueIndex] = nil
+		queueIndex = queueIndex + 1
+		queued[ply] = nil
+
+		if IsValid(ply) then
+			local data = cache[ply]
+			if data then
+				applyResult(ply, data, now, checkOcclusion(ply, data, origin))
+				processed = processed + 1
+			end
+		end
+	end
+
+	if queueIndex > queueEnd then
+		queue, queueIndex, queueEnd = {}, 1, 0
+	end
+end
+
+local function resetState()
+	if not dirty then return end
+
+	for ply in pairs(cache) do
+		if IsValid(ply) then
+			ply.HG_WallHidden = nil
+		end
+	end
+
+	cache = setmetatable({}, {__mode = "k"})
+	queued = setmetatable({}, {__mode = "k"})
+	queue, queueIndex, queueEnd = {}, 1, 0
+	dirty = false
+end
+
+hook.Add("HG.OverrideNotSeen", "HG.PlayerOcclusion", function(ent)
+	if enabled:GetBool() and fullHide:GetBool() and ent.HG_WallHidden then
+		ent.NotSeen = true
+	end
+end)
+
+hook.Add("PrePlayerDraw", "HG.PlayerOcclusion", function(ply)
+	if enabled:GetBool() and ply.HG_WallHidden then
+		return true
+	end
+end)
+
+hook.Add("Think", "HG.PlayerOcclusion", function()
+	if not enabled:GetBool() then
+		resetState()
+		return
+	end
+
+	local seen = hg.seenents
+	if not seen then return end
+
+	local lp = LocalPlayer()
+	if not IsValid(lp) then return end
+
+	local view = render.GetViewSetup()
+	if not view or not isvector(view.origin) then return end
+
+	local now = CurTime()
+	local origin = view.origin
+	local viewEnt = GetViewEntity()
+
+	processQueue(origin, now)
+
+	for i = 1, #seen do
+		local ply = seen[i]
+		if not ply:IsPlayer() or ply == lp or ply == viewEnt or not ply:Alive() or IsValid(ply.FakeRagdoll) then
+			continue
+		end
+
+		local data = getData(ply)
+		local distanceSqr = origin:DistToSqr(ply:WorldSpaceCenter())
+
+		if distanceSqr <= closeDistanceSqr then
+			data.visible, data.hiddenSince = true, nil
+			setHidden(ply, false)
+			continue
+		end
+
+		queuePlayer(ply, data, now, distanceSqr)
+
+		if data.lastCheck == nil then
+			applyResult(ply, data, now, checkOcclusion(ply, data, origin))
+			data.nextCheck = now + getCheckInterval(data, distanceSqr)
+		end
+	end
+end)
