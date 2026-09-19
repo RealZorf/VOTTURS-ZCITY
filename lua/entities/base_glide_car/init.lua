@@ -448,7 +448,7 @@ function ENT:OnPostThink( dt, selfTbl )
 end
 
 local ExpDecay = Glide.ExpDecay
-local hg_glide_steering_realism = CreateConVar("hg_glide_steering_realism","1",{FCVAR_ARCHIVE,FCVAR_NOTIFY},"Enables realistic steering on glide cars", 0, 1)
+local hg_glide_steering_realism = CreateConVar("hg_glide_steering_realism","0",{FCVAR_ARCHIVE,FCVAR_NOTIFY},"Enables realistic steering on glide cars", 0, 1)
 function ENT:UpdateSteering( dt )
     -- Z-City cant steer when reloading
     if hg_glide_steering_realism:GetBool() then
