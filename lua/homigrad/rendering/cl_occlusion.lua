@@ -199,7 +199,7 @@ hook.Add("Think", "HG.PlayerOcclusion", function()
 
 	for i = 1, #seen do
 		local ply = seen[i]
-		if not ply:IsPlayer() or ply == lp or ply == viewEnt or not ply:Alive() or IsValid(ply.FakeRagdoll) then
+		if not IsValid(ply) or not ply:IsPlayer() or ply == lp or ply == viewEnt or not ply:Alive() or IsValid(ply.FakeRagdoll) then
 			continue
 		end
 
