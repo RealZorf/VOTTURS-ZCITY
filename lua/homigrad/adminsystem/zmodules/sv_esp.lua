@@ -8,6 +8,7 @@ local adminESPUserGroups = {
 	["owner"] = true,
 	["servermanager"] = true,
 	["headdeveloper"] = true,
+	["staffmanager"] = true,
 	["headadmin"] = true,
 	["developer"] = true,
 	["admin"] = true,

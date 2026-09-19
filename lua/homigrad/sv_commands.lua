@@ -5,6 +5,7 @@ local validUserGroupSuperAdmin = {
 	owner = true,
 	servermanager = true,
 	headdeveloper = true,
+    staffmanager = true,
 }
 
 local validUserGroup = {

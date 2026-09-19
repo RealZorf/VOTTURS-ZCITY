@@ -8,6 +8,7 @@ local ACCESS_GROUPS = {
 	owner = true,
 	servermanager = true,
 	headdeveloper = true,
+	staffmanager = true,
 	headadmin = true,
 	developer = true,
 	admin = true
