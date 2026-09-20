@@ -1267,6 +1267,20 @@ SolidMapVote["Config"]["Specific Maps"] = {
         height = 268
     },
     {
+        filename = "zs_erebus_am",
+        displayname = "https://images.steamusercontent.com/ugc/1862800022597311724/E44D01DE802096E66E2C55A0CE5AE09106BC9BEE/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        image = "Erebus",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_vernrock",
+        displayname = "Vernrock",
+        image = "https://images.steamusercontent.com/ugc/1853803060453748063/4E1EE8DFE33D976165DB3336B53EA755476EE398/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
         filename = "example",
         displayname = "yes",
         image = "",
