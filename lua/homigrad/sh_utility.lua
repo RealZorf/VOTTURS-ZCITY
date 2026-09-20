@@ -840,6 +840,48 @@ local IsValid = IsValid
 	end
 --
 --\\ Custom Hull check
+	local function addTraceFilterEntity(filter, ent)
+		if not IsValid(ent) then return end
+		for i = 1, #filter do
+			if filter[i] == ent then return end
+		end
+		filter[#filter + 1] = ent
+	end
+
+	function hg.IsOwnCharacterEntity(owner, ent)
+		if not IsValid(owner) or not IsValid(ent) then return false end
+		if ent == owner then return true end
+		if not owner:IsPlayer() then return false end
+		if ent == owner.FakeRagdoll or ent == owner.FakeRagdollOld or ent == owner.OldRagdoll then return true end
+
+		local networkedRagdoll = owner:GetNWEntity("FakeRagdoll", NULL)
+		if IsValid(networkedRagdoll) and ent == networkedRagdoll then return true end
+		if SERVER and hg.ragdollFake and ent == hg.ragdollFake[owner] then return true end
+		if not ent:IsRagdoll() or ent.IsSeveredPart or ent:GetNWBool("IsSeveredPart", false) then return false end
+
+		local linkedOwner = ent.ply
+		if not IsValid(linkedOwner) then linkedOwner = ent:GetNWEntity("ply", NULL) end
+		return owner:Alive() and linkedOwner == owner
+	end
+
+	function hg.AddOwnCharacterEntitiesToFilter(filter, owner)
+		local entities = istable(filter) and filter or {}
+		if IsValid(filter) then addTraceFilterEntity(entities, filter) end
+		if not IsValid(owner) then return entities end
+
+		addTraceFilterEntity(entities, owner)
+		if not owner:IsPlayer() then return entities end
+
+		addTraceFilterEntity(entities, owner.FakeRagdoll)
+		addTraceFilterEntity(entities, owner.FakeRagdollOld)
+		addTraceFilterEntity(entities, owner.OldRagdoll)
+		addTraceFilterEntity(entities, owner:GetNWEntity("FakeRagdoll", NULL))
+		if SERVER and hg.ragdollFake then addTraceFilterEntity(entities, hg.ragdollFake[owner]) end
+		if hg.GetCurrentCharacter then addTraceFilterEntity(entities, hg.GetCurrentCharacter(owner)) end
+
+		return entities
+	end
+
 	local lend = 3
 	local vec = Vector(lend,lend,lend)
 	local traceBuilder = {
@@ -857,7 +899,7 @@ local IsValid = IsValid
 		if ply:InVehicle() then return {HitPos = endpos} end
 		traceBuilder.start = IsValid(ply.FakeRagdoll) and endpos or startpos
 		traceBuilder.endpos = endpos
-		traceBuilder.filter = {ply, ply.FakeRagdoll, ply:InVehicle() and ply:GetVehicle(), ply.OldRagdoll}
+		traceBuilder.filter = hg.AddOwnCharacterEntitiesToFilter({ply:InVehicle() and ply:GetVehicle()}, ply)
 		local trace = util_TraceHull(traceBuilder)
 
 		ply.cachedhulltrace = trace
@@ -900,7 +942,7 @@ local IsValid = IsValid
 				endpos = fallbackPos + aim_vector * (dist or 60),
 				filter = ply
 			}
-			return fallbackPos, aim_vector * (dist or 60), ply--util.TraceLine(tr)
+			return fallbackPos, aim_vector * (dist or 60), hg.AddOwnCharacterEntitiesToFilter({}, ply)--util.TraceLine(tr)
 		end
 
 		/*if (ply.InVehicle and ply:InVehicle() and IsValid(ply:GetVehicle())) then
@@ -948,7 +990,7 @@ local IsValid = IsValid
 		--tr.endpos = tr.start + aim_vector * (dist or 60)
 		--tr.filter = {ply,ent}
 
-		return trace.HitPos, aim_vector * (dist or 60), {ply, ent, ply.OldRagdoll}, trace, headm--util.TraceLine(tr), trace, headm
+		return trace.HitPos, aim_vector * (dist or 60), hg.AddOwnCharacterEntitiesToFilter({ent}, ply), trace, headm--util.TraceLine(tr), trace, headm
 	end
 
 	function hg.eyeTrace(ply, dist, ent, aim_vector, startpos, fFilter)

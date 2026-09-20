@@ -183,11 +183,11 @@ net.Receive("HMCD_BreakingOtherNeck", function(len, ply)
 		local action = net.ReadString()
 		
 		if(IsValid(attacker_ply))then
-			MODE.StartBreakingOtherNeck(LocalPlayer(), other_ply, action ~= "" and action or nil)
+			MODE.StartBreakingOtherNeck(attacker_ply, other_ply, action ~= "" and action or nil)
 		end
 	else
 		if(IsValid(attacker_ply))then
-			MODE.StopBreakingOtherNeck(LocalPlayer())
+			MODE.StopBreakingOtherNeck(attacker_ply)
 		end
 	end
 end)
@@ -432,8 +432,10 @@ hook.Add("Think", "HMCD_SubRole_Abilities", function()
 		LocalPlayer().BeingVictimOfNeckBreak = false
 	end
 	
-	if(LocalPlayer().Ability_NeckBreak)then
-		MODE.ContinueBreakingOtherNeck(LocalPlayer())
+	for _, attacker in player.Iterator() do
+		if attacker.Ability_NeckBreak then
+			MODE.ContinueBreakingOtherNeck(attacker)
+		end
 	end
 	
 	if(BeingVictimOfDisarmamentResetTime and BeingVictimOfDisarmamentResetTime <= CurTime())then

@@ -496,10 +496,12 @@ function SWEP:GetTrace(bCacheTrace, desiredPos, desiredAng, NoTrace, closeanim)
 
 	local dir = ang:Forward()
 
-	local fake = CLIENT and owner.FakeRagdoll or nil
 	tr.start = pos
 	tr.endpos = pos + dir * 8000
-	tr.filter = {self, gun, not owner.suiciding and owner or NULL, not owner.suiciding and fake}
+	tr.filter = {self, gun}
+	if not owner.suiciding then
+		tr.filter = hg.AddOwnCharacterEntitiesToFilter(tr.filter, owner)
+	end
 
 	local trace = util_TraceLine(tr)
 	if bCacheTrace then
@@ -621,7 +623,7 @@ function SWEP:FireBullet()
 		local tr = {}
 		tr.start = point
 		tr.endpos = pos
-		tr.filter = {owner, ent, SERVER and hg.ragdollFake[owner]}
+		tr.filter = hg.AddOwnCharacterEntitiesToFilter({ent}, owner)
 		trace = util.TraceLine(tr)
 	end
 
@@ -754,14 +756,14 @@ function SWEP:FireBullet()
 	local f1 = not owner.suiciding and owner or nil
 	local f2 = owner:IsPlayer() and owner:InVehicle() and owner:GetVehicle() or nil
 	local f3 = owner:IsPlayer() and owner.GetSimfphys and IsValid(owner:GetSimfphys()) and owner:GetSimfphys() or nil
-	local f4 = owner:IsPlayer() and owner:InVehicle() and owner.FakeRagdoll
-	local f5 = IsValid(owner.OldRagdoll) and owner.OldRagdoll or nil
 	
 	if IsValid(f1) then table.insert(bullet.Filter, 1, f1) end
 	if IsValid(f2) then table.insert(bullet.Filter, 1, f2) end
 	if IsValid(f3) then table.insert(bullet.Filter, 1, f3) end
-	if IsValid(f4) then table.insert(bullet.Filter, 1, f4) end
-	if IsValid(f5) then table.insert(bullet.Filter, 1, f5) end
+	if not owner.suiciding then
+		bullet.Filter = hg.AddOwnCharacterEntitiesToFilter(bullet.Filter, owner)
+	end
+	bullet.TraceFilter = table.Copy(bullet.Filter)
 
 	bullet.Inflictor = self
 	bullet.DontUsePhysBullets = self.DontUsePhysBullets

@@ -1,5 +1,5 @@
-local enabled = CreateClientConVar("hg_player_occlusion", "0", true, false, "Skip drawing players who are behind walls", 0, 1)
-local fullHide = CreateClientConVar("hg_player_occlusion_full", "0", true, false, "Also hide their weapons, armor, and third-person gun animations", 0, 1)
+local enabled = CreateClientConVar("hg_player_occlusion", "1", true, false, "Skip drawing players who are behind walls", 0, 1)
+local fullHide = CreateClientConVar("hg_player_occlusion_full", "1", true, false, "Also hide their weapons, armor, and third-person gun animations", 0, 1)
 local checksPerFrame = CreateClientConVar("hg_player_occlusion_checks", "6", true, false, "How many players to wall-check each frame", 1, 60)
 local checkDelay = CreateClientConVar("hg_player_occlusion_delay", "0.01", true, false, "Minimum seconds between wall checks for one player", 0.01, 5)
 local hideDelay = CreateClientConVar("hg_player_occlusion_hide_delay", "0", true, false, "Seconds to wait before hiding someone behind a wall", 0, 1)
@@ -10,6 +10,9 @@ local cache = setmetatable({}, {__mode = "k"})
 local queued = setmetatable({}, {__mode = "k"})
 local queue, queueIndex, queueEnd = {}, 1, 0
 local dirty = false
+local scanSerial = 0
+local lastViewEntity
+local lastViewX, lastViewY, lastViewZ
 
 local up = Vector(0, 0, 1)
 local points = {}
@@ -20,20 +23,22 @@ local function getData(ply)
 	local data = cache[ply]
 	if data then return data end
 
-	data = { visible = true, nextCheck = 0, hiddenSince = nil, lastCheck = nil, lastVisiblePoint = 1}
+	data = {visible = true, nextCheck = 0, hiddenSince = nil, lastVisiblePoint = 1}
 	cache[ply] = data
 	dirty = true
 	return data
 end
 
 local function setHidden(ply, hidden)
-	if ply.HG_WallHidden == hidden then return end
+    if hidden then
+        ply.HG_WallHidden = true
+        ply.NotSeen = fullHide:GetBool() or false
+        return
+    end
 
-	ply.HG_WallHidden = hidden or nil
-
-	if hidden and fullHide:GetBool() then
-		ply.NotSeen = true
-	end
+    if not ply.HG_WallHidden then return end
+    ply.HG_WallHidden = nil
+    ply.NotSeen = false
 end
 
 local function getCheckInterval(data, distanceSqr)
@@ -61,13 +66,32 @@ local function queuePlayer(ply, data, now, distanceSqr)
 	dirty = true
 end
 
-local function checkOcclusion(ply, data, origin)
-	local center = ply:WorldSpaceCenter()
-	if origin:DistToSqr(center) <= closeDistanceSqr then return true end
+local function getPlayerDimensions(ply, data)
+    local model = ply:GetModel()
+    local scale = ply:GetModelScale()
+    if data.boundsModel == model and data.boundsScale == scale then
+        return data.height, data.halfWidth
+    end
 
-	local mins, maxs = ply:GetModelBounds()
-	local height = math.max(maxs.z - mins.z, 32)
-	local lower = center - up * math.min(height * 0.3, 28)
+    local mins, maxs = ply:GetModelBounds()
+    if not isvector(mins) or not isvector(maxs) then
+        data.height, data.halfWidth = 72, 16
+    else
+        data.height = math.max(maxs.z - mins.z, 32)
+        data.halfWidth = math.max(maxs.x - mins.x, maxs.y - mins.y, 16) * 0.5
+    end
+
+    data.boundsModel = model
+    data.boundsScale = scale
+    return data.height, data.halfWidth
+end
+
+local function checkOcclusion(ply, data, origin)
+    local center = ply:WorldSpaceCenter()
+    if origin:DistToSqr(center) <= closeDistanceSqr then return true end
+
+    local height, halfWidth = getPlayerDimensions(ply, data)
+    local lower = center - up * math.min(height * 0.3, 28)
 
 	points[1] = center
 	points[2] = center + up * math.min(height * 0.35, 36)
@@ -78,10 +102,10 @@ local function checkOcclusion(ply, data, origin)
 
 	if width > 0 then
 		local side = (center - origin):Cross(up)
-		if side:LengthSqr() > 0.001 then
-			side:Normalize()
-			local offset = side * (math.max(maxs.x - mins.x, maxs.y - mins.y, 16) * 0.5 * width)
-			local top = center + up * (height * topHeight:GetFloat())
+        if side:LengthSqr() > 0.001 then
+            side:Normalize()
+            local offset = side * (halfWidth * width)
+            local top = center + up * (height * topHeight:GetFloat())
 
 			points[4], points[5] = center + offset, center - offset
 			points[6], points[7] = top + offset, top - offset
@@ -93,16 +117,19 @@ local function checkOcclusion(ply, data, origin)
 	traceData.start = origin
 	traceData.filter[1] = LocalPlayer()
 	traceData.filter[2] = GetViewEntity()
+	traceData.filter[3] = ply
+	local activeWeapon = ply:GetActiveWeapon()
+	traceData.filter[4] = IsValid(activeWeapon) and activeWeapon or nil
 
 	local first = math.Clamp(data.lastVisiblePoint or 1, 1, pointCount)
 	for step = 0, pointCount - 1 do
 		local i = ((first + step - 1) % pointCount) + 1
-		traceData.endpos = points[i]
+        traceData.endpos = points[i]
 
-		local trace = util.TraceLine(traceData)
-		if not trace.Hit or trace.Entity == ply then
-			data.lastVisiblePoint = i
-			return true
+        local trace = util.TraceLine(traceData)
+        if trace.StartSolid or not trace.Hit or trace.Entity == ply then
+            data.lastVisiblePoint = i
+            return true
 		end
 	end
 
@@ -110,8 +137,6 @@ local function checkOcclusion(ply, data, origin)
 end
 
 local function applyResult(ply, data, now, visible)
-	data.lastCheck = now
-
 	if visible then
 		data.visible = true
 		data.hiddenSince = nil
@@ -126,7 +151,7 @@ local function applyResult(ply, data, now, visible)
 	end
 end
 
-local function processQueue(origin, now)
+local function processQueue(origin, now, serial)
 	local processed, limit = 0, checksPerFrame:GetInt()
 
 	while processed < limit and queueIndex <= queueEnd do
@@ -135,11 +160,11 @@ local function processQueue(origin, now)
 		queueIndex = queueIndex + 1
 		queued[ply] = nil
 
-		if IsValid(ply) then
-			local data = cache[ply]
-			if data then
-				applyResult(ply, data, now, checkOcclusion(ply, data, origin))
-				processed = processed + 1
+        if IsValid(ply) then
+            local data = cache[ply]
+            if data and data.seenSerial == serial then
+                applyResult(ply, data, now, checkOcclusion(ply, data, origin))
+                processed = processed + 1
 			end
 		end
 	end
@@ -149,11 +174,37 @@ local function processQueue(origin, now)
 	end
 end
 
+local function resetForViewChange(viewEnt, origin)
+    local moved = false
+    if lastViewX then
+        local x, y, z = origin.x - lastViewX, origin.y - lastViewY, origin.z - lastViewZ
+        moved = x * x + y * y + z * z > 512 * 512
+    end
+
+    local changed = lastViewEntity ~= viewEnt or moved
+    lastViewEntity = viewEnt
+    lastViewX, lastViewY, lastViewZ = origin.x, origin.y, origin.z
+    if not changed then return end
+
+    for _, data in pairs(cache) do
+        data.visible = true
+        data.hiddenSince = nil
+        data.nextCheck = 0
+        data.seenSerial = nil
+    end
+
+    queued = setmetatable({}, {__mode = "k"})
+    queue, queueIndex, queueEnd = {}, 1, 0
+end
+
 local function resetState()
-	if not dirty then return end
+    lastViewEntity = nil
+    lastViewX, lastViewY, lastViewZ = nil, nil, nil
+    if not dirty then return end
 
 	for ply in pairs(cache) do
 		if IsValid(ply) then
+			if ply.HG_WallHidden then ply.NotSeen = false end
 			ply.HG_WallHidden = nil
 		end
 	end
@@ -177,7 +228,7 @@ hook.Add("PrePlayerDraw", "HG.PlayerOcclusion", function(ply)
 end)
 
 hook.Add("Think", "HG.PlayerOcclusion", function()
-	if not enabled:GetBool() then
+	if not enabled:GetBool() or (g_VR and g_VR.active) then
 		resetState()
 		return
 	end
@@ -192,31 +243,50 @@ hook.Add("Think", "HG.PlayerOcclusion", function()
 	if not view or not isvector(view.origin) then return end
 
 	local now = CurTime()
-	local origin = view.origin
-	local viewEnt = GetViewEntity()
+    local origin = view.origin
+    local viewEnt = GetViewEntity()
 
-	processQueue(origin, now)
+    resetForViewChange(viewEnt, origin)
+    scanSerial = scanSerial + 1
+    local previousSerial = scanSerial - 1
 
-	for i = 1, #seen do
-		local ply = seen[i]
-		if not IsValid(ply) or not ply:IsPlayer() or ply == lp or ply == viewEnt or not ply:Alive() or IsValid(ply.FakeRagdoll) then
-			continue
-		end
+    for i = 1, #seen do
+        local ply = seen[i]
+        if not IsValid(ply) then
+            continue
+        end
 
-		local data = getData(ply)
-		local distanceSqr = origin:DistToSqr(ply:WorldSpaceCenter())
+        if not ply:IsPlayer() or ply == lp or ply == viewEnt or not ply:Alive() or IsValid(ply.FakeRagdoll) then
+            local oldData = cache[ply]
+            if oldData then
+                oldData.visible, oldData.hiddenSince = true, nil
+                oldData.nextCheck = 0
+                setHidden(ply, false)
+            end
+            continue
+        end
 
-		if distanceSqr <= closeDistanceSqr then
-			data.visible, data.hiddenSince = true, nil
-			setHidden(ply, false)
-			continue
-		end
+        local data = getData(ply)
+        if data.seenSerial ~= previousSerial then
+            data.visible, data.hiddenSince = true, nil
+            data.nextCheck = 0
+            setHidden(ply, false)
+        end
+        data.seenSerial = scanSerial
 
-		queuePlayer(ply, data, now, distanceSqr)
+        if queued[ply] or data.nextCheck > now then continue end
 
-		if data.lastCheck == nil then
-			applyResult(ply, data, now, checkOcclusion(ply, data, origin))
-			data.nextCheck = now + getCheckInterval(data, distanceSqr)
-		end
-	end
+		local distanceSqr = origin:DistToSqr(ply:GetPos())
+
+        if distanceSqr <= closeDistanceSqr then
+            data.visible, data.hiddenSince = true, nil
+            data.nextCheck = now + getCheckInterval(data, distanceSqr)
+            setHidden(ply, false)
+            continue
+        end
+
+        queuePlayer(ply, data, now, distanceSqr)
+    end
+
+    processQueue(origin, now, scanSerial)
 end)

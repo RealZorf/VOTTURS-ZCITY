@@ -2833,6 +2833,10 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 			MODE.UpdateChemistNeutralizerTarget(ply)
 		end
 
+		if ply.Ability_NeckBreak and (not ply:Alive() or not ply.organism or ply.organism.otrub or not MODE.IsNeckBreakerRole(ply) or not MODE.IsNeckBreakRoundActive()) then
+			MODE.StopBreakingOtherNeck(ply)
+		end
+
 		if(ply:Alive() and ply.organism and not ply.organism.otrub)then
 			if MODE.IsChemistRole(ply.SubRole) and ply:KeyDown(IN_WALK) and ply:KeyPressed(IN_USE) then
 				MODE.UseChemistNeutralizer(ply)
@@ -2874,7 +2878,7 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 				MODE.ResetShadowCamouflage(ply)
 			end
 
-			if(ply.SubRole == "traitor_infiltrator" or ply.SubRole == "traitor_infiltrator_soe")then
+			if(MODE.IsNeckBreakerRole(ply))then
 				if(ply:KeyDown(IN_WALK))then
 					if(ply:KeyPressed(IN_RELOAD))then
 						local aim_ent, other_ply = hg.eyeTrace(ply,85).Entity
@@ -2941,6 +2945,8 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 				else
 					MODE.StopBreakingOtherNeck(ply)
 				end
+			elseif ply.Ability_NeckBreak then
+				MODE.StopBreakingOtherNeck(ply)
 			end
 			
 			if(MODE.IsAssassinRole and MODE.IsAssassinRole(ply.SubRole))then
@@ -3198,8 +3204,44 @@ hook.Add("PlayerDisconnected", "HMCD_SubRoles_LastManStandingFinalStand", functi
 	end)
 end)
 
+function MODE.ClearNeckBreakInteractions(subject)
+	if IsValid(subject) and subject.Ability_NeckBreak then
+		MODE.StopBreakingOtherNeck(subject)
+	end
+
+	for _, attacker in player.Iterator() do
+		local data = attacker.Ability_NeckBreak
+		if istable(data) and data.Victim == subject then
+			MODE.StopBreakingOtherNeck(attacker)
+		end
+	end
+
+	if IsValid(subject) then
+		subject.HMCDNeckBreakAttacker = nil
+		subject.HMCDNextNeckBreakAttempt = nil
+		subject.BeingVictimOfNeckBreak = false
+	end
+end
+
+hook.Add("PlayerDeath", "HMCD_NeckBreakDeathCleanup", function(ply)
+	timer.Simple(0, function()
+		if IsValid(ply) then MODE.ClearNeckBreakInteractions(ply) end
+	end)
+end)
+
+hook.Add("PlayerDisconnected", "HMCD_NeckBreakDisconnectCleanup", function(ply)
+	MODE.ClearNeckBreakInteractions(ply)
+end)
+
+hook.Add("ZB_EndRound", "HMCD_NeckBreakRoundEndCleanup", function()
+	for _, ply in player.Iterator() do
+		MODE.ClearNeckBreakInteractions(ply)
+	end
+end)
+
 hook.Add("ZB_PreRoundStart", "HMCD_SubRoles_ResetRoundBuffs", function()
 	for _, ply in player.Iterator() do
+		MODE.ClearNeckBreakInteractions(ply)
 		MODE.ClearChemistNeutralizerResistance(ply)
 		ply.Ability_ChemistNeutralizerDoses = nil
 		ply:SetNWInt("HMCD_ChemistNeutralizerDoses", 0)

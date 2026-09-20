@@ -26,6 +26,10 @@ MODE.ShadowCamouflageColorModulation = {
 	0.94
 }
 MODE.FiberwireHeadSawTime = 3.5
+MODE.NeckBreakReach = 65
+MODE.NeckBreakDuration = 0.9
+MODE.NeckBreakAttemptCooldown = 0.35
+MODE.NeckBreakSuccessCooldown = 1.5
 MODE.StalkerMarkMax = 3
 MODE.StalkerMarkTime = 0.85
 MODE.StalkerMarkDistance = 3300
@@ -357,6 +361,20 @@ function MODE.GetNeckBreakAction(ply)
 	return (IsValid(wep) and wep.GetStrangling and wep:GetStrangling()) and "saw_head" or "neck_break"
 end
 
+function MODE.IsNeckBreakerRole(ply)
+	if not IsValid(ply) or not ply:IsPlayer() then return false end
+	if not ply.isTraitor then return false end
+
+	return ply.SubRole == "traitor_infiltrator" or ply.SubRole == "traitor_infiltrator_soe"
+end
+
+function MODE.IsNeckBreakRoundActive()
+	if CLIENT then return true end
+
+	local active_mode = CurrentRound and CurrentRound()
+	return active_mode == MODE and zb and zb.ROUND_STATE == 1
+end
+
 --\\
 function MODE.GetPlayerTraceToOtherVictim(ply, victim, dist)
 	if(IsValid(victim))then
@@ -381,7 +399,7 @@ function MODE.GetPlayerTraceToOtherVictim(ply, victim, dist)
 				ply_offset_normal:Normalize()
 				ply_aim_normal:Normalize()
 				
-				local ang_diff = -(math.deg(math.acos(ply_aim_normal:DotProduct(-ply_offset_normal))) - 180)
+				local ang_diff = -(math.deg(math.acos(math.Clamp(ply_aim_normal:DotProduct(-ply_offset_normal), -1, 1))) - 180)
 				
 				if(ang_diff < 80)then
 					local aim_ent, other_ply, trace = MODE.GetPlayerTraceToOther(ply, ply_offset_normal, dist)
@@ -389,10 +407,10 @@ function MODE.GetPlayerTraceToOtherVictim(ply, victim, dist)
 					if(IsValid(aim_ent))then
 						return aim_ent, other_ply, trace
 					else
-						return MODE.GetPlayerTraceToOther(ply, dist)
+						return MODE.GetPlayerTraceToOther(ply, nil, dist)
 					end
 				else
-					return MODE.GetPlayerTraceToOther(ply, dist)
+					return MODE.GetPlayerTraceToOther(ply, nil, dist)
 				end
 			end
 		end
@@ -402,6 +420,9 @@ end
 
 --\\Neck Break
 function MODE.CanPlayerBreakOtherNeck(ply, aim_ent)
+	if not IsValid(ply) or not ply:IsPlayer() or not ply:Alive() then return false end
+	if not IsValid(aim_ent) or (not aim_ent:IsPlayer() and not aim_ent:IsRagdoll()) then return false end
+
 	local wep = ply:GetActiveWeapon()
     if not IsValid(wep) or wep:GetClass() ~= "weapon_hands_sh" then return false end
 
@@ -420,7 +441,7 @@ function MODE.CanPlayerBreakOtherNeck(ply, aim_ent)
 				if(dist_z < 50) then
 					ply_normal:Normalize()
 					
-					local ang_diff = -(math.deg(math.acos(ply_normal:DotProduct(other_normal))) - 180)
+					local ang_diff = -(math.deg(math.acos(math.Clamp(ply_normal:DotProduct(other_normal), -1, 1))) - 180)
 					
 					if(ang_diff < 100)then
 						return true
@@ -441,12 +462,66 @@ function MODE.CanPlayerBreakOtherNeck(ply, aim_ent)
 	return false
 end
 
+function MODE.ValidateNeckBreakInteraction(ply, victim, action, require_keys)
+	if not SERVER then return false end
+	if not MODE.IsNeckBreakRoundActive() or not MODE.IsNeckBreakerRole(ply) then return false end
+	if not IsValid(ply) or not ply:Alive() or not ply.organism or ply.organism.otrub or ply:InVehicle() then return false end
+	if not IsValid(victim) or not victim:IsPlayer() or victim == ply or not victim:Alive() then return false end
+	if require_keys and (not ply:KeyDown(IN_WALK) or not ply:KeyDown(IN_USE)) then return false end
+
+	action = action or "neck_break"
+	if action ~= "neck_break" and action ~= "saw_head" then return false end
+
+	local current_attacker = victim.HMCDNeckBreakAttacker
+	if victim.BeingVictimOfNeckBreak and current_attacker ~= ply then return false end
+	if IsValid(current_attacker) and current_attacker ~= ply then return false end
+
+	if action == "saw_head" then
+		local _, rag, saw_victim = MODE.GetFiberwireSawTarget(ply)
+		if saw_victim ~= victim or not MODE.CanPlayerSawHeadWithFiberwire(ply, rag, saw_victim) then return false end
+
+		return true, rag
+	end
+
+	local aim_ent, traced_victim, trace = MODE.GetPlayerTraceToOtherVictim(ply, victim, MODE.NeckBreakReach)
+	if IsValid(aim_ent) and traced_victim ~= victim and hg and hg.RagdollOwner then
+		traced_victim = hg.RagdollOwner(aim_ent) or traced_victim
+	end
+	if not IsValid(aim_ent) or traced_victim ~= victim or not trace then return false end
+	if not trace.HitPos or ply:GetShootPos():DistToSqr(trace.HitPos) > (MODE.NeckBreakReach + 8) ^ 2 then return false end
+	if not MODE.CanPlayerBreakOtherNeck(ply, aim_ent) then return false end
+
+	return true, aim_ent
+end
+
 function MODE.BreakOtherNeck(ply, other_ply, aim_ent)
+	if not SERVER then return false end
+	local function reject(reason)
+		if IsValid(ply) and (ply.HMCDNextNeckBreakSecurityLog or 0) <= CurTime() then
+			ply.HMCDNextNeckBreakSecurityLog = CurTime() + 2
+			ServerLog(string.format("[HMCD SECURITY] Rejected neck snap from %s [%s]: %s\n", ply:Nick(), ply:SteamID(), reason))
+		end
+
+		return false
+	end
+
+	local break_data = IsValid(ply) and ply.Ability_NeckBreak
+	if not istable(break_data) or break_data.Victim ~= other_ply or break_data.Action ~= "neck_break" then return reject("missing or mismatched interaction state") end
+	if break_data.Completing or CurTime() + 0.001 < (break_data.ReadyAt or math.huge) then return reject("interaction completed too early or more than once") end
+
+	local valid, validated_ent = MODE.ValidateNeckBreakInteraction(ply, other_ply, "neck_break", true)
+	if not valid or not IsValid(validated_ent) then return reject("role, round, input, range, line-of-sight, or target validation failed") end
+	aim_ent = validated_ent
+
+	break_data.Completing = true
 	if(other_ply:Alive())then
+		ServerLog(string.format("[HMCD] %s [%s] neck-snapped %s [%s] at %s\n", ply:Nick(), ply:SteamID(), other_ply:Nick(), other_ply:SteamID(), tostring(other_ply:GetPos())))
 		other_ply:Kill()
 		other_ply:ViewPunch(Angle(0, 0, -10))
 		
-		aim_ent.organism.spine3 = 1
+		if IsValid(aim_ent) and aim_ent.organism then
+			aim_ent.organism.spine3 = 1
+		end
 		
 		aim_ent:EmitSound("neck_snap_01.wav", 60, 100, 1, CHAN_AUTO)
 
@@ -470,6 +545,8 @@ function MODE.BreakOtherNeck(ply, other_ply, aim_ent)
 			end
 		end)
 	end
+
+	return true
 end
 
 function MODE.SawOffOtherHead(ply, other_ply, aim_ent)
@@ -541,10 +618,34 @@ function MODE.SawOffOtherHead(ply, other_ply, aim_ent)
 end
 
 function MODE.StartBreakingOtherNeck(ply, other_ply, action)
+	if not IsValid(ply) or not IsValid(other_ply) or not other_ply:IsPlayer() or ply == other_ply then return false end
+
+	action = action or "neck_break"
+	if action ~= "neck_break" and action ~= "saw_head" then return false end
+
+	local now = CurTime()
+	local duration = action == "saw_head" and MODE.FiberwireHeadSawTime or MODE.NeckBreakDuration
+
+	if SERVER then
+		if (ply.HMCDNextNeckBreakAttempt or 0) > now then return false end
+		ply.HMCDNextNeckBreakAttempt = now + MODE.NeckBreakAttemptCooldown
+
+		local valid = MODE.ValidateNeckBreakInteraction(ply, other_ply, action, true)
+		if not valid then return false end
+
+		if ply.Ability_NeckBreak then
+			MODE.StopBreakingOtherNeck(ply)
+		end
+
+		other_ply.HMCDNeckBreakAttacker = ply
+	end
+
 	ply.Ability_NeckBreak = {
 		Victim = other_ply,
 		Progress = 0,
-		Action = action or "neck_break",
+		Action = action,
+		StartedAt = now,
+		ReadyAt = now + duration,
 	}
 	other_ply.BeingVictimOfNeckBreak = true
 	
@@ -558,21 +659,28 @@ function MODE.StartBreakingOtherNeck(ply, other_ply, action)
 		net.Start("HMCD_BreakingOtherNeck")
 			net.WriteBool(true)
 			net.WriteEntity(ply)
-			net.WriteEntity(other_ply)
+			 net.WriteEntity(other_ply)
 			net.WriteString(ply.Ability_NeckBreak.Action)
 		net.SendPVS(ply:GetShootPos())
 	end
+
+	return true
 end
 
 function MODE.StopBreakingOtherNeck(ply)
-	if(ply.Ability_NeckBreak and IsValid(ply.Ability_NeckBreak.Victim))then
-		ply.Ability_NeckBreak.Victim.BeingVictimOfNeckBreak = false
+	if not IsValid(ply) then return end
+
+	local break_data = ply.Ability_NeckBreak
+	local victim = break_data and break_data.Victim
+	if IsValid(victim) and (not SERVER or victim.HMCDNeckBreakAttacker == ply) then
+		victim.BeingVictimOfNeckBreak = false
+		if SERVER then victim.HMCDNeckBreakAttacker = nil end
 	end
 	
-	if(SERVER and ply.Ability_NeckBreak and IsValid(ply.Ability_NeckBreak.Victim))then
+	if(SERVER and break_data and IsValid(victim))then
 		net.Start("HMCD_BeingVictimOfNeckBreak")
 			net.WriteBool(false)
-		net.Send(ply.Ability_NeckBreak.Victim)
+		net.Send(victim)
 
 		net.Start("HMCD_BreakingOtherNeck")
 			net.WriteBool(false)
@@ -585,31 +693,26 @@ end
 
 function MODE.ContinueBreakingOtherNeck(ply)
 	local break_data = ply.Ability_NeckBreak
+	if not istable(break_data) then return end
+
 	local victim = break_data.Victim
 	local action = break_data.Action or "neck_break"
-	local aim_ent, other_ply, trace
+	local now = CurTime()
+	local started_at = break_data.StartedAt or now
+	local ready_at = break_data.ReadyAt or (started_at + (action == "saw_head" and MODE.FiberwireHeadSawTime or MODE.NeckBreakDuration))
+	local duration = math.max(ready_at - started_at, 0.01)
+	break_data.Progress = math.Clamp((now - started_at) / duration * 100, 0, 100)
 
-	if action == "saw_head" then
-		local _, rag, saw_victim = MODE.GetFiberwireSawTarget(ply)
-		aim_ent, other_ply = rag, saw_victim
-	else
-		aim_ent, other_ply, trace = MODE.GetPlayerTraceToOtherVictim(ply, victim)
+	if CLIENT then
+		if now > ready_at + 1 then MODE.StopBreakingOtherNeck(ply) end
+		return
 	end
-	
-	if(IsValid(aim_ent) and (aim_ent:IsPlayer() or aim_ent:IsRagdoll()))then
-		local can_continue = IsValid(victim) and victim:Alive() and other_ply == victim
-		if action == "saw_head" then
-			can_continue = can_continue and MODE.CanPlayerSawHeadWithFiberwire(ply, aim_ent, other_ply)
-		else
-			can_continue = can_continue and MODE.CanPlayerBreakOtherNeck(ply, aim_ent)
-		end
 
-		if(can_continue)then
-			local progress_speed = action == "saw_head" and (100 / MODE.FiberwireHeadSawTime) or 300
-			break_data.Progress = break_data.Progress + FrameTime() * progress_speed
+	local can_continue, aim_ent = MODE.ValidateNeckBreakInteraction(ply, victim, action, true)
+	if can_continue then
 
-			if(SERVER and action == "saw_head" and (break_data.NextSawSound or 0) <= CurTime())then
-				break_data.NextSawSound = CurTime() + 0.75
+			if(action == "saw_head" and (break_data.NextSawSound or 0) <= now)then
+				break_data.NextSawSound = now + 0.75
 				aim_ent:EmitSound("physics/flesh/flesh_squishy_impact_hard" .. math.random(1, 4) .. ".wav", 55, math.random(80, 95), 0.45)
 
 				if hg and hg.organism and hg.organism.AddWoundManual and aim_ent.organism then
@@ -620,21 +723,20 @@ function MODE.ContinueBreakingOtherNeck(ply)
 				end
 			end
 			
-			if(break_data.Progress >= 100)then
-				if(SERVER)then
-					if(action == "saw_head")then
-						MODE.SawOffOtherHead(ply, break_data.Victim, aim_ent)
-					else
-						MODE.BreakOtherNeck(ply, break_data.Victim, aim_ent)
-					end
+			if(now >= ready_at)then
+				local completed
+				if(action == "saw_head")then
+					MODE.SawOffOtherHead(ply, victim, aim_ent)
+					completed = true
+				else
+					completed = MODE.BreakOtherNeck(ply, victim, aim_ent)
 				end
-				
-				
+
+				if completed then
+					ply.HMCDNextNeckBreakAttempt = now + MODE.NeckBreakSuccessCooldown
+				end
 				MODE.StopBreakingOtherNeck(ply)
 			end
-		else
-			MODE.StopBreakingOtherNeck(ply)
-		end
 	else
 		MODE.StopBreakingOtherNeck(ply)
 	end

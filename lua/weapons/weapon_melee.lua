@@ -1052,7 +1052,8 @@ function SWEP:Attack(owner, ent, vellen, attacktype, inattackLength)
 
         tr.start = eyetr.StartPos
         tr.endpos = eyetr.StartPos + normal:Forward() * (self:GetAttackLength() + vellen)
-        tr.filter = self.MultiDmg1 and {owner, ent} or self.HitEnts
+		local traceFilter = self.MultiDmg1 and {ent} or table.Copy(self.HitEnts)
+		tr.filter = hg.AddOwnCharacterEntitiesToFilter(traceFilter, owner)
 
         local size = 0.15
 
@@ -1735,6 +1736,7 @@ function SWEP:CustomThink()
 
             local dmg = math.random(self.DamagePrimary - 3, self.DamagePrimary + 3)
             blockMul = 1
+			if hg.IsOwnCharacterEntity(owner, ent) then goto meleeskip1 end
 
             if !shouldhit then
                 goto meleeskip1
@@ -1918,6 +1920,7 @@ function SWEP:CustomThink()
 
             local dmg = math.random(self.DamageSecondary - 3, self.DamageSecondary + 3)
             blockMul = 1
+			if hg.IsOwnCharacterEntity(owner, ent) then goto meleeskip2 end
 
             if !shouldhit then
                 goto meleeskip2
@@ -2058,6 +2061,7 @@ function SWEP:CustomThink()
 
             local dmg = math.random(self.DamagePrimary - 3, self.DamagePrimary + 3)
             blockMul = 1
+			if hg.IsOwnCharacterEntity(owner, ent) then goto meleeskip3 end
 
             if !shouldhit then
                 goto meleeskip3

@@ -75,7 +75,10 @@ PLUGIN.Bullet_StandartMask = MASK_SHOT
 		bullet.Pos = bullet.Pos or bullet.Src
 		bullet.Shooter = bullet.Shooter or bullet.Attacker
 		bullet.Size = bullet.Size or bullet.HullSize or 0
-		bullet.TraceFilter = bullet.TraceFilter or bullet.IgnoreEntity
+		bullet.TraceFilter = bullet.TraceFilter or bullet.Filter or bullet.IgnoreEntity
+		if hg.AddOwnCharacterEntitiesToFilter and IsValid(bullet.Shooter) and not bullet.Shooter.suiciding then
+			bullet.TraceFilter = hg.AddOwnCharacterEntitiesToFilter(bullet.TraceFilter, bullet.Shooter)
+		end
 		bullet.AmmoID = bullet.AmmoID or bullet.AmmoType
 		bullet.TraceMask = bullet.TraceMask or PLUGIN.Bullet_StandartMask
 		

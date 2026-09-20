@@ -1,5 +1,5 @@
 local lowGraphics = CreateClientConVar("hg_low_graphics", "0", true, false, "Force Source engine to lowest quality and enable lighter Homigrad effects", 0, 1)
-local multicore = CreateClientConVar("hg_multicore", "0", true, false, "Use extra CPU threads for rendering. Can crash", 0, 1)
+local multicore = CreateClientConVar("hg_multicore", "1", true, false, "Use extra CPU threads for rendering. Can crash", 0, 1)
 
 local MISSING = "__missing__"
 local lowPrefix = "hg_lowgfx_"
@@ -46,6 +46,27 @@ local multicoreProfile = {
 	r_threaded_particles = 1,
 	r_queued_ropes = 1
 }
+
+local optimizationDefaults = {
+	"hg_multicore",
+	"hg_player_occlusion",
+	"hg_player_occlusion_full"
+}
+local optimizationDefaultsCookie = "hg_optimization_defaults_v1"
+
+local function applyOptimizationDefaults()
+	if cookie.GetNumber(optimizationDefaultsCookie, 0) >= 1 then return true end
+
+	for i = 1, #optimizationDefaults do
+		if not GetConVar(optimizationDefaults[i]) then return false end
+	end
+
+	for i = 1, #optimizationDefaults do
+		RunConsoleCommand(optimizationDefaults[i], "1")
+	end
+	cookie.Set(optimizationDefaultsCookie, "1")
+	return true
+end
 
 local function applyProfile(profile, prefix, on)
 	local pending = false
@@ -94,5 +115,15 @@ cvars.AddChangeCallback("hg_multicore", function()
 	timer.Simple(0, applyAll)
 end, "HG.Multicore")
 
-hook.Add("InitPostEntity", "HG.GraphicsProfiles", applyAll)
+hook.Add("InitPostEntity", "HG.GraphicsProfiles", function()
+	if not applyOptimizationDefaults() then
+		timer.Create("HG.OptimizationDefaults", 0.5, 20, function()
+			if applyOptimizationDefaults() then
+				timer.Remove("HG.OptimizationDefaults")
+				applyAll()
+			end
+		end)
+	end
+	applyAll()
+end)
 timer.Simple(0, applyAll)
