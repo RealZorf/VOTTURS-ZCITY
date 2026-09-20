@@ -1132,9 +1132,6 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		org.sendPlyTime = CurTime() + 1 + (not isPly and 2 or 0)
 		send_bareinfo(org)
 
-		org.owner:SetNetVar("wounds", org.wounds)
-		org.owner:SetNetVar("arterialwounds", org.arterialwounds)
-
 		if isPly and owner:Alive() then
 			send_organism(org, owner)
 		end

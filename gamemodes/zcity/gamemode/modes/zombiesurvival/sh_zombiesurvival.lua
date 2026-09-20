@@ -7,8 +7,8 @@ MODE.start_time = 5
 MODE.end_time = 7
 MODE.ROUND_TIME = 360
 MODE.InfectionDelay = 30
-MODE.FastZombieRespawnDelay = 5
-MODE.ZombieRespawnDelay = 15
+MODE.FastZombieRespawnDelay = 10
+MODE.ZombieRespawnDelay = 25
 MODE.ZombieCameraSpawnMinDistance = 650
 MODE.ZombieCameraSpawnVerticalTolerance = 96
 MODE.ZombieCameraSpawnVisibilityDistance = 2200
@@ -16,9 +16,9 @@ MODE.ZombieCameraSpawnViewDot = 0.3
 MODE.ZombieCameraSpawnMaxDrop = 256
 MODE.ZombieCameraSpawnSearchRadius = 64
 MODE.PoisonZombieInterval = 90
-MODE.ZombieConsumeTime = 4
+MODE.ZombieConsumeTime = 3
 MODE.ZombieConsumeReach = 100
-MODE.ZombieConsumeHealthRestore = 45
+MODE.ZombieConsumeHealthRestore = 55
 
 MODE.ZombieBuffs = {
 	headcrabzombie = {maxHealth = 355, movement = 1.25, meleeDamage = 1.05, doorDamage = 105},

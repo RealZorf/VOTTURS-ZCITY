@@ -293,6 +293,7 @@ else
     		if IsValid(entity) then
     			local index = entity:EntIndex()
     			for k, v in pairs(data) do
+                    if hg.WoundNet and hg.WoundNet.IsWoundKey and hg.WoundNet.IsWoundKey(k) then continue end
     				entEntries[#entEntries + 1] = { index, k, v }
     			end
     		else
@@ -300,6 +301,7 @@ else
     		end
     	end
     	syncEnqueueChunks(self, 3, entEntries)
+        if hg.WoundNet and hg.WoundNet.ForceViewer then hg.WoundNet.ForceViewer(self) end
     end
 	
     function playerMeta:GetLocalVar(key, default)
@@ -323,6 +325,11 @@ else
     end
 
     function entityMeta:GetNetVar(key, default)
+		if hg.WoundNet and hg.WoundNet.GetLegacyValue then
+			local handled, value = hg.WoundNet.GetLegacyValue(self, key)
+			if handled then return value != nil and value or default end
+		end
+
     	if (zb.net.list[self] and zb.net.list[self][key] != nil) then
     		return zb.net.list[self][key]
     	end
@@ -332,6 +339,7 @@ else
 
     function entityMeta:SetNetVar(key, value, receiver)
     	if (CheckBadType(key, value)) then return end
+		if hg.WoundNet and hg.WoundNet.HandleLegacySet and hg.WoundNet.HandleLegacySet(self, key, value) then return end
 
 		zb.net.list[self] = zb.net.list[self] or {}
 
@@ -345,6 +353,11 @@ else
 	end
 
     function entityMeta:SendNetVar(key, receiver)
+		if hg.WoundNet and hg.WoundNet.IsWoundKey and hg.WoundNet.IsWoundKey(key) then
+			if hg.WoundNet.HandleLegacySet then hg.WoundNet.HandleLegacySet(self, key, self:GetNetVar(key)) end
+			return
+		end
+
     	net.Start("zbNetVarSet")
     	net.WriteUInt(self:EntIndex(), 16)
     	net.WriteString(key)
@@ -358,6 +371,7 @@ else
     end
 
     function entityMeta:ClearNetVars(receiver)
+		if hg.WoundNet and hg.WoundNet.EntityRemoved then hg.WoundNet.EntityRemoved(self) end
     	zb.net.list[self] = nil
     	zb.net.locals[self] = nil
 
