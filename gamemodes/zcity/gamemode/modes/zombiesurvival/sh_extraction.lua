@@ -2,7 +2,7 @@ local MODE = MODE
 
 MODE.ExtractionRevealTime = 90
 MODE.ExtractionOpenTime = 60
-MODE.ExtractionHoldTime = 10
+MODE.ExtractionHoldTime = 5
 MODE.ExtractionSpawnBuffer = 650
 MODE.ExtractionFallbackDistance = 1800
 
@@ -101,7 +101,7 @@ if SERVER then
         end
         if remaining <= self.ExtractionOpenTime and not self.ExtractionOpened then
             self.ExtractionOpened = true
-            PrintMessage(HUD_PRINTTALK, "Extraction is OPEN! Survivors: stay inside for 10 seconds to escape.")
+            PrintMessage(HUD_PRINTTALK, "Extraction is OPEN! Survivors: stay inside for 5 seconds to escape.")
         end
         if not self.ExtractionOpened then return end
         for _, ply in player.Iterator() do
@@ -144,7 +144,7 @@ else
         local y = math.Clamp(screen.y, 150, ScrH() - 170)
         if not screen.visible then x, y = ScrW() / 2, ScrH() - 170 end
         local remaining = GetGlobalFloat("ZS_RoundEndsAt") - CurTime()
-        local status = remaining > MODE.ExtractionOpenTime and ("OPENS IN " .. math.ceil(remaining - MODE.ExtractionOpenTime) .. "s") or "OPEN — HOLD 8s INSIDE"
+        local status = remaining > MODE.ExtractionOpenTime and ("OPENS IN " .. math.ceil(remaining - MODE.ExtractionOpenTime) .. "s") or "OPEN — HOLD 5s INSIDE"
         local distance = math.Round(ply:EyePos():Distance(pos) * 0.0254)
         draw.SimpleTextOutlined("EXTRACTION " .. GetGlobalString("ZS_ExtractionSite") .. " • " .. distance .. "m", "ZC_ZS_Status", x, y, Color(30, 220, 100), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, color_black)
         draw.SimpleTextOutlined(status, "ZC_ZS_SpawnReason", x, y + 25, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, color_black)
