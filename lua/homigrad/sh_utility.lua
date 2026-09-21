@@ -1040,29 +1040,161 @@ local IsValid = IsValid
 --
 --\\ Calculate Weight 
 
-	function hg.CalculateWeight(ply,maxweight)
+	local carryWeightAmmoForce = {}
+	local carryWeightRawNW = "hgCarryWeightRaw"
+	local carryWeightVersionNW = "hgCarryWeightVersion"
+
+	local function ComputeCarryWeightRaw(ply)
 		local weight = 0
+		local weapons = ply:GetWeapons()
 
-		local weps = ply:GetWeapons()
-
-		for i,wep in ipairs(weps) do
+		for i = 1, #weapons do
+			local wep = weapons[i]
 			weight = weight + (wep.weight or 1)
 		end
 
-		weight = math.max(weight - 1,0)
+		weight = math.max(weight - 1, 0)
 
-		local ammo = ply:GetAmmo()
-		for id,count in pairs(ammo) do
-			weight = weight + (game.GetAmmoForce(id) * count) / 1500
+		for ammoID, count in pairs(ply:GetAmmo()) do
+			local ammoForce = carryWeightAmmoForce[ammoID]
+			if ammoForce == nil then
+				ammoForce = game.GetAmmoForce(ammoID) or 0
+				carryWeightAmmoForce[ammoID] = ammoForce
+			end
+
+			weight = weight + ammoForce * count / 1500
 		end
 
-		ply.armors = ply:GetNetVar("Armor",{})
-		for plc,arm in pairs(ply.armors) do
-			weight = weight + (hg.armor[plc][arm].mass or 1)
+		local armors = ply:GetNetVar("Armor", ply.armors or {})
+		ply.armors = armors
+
+		for placement, armorName in pairs(armors) do
+			local placementData = hg.armor and hg.armor[placement]
+			local armorData = placementData and placementData[armorName]
+			if armorData then weight = weight + (armorData.mass or 1) end
 		end
 
-		local weightmul = (1 / (weight / maxweight + 1))
-		return weightmul
+		return weight
+	end
+
+	hg.ComputeCarryWeightRaw = ComputeCarryWeightRaw
+
+	function hg.RebuildCarryWeight(ply, forcePublish)
+		if not IsValid(ply) or not ply:IsPlayer() then return 0 end
+
+		local previous = ply.hgCarryWeightRaw
+		local weight = ComputeCarryWeightRaw(ply)
+		local changed = previous == nil or math.abs(previous - weight) > 0.0001
+		ply.hgCarryWeightRaw = weight
+		ply.hgCarryWeightDirty = nil
+
+		if SERVER and (changed or forcePublish or ply.hgCarryWeightVersion == nil) then
+			ply.hgCarryWeightVersion = (ply.hgCarryWeightVersion or 0) + 1
+			ply:SetNW2Float(carryWeightRawNW, weight)
+			ply:SetNW2Int(carryWeightVersionNW, ply.hgCarryWeightVersion)
+		end
+
+		return weight, changed
+	end
+
+	function hg.InvalidateCarryWeight(ply)
+		if not IsValid(ply) or not ply:IsPlayer() then return end
+
+		ply.hgCarryWeightDirty = true
+		if CLIENT or ply.hgCarryWeightRebuildQueued then return end
+
+		ply.hgCarryWeightRebuildQueued = true
+		timer.Simple(0, function()
+			if not IsValid(ply) then return end
+			ply.hgCarryWeightRebuildQueued = nil
+			if ply.hgCarryWeightDirty then hg.RebuildCarryWeight(ply, true) end
+		end)
+	end
+
+	function hg.GetRawCarryWeight(ply)
+		if not IsValid(ply) or not ply:IsPlayer() then return 0 end
+
+		if CLIENT then
+			local networkWeight = ply:GetNW2Float(carryWeightRawNW, -1)
+			if networkWeight >= 0 then return networkWeight end
+			if ply.hgCarryWeightRaw == nil then ply.hgCarryWeightRaw = ComputeCarryWeightRaw(ply) end
+			return ply.hgCarryWeightRaw
+		end
+
+		if ply.hgCarryWeightRaw == nil or ply.hgCarryWeightDirty then
+			return hg.RebuildCarryWeight(ply, ply.hgCarryWeightRaw == nil)
+		end
+
+		return ply.hgCarryWeightRaw
+	end
+
+	function hg.CalculateWeight(ply, maxweight)
+		maxweight = math.max(tonumber(maxweight) or 140, 1)
+		return 1 / (hg.GetRawCarryWeight(ply) / maxweight + 1)
+	end
+
+	if SERVER then
+		local weaponOwners = setmetatable({}, {__mode = "k"})
+		local carryWeightReconcileInterval = CreateConVar("hg_carry_weight_reconcile_interval", "5", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Seconds over which uncaught carry-weight mutations are reconciled.", 1, 60)
+
+		local function InvalidateWeaponOwner(wep, owner)
+			local previousOwner = IsValid(wep) and weaponOwners[wep] or nil
+			if IsValid(previousOwner) and previousOwner ~= owner then hg.InvalidateCarryWeight(previousOwner) end
+			if IsValid(wep) then weaponOwners[wep] = owner end
+			if IsValid(owner) then hg.InvalidateCarryWeight(owner) end
+		end
+
+		hook.Add("WeaponEquip", "hg_carry_weight_weapon_equip", function(wep, ply)
+			InvalidateWeaponOwner(wep, ply)
+		end)
+
+		hook.Add("PlayerDroppedWeapon", "hg_carry_weight_weapon_drop", function(ply, wep)
+			if IsValid(wep) then weaponOwners[wep] = nil end
+			hg.InvalidateCarryWeight(ply)
+		end)
+
+		hook.Add("EntityRemoved", "hg_carry_weight_weapon_removed", function(ent)
+			local owner = weaponOwners[ent]
+			weaponOwners[ent] = nil
+			if IsValid(owner) then hg.InvalidateCarryWeight(owner) end
+		end)
+
+		hook.Add("PlayerAmmoChanged", "hg_carry_weight_ammo_changed", function(ply)
+			hg.InvalidateCarryWeight(ply)
+		end)
+
+		hook.Add("PlayerSpawn", "hg_carry_weight_spawn", function(ply)
+			ply.hgCarryWeightRaw = nil
+			hg.InvalidateCarryWeight(ply)
+		end)
+
+		local reconcileIndex = 0
+		timer.Create("hg_carry_weight_reconcile", 0.5, 0, function()
+			local players = player.GetAll()
+			local count = #players
+			if count == 0 then return end
+
+			local interval = carryWeightReconcileInterval:GetFloat()
+			local batchSize = math.max(1, math.ceil(count / math.max(interval * 2, 1)))
+			local minimumAge = interval * 0.75
+			local now = CurTime()
+
+			for i = 1, batchSize do
+				reconcileIndex = reconcileIndex % count + 1
+				local ply = players[reconcileIndex]
+				if not IsValid(ply) or now - (ply.hgCarryWeightLastReconcile or 0) < minimumAge then continue end
+
+				ply.hgCarryWeightLastReconcile = now
+				local weight = ComputeCarryWeightRaw(ply)
+				if ply.hgCarryWeightRaw == nil or math.abs(ply.hgCarryWeightRaw - weight) > 0.0001 then
+					ply.hgCarryWeightRaw = weight
+					ply.hgCarryWeightDirty = nil
+					ply.hgCarryWeightVersion = (ply.hgCarryWeightVersion or 0) + 1
+					ply:SetNW2Float(carryWeightRawNW, weight)
+					ply:SetNW2Int(carryWeightVersionNW, ply.hgCarryWeightVersion)
+				end
+			end
+		end)
 	end
 --
 --\\ Shared custom ragdoll mass

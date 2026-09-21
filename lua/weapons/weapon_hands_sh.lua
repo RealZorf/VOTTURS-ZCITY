@@ -1637,8 +1637,13 @@ end
 function SWEP:SetCarrying(ent, bone, pos, dist)
 	local owner = self:GetOwner()
 	if not IsValid(owner) then return end
+	local previousCarryEnt = self.CarryEnt
 
 	if IsValid(ent) or game.GetWorld() == ent then
+		if SERVER and IsValid(previousCarryEnt) and previousCarryEnt ~= ent and previousCarryEnt:IsRagdoll() then
+			hg.EndRagdollCollisionInteraction(previousCarryEnt, self)
+		end
+
 		local severedCarry = false
 		if ent:GetNWBool("IsSeveredLimb", false) then
 			local rootPhysNum = ent:GetNWInt("SeveredRootPhys", -1)
@@ -1688,7 +1693,15 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 
 			owner:SetNetVar("carrymass",self.CarryEnt:GetPhysicsObjectNum(self.CarryBone):GetMass())
 		end
+
+		if SERVER and self.CarryEnt:IsRagdoll() then
+			hg.BeginRagdollCollisionInteraction(self.CarryEnt, self, "carry_primary")
+		end
 	else
+		if SERVER and IsValid(previousCarryEnt) and previousCarryEnt:IsRagdoll() then
+			hg.EndRagdollCollisionInteraction(previousCarryEnt, self)
+		end
+
 		self:StopPulseCheck(owner, true)
 
 		if IsValid(self.CarryEnt) and self.CarryEnt:GetCustomCollisionCheck() then
@@ -2337,6 +2350,9 @@ function hg.SetCarryEnt2(ply, ent, bone, mass, carrypos, targetpos, targetang, d
 		local ent2 = ply:GetNetVar("carryent2")
 
 		if IsValid(ent2) then
+			if SERVER and ent2:IsRagdoll() then
+				hg.EndRagdollCollisionInteraction(ent2, ply)
+			end
 			hg.RemoveCarryEnt2(ent2)
 		end
 
@@ -2379,6 +2395,10 @@ function hg.SetCarryEnt2(ply, ent, bone, mass, carrypos, targetpos, targetang, d
 			local _, targetang = WorldToLocal(vector_origin, targetang or phys:GetAngles(), vector_origin, ang)
 
 			heldents[ent:EntIndex()] = {ent, ply, dist, targetpos, bone ~= -1 and physnum or 0, carrypos, targetang}
+
+			if SERVER and ent:IsRagdoll() then
+				hg.BeginRagdollCollisionInteraction(ent, ply, "carry_secondary")
+			end
 		end
 	end
 end

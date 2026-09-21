@@ -47,6 +47,7 @@ hg = hg or {}
 hg._queuedCollisionRuleRefresh = hg._queuedCollisionRuleRefresh or {}
 hg._queuedCollisionGroupChanges = hg._queuedCollisionGroupChanges or {}
 hg._queuedCustomCollisionChecks = hg._queuedCustomCollisionChecks or {}
+hg._queuedRagdollSleeps = hg._queuedRagdollSleeps or {}
 
 function hg.QueueCollisionRulesChanged(ent)
 	if not IsValid(ent) then return end
@@ -154,6 +155,237 @@ if SERVER then
 				ent:CollisionRulesChanged()
 			end
 		end
+
+		for rag in pairs(hg._queuedRagdollSleeps) do
+			hg._queuedRagdollSleeps[rag] = nil
+
+			if IsValid(rag) and rag.hg_ragdollCollisionState == "settled" then
+				for i = 0, rag:GetPhysicsObjectCount() - 1 do
+					local phys = rag:GetPhysicsObjectNum(i)
+					if IsValid(phys) then phys:Sleep() end
+				end
+			end
+		end
+	end)
+end
+
+hg.RagdollCollisionState = hg.RagdollCollisionState or {
+	ACTIVE = "active",
+	FAST = "fast",
+	INTERACTING = "interacting",
+	MOVING = "moving",
+	SETTLED = "settled"
+}
+
+if SERVER then
+	local ragdollState = hg.RagdollCollisionState
+	local ragdollStateGroups = {
+		[ragdollState.ACTIVE] = COLLISION_GROUP_WEAPON,
+		[ragdollState.FAST] = COLLISION_GROUP_NONE,
+		[ragdollState.INTERACTING] = COLLISION_GROUP_WEAPON,
+		[ragdollState.MOVING] = COLLISION_GROUP_WEAPON,
+		[ragdollState.SETTLED] = COLLISION_GROUP_DEBRIS
+	}
+
+	local function WakeRagdollPhysics(rag)
+		for i = 0, rag:GetPhysicsObjectCount() - 1 do
+			local phys = rag:GetPhysicsObjectNum(i)
+			if IsValid(phys) then phys:Wake() end
+		end
+	end
+
+	local function SleepRagdollPhysics(rag)
+		for i = 0, rag:GetPhysicsObjectCount() - 1 do
+			local phys = rag:GetPhysicsObjectNum(i)
+			if IsValid(phys) then phys:Sleep() end
+		end
+	end
+
+	function hg.SetRagdollCollisionState(rag, state, immediate)
+		if not IsValid(rag) or not rag:IsRagdoll() then return false end
+
+		local collisionGroup = ragdollStateGroups[state]
+		if collisionGroup == nil then return false end
+
+		local previousState = rag.hg_ragdollCollisionState
+		rag.hg_ragdollCollisionState = state
+		rag.hg_corpseSettled = state == ragdollState.SETTLED and true or nil
+
+		local queuedGroup = hg._queuedCollisionGroupChanges[rag]
+		if rag:GetCollisionGroup() ~= collisionGroup or (queuedGroup ~= nil and queuedGroup ~= collisionGroup) then
+			if immediate then
+				hg.ApplySetCollisionGroupNow(rag, collisionGroup)
+			else
+				hg.SafeSetCollisionGroup(rag, collisionGroup)
+			end
+		end
+
+		if state == ragdollState.SETTLED and previousState ~= ragdollState.SETTLED then
+			if immediate then
+				SleepRagdollPhysics(rag)
+			else
+				hg._queuedRagdollSleeps[rag] = true
+			end
+		else
+			hg._queuedRagdollSleeps[rag] = nil
+		end
+
+		if state ~= ragdollState.SETTLED and (previousState == ragdollState.SETTLED or (state == ragdollState.INTERACTING and previousState ~= ragdollState.INTERACTING)) then
+			WakeRagdollPhysics(rag)
+		end
+
+		return true
+	end
+
+	local function InteractionStillActive(rag, token, interactionType)
+		if interactionType == "carry_primary" then
+			return IsValid(token) and token.GetCarrying and token:GetCarrying() == rag
+		end
+
+		if interactionType == "carry_secondary" then
+			return IsValid(token) and token:IsPlayer() and token:GetNetVar("carryent2") == rag
+		end
+
+		if interactionType == "engine_hold" then
+			return IsValid(token) and rag:IsPlayerHolding()
+		end
+
+		return IsValid(token)
+	end
+
+	function hg.IsRagdollCollisionInteracting(rag)
+		if not IsValid(rag) or not rag:IsRagdoll() then return false end
+		if IsValid(rag:GetParent()) or rag:IsPlayerHolding() then return true end
+
+		local interactions = rag.hg_ragdollCollisionInteractions
+		if not interactions then return false end
+
+		local active = false
+		for token, interactionType in pairs(interactions) do
+			if InteractionStillActive(rag, token, interactionType) then
+				active = true
+			else
+				interactions[token] = nil
+			end
+		end
+
+		if not active then rag.hg_ragdollCollisionInteractions = nil end
+		return active
+	end
+
+	function hg.BeginRagdollCollisionInteraction(rag, token, interactionType)
+		if not IsValid(rag) or not rag:IsRagdoll() or token == nil then return end
+
+		rag.hg_ragdollCollisionInteractions = rag.hg_ragdollCollisionInteractions or {}
+		rag.hg_ragdollCollisionInteractions[token] = interactionType or true
+		rag.hg_corpseLastActive = CurTime()
+		hg.SetRagdollCollisionState(rag, ragdollState.INTERACTING)
+	end
+
+	function hg.EndRagdollCollisionInteraction(rag, token)
+		if not IsValid(rag) or not rag:IsRagdoll() then return end
+
+		local interactions = rag.hg_ragdollCollisionInteractions
+		if interactions and token ~= nil then interactions[token] = nil end
+		rag.hg_corpseLastActive = CurTime()
+
+		if not hg.IsRagdollCollisionInteracting(rag) then
+			hg.RefreshRagdollCollisionState(rag, nil, true)
+			return
+		end
+
+		timer.Simple(0, function()
+			if IsValid(rag) and not hg.IsRagdollCollisionInteracting(rag) then
+				hg.RefreshRagdollCollisionState(rag, nil, true)
+			end
+		end)
+	end
+
+	function hg.IsLiveManagedRagdoll(rag, owner)
+		if not IsValid(rag) or not rag:IsRagdoll() then return false end
+
+		if not IsValid(owner) or not owner:IsPlayer() then
+			owner = hg.RagdollOwner and hg.RagdollOwner(rag) or nil
+		end
+
+		if not IsValid(owner) or not owner:IsPlayer() then
+			local networkOwner = rag:GetNWEntity("ply")
+			if IsValid(networkOwner) and networkOwner:IsPlayer() then owner = networkOwner end
+		end
+
+		if IsValid(owner) and owner:IsPlayer() and owner:Alive() and owner.FakeRagdoll == rag then
+			return true, owner
+		end
+
+		local organismAlive = rag.organism and rag.organism.alive == true or false
+		return organismAlive, owner
+	end
+
+	function hg.RefreshRagdollCollisionState(rag, owner, forceMoving)
+		if not IsValid(rag) or not rag:IsRagdoll() then return end
+
+		if hg.IsRagdollCollisionInteracting(rag) then
+			return hg.SetRagdollCollisionState(rag, ragdollState.INTERACTING)
+		end
+
+		local isLive, liveOwner = hg.IsLiveManagedRagdoll(rag, owner)
+		if isLive then
+			if IsValid(liveOwner) and (liveOwner.lastFake or 0) > 0 then
+				return hg.SetRagdollCollisionState(rag, ragdollState.ACTIVE)
+			end
+
+			local state = rag:GetVelocity():LengthSqr() > 200 * 200 and ragdollState.FAST or ragdollState.ACTIVE
+			return hg.SetRagdollCollisionState(rag, state)
+		end
+
+		if not forceMoving and (rag.hg_ragdollCollisionState == ragdollState.SETTLED or rag.hg_corpseSettled) then
+			return hg.SetRagdollCollisionState(rag, ragdollState.SETTLED)
+		end
+
+		local state = rag:GetVelocity():LengthSqr() > 200 * 200 and ragdollState.FAST or ragdollState.MOVING
+		return hg.SetRagdollCollisionState(rag, state)
+	end
+
+	local function CollisionRagdoll(ent)
+		if not IsValid(ent) then return end
+		if ent:IsRagdoll() then return ent end
+		if ent:IsPlayer() and IsValid(ent.FakeRagdoll) then return ent.FakeRagdoll end
+	end
+
+	hook.Add("OnPhysgunPickup", "hg_ragdoll_collision_interaction", function(ply, ent)
+		local rag = CollisionRagdoll(ent)
+		if IsValid(rag) then hg.BeginRagdollCollisionInteraction(rag, ply, "engine_hold") end
+	end)
+
+	hook.Add("PhysgunDrop", "hg_ragdoll_collision_interaction", function(ply, ent)
+		local rag = CollisionRagdoll(ent)
+		if IsValid(rag) then hg.EndRagdollCollisionInteraction(rag, ply) end
+	end)
+
+	hook.Add("GravGunOnPickedUp", "hg_ragdoll_collision_interaction", function(ply, ent)
+		local rag = CollisionRagdoll(ent)
+		if IsValid(rag) then hg.BeginRagdollCollisionInteraction(rag, ply, "engine_hold") end
+	end)
+
+	hook.Add("GravGunOnDropped", "hg_ragdoll_collision_interaction", function(ply, ent)
+		local rag = CollisionRagdoll(ent)
+		if IsValid(rag) then hg.EndRagdollCollisionInteraction(rag, ply) end
+	end)
+
+	hook.Add("GravGunPunt", "hg_ragdoll_collision_punt", function(_, ent)
+		local rag = CollisionRagdoll(ent)
+		if not IsValid(rag) then return end
+
+		rag.hg_corpseLastActive = CurTime()
+		hg.RefreshRagdollCollisionState(rag, nil, true)
+	end)
+
+	hook.Add("PostEntityTakeDamage", "hg_ragdoll_collision_damage", function(ent, dmgInfo, tookDamage)
+		if tookDamage == false or not IsValid(ent) or not ent:IsRagdoll() then return end
+		if not dmgInfo or dmgInfo:GetDamageForce():LengthSqr() <= 1 then return end
+
+		ent.hg_corpseLastActive = CurTime()
+		hg.RefreshRagdollCollisionState(ent, nil, true)
 	end)
 end
 

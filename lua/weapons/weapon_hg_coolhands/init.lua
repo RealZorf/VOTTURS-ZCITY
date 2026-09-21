@@ -415,8 +415,13 @@ end
 function SWEP:SetCarrying(ent, bone, pos, dist)
 	local owner = self:GetOwner()
 	if not IsValid(owner) then return end
+	local previousCarryEnt = self.CarryEnt
 
 	if IsValid(ent) or game.GetWorld() == ent then
+		if IsValid(previousCarryEnt) and previousCarryEnt ~= ent and previousCarryEnt:IsRagdoll() then
+			hg.EndRagdollCollisionInteraction(previousCarryEnt, self)
+		end
+
 		self.CarryEnt = ent
 		self.CarryBone = bone
 		self.CarryDist = dist
@@ -452,11 +457,19 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 
 			owner:SetNetVar("carrymass",self.CarryEnt:GetPhysicsObjectNum(self.CarryBone):GetMass())
 		end
+
+		if self.CarryEnt:IsRagdoll() then
+			hg.BeginRagdollCollisionInteraction(self.CarryEnt, self, "carry_primary")
+		end
 	else
+		if IsValid(previousCarryEnt) and previousCarryEnt:IsRagdoll() then
+			hg.EndRagdollCollisionInteraction(previousCarryEnt, self)
+		end
+
 		if IsValid(self.CarryEnt) and self.CarryEnt:GetCustomCollisionCheck() then
 			hg.SafeCollisionRulesChanged(self.CarryEnt)
 			hg.SafeCollisionRulesChanged(owner)
-			--self.CarryEnt:SetCustomCollisionCheck(false)
+			//self.CarryEnt:SetCustomCollisionCheck(false)
 		end
 
 		if IsValid(owner:GetNetVar("carryent")) then

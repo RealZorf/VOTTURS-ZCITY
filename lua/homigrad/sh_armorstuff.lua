@@ -815,6 +815,7 @@ local entityMeta = FindMetaTable("Entity")
 function entityMeta:SyncArmor()
 	if self.armors then
 		self:SetNetVar("Armor", self.armors)
+		if SERVER and self:IsPlayer() and hg.InvalidateCarryWeight then hg.InvalidateCarryWeight(self) end
 		local rag = hg.GetCurrentCharacter(self)
 		if IsValid(rag) and rag:IsRagdoll() then
 			rag:SetNetVar("Armor", self.armors)

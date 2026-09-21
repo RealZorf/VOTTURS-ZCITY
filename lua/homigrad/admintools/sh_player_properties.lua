@@ -58,7 +58,7 @@ end
 
 local function canTargetPlayer(actor, target)
 	if not IsValid(actor) or not IsValid(target) or not target:IsPlayer() then return false end
-	if target ~= actor and target:IsAdmin() and not actor:IsSuperAdmin() then return false end
+	if target ~= actor and target:IsAdmin() and not actor:ZCTools_GetAccess(true) then return false end
 	return true
 end
 

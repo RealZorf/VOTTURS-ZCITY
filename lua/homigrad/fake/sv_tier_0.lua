@@ -172,7 +172,7 @@ function hg.Ragdoll_Create(ply)
 	ragdoll:Spawn()
 	ragdoll:Activate()
 	ragdoll:SetModelScale(1, 0)
-	hg.ApplySetCollisionGroupNow(ragdoll, COLLISION_GROUP_WEAPON)
+	hg.SetRagdollCollisionState(ragdoll, hg.RagdollCollisionState.ACTIVE, true)
 	ragdoll:AddEFlags(EFL_NO_DAMAGE_FORCES + EFL_DONTBLOCKLOS)
 	--ragdoll:AddFlags(FL_NOTARGET)
 	--ply:AddFlags(FL_NOTARGET)
@@ -1604,7 +1604,6 @@ hook.Add("Move","PushAwayRagdolls",function(ply, mv)
 end)]]
 
 local mRandom = math.random
-local IsLiveManagedRagdoll
 local function PushManagedRagdollAway(rag, awayDir, speed)
 	if not IsValid(rag) then return end
 	if awayDir:LengthSqr() <= 0.0001 then return end
@@ -1640,30 +1639,25 @@ hook.Add("Ragdoll Collide", "FallSounds", function(rag, data)
 end)
 
 local hg_corpse_settle_delay = ConVarExists("hg_corpse_settle_delay") and GetConVar("hg_corpse_settle_delay") or CreateConVar("hg_corpse_settle_delay", "10", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Delay before settled corpse ragdolls are put to sleep.", 0, 300)
+local hg_corpse_sleep_velocity = ConVarExists("hg_corpse_sleep_velocity") and GetConVar("hg_corpse_sleep_velocity") or CreateConVar("hg_corpse_sleep_velocity", "16", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Maximum linear velocity for a corpse to be considered settled.", 0, 500)
+local hg_corpse_sleep_ang_velocity = ConVarExists("hg_corpse_sleep_ang_velocity") and GetConVar("hg_corpse_sleep_ang_velocity") or CreateConVar("hg_corpse_sleep_ang_velocity", "35", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Maximum angular velocity for a corpse to be considered settled.", 0, 1000)
 local hg_corpse_cleanup_max = ConVarExists("hg_corpse_cleanup_max") and GetConVar("hg_corpse_cleanup_max") or CreateConVar("hg_corpse_cleanup_max", "18", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Maximum amount of inactive corpse ragdolls before oldest ones start getting cleaned up. 0 disables corpse culling.", 0, 128)
 local hg_corpse_cleanup_age = ConVarExists("hg_corpse_cleanup_age") and GetConVar("hg_corpse_cleanup_age") or CreateConVar("hg_corpse_cleanup_age", "45", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Minimum corpse age before the automatic ragdoll cleanup can remove it.", 0, 1800)
 local hg_corpse_cleanup_player_radius = ConVarExists("hg_corpse_cleanup_player_radius") and GetConVar("hg_corpse_cleanup_player_radius") or CreateConVar("hg_corpse_cleanup_player_radius", "350", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Corpses near living players are preserved by the automatic ragdoll cleanup.", 0, 5000)
-
-IsLiveManagedRagdoll = function(rag)
-	if not IsValid(rag) then return false end
-
-	local owner = hg.RagdollOwner(rag)
-	if not IsValid(owner) then
-		owner = rag:GetNWEntity("ply")
-	end
-
-	return IsValid(owner) and owner:IsPlayer() and owner:Alive()
-end
 
 timer.Create("hg_fake_ragdoll_bodyblock", 0.04, 0, function()
 	return
 end)
 
 local function RagdollIsSettled(rag)
+	local maxVelocitySqr = hg_corpse_sleep_velocity:GetFloat() ^ 2
+	local maxAngularVelocitySqr = hg_corpse_sleep_ang_velocity:GetFloat() ^ 2
+
 	for i = 0, rag:GetPhysicsObjectCount() - 1 do
 		local phys = rag:GetPhysicsObjectNum(i)
 		if not IsValid(phys) then continue end
-		if phys:GetVelocity():LengthSqr() > 256 then return false end
+		if phys:GetVelocity():LengthSqr() > maxVelocitySqr then return false end
+		if phys:GetAngleVelocity():LengthSqr() > maxAngularVelocitySqr then return false end
 	end
 
 	return true
@@ -1682,15 +1676,7 @@ local function HasNearbyLivingPlayer(pos, radius)
 end
 
 local function SettleCorpseRagdoll(rag)
-	if rag.hg_corpseSettled then return end
-
-	rag.hg_corpseSettled = true
-	hg.SafeSetCollisionGroup(rag, COLLISION_GROUP_DEBRIS)
-
-	for i = 0, rag:GetPhysicsObjectCount() - 1 do
-		local phys = rag:GetPhysicsObjectNum(i)
-		if IsValid(phys) then phys:Sleep() end
-	end
+	hg.SetRagdollCollisionState(rag, hg.RagdollCollisionState.SETTLED)
 end
 
 timer.Create("hg_corpse_optimizer", 5, 0, function()
@@ -1702,20 +1688,21 @@ timer.Create("hg_corpse_optimizer", 5, 0, function()
 
 		rag.hg_corpseSpawnTime = rag.hg_corpseSpawnTime or now
 
-		if IsLiveManagedRagdoll(rag) or IsValid(rag:GetParent()) or rag:GetCustomCollisionCheck() then
-			rag.hg_corpseSettled = nil
-
-			if rag:GetCollisionGroup() == COLLISION_GROUP_DEBRIS then
-				hg.SafeSetCollisionGroup(rag, COLLISION_GROUP_WEAPON)
-			end
-
+		local isLive = hg.IsLiveManagedRagdoll(rag)
+		local isInteracting = hg.IsRagdollCollisionInteracting(rag)
+		if isLive or isInteracting then
+			rag.hg_corpseLastActive = now
+			hg.RefreshRagdollCollisionState(rag)
 			continue
 		end
 
 		corpses[#corpses + 1] = rag
 
-		if (now - rag.hg_corpseSpawnTime) >= hg_corpse_settle_delay:GetFloat() and RagdollIsSettled(rag) then
+		local settleReference = math.max(rag.hg_corpseSpawnTime, rag.hg_corpseLastActive or 0)
+		if (now - settleReference) >= hg_corpse_settle_delay:GetFloat() and RagdollIsSettled(rag) then
 			SettleCorpseRagdoll(rag)
+		else
+			hg.RefreshRagdollCollisionState(rag, nil, true)
 		end
 	end
 

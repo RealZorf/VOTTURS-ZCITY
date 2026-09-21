@@ -11,6 +11,12 @@ ESP.NextToggle = 0
 local adminESPEye = ConVarExists("zb_espeye") and GetConVar("zb_espeye") or CreateClientConVar("zb_espeye", "0", true, false, "Show admin ESP eye trace line")
 local adminESPTextColor = Color(235, 235, 235)
 local adminESPWeaponColor = Color(255, 200, 100)
+local adminESPSpectatorColor = Color(170, 215, 255, 220)
+local adminESPSpectatorTextColor = Color(215, 235, 255)
+local adminESPGhostMaterial = Material("sprites/light_glow02_add")
+local adminESPMetersToUnits = 52.49
+local adminESPSpectatorCacheFrame = -1
+local adminESPSpectatorCache = {}
 
 local adminESPUserGroups = {
 	["superadmin"] = true,
@@ -131,6 +137,107 @@ local function ShouldDrawAdminESPFor(localPly, target)
 	return IsValid(GetAdminESPEntity(target))
 end
 
+local function IsAdminESPSpectator(ply)
+	return IsValid(ply) and (ply:Team() == TEAM_SPECTATOR or not ply:Alive())
+end
+
+local function GetAdminESPSpectatorCharacter(ply)
+	local target = ply:GetNWEntity("spect", NULL)
+	local ent = ply:GetNWEntity("spect_ragdoll", NULL)
+	if IsValid(ent) then return ent, target end
+	if not IsValid(target) then return NULL, NULL end
+
+	ent = hg.GetCurrentCharacter and hg.GetCurrentCharacter(target) or target
+	return IsValid(ent) and ent or target, target
+end
+
+local function GetAdminESPEntityEye(ent)
+	if not IsValid(ent) then return end
+	if ent:IsPlayer() then return ent:EyePos(), ent:EyeAngles(), false end
+
+	local attachmentID = ent.LookupAttachment and ent:LookupAttachment("eyes") or 0
+	if attachmentID and attachmentID > 0 then
+		local attachment = ent:GetAttachment(attachmentID)
+		if attachment and isvector(attachment.Pos) then return attachment.Pos, attachment.Ang, true end
+	end
+
+	local headBone = ent.LookupBone and ent:LookupBone("ValveBiped.Bip01_Head1")
+	local headMatrix = headBone and ent:GetBoneMatrix(headBone)
+	if headMatrix then return headMatrix:GetTranslation(), headMatrix:GetAngles(), false end
+
+	return ent:WorldSpaceCenter(), ent:GetAngles(), false
+end
+
+local function GetAdminESPSpectatorView(ply)
+	local viewMode = ply:GetNWInt("viewmode", 3)
+	local viewAngles = ply:EyeAngles()
+	if viewMode == 3 then return ply:EyePos(), viewAngles end
+
+	local ent, target = GetAdminESPSpectatorCharacter(ply)
+	if not IsValid(ent) then return ply:EyePos(), viewAngles end
+
+	local eyePos, eyeAngles, usedEyeAttachment = GetAdminESPEntityEye(ent)
+	eyePos = eyePos or ply:EyePos()
+	if viewMode == 2 then
+		local tr = util.TraceHull({
+			start = eyePos,
+			endpos = eyePos - viewAngles:Forward() * 120,
+			filter = {ent, ply, target},
+			mins = Vector(-4, -4, -4),
+			maxs = Vector(4, 4, 4),
+		})
+
+		return tr.HitPos + viewAngles:Forward() * 8, viewAngles
+	end
+
+	if IsValid(target) and (ent == target or not usedEyeAttachment) then
+		eyeAngles = target:EyeAngles()
+	end
+
+	eyeAngles = eyeAngles or viewAngles
+	return eyePos + eyeAngles:Forward() * (ent ~= target and 3 or 8), eyeAngles
+end
+
+local function GetAdminESPSpectators(localPly, origin)
+	local frame = FrameNumber()
+	if adminESPSpectatorCacheFrame == frame then return adminESPSpectatorCache end
+
+	local maxDistSqr = zb.ESPPerf and zb.ESPPerf.GetMaxDistanceSqr() or math.huge
+	local targets = {}
+
+	for _, target in player.Iterator() do
+		if target == localPly or not IsAdminESPSpectator(target) then continue end
+
+		local pos, ang = GetAdminESPSpectatorView(target)
+		if not isvector(pos) or not isangle(ang) then continue end
+
+		local distSqr = origin:DistToSqr(pos)
+		if distSqr > maxDistSqr then continue end
+
+		targets[#targets + 1] = {
+			ply = target,
+			pos = pos,
+			ang = ang,
+			distSqr = distSqr,
+		}
+	end
+
+	table.sort(targets, function(a, b)
+		return a.distSqr < b.distSqr
+	end)
+
+	adminESPSpectatorCacheFrame = frame
+	adminESPSpectatorCache = targets
+	return targets
+end
+
+local function GetAdminESPSpectatorStatus(ply)
+	if ply:GetNWInt("viewmode", 3) == 3 then return "Freecam" end
+
+	local target = ply:GetNWEntity("spect", NULL)
+	return IsValid(target) and ("Watching " .. target:Nick()) or "Spectating"
+end
+
 local function GetAdminESPLabelTopPos(ent)
 	local maxs = ent:OBBMaxs()
 
@@ -189,25 +296,46 @@ function ESP:SetupHooks()
 	end)
 
 	hook.Add("PreDrawHUD", "ZB_AdminESP_EyeTrace", function()
-		if not adminESPEye:GetBool() then return end
 		if not IsAdminESPActive() then return end
 		if not CanUseAdminESP(LocalPlayer()) then return end
 
 		local ply = LocalPlayer()
+		local showEyes = adminESPEye:GetBool()
 		local useRoleMode = IsAdminESPRoleMode()
-		local targets = zb.ESPPerf and zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity, nil, "admin_eye") or {}
+		local targets = showEyes and zb.ESPPerf and zb.ESPPerf.BuildTargets(ply, ShouldDrawAdminESPFor, GetAdminESPEntity, nil, "admin_eye") or {}
+		local spectators = GetAdminESPSpectators(ply, EyePos())
 
-		if #targets == 0 then return end
+		if #targets == 0 and #spectators == 0 then return end
 
 		cam.Start3D()
-			for i = 1, #targets do
-				local target = targets[i].ply
-				local col = GetAdminESPColor(target, useRoleMode)
-				local eyePos = target:EyePos()
-				local endPos = eyePos + target:EyeAngles():Forward() * 10000
+			cam.IgnoreZ(true)
 
-				render.DrawLine(eyePos, endPos, col, true)
+			render.SetMaterial(adminESPGhostMaterial)
+			for i = 1, #spectators do
+				render.DrawSprite(spectators[i].pos, 10, 10, adminESPSpectatorColor)
 			end
+
+			render.SetColorMaterial()
+			for i = 1, #spectators do
+				local entry = spectators[i]
+				render.DrawWireframeSphere(entry.pos, 5, 8, 6, adminESPSpectatorColor, true)
+
+				if showEyes then
+					render.DrawLine(entry.pos, entry.pos + entry.ang:Forward() * 10000, adminESPSpectatorColor, true)
+				end
+			end
+
+			if showEyes then
+				for i = 1, #targets do
+					local target = targets[i].ply
+					local col = GetAdminESPColor(target, useRoleMode)
+					local eyePos = target:EyePos()
+
+					render.DrawLine(eyePos, eyePos + target:EyeAngles():Forward() * 10000, col, true)
+				end
+			end
+
+			cam.IgnoreZ(false)
 		cam.End3D()
 	end)
 
@@ -244,6 +372,18 @@ function ESP:SetupHooks()
 			end
 
 			draw.SimpleTextOutlined(GetAdminESPWeaponLabel(target:GetActiveWeapon()), "TargetIDSmall", bottomScreen.x, bottomScreen.y + 5, adminESPWeaponColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, color_black)
+		end
+
+
+		local spectators = GetAdminESPSpectators(ply, origin)
+		for i = 1, #spectators do
+			local entry = spectators[i]
+			local screen = entry.pos:ToScreen()
+			if not screen.visible then continue end
+
+			local distance = math.floor(math.sqrt(entry.distSqr) / adminESPMetersToUnits)
+			draw.SimpleTextOutlined(entry.ply:Nick() .. " [spectator]", "TargetIDSmall", screen.x, screen.y - 10, adminESPSpectatorColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, color_black)
+			draw.SimpleTextOutlined(GetAdminESPSpectatorStatus(entry.ply) .. " | " .. distance .. " m", "TargetIDSmall", screen.x, screen.y + 5, adminESPSpectatorTextColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, color_black)
 		end
 	end)
 end

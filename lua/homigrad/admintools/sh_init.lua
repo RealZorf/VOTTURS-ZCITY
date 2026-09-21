@@ -15,11 +15,17 @@ hg.AdminTools = hg.AdminTools or {}
 
 local plyMeta = FindMetaTable("Player")
 
-function plyMeta:ZCTools_GetAccess( bSAdmin ) 
-    if bSAdmin and self:IsSuperAdmin() then return true end
-    if not bSAdmin and self:IsAdmin() then return true end
-    
-    return false
+local ZCToolsFullAccessGroups = {
+    staffmanager = true,
+    headadmin = true,
+}
+
+function plyMeta:ZCTools_GetAccess( bSAdmin )
+    local group = self.GetUserGroup and string.lower(tostring(self:GetUserGroup() or "")) or ""
+    local hasFullAccess = self:IsSuperAdmin() or ZCToolsFullAccessGroups[group] == true
+
+    if bSAdmin then return hasFullAccess end
+    return hasFullAccess or self:IsAdmin()
 end
 
 if CLIENT then

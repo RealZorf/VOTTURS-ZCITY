@@ -653,7 +653,180 @@ local blackmans = {
 
 local hg, LocalToWorld = hg, LocalToWorld
 local durachok = "models/epangelmatikes/e3_elite_suit.mdl"
-local TPIK_SOLVER_VERSION = 2
+local TPIK_SOLVER_VERSION = 3
+local tpikRemoteNearFPS = CreateClientConVar("hg_tpik_remote_near_fps", "30", true, false, "Remote TPIK solve rate at close range.", 1, 120)
+local tpikRemoteMidFPS = CreateClientConVar("hg_tpik_remote_mid_fps", "20", true, false, "Remote TPIK solve rate at medium range.", 1, 120)
+local tpikRemoteFarFPS = CreateClientConVar("hg_tpik_remote_far_fps", "10", true, false, "Remote TPIK solve rate at long range.", 1, 120)
+local tpikRemoteNearDistance = CreateClientConVar("hg_tpik_remote_near_distance", "384", true, false, "Close-range boundary for remote TPIK solving.", 64, 2048)
+local tpikRemoteMidDistance = CreateClientConVar("hg_tpik_remote_mid_distance", "768", true, false, "Medium-range boundary for remote TPIK solving.", 64, 4096)
+local tpikViewFrame = -1
+local tpikViewOrigin = Vector()
+local tpikConfigFrame = -1
+local tpikNearDistance = 384
+local tpikMidDistance = 768
+local tpikHysteresis = 64
+local tpikNearInterval = 1 / 30
+local tpikMidInterval = 1 / 20
+local tpikFarInterval = 1 / 10
+
+local function updateTPIKConfig()
+    local frame = FrameNumber()
+    if tpikConfigFrame == frame then return end
+
+    tpikConfigFrame = frame
+    tpikNearDistance = tpikRemoteNearDistance:GetFloat()
+    tpikMidDistance = math.max(tpikRemoteMidDistance:GetFloat(), tpikNearDistance)
+    tpikHysteresis = math.min(64, math.max((tpikMidDistance - tpikNearDistance) * 0.2, 16))
+    tpikNearInterval = 1 / tpikRemoteNearFPS:GetFloat()
+    tpikMidInterval = 1 / tpikRemoteMidFPS:GetFloat()
+    tpikFarInterval = 1 / tpikRemoteFarFPS:GetFloat()
+end
+
+local function getTPIKViewOrigin()
+    local frame = FrameNumber()
+    if tpikViewFrame == frame then return tpikViewOrigin end
+
+    tpikViewFrame = frame
+    local view = render.GetViewSetup(true)
+    if view and isvector(view.origin) then
+        tpikViewOrigin:Set(view.origin)
+    elseif IsValid(lply) then
+        tpikViewOrigin:Set(lply:EyePos())
+    end
+
+    return tpikViewOrigin
+end
+
+local function getTPIKSolveInterval(ply, ent)
+    if not IsValid(lply) then return 0, false end
+
+    local spectated = lply:GetNWEntity("spect")
+    local observed = lply:GetObserverTarget()
+    if ply == lply or ply == spectated or ply == observed or ent == observed then return 0, false end
+
+    updateTPIKConfig()
+    local distanceSqr = ent:GetPos():DistToSqr(getTPIKViewOrigin())
+    local previousTier = ply.ZCTPIKDistanceTier
+    local tier = previousTier
+
+    if tier == 1 then
+        local threshold = tpikNearDistance + tpikHysteresis
+        if distanceSqr > threshold * threshold then tier = 2 end
+    elseif tier == 2 then
+        local nearThreshold = math.max(tpikNearDistance - tpikHysteresis, 0)
+        local farThreshold = tpikMidDistance + tpikHysteresis
+        if distanceSqr < nearThreshold * nearThreshold then
+            tier = 1
+        elseif distanceSqr > farThreshold * farThreshold then
+            tier = 3
+        end
+    elseif tier == 3 then
+        local threshold = math.max(tpikMidDistance - tpikHysteresis, 0)
+        if distanceSqr < threshold * threshold then tier = 2 end
+    else
+        tier = distanceSqr <= tpikNearDistance * tpikNearDistance and 1 or distanceSqr <= tpikMidDistance * tpikMidDistance and 2 or 3
+    end
+
+    ply.ZCTPIKDistanceTier = tier
+    local changed = previousTier ~= nil and previousTier ~= tier
+    if tier == 1 then return tpikNearInterval, changed end
+    if tier == 2 then return tpikMidInterval, changed end
+    return tpikFarInterval, changed
+end
+
+local function sampleInterpolationLocal(state, index, now, out)
+    local from = state.from[index]
+    local target = state.target[index]
+    if not from or not target then return end
+
+    local duration = state.duration or 0
+    local alpha = duration > 0 and math.Clamp((now - (state.started or now)) / duration, 0, 1) or 1
+    out = out or Vector()
+    out.x = Lerp(alpha, from.x, target.x)
+    out.y = Lerp(alpha, from.y, target.y)
+    out.z = Lerp(alpha, from.z, target.z)
+    return out
+end
+
+local function setInterpolationTarget(ply, key, segments, rootPos, rootAng, now, duration)
+    local state = ply[key]
+    if not state then
+        state = {from = {}, target = {}, sample = {}, display = {}}
+        ply[key] = state
+    end
+
+    for i = 1, 3 do
+        local localPos = WorldToLocal(segments[i].Pos, angle_zero, rootPos, rootAng)
+        local current = state.sample[i] or Vector()
+        state.sample[i] = current
+
+        if state.target[i] then
+            sampleInterpolationLocal(state, i, now, current)
+        else
+            current:Set(localPos)
+        end
+
+        state.from[i] = state.from[i] or Vector()
+        state.target[i] = state.target[i] or Vector()
+        state.from[i]:Set(current)
+        state.target[i]:Set(localPos)
+    end
+
+    state.started = now
+    state.duration = duration
+end
+
+local function restoreSolverTarget(ply, key, segments, rootPos, rootAng)
+    local state = ply[key]
+    if not state then return end
+
+    for i = 1, 3 do
+        local target = state.target[i]
+        if target then
+            local worldPos = LocalToWorld(target, angle_zero, rootPos, rootAng)
+            segments[i].Pos = worldPos
+        end
+    end
+end
+
+local function getInterpolatedSegments(ply, key, source, rootPos, rootAng, now)
+    local state = ply[key]
+    if not state then return source end
+
+    for i = 1, 3 do
+        local localPos = state.sample[i] or Vector()
+        state.sample[i] = localPos
+        if sampleInterpolationLocal(state, i, now, localPos) then
+            local worldPos = LocalToWorld(localPos, angle_zero, rootPos, rootAng)
+            local segment = state.display[i] or {}
+            state.display[i] = segment
+            segment.Pos = worldPos
+            segment.Len = source[i].Len
+        end
+    end
+
+    return state.display
+end
+
+local function handTargetJumped(ply, key, matrix)
+    if not matrix then
+        ply[key] = nil
+        return false
+    end
+
+    local pos = matrix:GetTranslation()
+    if not isvector(pos) then return false end
+
+    local previous = ply[key]
+    local jumped = previous and previous:DistToSqr(pos) > 24 * 24 or false
+    if previous then
+        previous:Set(pos)
+    else
+        ply[key] = Vector(pos.x, pos.y, pos.z)
+    end
+
+    return jumped
+end
 
 function hg.ResetTPIKState(ply)
     if not IsValid(ply) then return end
@@ -705,6 +878,12 @@ function hg.ResetTPIKState(ply)
     ply.ZCTPIKLastWeapon = nil
     ply.ZCTPIKLastModel = nil
     ply.ZCTPIKLastEnt = nil
+    ply.ZCTPIKInterpolationL = nil
+    ply.ZCTPIKInterpolationR = nil
+    ply.ZCTPIKLastHandTargetL = nil
+    ply.ZCTPIKLastHandTargetR = nil
+    ply.ZCTPIKLimbState = nil
+    ply.ZCTPIKDistanceTier = nil
     ply.nextrebuild = 0
 end
 
@@ -1257,12 +1436,24 @@ function hg.DoTPIK(ply, ent)
 
     local lhik2 = ((IsValid(self) and self.lhandik) or ply:InVehicle()) and hg.CanUseLeftHand(ply)
     local rhik2 = ((IsValid(self) and self.rhandik) or ply:InVehicle()) and hg.CanUseRightHand(ply)
-    
-    local shouldrebuild = false
-    if (ply.nextrebuild or 0) < CurTime() then
-        ply.nextrebuild = CurTime() + 0.0
+    local limbState = (lhik2 and 1 or 0) + (rhik2 and 2 or 0)
+    local forceRebuild = ply.ZCTPIKLimbState ~= nil and ply.ZCTPIKLimbState ~= limbState
+    ply.ZCTPIKLimbState = limbState
 
-        shouldrebuild = true
+    if forceRebuild then
+        ply.ZCTPIKInterpolationL = nil
+        ply.ZCTPIKInterpolationR = nil
+    end
+
+    forceRebuild = handTargetJumped(ply, "ZCTPIKLastHandTargetL", ply_l_hand_matrix_old or ply_l_hand_matrix) or forceRebuild
+    forceRebuild = handTargetJumped(ply, "ZCTPIKLastHandTargetR", ply_r_hand_matrix_old or ply_r_hand_matrix) or forceRebuild
+
+    local solveInterval, tierChanged = getTPIKSolveInterval(ply, ent)
+    forceRebuild = forceRebuild or tierChanged
+    local solveTime = CurTime()
+    local shouldrebuild = solveInterval <= 0 or forceRebuild or (ply.nextrebuild or 0) <= solveTime
+    if shouldrebuild then
+        ply.nextrebuild = solveTime + solveInterval
     end
 
     if rhik2 then
@@ -1310,6 +1501,9 @@ function hg.DoTPIK(ply, ent)
     
     local spinepos = ply_spine_matrix:GetTranslation()
     local spineang = ply_spine_matrix:GetAngles()
+    local rootMatrix = ply_pelvis_matrix or ply_spine_matrix
+    local rootPos = rootMatrix:GetTranslation()
+    local rootAng = rootMatrix:GetAngles()
 
     local up = spineang:Up()
     local spinetan = -math.deg(math.atan2(up.x, up.y)) + 180
@@ -1318,6 +1512,7 @@ function hg.DoTPIK(ply, ent)
         local segments = ply.segmentsr
 
         if shouldrebuild then
+            if solveInterval > 0 then restoreSolverTarget(ply, "ZCTPIKInterpolationR", segments, rootPos, rootAng) end
             local old = segments[2] and ((segments[2].Pos - segments[1].Pos):GetNormalized() * 2) or vector_origin
 
             local eyeang = -(-eyeang)
@@ -1379,8 +1574,10 @@ function hg.DoTPIK(ply, ent)
             end--]]
 
             ply.segmentsr = segments
+            if solveInterval > 0 then setInterpolationTarget(ply, "ZCTPIKInterpolationR", segments, rootPos, rootAng, solveTime, solveInterval) end
         end
 
+        if solveInterval > 0 then segments = getInterpolatedSegments(ply, "ZCTPIKInterpolationR", segments, rootPos, rootAng, solveTime) end
         local new = -(-segments[3].Pos)
 
         ply_r_upperarm_matrix:SetTranslation(segments[1].Pos)
@@ -1458,6 +1655,7 @@ function hg.DoTPIK(ply, ent)
         local segments = ply.segmentsl
         
         if shouldrebuild then
+            if solveInterval > 0 then restoreSolverTarget(ply, "ZCTPIKInterpolationL", segments, rootPos, rootAng) end
             local old = segments[2] and ((segments[2].Pos - segments[1].Pos):GetNormalized() * 2) or vector_origin
             local eyeang = -(-eyeang)
             eyeang.p = math.NormalizeAngle(eyeang.p) * 0.5
@@ -1517,8 +1715,10 @@ function hg.DoTPIK(ply, ent)
             end]]
             
             ply.segmentsl = segments
+            if solveInterval > 0 then setInterpolationTarget(ply, "ZCTPIKInterpolationL", segments, rootPos, rootAng, solveTime, solveInterval) end
         end
 
+        if solveInterval > 0 then segments = getInterpolatedSegments(ply, "ZCTPIKInterpolationL", segments, rootPos, rootAng, solveTime) end
         local new = -(-segments[3].Pos)
 
         ply_l_upperarm_matrix:SetTranslation(segments[1].Pos)

@@ -27,9 +27,9 @@ MODE.ShadowCamouflageColorModulation = {
 }
 MODE.FiberwireHeadSawTime = 3.5
 MODE.NeckBreakReach = 65
-MODE.NeckBreakDuration = 0.9
-MODE.NeckBreakAttemptCooldown = 0.35
-MODE.NeckBreakSuccessCooldown = 1.5
+MODE.NeckBreakDuration = 0.45
+MODE.NeckBreakAttemptCooldown = 0.25
+MODE.NeckBreakSuccessCooldown = 1
 MODE.StalkerMarkMax = 3
 MODE.StalkerMarkTime = 0.85
 MODE.StalkerMarkDistance = 3300
