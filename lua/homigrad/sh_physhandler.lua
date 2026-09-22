@@ -184,7 +184,7 @@ if SERVER then
 		[ragdollState.FAST] = COLLISION_GROUP_NONE,
 		[ragdollState.INTERACTING] = COLLISION_GROUP_WEAPON,
 		[ragdollState.MOVING] = COLLISION_GROUP_WEAPON,
-		[ragdollState.SETTLED] = COLLISION_GROUP_DEBRIS
+		[ragdollState.SETTLED] = COLLISION_GROUP_WEAPON
 	}
 
 	local function WakeRagdollPhysics(rag)
