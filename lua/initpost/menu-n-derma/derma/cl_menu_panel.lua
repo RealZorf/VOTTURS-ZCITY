@@ -159,6 +159,7 @@ local splasheh = {
 	'JUST ONE MORE HOTFIX',
 	'SHIP IT.',
 	'JOIN OUR PLAYTEST SERVER TO BE ABUSED',
+	'Слава Україні! Героям слава!',
 }
 
 local Pluv = Material("pluv/pluvkid.jpg")

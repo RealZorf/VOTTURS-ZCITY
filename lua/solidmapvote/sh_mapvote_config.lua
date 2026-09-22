@@ -1281,6 +1281,118 @@ SolidMapVote["Config"]["Specific Maps"] = {
         height = 268
     },
     {
+        filename = "cs_compoud_l4d2",
+        displayname = "CS Compound",
+        image = "https://images.steamusercontent.com/ugc/16645530580067962007/7EFA8CB52EB03096229C59A99367FE9D65EB9592/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_c17_ivaylo",
+        displayname = "CITY 17: Ivaylo",
+        image = "https://images.steamusercontent.com/ugc/15292050407515690129/948DC10C7EF65D3D83636E30482A110A1C4A4AF6/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_coal_mine",
+        displayname = "Coal Mine",
+        image = "https://images.steamusercontent.com/ugc/11516820381627675965/72E0371B899D9018E9BC2E7448339987E11BD271/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_cqb2_pubertfix_v3",
+        displayname = "CQB",
+        image = "https://images.steamusercontent.com/ugc/14800613754725755338/4B205EBCF1B3E7147F8851D750A75B18C7FB2CA4/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_csgoagency",
+        displayname = "Agency",
+        image = "https://images.steamusercontent.com/ugc/929299704287803696/0F6F20A5114CE3E7DF4D367B619F3DE37ED1ADE5/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_csgoaustria",
+        displayname = "Austria",
+        image = "https://images.steamusercontent.com/ugc/949597535532577313/3725E0A715A95BDCBFB704ECEEC1FC5C3B6D931B/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_marquisclean",
+        displayname = "Marquisclean",
+        image = "https://images.steamusercontent.com/ugc/761600337160773657/983B4CC7A353DA5E2D4A1AF3C9182ED093BC9E30/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_port_flax_remastered",
+        displayname = "Port Flax",
+        image = "https://images.steamusercontent.com/ugc/12036103522776445371/FFCAA56C1F872F30AB893A88232771D5C0D215FD/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "hmcd_alexandra",
+        displayname = "Alexandra",
+        image = "https://images.steamusercontent.com/ugc/13800730916391447798/583F4A65928332CD6D12DCF3AA8D21D415D15B51/?imw=637&imh=358&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true",
+        width = 637,
+        height = 358
+    },
+    {
+        filename = "mu_greenwood_2k23",
+        displayname = "Greenwood Extended",
+        image = "https://images.steamusercontent.com/ugc/2037362702158283473/70E37F87CBADFFBD4040D4C71A242493885408FB/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_67thway_christmas_v1",
+        displayname = "67th Way XMAS",
+        image = "https://images.steamusercontent.com/ugc/1661230886757529614/77685F3EC2A70377250730D2B8BCA16DED724988/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_coder",
+        displayname = "Coder",
+        image = "https://images.steamusercontent.com/ugc/351646386179912464/EED34229CDE9329C19C80162558E744016A0E6E1/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_countdown_b2",
+        displayname = "Countdown",
+        image = "https://images.steamusercontent.com/ugc/17249475526860706077/E05615D70FCD4FA0CFA2B2F47851CB0A68843C20/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_glacier",
+        displayname = "Glacier",
+        image = "https://images.steamusercontent.com/ugc/597028518811863340/0366D4A8796574B0CC3C43A51EE956FE395760E0/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_warhawk_g2",
+        displayname = "Warhawk",
+        image = "https://images.steamusercontent.com/ugc/16428815146951663/DD88B6512A8377795D2DF9B8C5382E3893B69C7C/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "zs_lighthouse_revived_v1b",
+        displayname = "Lighthouse Remastered",
+        image = "https://images.steamusercontent.com/ugc/2000198497748727014/87C2E7CF2542405A55D2E0D946BC8315DD06DA2E/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
         filename = "example",
         displayname = "yes",
         image = "",
