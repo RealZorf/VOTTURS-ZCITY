@@ -1448,6 +1448,11 @@ function hg.GetUpPos(target,pos,tries,starttries)
 	local groundDown = math.max(height + 96 * scale, 128)
 	local maxRadius = math.Clamp(math.max(48 * scale, radius * 3), 24, 96)
 	local step = math.max(radius * 1.35, 12)
+	local waterContents = bit.bor(CONTENTS_WATER, CONTENTS_SLIME)
+	local ragdoll = target.FakeRagdoll
+	local inWater = target:WaterLevel() > 0
+		or (IsValid(ragdoll) and ragdoll:WaterLevel() > 0)
+		or bit.band(util.PointContents(pos), waterContents) ~= 0
 
 	local function CheckCandidate(candidate)
 		local groundTrace = util.TraceHull({
@@ -1499,24 +1504,67 @@ function hg.GetUpPos(target,pos,tries,starttries)
 		return standPos, crouchOnly
 	end
 
-	local result, crouchOnly = CheckCandidate(pos)
-	if result then return result, crouchOnly end
+	local function CheckWaterCandidate(candidate)
+		local pathTrace = util.TraceLine({
+			start = pos,
+			endpos = candidate,
+			filter = filter,
+			mask = MASK_PLAYERSOLID,
+			collisiongroup = COLLISION_GROUP_PLAYER
+		})
 
-	local ring = 1
-	while ring * step <= maxRadius do
-		local distance = ring * step
-		local samples = math.min(8 + ring * 2, 18)
-		local phase = ring % 2 == 0 and math.pi / samples or 0
+		if pathTrace.Hit or pathTrace.StartSolid or pathTrace.AllSolid then return end
 
-		for sample = 0, samples - 1 do
-			local angle = phase + sample / samples * math.pi * 2
-			local candidate = pos + Vector(math.cos(angle) * distance, math.sin(angle) * distance, 0)
-			result, crouchOnly = CheckCandidate(candidate)
-			if result then return result, crouchOnly end
+		local function HullIsClear(origin, hullMaxs)
+			local spaceTrace = util.TraceHull({
+				start = origin,
+				endpos = origin,
+				mins = mins,
+				maxs = hullMaxs,
+				filter = filter,
+				mask = MASK_PLAYERSOLID,
+				collisiongroup = COLLISION_GROUP_PLAYER
+			})
+
+			return not (spaceTrace.Hit or spaceTrace.StartSolid or spaceTrace.AllSolid)
 		end
 
-		ring = ring + 1
+		local standPos = candidate - Vector(0, 0, standingHeight * 0.5)
+		if HullIsClear(standPos, standingMaxs) then return standPos, false end
+
+		local crouchPos = candidate - Vector(0, 0, height * 0.5)
+		if HullIsClear(crouchPos, maxs) then return crouchPos, true end
 	end
+
+	local function FindCandidate(check)
+		local result, crouchOnly = check(pos)
+		if result then return result, crouchOnly end
+
+		local ring = 1
+		while ring * step <= maxRadius do
+			local distance = ring * step
+			local samples = math.min(8 + ring * 2, 18)
+			local phase = ring % 2 == 0 and math.pi / samples or 0
+
+			for sample = 0, samples - 1 do
+				local angle = phase + sample / samples * math.pi * 2
+				local candidate = pos + Vector(math.cos(angle) * distance, math.sin(angle) * distance, 0)
+				result, crouchOnly = check(candidate)
+				if result then return result, crouchOnly end
+			end
+
+			ring = ring + 1
+		end
+	end
+
+	local result, crouchOnly
+	if inWater then
+		result, crouchOnly = FindCandidate(CheckWaterCandidate)
+		if result then return result, crouchOnly end
+	end
+
+	result, crouchOnly = FindCandidate(CheckCandidate)
+	if result then return result, crouchOnly end
 end
 /*
 local ent = Entity(1)
