@@ -54,9 +54,13 @@ local visualClassModels = {
 
 local function ClearClientBoneCaches(ent)
 	if not IsValid(ent) then return end
+	if hg.ClearBoneTopologyCache then hg.ClearBoneTopologyCache(ent) end
 
 	ent.ZCTPIKBoneCache = nil
 	ent.ZCTPIKBoneCacheModel = nil
+	ent.ZCTPIKBoneCacheCount = nil
+	ent.ZCTPIKBoneCacheCreationID = nil
+	ent.ZCTPIKBoneCacheValidateAt = nil
 	ent.ZCCameraBoneCache = nil
 	ent.ZCCameraBoneCacheModel = nil
 	ent.ZCCameraAttachmentCache = nil

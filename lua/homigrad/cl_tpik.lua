@@ -299,12 +299,27 @@ local function cachedLookupBone(ent, boneName)
     if not IsValid(ent) or not ent.LookupBone then return end
 
     local model = ent.GetModel and ent:GetModel() or ""
-    if ent.ZCTPIKBoneCacheModel ~= model then
+    local boneCount = ent:GetBoneCount()
+    local creationID = ent.GetCreationID and ent:GetCreationID() or ent:EntIndex()
+    if ent.ZCTPIKBoneCacheModel ~= model or ent.ZCTPIKBoneCacheCount ~= boneCount or ent.ZCTPIKBoneCacheCreationID ~= creationID then
         ent.ZCTPIKBoneCacheModel = model
+        ent.ZCTPIKBoneCacheCount = boneCount
+        ent.ZCTPIKBoneCacheCreationID = creationID
+        ent.ZCTPIKBoneCacheValidateAt = 0
         ent.ZCTPIKBoneCache = {}
     end
 
     local cache = ent.ZCTPIKBoneCache
+    if (ent.ZCTPIKBoneCacheValidateAt or 0) <= CurTime() then
+        ent.ZCTPIKBoneCacheValidateAt = CurTime() + 1
+        for cachedName, cachedBone in pairs(cache) do
+            if cachedBone ~= false and (cachedBone < 0 or cachedBone >= boneCount or ent:GetBoneName(cachedBone) ~= cachedName) then
+                table.Empty(cache)
+                break
+            end
+        end
+    end
+
     local bone = cache[boneName]
     if bone == nil then
         bone = ent:LookupBone(boneName)
@@ -653,7 +668,7 @@ local blackmans = {
 
 local hg, LocalToWorld = hg, LocalToWorld
 local durachok = "models/epangelmatikes/e3_elite_suit.mdl"
-local TPIK_SOLVER_VERSION = 3
+local TPIK_SOLVER_VERSION = 4
 local tpikRemoteNearFPS = CreateClientConVar("hg_tpik_remote_near_fps", "30", true, false, "Remote TPIK solve rate at close range.", 1, 120)
 local tpikRemoteMidFPS = CreateClientConVar("hg_tpik_remote_mid_fps", "20", true, false, "Remote TPIK solve rate at medium range.", 1, 120)
 local tpikRemoteFarFPS = CreateClientConVar("hg_tpik_remote_far_fps", "10", true, false, "Remote TPIK solve rate at long range.", 1, 120)
@@ -833,6 +848,9 @@ function hg.ResetTPIKState(ply)
 
     ply.ZCTPIKBoneCache = nil
     ply.ZCTPIKBoneCacheModel = nil
+    ply.ZCTPIKBoneCacheCount = nil
+    ply.ZCTPIKBoneCacheCreationID = nil
+    ply.ZCTPIKBoneCacheValidateAt = nil
     ply.lhold = nil
     ply.rhold = nil
     ply.last_lh = nil
@@ -911,13 +929,14 @@ local function validSegmentPos(segment)
     return segment and isvector(segment.Pos) and segment.Pos.x == segment.Pos.x and segment.Pos.y == segment.Pos.y and segment.Pos.z == segment.Pos.z
 end
 
-local function validSegmentChain(segments)
+local function validSegmentChain(segments, maxSegmentLength)
     if not segments then return true end
     if not validSegmentPos(segments[1]) or not validSegmentPos(segments[2]) or not validSegmentPos(segments[3]) then return false end
 
     local upperToForearm = segments[1].Pos:DistToSqr(segments[2].Pos)
     local forearmToHand = segments[2].Pos:DistToSqr(segments[3].Pos)
-    return upperToForearm > 0.01 and forearmToHand > 0.01 and upperToForearm < 14400 and forearmToHand < 14400
+    local maxLengthSqr = (maxSegmentLength or 120) ^ 2
+    return upperToForearm > 0.01 and forearmToHand > 0.01 and upperToForearm < maxLengthSqr and forearmToHand < maxLengthSqr
 end
 
 local function hasBadArmSegments(ply, origin)
@@ -1309,23 +1328,35 @@ local function solve(segments, iter, pool)
     return segments
 end
 
-local function getCachedBoneLength(ply, bone)
-    local model = ply:GetModel() or ""
-    local scale = ply.GetModelScale and ply:GetModelScale() or 1
+local function getCachedBoneLength(ply, ent, bone)
+    if not IsValid(ent) or not isnumber(bone) or bone < 0 then return end
+
+    local model = ent:GetModel() or ""
+    local scale = ent.GetModelScale and ent:GetModelScale() or 1
+    local boneCount = ent:GetBoneCount()
+    local creationID = ent.GetCreationID and ent:GetCreationID() or ent:EntIndex()
     local cache = ply.BonesLength
 
-    if not cache or cache.model ~= model or cache.scale ~= scale then
-        cache = {model = model, scale = scale}
+    if not cache or cache.ent ~= ent or cache.model ~= model or cache.scale ~= scale or cache.boneCount ~= boneCount or cache.creationID ~= creationID then
+        cache = {ent = ent, model = model, scale = scale, boneCount = boneCount, creationID = creationID}
         ply.BonesLength = cache
     end
 
-    local length = cache[bone]
+    if bone >= boneCount then return end
+    local boneName = ent:GetBoneName(bone)
+    if not boneName or boneName == "__INVALIDBONE__" then return end
+
+    local length = cache[boneName]
     if length == nil then
-        length = ply:BoneLength(bone)
-        cache[bone] = length or false
+        length = ent:BoneLength(bone)
+        if not isnumber(length) or length ~= length or length <= 0 or length > 128 * math.max(scale, 1) then
+            return
+        end
+
+        cache[boneName] = length
     end
 
-    return length == false and nil or length
+    return length
 end
 
 local function ensureArmSegments( segments, upperarmMatrix, forearmMatrix, handMatrix, limbLength )
@@ -1484,7 +1515,7 @@ function hg.DoTPIK(ply, ent)
 
     --if lerp_rh == 0 and lerp_lh == 0 then return end
 
-    local limblength = getCachedBoneLength(ply, ply_l_forearm_index)
+    local limblength = getCachedBoneLength(ply, ent, ply_l_forearm_index)
 
     if !limblength or limblength == 0 then limblength = 12 end
 
@@ -1578,6 +1609,10 @@ function hg.DoTPIK(ply, ent)
         end
 
         if solveInterval > 0 then segments = getInterpolatedSegments(ply, "ZCTPIKInterpolationR", segments, rootPos, rootAng, solveTime) end
+        if not validSegmentChain(segments, math.max(limblength * 3, 48)) then
+            hg.ResetTPIKState(ply)
+            return
+        end
         local new = -(-segments[3].Pos)
 
         ply_r_upperarm_matrix:SetTranslation(segments[1].Pos)
@@ -1719,6 +1754,10 @@ function hg.DoTPIK(ply, ent)
         end
 
         if solveInterval > 0 then segments = getInterpolatedSegments(ply, "ZCTPIKInterpolationL", segments, rootPos, rootAng, solveTime) end
+        if not validSegmentChain(segments, math.max(limblength * 3, 48)) then
+            hg.ResetTPIKState(ply)
+            return
+        end
         local new = -(-segments[3].Pos)
 
         ply_l_upperarm_matrix:SetTranslation(segments[1].Pos)

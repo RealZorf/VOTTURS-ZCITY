@@ -1,7 +1,8 @@
 --\\ CL Bones
 	if CLIENT then
-		local childrenCacheVersion = 2
+		local childrenCacheVersion = 3
 		local cached_children = hg.cached_children_version == childrenCacheVersion and istable(hg.cached_children) and hg.cached_children or {}
+		setmetatable(cached_children, {__mode = "k"})
 		hg.cached_children = cached_children
 		hg.cached_children_version = childrenCacheVersion
 		hook.Add("PostCleanupMap", "just_in_case_children", function()
@@ -9,28 +10,38 @@
 		end)
 
 		local entmeta = FindMetaTable("Entity")
+		local function clearChildrenCache(ent)
+			if IsValid(ent) then cached_children[ent] = nil end
+		end
+
+		hg.ClearBoneTopologyCache = clearChildrenCache
 
 		hg.SetModel = hg.SetModel or entmeta.SetModel
 
 		function entmeta:SetModel(mdl)
 			self.setmodeltimer = CurTime()
+			clearChildrenCache(self)
 
 			return hg.SetModel(self, mdl)
 		end
 		
-		local function recursive_get_children(ent, bone, bones, endbone)
+		local function recursive_get_children(ent, bone, bones, endbone, visited)
+			visited = visited or {}
+			if visited[bone] then return end
+			visited[bone] = true
+
 			local children = ent:GetChildBones(bone)
 			-- this should stay local since this is a recursive function
 
-			if #children > 0 then
+			if istable(children) and #children > 0 then
 				local id
 
 				for i = 1, #children do
 					id = children[i]
 
-					if id == endbone then continue end
+					if id == endbone or visited[id] then continue end
 
-					recursive_get_children(ent, id, bones, endbone)
+					recursive_get_children(ent, id, bones, endbone, visited)
 
 					bones[#bones + 1] = id
 				end
@@ -39,22 +50,39 @@
 
 		hg.recursive_get_children = recursive_get_children
 		
+		local function getEntityChildrenCache(ent)
+			local model = ent:GetModel() or ""
+			local boneCount = ent:GetBoneCount()
+			local creationID = ent.GetCreationID and ent:GetCreationID() or ent:EntIndex()
+			local entityCache = cached_children[ent]
+
+			if not entityCache or entityCache.model ~= model or entityCache.boneCount ~= boneCount or entityCache.creationID ~= creationID then
+				entityCache = {
+					model = model,
+					boneCount = boneCount,
+					creationID = creationID,
+					roots = {}
+				}
+				cached_children[ent] = entityCache
+			end
+
+			return entityCache
+		end
+
 		function hg.get_children(ent, bone, endbone, copyResult)
+			if not IsValid(ent) then return end
 			bone = isstring(bone) and ent:LookupBone(bone) or bone
 			endbone = isstring(endbone) and ent:LookupBone(endbone) or endbone
 
 			if not bone or isstring(bone) or bone == -1 then return end
-			local model = ent:GetModel() or ""
-			local modelCache = cached_children[model]
-			if not modelCache then
-				modelCache = {}
-				cached_children[model] = modelCache
-			end
+			local entityCache = getEntityChildrenCache(ent)
+			if bone >= entityCache.boneCount then return end
+			if endbone ~= nil and (not isnumber(endbone) or endbone < 0 or endbone >= entityCache.boneCount) then endbone = nil end
 
-			local boneCache = modelCache[bone]
+			local boneCache = entityCache.roots[bone]
 			if not boneCache then
 				boneCache = {}
-				modelCache[bone] = boneCache
+				entityCache.roots[bone] = boneCache
 			end
 
 			local endboneKey = endbone or -1
@@ -62,7 +90,7 @@
 			if bones then return copyResult and table.Copy(bones) or bones end
 
 			bones = {}
-			recursive_get_children(ent, bone, bones, endbone)
+			recursive_get_children(ent, bone, bones, endbone, {})
 			boneCache[endboneKey] = bones
 			return copyResult and table.Copy(bones) or bones
 		end
@@ -78,6 +106,7 @@
 			if not inv_matrix then return end -- this is shit...
 
 			local children = hg.get_children(ent, bone, endbone)
+			if not children then return end
 
 			local translate = new_matrix * inv_matrix
 
