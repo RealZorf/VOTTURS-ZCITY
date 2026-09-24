@@ -10,6 +10,7 @@ local riotWeapons = {
     "weapon_brick",
     "weapon_hammer",
     "weapon_pocketknife",
+    "weapon_switchblade",
     "weapon_pan",
     "weapon_hg_shovel",
     "weapon_bat"

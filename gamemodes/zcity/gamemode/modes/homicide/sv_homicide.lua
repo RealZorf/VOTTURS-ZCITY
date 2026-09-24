@@ -60,6 +60,7 @@ MODE.LootTable = {
 		{10,"weapon_hg_wrench"},
 		{8,"weapon_brick"},
 		{10,"weapon_pocketknife"},
+		{10,"weapon_switchblade"},
 
 		{4,"weapon_bat"},
 		{3.5,"weapon_batmetal"},
@@ -215,6 +216,7 @@ MODE.LootTableStandard = {
 		{10,"weapon_hg_wrench"},
 		{8,"weapon_brick"},
 		{10,"weapon_pocketknife"},
+		{10,"weapon_switchblade"},
 
 		{4,"weapon_bat"},
 		{3.5,"weapon_batmetal"},

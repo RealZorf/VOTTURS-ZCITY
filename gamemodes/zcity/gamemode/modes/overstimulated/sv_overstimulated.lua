@@ -287,6 +287,7 @@ MODE.LootTable = {
 		{8,"weapon_bandage_sh"},
 		{5,"weapon_medkit_sh"},
 		{5,"weapon_pocketknife"},
+		{5,"weapon_switchblade"},
 		{5,"weapon_bat"},
 		{5,"weapon_leadpipe"},
 		{5,"weapon_hammer"},
