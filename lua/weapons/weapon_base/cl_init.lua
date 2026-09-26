@@ -71,6 +71,7 @@ local color_crt_soft = Color(160, 255, 200)
 local color_traitor_soft = Color(255, 160, 160)
 local color_idle = Color(172, 180, 174)
 local color_bezel = Color(8, 9, 9)
+local infoHeaderH
 
 local function CreateWeaponInfoFonts()
 	surface.CreateFont("WepInfo_CRT_Header", {
@@ -87,6 +88,8 @@ local function CreateWeaponInfoFonts()
 		antialias = true,
 		extended = true
 	})
+	surface.SetFont("WepInfo_CRT_Header")
+	_, infoHeaderH = surface.GetTextSize("1")
 end
 
 CreateWeaponInfoFonts()
@@ -232,7 +235,7 @@ function SWEP:PrintWeaponInfo(x, y, alpha)
 	surface.DrawRect(innerX, innerY, innerW, innerH)
 	surface.SetDrawColor(activeR, activeG, activeB, alpha * 0.16)
 	surface.DrawRect(innerX, innerY, innerW, headerH)
-	DrawWeaponInfoText("INTEL-01", "WepInfo_CRT_Header", x + panelW * 0.5, innerY + 1, activeColor, TEXT_ALIGN_CENTER, alpha)
+	DrawWeaponInfoText("INTEL-01", "WepInfo_CRT_Header", x + panelW * 0.5, innerY + (headerH - infoHeaderH) * 0.5, activeColor, TEXT_ALIGN_CENTER, alpha)
 
 	local boxX = innerX
 	local boxY = innerY + headerH + INFO_PAD

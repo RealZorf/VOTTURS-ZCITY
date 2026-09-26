@@ -48,6 +48,7 @@ local slotNums = { [0] = "1", "2", "3", "4", "5", "6" }
 local textWidthCache = {}
 local printNameCache = {}
 local caretW
+local slotNumH
 local frameAlpha = 0
 local now = 0
 
@@ -66,6 +67,8 @@ local function CreateCRTFonts()
 		antialias = true,
 		extended = true
 	})
+	surface_SetFont("WS_CRT_Slot")
+	_, slotNumH = surface_GetTextSize("1")
 	textWidthCache = {}
 	caretW = nil
 end
@@ -424,7 +427,7 @@ function WS.WeaponSelectorDraw( ply )
         surface_DrawRect(innerX, innerY, innerW, innerH)
         surface_SetDrawColor(accentR, accentG, accentB, a * (hasSelected and 0.16 or 0.05))
         surface_DrawRect(innerX, innerY, innerW, headerH)
-        WS.DrawText(slotNums[i] or "01", "WS_CRT_Slot", position + sizeX * 0.5, innerY + 1, hasSelected and activeColor or color_idle, TEXT_ALIGN_CENTER)
+        WS.DrawText(slotNums[i] or "01", "WS_CRT_Slot", position + sizeX * 0.5, innerY + (headerH - slotNumH) * 0.5 - 1, hasSelected and activeColor or color_idle, TEXT_ALIGN_CENTER)
 
         local Ammout = 0
         local cursorY = innerY + headerH + pad
