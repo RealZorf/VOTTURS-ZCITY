@@ -1393,6 +1393,139 @@ SolidMapVote["Config"]["Specific Maps"] = {
         height = 268
     },
     {
+        filename = "de_alexandra_pro",
+        displayname = "Alexandra",
+        image = "https://images.steamusercontent.com/ugc/2298592412781351313/DDC6B13B90FA0BA56FF43A830CE50DE4B49ABAB0/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_csgotulip",
+        displayname = "Tulip",
+        image = "https://images.steamusercontent.com/ugc/858348104640427600/5B05249C5A91929A41ED95E16182F71CEAF41DB6/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_csgozoo",
+        displayname = "Zoo",
+        image = "https://images.steamusercontent.com/ugc/870747421346074611/3BC1BC29C8DD6FA28EBCDE2E8CDC21E34CFB1FD9/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "gm_port_klax_remastered",
+        displayname = "Port Klax",
+        image = "https://images.steamusercontent.com/ugc/12036103522776445371/FFCAA56C1F872F30AB893A88232771D5C0D215FD/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "hmcd_alexandra_improved",
+        displayname = "Alexandra Improved",
+        image = "https://images.steamusercontent.com/ugc/15627753476980573205/03A5B9677CF7228AE4BBBF995D945F905CB84314/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_airbus_b3",
+        displayname = "Airbus",
+        image = "https://images.steamusercontent.com/ugc/451793768183537756/784FC8768B2BE0BD677731494CFF957D54C89150/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_castle",
+        displayname = "Castle",
+        image = "https://images.steamusercontent.com/ugc/1862812087886179972/9F7A17BD076CA577C14246FD2B7A7EE8BB1A5A34/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_concrete_b3",
+        displayname = "Concrete",
+        image = "https://images.steamusercontent.com/ugc/34104000856498630/450956FDAA3C936D170CB9349900915C454E057D/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_district",
+        displayname = "District",
+        image = "https://images.steamusercontent.com/ugc/1862812087885980723/A9906F52A5C1C3DEF483961D4D2762BD27E8FB65/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_highlife_pubertfix_v2",
+        displayname = "Highlife",
+        image = "https://images.steamusercontent.com/ugc/12052600167515620325/8748418E761CEA28F157C952F8C3EFADF189E3A0/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_highnoon_a6",
+        displayname = "Highnoon",
+        image = "https://images.steamusercontent.com/ugc/35241878925001257/AF8A801BC36FBCED1495B99A27D822A3955BF35A/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_highrise",
+        displayname = "Highrise",
+        image = "https://images.steamusercontent.com/ugc/1862812087885940783/392D463AB6E6D16D6117E218CD862977B73D053F/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_interrogation",
+        displayname = "Interrogation",
+        image = "https://images.steamusercontent.com/ugc/1022823310308799085/538B8BC115C9693B130CDB7E6533DF826B9D6D15/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_kappukeki_streets",
+        displayname = "Kappukeki Streets",
+        image = "https://images.steamusercontent.com/ugc/1862812087886180672/34A892914E38CC75BE8A1ECA16D6AFB1E8306D04/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_neontokyo",
+        displayname = "Neontokyo",
+        image = "https://images.steamusercontent.com/ugc/1056604474222960920/35C433D2946BFFD3443AA7948597789364344588/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_olivegarden",
+        displayname = "Olivegarden",
+        image = "https://images.steamusercontent.com/ugc/269470216286456143/853426084351694C5FB61645613C53DE2204C8C5/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_policedepartment_betav6",
+        displayname = "Police Department",
+        image = "https://images.steamusercontent.com/ugc/39723371799007896/3CBD0EFACA3E5DA8C964B174EC7A250032AD38C6/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_sewer_below",
+        displayname = "Sewer Below",
+        image = "https://images.steamusercontent.com/ugc/1666853488461309010/201B087E79667133ED30176EC59D8C4D8F54F91F/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_theship_v1",
+        displayname = "The Ship",
+        image = "https://images.steamusercontent.com/ugc/882977693157350719/43F9B780DD71F5E135B2D9A941E47320FDB49E90/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
+        width = 268,
+        height = 268
+    },
+    {
         filename = "example",
         displayname = "yes",
         image = "",
