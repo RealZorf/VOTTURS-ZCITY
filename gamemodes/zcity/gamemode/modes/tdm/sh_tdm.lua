@@ -171,6 +171,7 @@ AddItemToBUY( "12/70 Gauge (12)", "Ammo", "ent_ammo_12/70gauge", 100, "Ammo", {}
 AddItemToBUY( "23x75 SH10 (12)", "Ammo", "ent_ammo_23x75sh10", 100, "Ammo", {}, 12 )
 AddItemToBUY( "7.62x51mm (20)", "Ammo", "ent_ammo_7.62x51mm", 150, "Ammo", {}, 20 )
 AddItemToBUY( ".338 Lapua Magnum (20)", "Ammo", "ent_ammo_.338lapuamagnum", 350, "Ammo", {}, 20 )
+AddItemToBUY( "9x39mm (20)", "Ammo", "ent_ammo_9x39mm", 150, "Ammo", {}, 20)
 
 function MODE:HG_MovementCalc_2( mul, ply, cmd, mv )
     if (zb.ROUND_START or 0) + 20 > CurTime() and cmd then
