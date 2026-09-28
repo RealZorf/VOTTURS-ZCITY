@@ -46,3 +46,8 @@ net.Receive( 'SolidMapVote.sendMapPool', function( len )
 
     hook.Run( 'SolidMapVote.UpdateMapPool', mapPool )
 end )
+
+net.Receive( 'SolidMapVote.sendCooldowns', function( len )
+    SolidMapVote.mapCooldowns = net.ReadTable() or {}
+    hook.Run( 'SolidMapVote.UpdateCooldowns', SolidMapVote.mapCooldowns )
+end )

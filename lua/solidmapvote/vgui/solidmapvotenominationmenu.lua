@@ -68,6 +68,8 @@ function PANEL:PerformLayout( w, h )
 end
 
 function PANEL:CreateButtons()
+    self.scroll:GetCanvas():Clear()
+
     for _, map in pairs( self.mapPool ) do
         local mapData = SolidMapVote.GetMapConfigInfo( map )
 
@@ -80,6 +82,10 @@ function PANEL:CreateButtons()
 
             draw.WebImage( mapData.image, 0, offset, w, adjustedHeight, Color( 255, 255, 255 ) )
 
+            local left = SolidMapVote.getMapCooldown and SolidMapVote.getMapCooldown( map ) or 0
+            local onCooldown = left > 0
+            s.disabled = onCooldown or table.HasValue( self.nominations, map )
+
             draw.RoundedBox( 0, 0, 0, w, h, s.disabled and Color( 236, 100, 75, 150 ) or Color( 0, 0, 0, s.coverOpac ) )
 
             local displayname = string.upper( mapData.displayname )
@@ -87,8 +93,11 @@ function PANEL:CreateButtons()
             draw.SimpleTextOutlined( displayname, 'SolidMapVote.NominationMapName', h*0.5, h*0.5, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 2, Color( 0, 0, 0, 15 ) )
             draw.SimpleTextOutlined( displayname, 'SolidMapVote.NominationMapName', h*0.5, h*0.5, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, Color( 0, 0, 0, 30 ) )
 
-            s.disabled = table.HasValue( self.nominations, map )
-            if s.disabled then
+            if onCooldown then
+                local cooldownText = 'ON COOLDOWN (' .. left .. ' VOTE' .. ( left == 1 and '' or 'S' ) .. ' LEFT)'
+                draw.SimpleTextOutlined( cooldownText, 'SolidMapVote.NominationPlayerName', h*0.5, h*0.5 + displaynameHeight*0.5, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 2, Color( 0, 0, 0, 15 ) )
+                draw.SimpleTextOutlined( cooldownText, 'SolidMapVote.NominationPlayerName', h*0.5, h*0.5 + displaynameHeight*0.5, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 1, Color( 0, 0, 0, 30 ) )
+            elseif table.HasValue( self.nominations, map ) then
                 local playerName = 'MAP ALREADY NOMINATED BY ' .. steamworks.GetPlayerName( table.KeyFromValue( self.nominations, map ) )
                 draw.SimpleTextOutlined( playerName, 'SolidMapVote.NominationPlayerName', h*0.5, h*0.5 + displaynameHeight*0.5, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 2, Color( 0, 0, 0, 15 ) )
                 draw.SimpleTextOutlined( playerName, 'SolidMapVote.NominationPlayerName', h*0.5, h*0.5 + displaynameHeight*0.5, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 1, Color( 0, 0, 0, 30 ) )

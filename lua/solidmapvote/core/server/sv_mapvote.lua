@@ -45,6 +45,7 @@ end
     Start and End
  *********************************************************/
 function SolidMapVote.start()
+    SolidMapVote.cooldownsRecorded = false
     SolidMapVote.poolMaps()
     local maps = SolidMapVote.selectMaps()
     local counts = SolidMapVote.createWeightedPool( maps, SolidMapVote.mapPlayCounts )
@@ -69,11 +70,11 @@ function SolidMapVote.close()
 
     if not realWinner or realWinner == "" then
         if SolidMapVote.maps and #SolidMapVote.maps > 0 then
-            realWinner = table.Random( SolidMapVote.maps )
+            realWinner = SolidMapVote.pickRandomEligible( SolidMapVote.maps )
         end
         
         if (not realWinner or realWinner == "") and SolidMapVote.mapPool and #SolidMapVote.mapPool > 0 then
-            realWinner = table.Random( SolidMapVote.mapPool )
+            realWinner = SolidMapVote.pickRandomEligible( SolidMapVote.mapPool )
         end
 
         if not realWinner or realWinner == "" then
@@ -83,9 +84,9 @@ function SolidMapVote.close()
 
     if realWinner == 'random' then
         if SolidMapVote[ 'Config' ][ 'Random Mode' ] == 1 then
-            fixedWinner = table.Random( SolidMapVote.maps )
+            fixedWinner = SolidMapVote.pickRandomEligible( SolidMapVote.maps )
         else
-            fixedWinner = table.Random( SolidMapVote.mapPool )
+            fixedWinner = SolidMapVote.pickRandomEligible( SolidMapVote.mapPool )
         end
     elseif realWinner == 'extend' then
         fixedWinner = game.GetMap()
@@ -95,6 +96,8 @@ function SolidMapVote.close()
     SolidMapVote.fixedWinner = fixedWinner
     SolidMapVote.finished = true
     SolidMapVote.changeTime = RealTime() + SolidMapVote[ 'Config' ][ 'Post Vote Length' ]
+
+    SolidMapVote.recordVoteCooldowns( realWinner, fixedWinner )
 
     net.Start( 'SolidMapVote.end' )
     net.WriteTable( winningMaps )
@@ -240,37 +243,258 @@ function SolidMapVote.poolMaps()
     return SolidMapVote.mapPool
 end
 
+function SolidMapVote.getMapsOnVote()
+    local n = tonumber( SolidMapVote[ 'Config' ][ 'Maps On Vote' ] ) or 12
+    return math.max( 1, math.floor( n ) )
+end
+
+function SolidMapVote.getMapPlayCount( map )
+    return tonumber( SolidMapVote.mapPlayCounts[ map ] ) or 0
+end
+
+function SolidMapVote.getCooldownPath()
+    return SolidMapVote[ 'Config' ][ 'Map Cooldown Path' ] or 'solidmapvote/map_cooldowns.json'
+end
+
+function SolidMapVote.isMapCooldownEnabled()
+    return SolidMapVote[ 'Config' ][ 'Map Cooldown Enabled' ] ~= false
+end
+
+local function ensureCooldownDir()
+    local path = SolidMapVote.getCooldownPath()
+    local dir = string.match( path, '^(.+)/[^/]+$' )
+    if dir and dir ~= '' then
+        file.CreateDir( dir )
+    end
+    return path
+end
+
+function SolidMapVote.loadMapCooldowns()
+    SolidMapVote.mapCooldowns = {}
+
+    if not SolidMapVote.isMapCooldownEnabled() then
+        return SolidMapVote.mapCooldowns
+    end
+
+    local path = SolidMapVote.getCooldownPath()
+
+    if not file.Exists( path, 'DATA' ) then
+        return SolidMapVote.mapCooldowns
+    end
+
+    local decoded = util.JSONToTable( file.Read( path, 'DATA' ) or '' )
+    if not istable( decoded ) then
+        ErrorNoHalt( '[SolidMapVote] Failed to parse ' .. path .. '\n' )
+        return SolidMapVote.mapCooldowns
+    end
+
+    for map, remaining in pairs( decoded ) do
+        remaining = tonumber( remaining ) or 0
+        if isstring( map ) and remaining > 0 then
+            SolidMapVote.mapCooldowns[ map ] = math.floor( remaining )
+        end
+    end
+
+    return SolidMapVote.mapCooldowns
+end
+
+function SolidMapVote.saveMapCooldowns()
+    if not SolidMapVote.isMapCooldownEnabled() then return end
+
+    file.Write( ensureCooldownDir(), util.TableToJSON( SolidMapVote.mapCooldowns or {}, true ) )
+end
+
+function SolidMapVote.isMapOnCooldown( map )
+    if not SolidMapVote.isMapCooldownEnabled() then return false end
+    if not isstring( map ) or map == '' or map == 'extend' or map == 'random' then return false end
+
+    return SolidMapVote.getMapCooldown( map ) > 0
+end
+
+function SolidMapVote.getMapCooldown( map )
+    return tonumber( ( SolidMapVote.mapCooldowns or {} )[ map ] ) or 0
+end
+
+function SolidMapVote.tickMapCooldowns()
+    local remaining = {}
+
+    for map, votesLeft in pairs( SolidMapVote.mapCooldowns or {} ) do
+        votesLeft = ( tonumber( votesLeft ) or 0 ) - 1
+        if votesLeft > 0 then
+            remaining[ map ] = votesLeft
+        end
+    end
+
+    SolidMapVote.mapCooldowns = remaining
+end
+
+function SolidMapVote.setMapCooldown( map, votes )
+    if not isstring( map ) or map == '' or map == 'extend' or map == 'random' then return end
+
+    votes = math.max( 0, math.floor( tonumber( votes ) or 0 ) )
+    SolidMapVote.mapCooldowns = SolidMapVote.mapCooldowns or {}
+
+    if votes <= 0 then
+        SolidMapVote.mapCooldowns[ map ] = nil
+    else
+        SolidMapVote.mapCooldowns[ map ] = votes
+    end
+end
+
+function SolidMapVote.recordVoteCooldowns( realWinner, fixedWinner )
+    if not SolidMapVote.isMapCooldownEnabled() then return end
+    if SolidMapVote.cooldownsRecorded then return end
+
+    SolidMapVote.cooldownsRecorded = true
+    SolidMapVote.tickMapCooldowns()
+
+    if realWinner ~= 'extend' then
+        local mapToCool = realWinner == 'random' and fixedWinner or realWinner
+        local duration = tonumber( SolidMapVote[ 'Config' ][ 'Map Cooldown Votes' ] ) or 2
+        SolidMapVote.setMapCooldown( mapToCool, duration )
+    end
+
+    SolidMapVote.saveMapCooldowns()
+    SolidMapVote.sendCooldowns( true )
+end
+
+function SolidMapVote.filterEligibleMaps( pool )
+    local eligible = {}
+    local seen = {}
+
+    for _, map in ipairs( pool or {} ) do
+        if seen[ map ] then continue end
+        if SolidMapVote.isMapOnCooldown( map ) then continue end
+        seen[ map ] = true
+        table.insert( eligible, map )
+    end
+
+    return eligible
+end
+
+function SolidMapVote.pickRandomEligible( pool )
+    local eligible = SolidMapVote.filterEligibleMaps( pool )
+
+    if #eligible == 0 then
+        eligible = pool or {}
+    end
+
+    if #eligible == 0 then return nil end
+
+    return table.Random( eligible )
+end
+
+function SolidMapVote.sortMapsLeastPlayed( maps )
+    local grouped = {}
+    local counts = {}
+    local seenCount = {}
+
+    for _, map in ipairs( maps ) do
+        local playCount = SolidMapVote.getMapPlayCount( map )
+        grouped[ playCount ] = grouped[ playCount ] or {}
+        table.insert( grouped[ playCount ], map )
+
+        if not seenCount[ playCount ] then
+            seenCount[ playCount ] = true
+            table.insert( counts, playCount )
+        end
+    end
+
+    table.sort( counts )
+
+    local ordered = {}
+    for _, playCount in ipairs( counts ) do
+        local group = grouped[ playCount ]
+        for i = #group, 2, -1 do
+            local j = math.random( i )
+            group[ i ], group[ j ] = group[ j ], group[ i ]
+        end
+        for _, map in ipairs( group ) do
+            table.insert( ordered, map )
+        end
+    end
+
+    return ordered
+end
+
 function SolidMapVote.selectMaps()
     SolidMapVote.maps = {}
 
-    if #SolidMapVote.mapPool <= 6 then
-        SolidMapVote.maps = SolidMapVote.mapPool
-        return SolidMapVote.maps
+    local maxMaps = SolidMapVote.getMapsOnVote()
+    local selected = {}
+
+    local function addMap( map )
+        if not isstring( map ) or map == '' then return false end
+        if selected[ map ] then return false end
+        if #SolidMapVote.maps >= maxMaps then return false end
+        if SolidMapVote.isMapOnCooldown( map ) then return false end
+
+        selected[ map ] = true
+        table.insert( SolidMapVote.maps, map )
+        return true
     end
 
-    if #SolidMapVote.nominations >= 6 then
-        for steamID64, map in pairs( SolidMapVote.nominations ) do
-            table.insert( SolidMapVote.maps, map )
+    local function uniqueList( source )
+        local list = {}
+        local seen = {}
+
+        for _, map in ipairs( source or {} ) do
+            if isstring( map ) and map ~= '' and not seen[ map ] then
+                seen[ map ] = true
+                table.insert( list, map )
+            end
         end
 
-        return SolidMapVote.maps
-    else
-        for steamID64, map in pairs( SolidMapVote.nominations ) do
-            table.insert( SolidMapVote.maps, map )
+        return list
+    end
+
+    local function pickFrom( remaining )
+        if #remaining == 0 then return nil, 0 end
+
+        local map
+        if SolidMapVote[ 'Config' ][ 'Prefer Least Played' ] ~= false then
+            map = SolidMapVote.sortMapsLeastPlayed( remaining )[ 1 ]
+        elseif SolidMapVote[ 'Config' ][ 'Fair Map Recycling' ] then
+            map = SolidMapVote.selectRandomMapFairly( remaining, SolidMapVote.mapPlayCounts )
+        end
+
+        if not map then
+            map = remaining[ math.random( #remaining ) ]
+        end
+
+        for i, name in ipairs( remaining ) do
+            if name == map then
+                return map, i
+            end
+        end
+
+        return remaining[ 1 ], 1
+    end
+
+    local function fillFrom( candidates )
+        local remaining = {}
+        for _, map in ipairs( candidates ) do
+            if not selected[ map ] then
+                table.insert( remaining, map )
+            end
+        end
+
+        while #SolidMapVote.maps < maxMaps and #remaining > 0 do
+            local map, index = pickFrom( remaining )
+            if not map then break end
+
+            table.remove( remaining, index )
+            addMap( map )
         end
     end
 
-    local i = table.Count( SolidMapVote.nominations )
-    while i < 6 do
-        local map = SolidMapVote[ 'Config' ][ 'Fair Map Recycling' ] and
-                    SolidMapVote.selectRandomMapFairly( SolidMapVote.mapPool, SolidMapVote.mapPlayCounts ) or
-                    table.Random( SolidMapVote.mapPool )
+    local eligible = SolidMapVote.filterEligibleMaps( uniqueList( SolidMapVote.mapPool ) )
 
-        if not table.HasValue( SolidMapVote.maps, map ) and map != nil then
-            table.insert( SolidMapVote.maps, map )
-            i = i + 1
-        end
+    for _, map in pairs( SolidMapVote.nominations or {} ) do
+        addMap( map )
     end
+
+    fillFrom( eligible )
 
     return SolidMapVote.maps
 end

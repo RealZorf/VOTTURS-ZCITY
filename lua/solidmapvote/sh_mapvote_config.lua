@@ -56,8 +56,23 @@ SolidMapVote["Config"]["Vote Power"] = function(ply)
 	return 1
 end
 
+-- Prefer the least played maps (disables Fair Map Recycling)
+SolidMapVote["Config"]["Prefer Least Played"] = false
+
 -- Fair Map Recycling
+-- Weighted chances/more varied random map selection
 SolidMapVote["Config"]["Fair Map Recycling"] = true
+
+-- How many maps appear on the vote.
+SolidMapVote["Config"]["Maps On Vote"] = 12
+SolidMapVote["Config"]["Maps Per Row"] = 6
+
+
+-- Map cooldowns stored in garrysmod/data. 
+-- After a map wins, it cannot appear on until the cooldown is over
+SolidMapVote["Config"]["Map Cooldown Enabled"] = true
+SolidMapVote["Config"]["Map Cooldown Votes"] = 2
+SolidMapVote["Config"]["Map Cooldown Path"] = "solidmapvote/map_cooldowns.json"
 
 -- Show Map Play Count
 SolidMapVote["Config"]["Show Map Play Count"] = true

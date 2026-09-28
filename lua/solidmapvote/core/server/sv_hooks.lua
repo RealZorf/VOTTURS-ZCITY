@@ -35,6 +35,8 @@ hook.Add( 'InitPostEntity', 'SolidMapVote.Init', function()
     SolidMapVote.mapPool = {}
     SolidMapVote.nominations = {}
     SolidMapVote.mapPlayCounts = {}
+    SolidMapVote.mapCooldowns = {}
+    SolidMapVote.cooldownsRecorded = false
     SolidMapVote.realWinner = ''
     SolidMapVote.fixedWinner = ''
 
@@ -56,6 +58,7 @@ hook.Add( 'InitPostEntity', 'SolidMapVote.Init', function()
 
     SolidMapVote.poolMaps()
     SolidMapVote.initFairMapRecycling()
+    SolidMapVote.loadMapCooldowns()
     SolidMapVote.hackRoundBasedGamemodes()
 end )
 
@@ -71,6 +74,7 @@ hook.Add( 'PlayerInitialSpawn', 'SolidMapVote.PlayerSpawn', function( ply )
     end
 
     SolidMapVote.sendNominations( false, ply )
+    SolidMapVote.sendCooldowns( false, ply )
 end )
 
 hook.Add( 'PlayerDisconnected', 'SolidMapVote.PlayerLeave', function( ply )

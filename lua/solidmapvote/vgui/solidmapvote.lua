@@ -82,27 +82,59 @@ end
 function PANEL:PerformLayout( w, h )
     if self.layoutPaused then return end
 
-    local buttonWidth = w*0.12
-    local buttonHeight = SolidMapVote[ 'Config' ][ 'Map Button Size' ] == 1 and h*0.6 or buttonWidth
-    local startPosX = (w*0.5) - ((buttonWidth+20)*#self.maps)*0.5
-    local startPosY = h*0.5 - buttonHeight*0.5
+    local mapCount = #self.mapButtons
+    if mapCount < 1 then return end
 
-    local lastBtn = nil
-    for k, btn in pairs( self.mapButtons ) do
+    local mapsPerRow = math.max( 1, math.floor( tonumber( SolidMapVote[ 'Config' ][ 'Maps Per Row' ] ) or 6 ) )
+    if mapCount > mapsPerRow then
+        mapsPerRow = math.ceil( mapCount / 2 )
+    else
+        mapsPerRow = math.min( mapsPerRow, mapCount )
+    end
+    local rowCount = math.max( 1, math.ceil( mapCount / mapsPerRow ) )
+    local colGap = 16
+    local rowGap = 16
+
+    local usableW = w * 0.82
+    local buttonWidth = math.min( w * 0.12, ( usableW - colGap * ( mapsPerRow - 1 ) ) / mapsPerRow )
+    local buttonHeight = SolidMapVote[ 'Config' ][ 'Map Button Size' ] == 1 and h * 0.32 or buttonWidth
+
+    local maxGridH = h * 0.58
+    local totalH = rowCount * buttonHeight + ( rowCount - 1 ) * rowGap
+    if totalH > maxGridH then
+        local scale = maxGridH / totalH
+        buttonWidth = buttonWidth * scale
+        buttonHeight = buttonHeight * scale
+        totalH = rowCount * buttonHeight + ( rowCount - 1 ) * rowGap
+    end
+
+    local headerSpace = h * 0.15
+    local gridTop = math.max( headerSpace, h * 0.5 - totalH * 0.5 )
+    self.headerStartY = math.max( h * 0.04, gridTop - ScreenScale( 28 ) )
+
+    for k, btn in ipairs( self.mapButtons ) do
+        local index = k - 1
+        local row = math.floor( index / mapsPerRow )
+        local col = index % mapsPerRow
+        local mapsInRow = math.min( mapsPerRow, mapCount - row * mapsPerRow )
+        local rowWidth = mapsInRow * buttonWidth + ( mapsInRow - 1 ) * colGap
+        local rowStartX = w * 0.5 - rowWidth * 0.5
+        local x = rowStartX + col * ( buttonWidth + colGap )
+        local y = gridTop + row * ( buttonHeight + rowGap )
+
         btn:SetSize( buttonWidth, buttonHeight )
-        btn:SetPos( startPosX, startPosY )
-
-        if lastBtn then btn:MoveRightOf( lastBtn, 20 ) end
-        lastBtn = btn
-
-        local x, y = btn:GetPos()
+        btn:SetPos( x, y )
         btn:SetOriginalSize( buttonWidth, buttonHeight )
         btn:SetOriginalPos( x, y )
     end
 
-    local buttonXPos = startPosX + ((buttonWidth+20)*(#self.maps-1))
-    local buttonYPos = (h*0.5 + buttonHeight*0.5) + 20
-    local buttonSize = SolidMapVote[ 'Config' ][ 'Map Button Size' ] == 1 and buttonHeight*0.1 or buttonHeight*0.3
+    local lastRow = rowCount - 1
+    local lastRowCount = mapCount - lastRow * mapsPerRow
+    local lastRowWidth = lastRowCount * buttonWidth + ( lastRowCount - 1 ) * colGap
+    local lastRowStartX = w * 0.5 - lastRowWidth * 0.5
+    local buttonXPos = lastRowStartX + ( buttonWidth + colGap ) * ( lastRowCount - 1 )
+    local buttonYPos = gridTop + totalH + 16
+    local buttonSize = SolidMapVote[ 'Config' ][ 'Map Button Size' ] == 1 and buttonHeight * 0.1 or buttonHeight * 0.28
 
     if SolidMapVote[ 'Config' ][ 'Enable Extend' ] then
         self.extend:SetPos( buttonXPos, buttonYPos )
@@ -130,7 +162,7 @@ function PANEL:Paint( w, h )
     local timeRemainingDelta = (self.endTime - CurTime()) / self.length
     local timeRemainingFormatted = string.FormattedTime( math.max( math.Round( self.endTime - CurTime(), 2 ), 0 ), '%02i:%02i:%02i' )
 
-    local startY = SolidMapVote[ 'Config' ][ 'Map Button Size' ] == 1 and h*0.135 or h*0.335
+    local startY = self.headerStartY or ( SolidMapVote[ 'Config' ][ 'Map Button Size' ] == 1 and h*0.135 or h*0.12 )
 
     local titleW, titleH =
     draw.SimpleTextOutlined( 'MAPVOTE', 'SolidMapVote.Title', w*0.11, startY, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 2, Color( 0, 0, 0, 15 ) )

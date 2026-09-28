@@ -1,6 +1,11 @@
 
 SolidMapVote.isOpen = SolidMapVote.isOpen or false
 SolidMapVote.isNominating = SolidMapVote.isNominating or false
+SolidMapVote.mapCooldowns = SolidMapVote.mapCooldowns or {}
+
+function SolidMapVote.getMapCooldown( map )
+    return tonumber( ( SolidMapVote.mapCooldowns or {} )[ map ] ) or 0
+end
 
 function SolidMapVote.open( maps, endTime, length )
     SolidMapVote.isOpen = true

@@ -5,6 +5,7 @@ util.AddNetworkString( 'SolidMapVote.sendNominations' )
 util.AddNetworkString( 'SolidMapVote.sendMessage' )
 util.AddNetworkString( 'SolidMapVote.sendPlayCounts' )
 util.AddNetworkString( 'SolidMapVote.sendMapPool' )
+util.AddNetworkString( 'SolidMapVote.sendCooldowns' )
 
 function SolidMapVote.sendVotes( all, ply )
     net.Start( 'SolidMapVote.sendVotes' )
@@ -46,6 +47,14 @@ function SolidMapVote.sendMapPool( all, ply )
     else net.Send( ply ) end
 end
 
+function SolidMapVote.sendCooldowns( all, ply )
+    net.Start( 'SolidMapVote.sendCooldowns' )
+    net.WriteTable( SolidMapVote.mapCooldowns or {} )
+
+    if all then net.Broadcast()
+    else net.Send( ply ) end
+end
+
 
 concommand.Add( 'solidmapvote_vote', function( ply, cmd, args )
     local vote = args[1]
@@ -71,7 +80,14 @@ concommand.Add( 'solidmapvote_nominate', function( ply, cmd, args )
     if not nomination then return end
     if not ply then return end
 
-    if #SolidMapVote.nominations >= math.min( 6, #SolidMapVote.mapPool ) and
+    if SolidMapVote.isMapOnCooldown( nomination ) then
+        local left = SolidMapVote.getMapCooldown( nomination )
+        SolidMapVote.sendMessage( { color_white, nomination .. ' is on cooldown for ', Color( 0, 177, 106 ), tostring( left ), color_white, ' more map vote' .. ( left == 1 and '' or 's' ) .. '!' }, false, ply )
+        return
+    end
+
+    local maxNominations = math.min( SolidMapVote.getMapsOnVote(), math.max( #SolidMapVote.filterEligibleMaps( SolidMapVote.mapPool ), 1 ) )
+    if table.Count( SolidMapVote.nominations ) >= maxNominations and
     not SolidMapVote.playerHasNominated( steamId64 ) then
         SolidMapVote.sendMessage( { color_white, 'There is no more room for nominations in the map vote!' }, false, ply )
         return
@@ -96,6 +112,7 @@ end )
 
 concommand.Add( 'solidmapvote_request_mappool', function( ply, cmd, args )
     SolidMapVote.sendMapPool( false, ply )
+    SolidMapVote.sendCooldowns( false, ply )
 end )
 
 concommand.Add( 'solidmapvote_request_nominations', function( ply, cmd, args )

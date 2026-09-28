@@ -34,11 +34,18 @@ function PANEL:Hooks()
         self.mapPool = mapPool
         self.menu:SetMapPool( self.mapPool )
     end )
+
+    hook.Add( 'SolidMapVote.UpdateCooldowns', 'SolidMapVote.NominationsCooldowns', function()
+        if self.menu and self.menu.CreateButtons then
+            self.menu:CreateButtons()
+        end
+    end )
 end
 
 function PANEL:OnRemove()
     hook.Remove( 'SolidMapVote.UpdateNominations', 'SolidMapVote.NominationsMenu' )
     hook.Remove( 'SolidMapVote.UpdateMapPool', 'SolidMapVote.NominationsMapPool' )
+    hook.Remove( 'SolidMapVote.UpdateCooldowns', 'SolidMapVote.NominationsCooldowns' )
 end
 
 function PANEL:Paint( w, h )
