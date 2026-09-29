@@ -1,359 +1,364 @@
 local PANEL = {}
-local curent_panel 
-local select_color = Color(35, 255, 110)
+local current_panel
 local menuFontW, menuFontH
 
-local COL = {
-	bg = Color(8, 11, 10, 248),
-	sidebar = Color(14, 18, 16, 252),
-	surface = Color(22, 28, 25, 220),
-	accent = Color(35, 255, 110),
-	accent_dim = Color(35, 255, 110, 45),
-	accent_glow = Color(35, 255, 110, 12),
-	text = Color(232, 236, 233),
-	text_dim = Color(120, 135, 125),
-	text_faint = Color(255, 255, 255, 38),
-	border = Color(35, 255, 110, 28),
-	border_strong = Color(35, 255, 110, 55),
-	hover = Color(35, 255, 110, 10),
-	active = Color(35, 255, 110, 18),
-	shadow = Color(0, 0, 0, 90),
-	featured = Color(255, 196, 46),
-	featured_shadow = Color(82, 50, 0, 220),
-}
+local CRT_R, CRT_G, CRT_B = 35, 225, 110
+local TRAITOR_R, TRAITOR_G, TRAITOR_B = 225, 35, 35
+local color_crt = Color(CRT_R, CRT_G, CRT_B)
+local color_crt_soft = Color(160, 255, 200)
+local color_idle = Color(172, 180, 174)
+local color_idle_dim = Color(118, 126, 122)
+local color_bezel = Color(8, 9, 9)
+local color_text = Color(220, 220, 220)
+local color_gold = Color(220, 175, 55)
+local color_faint = Color(255, 255, 255, 38)
+
+local MM_PAD = 4
+local MM_BEZEL = 3
+
+local GITHUB_URL = "GITHUB.COM/REALZORF/VOTTURS-ZCITY"
+local DISCORD_URL = "https://discord.gg/votturzcity"
 
 local function MenuScale(size)
-    local scale = math.Clamp(math.min(ScrW() / 1920, ScrH() / 1080), 0.78, 1.15)
-    return math.Round(size * scale)
+	local scale = math.Clamp(math.min(ScrW() / 1920, ScrH() / 1080), 0.78, 1.15)
+	return math.Round(size * scale)
 end
 
-local function MenuLeftWidth()
-	local maxWidth = math.min(ScrW() * 0.32, 640)
-	local minWidth = math.min(340, maxWidth)
-	return math.Clamp(MenuScale(480), minWidth, maxWidth)
+local function DrawCRTCorners(x, y, w, h, len, r, g, b, a)
+	surface.SetDrawColor(r, g, b, a)
+	surface.DrawRect(x, y, len, 2)
+	surface.DrawRect(x, y, 2, len)
+	surface.DrawRect(x + w - len, y, len, 2)
+	surface.DrawRect(x + w - 2, y, 2, len)
+	surface.DrawRect(x, y + h - 2, len, 2)
+	surface.DrawRect(x, y + h - len, 2, len)
+	surface.DrawRect(x + w - len, y + h - 2, len, 2)
+	surface.DrawRect(x + w - 2, y + h - len, 2, len)
 end
 
-local function CreateMenuFonts()
-	if menuFontW == ScrW() and menuFontH == ScrH() then return end
-
-	menuFontW, menuFontH = ScrW(), ScrH()
-
-	surface.CreateFont("ZC_MM_BrandSm", {
-		font = "Bahnschrift",
-		size = MenuScale(22),
-		weight = 600,
-		extended = true,
-		antialias = true,
-	})
-
-	surface.CreateFont("ZC_MM_Title", {
-		font = "Bahnschrift",
-		size = MenuScale(72),
-		weight = 800,
-		extended = true,
-		antialias = true,
-	})
-
-	surface.CreateFont("ZC_MM_Button", {
-		font = "Bahnschrift",
-		size = MenuScale(26),
-		weight = 600,
-		extended = true,
-		antialias = true,
-	})
-
-	surface.CreateFont("ZC_MM_Tiny", {
-		font = "Bahnschrift",
-		size = MenuScale(15),
-		weight = 500,
-		extended = true,
-		antialias = true,
-	})
-
-	surface.CreateFont("ZC_MM_Label", {
-		font = "Bahnschrift",
-		size = MenuScale(11),
-		weight = 700,
-		extended = true,
-		antialias = true,
-	})
+local function PlayMenuSound(path, vol)
+	local ply = LocalPlayer()
+	if IsValid(ply) then
+		ply:EmitSound(path, 75, 100, vol)
+	else
+		surface.PlaySound(path)
+	end
 end
 
 local Selects = {
-	{Title = "Disconnect", Func = function(luaMenu)
-		RunConsoleCommand("disconnect")
-	end},
+	{Title = "Disconnect", Danger = true, Func = function() RunConsoleCommand("disconnect") end},
 	{Title = "Main Menu", Func = function(luaMenu)
 		gui.ActivateGameUI()
 		luaMenu:Close()
 	end},
-	{Title = "Workshop Collection", Func = function(luaMenu)
-		luaMenu:Close()
+	{Title = "Workshop Collection", Func = function()
 		gui.OpenURL("https://steamcommunity.com/sharedfiles/filedetails/?id=3715931702")
 	end},
-	{Title = "Discord", Func = function(luaMenu)
-		luaMenu:Close()
-		gui.OpenURL("https://discord.gg/votturzcity")
+	{Title = "Discord", Func = function() gui.OpenURL(DISCORD_URL) end},
+	{Title = "Guide", Func = function()
+		gui.OpenURL("https://docs.google.com/document/d/1oVOleCQSrbfWddLKOgjAKD-EKpbS1dxCfNdCSUwNfn4")
 	end},
-	{Title = "Support Us", Func = function(luaMenu)
-		luaMenu:Close()
-		gui.OpenURL("https://ko-fi.com/votturzcity")
+	{Title = "Traitor Role", GamemodeOnly = true, OpensPanel = true, Func = function(luaMenu, pp)
+		if hg.SelectPlayerRole then hg.SelectPlayerRole("Traitor", nil, pp) end
 	end},
-	{Title = "Keybinds", Featured = true, Func = function(luaMenu, pp) hg.DrawKeybinds(pp) end},
-	{Title = "Settings", Func = function(luaMenu, pp) hg.DrawSettings(pp) end},
-	{Title = "Achievements", Func = function(luaMenu, pp) hg.DrawAchievmentsMenu(pp) end},
-	{Title = "Appearance", Func = function(luaMenu, pp) hg.CreateApperanceMenu(pp) end},
-	{Title = "Traitor Role",
-		GamemodeOnly = true,
-		Func = function(luaMenu, pp)
-			if hg.SelectPlayerRole then
-				hg.SelectPlayerRole("Traitor", nil, pp)
-			end
-		end,
-	},
+	{Title = "Achievements", OpensPanel = true, Func = function(luaMenu, pp)
+		hg.DrawAchievmentsMenu(pp)
+	end},
+	{Title = "Appearance", OpensPanel = true, Func = function(luaMenu, pp)
+		hg.CreateApperanceMenu(pp)
+	end},
+	{Title = "Settings", OpensPanel = true, Func = function(luaMenu, pp)
+		hg.DrawSettings(pp)
+	end},
+	{Title = "Keybinds", Featured = true, OpensPanel = true, Func = function(luaMenu, pp)
+		if hg.DrawKeybinds then hg.DrawKeybinds(pp) end
+	end},
+	{Title = "Rules", Func = function() RunConsoleCommand("ulx", "motd") end},
+	{Title = "Store", Func = function() RunConsoleCommand("say", "!store") end},
+	{Title = "Support Us", Support = true, Func = function() gui.OpenURL("https://ko-fi.com/votturzcity") end},
 	{Title = "Return", Func = function(luaMenu) luaMenu:Close() end},
 }
 
 local splasheh = {
-	'100% LUA, 200% SPAGHETTI',
-	'IT WORKS ON MY SERVER',
-	'FEATURE OR BUG? YES.',
-	'SOURCE MOMENT',
-	'THE MAP IS FINE',
-	'NO ERRORS (YET)',
-	'WHO TOUCHED THE CONFIG',
-	'IF IT LAGS, ITS IMMERSION',
-	'ADMINS ARE WATCHING',
-	'THE LOGS KNOW EVERYTHING',
-	'YOUR MIC IS OPEN',
-	'SERVER RESTARTING AGAIN IN 3',
-	'HE WAS JUST STANDING THERE',
-	'DESYNC IS CANON',
-	'THE RDM WAS ACCIDENTAL',
-	'FUCK THE KARMA SYSTEM',
-	'NOTHING EVER HAPPENED',
-	'WE SAW THAT',
-	'SOMEONE CHECK THE LOGS',
-	'MORE FPS SOON™',
-	'GM_CONSTRUCT IS PEAK',
-	'MAP CHANGE IN 5 MINUTES',
-	'ANGERED SUX',
-	'LAST ROUND, I SWEAR',
-	'YOU ARE BEING OBSERVED',
-	'EVERYTHING IS CLIENTSIDED',
-	'TRUST THE LUA',
-	'THIS IS FINE',
-	'NO CLIP? NO PROBLEM.',
-	'THE DOORS ARE SENTIENT',
-	'WAKE UP, NEW ZCITY UPDATE',
-	'PLUV APPROVED',
-	'404: BALANCE NOT FOUND',
-	'CERTIFIED SOURCE JANK',
-	'UNPAID LUA INTERN',
-	'MISSING TEXTURE ENJOYER',
+	"100% LUA, 200% SPAGHETTI",
+	"IT WORKS ON MY SERVER",
+	"FEATURE OR BUG? YES.",
+	"SOURCE MOMENT",
+	"THE MAP IS FINE",
+	"NO ERRORS (YET)",
+	"WHO TOUCHED THE CONFIG",
+	"IF IT LAGS, ITS IMMERSION",
+	"ADMINS ARE WATCHING",
+	"THE LOGS KNOW EVERYTHING",
+	"SERVER RESTARTING AGAIN IN 3",
+	"HE WAS JUST STANDING THERE",
+	"THE RDM WAS ACCIDENTAL",
+	"FUCK THE KARMA SYSTEM",
+	"NOTHING EVER HAPPENED",
+	"WE SAW THAT",
+	"SOMEONE CHECK THE LOGS",
+	"MORE FPS SOON™",
+	"GM_CONSTRUCT IS PEAK",
+	"MAP CHANGE IN 5 MINUTES",
+	"ANGERED SUX",
+	"LAST ROUND, I SWEAR",
+	"EVERYTHING IS CLIENTSIDED",
+	"TRUST THE LUA",
+	"THIS IS FINE",
+	"NO CLIP? NO PROBLEM.",
+	"WAKE UP, NEW ZCITY UPDATE",
+	"PLUV APPROVED",
+	"CERTIFIED SOURCE JANK",
+	"UNPAID LUA INTERN",
+	"MISSING TEXTURE ENJOYER",
 	"DON'T LOOK AT THE CONSOLE",
 	"IT'S A FEATURE",
-	'THE NPCS ARE PLOTTING',
-	'YOUR PING IS A SKILL ISSUE',
-	'ABSOLUTELY NO EXPLOITS',
-	'JUST ONE MORE HOTFIX',
-	'SHIP IT.',
-	'JOIN OUR PLAYTEST SERVER TO BE ABUSED',
-	'Слава Україні! Героям слава!',
+	"YOUR PING IS A SKILL ISSUE",
+	"ABSOLUTELY NO EXPLOITS",
+	"JUST ONE MORE HOTFIX",
+	"Слава Україні! Героям слава!",
+	"VOTTURS IN S&BOX SOON™",
+	"HL3 CONFIRMED",
+	"PURPLE AND BLACK NEVER DIES",
+	"WHY IS MY FPS 12",
+	"WHY IS GMOD USING 1 CPU",
+	"MULTICORE RENDERING: MAYBE",
+	"I AM THE ADMIN NOW",
+	"THERES SOMETHING BEHIND YOU",
+	"ABUSE YOUR POWERS RESPONSIBLY",
+	"THE DETECTIVE IS DEAD",
+	"THE TRAITOR IS PROBABLY YOU",
+	"I THOUGHT HE WAS TRAITOR",
+	"I SWEAR HE WAS TRAITOR",
+	"SELF DEFENSE BTW",
+	"IT WAS AN ACCIDENT",
+	"HE LOOKED SUSPICIOUS",
+	"HE WAS ACTING WEIRD",
+	"HE WALKED TOWARDS ME",
+	"HE LOOKED AT ME FUNNY",
+	"WELCOME TO VOTTUR'S Z-CITY",
+	"ANOTHER DAY IN Z-CITY",
+	"VOTTUR IS WATCHING",
+	"VOTTUR KNOWS",
+	"ANGERED STILL SUCKS",
+	"KARMA IS A SOCIAL CONSTRUCT",
+	"TICKRATE IS JUST A NUMBER",
+	"REMORSE IS A STRONG WORD FOR 'OBSESSED FAN'",
+	"WORKS PERFECTLY IN DEVELOPMENT",
 }
 
 local Pluv = Material("pluv/pluvkid.jpg")
 
-function PANEL:InitializeMarkup()
-	local gm = splasheh[math.random(#splasheh)]
-
-	if hg.PluvTown and hg.PluvTown.Active then
-		local text = "<font=ZC_MM_Title><colour=125,205,255>    </colour>City</font>\n<font=ZC_MM_Tiny><colour=120,135,125>" .. gm .. "</colour></font>"
-		self.SelectedPluv = table.Random(hg.PluvTown.PluvMats)
-		return markup.Parse(text)
+function PANEL:Init()
+	if menuFontW ~= ScrW() or menuFontH ~= ScrH() then
+		menuFontW, menuFontH = ScrW(), ScrH()
+		surface.CreateFont("ZC_MM_Title", {
+			font = "Bahnschrift",
+			size = MenuScale(72),
+			weight = 800,
+			extended = true,
+			antialias = true
+		})
+		surface.CreateFont("ZC_MM_Button", {
+			font = "Bahnschrift",
+			size = MenuScale(26),
+			weight = 600,
+			extended = true,
+			antialias = true
+		})
+		surface.CreateFont("ZC_MM_Tiny", {
+			font = "Bahnschrift",
+			size = MenuScale(15),
+			weight = 500,
+			extended = true,
+			antialias = true
+		})
 	end
 
-	local text = "<font=ZC_MM_Title><colour=232,236,233,255>ZCITY</colour></font>\n<font=ZC_MM_Tiny><colour=120,135,125>" .. gm .. "</colour></font>"
-	return markup.Parse(text)
-end
-
-local function DrawSidebarPanel(x, y, w, h, radius)
-	draw.RoundedBox(radius, x, y, w, h, COL.sidebar)
-	surface.SetDrawColor(COL.border)
-	surface.DrawOutlinedRect(x, y, w, h, 1)
-end
-
-local function GetSidebarLayout(sidebarH, innerPad)
-	local brandRowY = innerPad + MenuScale(64)
-	local tagY = brandRowY + MenuScale(10)
-	local navSeparatorY = tagY + MenuScale(30)
-	local navTop = navSeparatorY + MenuScale(16)
-	local footerBottomPad = MenuScale(18)
-	local footerBlockH = MenuScale(76)
-	local footerSeparatorY = sidebarH - footerBlockH - footerBottomPad
-
-	return {
-		brandRowY = brandRowY,
-		tagY = tagY,
-		navSeparatorY = navSeparatorY,
-		navTop = navTop,
-		footerSeparatorY = footerSeparatorY,
-		footerBottomPad = footerBottomPad,
-		footerBlockH = footerBlockH,
-	}
-end
-
-function PANEL:Init()
-	CreateMenuFonts()
-
 	self:SetAlpha(0)
-	self:SetSize(ScrW(), ScrH() + 50)
+	self:SetSize(ScrW(), ScrH())
 	self:Center()
 	self:SetTitle("")
 	self:SetDraggable(false)
 	self:SetBorder(false)
-	self:SetColorBG(COL.bg)
+	self:SetColorBG(Color(8, 11, 10, 248))
+	self:SetColorBR(Color(CRT_R, CRT_G, CRT_B, 180))
+	if self.SetBlurStrengh then
+		self:SetBlurStrengh(4)
+	end
 	self:ShowCloseButton(false)
-	curent_panel = nil
-	self.ShowIcon = math.random(1, 1000) == 1
+	if IsValid(self.lblTitle) then
+		self.lblTitle:SetVisible(false)
+	end
+	for _, key in ipairs({"btnClose", "btnMaxim", "btnMinim"}) do
+		if IsValid(self[key]) then
+			self[key]:SetVisible(false)
+		end
+	end
 
+	current_panel = nil
 	self.SplashText = splasheh[math.random(#splasheh)]
-	self.Title, self.TitleShadow = self:InitializeMarkup()
+	if hg.PluvTown and hg.PluvTown.Active and hg.PluvTown.PluvMats then
+		self.SelectedPluv = table.Random(hg.PluvTown.PluvMats)
+	end
 
 	timer.Simple(0, function()
-		if self.First then
+		if IsValid(self) and self.First then
 			self:First()
 		end
 	end)
 
-	local leftWidth = MenuLeftWidth()
-	local sidebarPad = MenuScale(28)
-	local sidebarW = leftWidth
+	local maxWidth = math.min(ScrW() * 0.32, 640)
+	local sidebarW = math.Clamp(MenuScale(480), math.min(340, maxWidth), maxWidth)
 	local sidebarX = MenuScale(24)
 	local sidebarY = MenuScale(24)
 	local sidebarH = ScrH() - sidebarY * 2
 	local innerPad = MenuScale(22)
-	local radius = MenuScale(6)
+	local brandRowY = innerPad + MenuScale(96)
+	local tagY = brandRowY + MenuScale(12)
+	local navTop = tagY + MenuScale(28)
+	local footerBlockH = MenuScale(76)
+	local footerY = sidebarH - footerBlockH - MenuScale(18)
+	self.SidebarLayout = {
+		brandRowY = brandRowY,
+		tagY = tagY,
+		navTop = navTop,
+		footerY = footerY,
+		footerBlockH = footerBlockH,
+	}
 
 	self.lDock = vgui.Create("DPanel", self)
 	local lDock = self.lDock
 	lDock:SetPos(sidebarX, sidebarY)
 	lDock:SetSize(sidebarW, sidebarH)
-	self.SidebarLayout = GetSidebarLayout(sidebarH, innerPad)
 	lDock.Paint = function(this, w, h)
-		DrawSidebarPanel(0, 0, w, h, radius)
+		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 204)
+		surface.DrawRect(0, 0, w, h)
+		local ix, iy, iw, ih = MM_BEZEL, MM_BEZEL, w - MM_BEZEL * 2, h - MM_BEZEL * 2
+		surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 178)
+		surface.DrawOutlinedRect(ix, iy, iw, ih, 1)
+		DrawCRTCorners(ix, iy, iw, ih, 10, CRT_R, CRT_G, CRT_B, 242)
+		surface.SetDrawColor(0, 0, 0, 115)
+		surface.DrawRect(ix + MM_PAD, iy + MM_PAD, iw - MM_PAD * 2, ih - MM_PAD * 2)
 
 		local layout = self.SidebarLayout
 		local brandRowY = layout.brandRowY
-		local brandGap = MenuScale(10)
-
 		if hg.PluvTown and hg.PluvTown.Active then
-			surface.SetDrawColor(color_white)
+			surface.SetDrawColor(255, 255, 255, 255)
 			surface.SetMaterial(self.SelectedPluv or Pluv)
 			surface.DrawTexturedRect(innerPad, brandRowY - MenuScale(36), MenuScale(56), MenuScale(42))
-
-			draw.SimpleText("ZCITY", "ZC_MM_Title", innerPad + MenuScale(64), brandRowY, COL.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+			draw.SimpleText("ZCITY", "ZC_MM_Title", innerPad + MenuScale(64), brandRowY, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
 		else
 			surface.SetFont("ZC_MM_Title")
 			local votturW = surface.GetTextSize("VOTTUR'S")
-			draw.SimpleText("VOTTUR'S", "ZC_MM_Title", innerPad, brandRowY, COL.accent, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
-			draw.SimpleText("ZCITY", "ZC_MM_Title", innerPad + votturW + MenuScale(18), brandRowY, COL.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+			draw.SimpleText("VOTTUR'S", "ZC_MM_Title", innerPad, brandRowY, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+			draw.SimpleText("ZCITY", "ZC_MM_Title", innerPad + votturW + MenuScale(18), brandRowY, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
 		end
 
-		draw.DrawText(self.SplashText, "ZC_MM_Tiny", innerPad, layout.tagY, COL.text_dim, TEXT_ALIGN_LEFT)
-
-		surface.SetDrawColor(COL.border)
-		surface.DrawRect(innerPad, layout.navSeparatorY, w - innerPad * 2, 1)
-		surface.DrawRect(innerPad, layout.footerSeparatorY, w - innerPad * 2, 1)
+		draw.SimpleText(self.SplashText, "ZC_MM_Tiny", w * 0.5, layout.tagY, color_idle_dim, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 	end
 
 	local visibleSelects = {}
-	for k, v in ipairs(Selects) do
-		if v.GamemodeOnly and engine.ActiveGamemode() != "zcity" then continue end
+	for _, v in ipairs(Selects) do
+		if v.GamemodeOnly and engine.ActiveGamemode() ~= "zcity" then continue end
 		visibleSelects[#visibleSelects + 1] = v
 	end
 
-	local buttonHeight = MenuScale(42)
 	local buttonGap = MenuScale(4)
 	local layout = self.SidebarLayout
 	local navTop = layout.navTop
-	local footerHeight = layout.footerBlockH
-	local footerBottomPad = layout.footerBottomPad
-	local navBottom = layout.footerSeparatorY - MenuScale(8)
-	local navAvail = navBottom - navTop
-	local buttonDockH = math.min(#visibleSelects * (buttonHeight + buttonGap), navAvail)
+	local navBottom = layout.footerY - MenuScale(8)
+	local navAvail = math.max(navBottom - navTop, MenuScale(24))
+	local count = math.max(#visibleSelects, 1)
+	local buttonHeight = math.min(MenuScale(40), math.floor((navAvail - buttonGap * count) / count))
+	buttonHeight = math.max(buttonHeight, MenuScale(24))
+	local buttonDockH = count * (buttonHeight + buttonGap)
+	self.ButtonHeight = buttonHeight
 
 	self.Buttons = {}
 	local buttonDock = vgui.Create("DPanel", lDock)
 	buttonDock:SetPos(innerPad, navTop)
 	buttonDock:SetSize(sidebarW - innerPad * 2, buttonDockH)
-	buttonDock.Paint = function(this, w, h) end
+	buttonDock:SetPaintBackground(false)
+	buttonDock.Paint = function() end
 
-	for k, v in ipairs(visibleSelects) do
+	for _, v in ipairs(visibleSelects) do
 		self:AddSelect(buttonDock, v.Title, v)
 	end
 
 	local bottomDock = vgui.Create("DPanel", lDock)
-	bottomDock:SetPos(innerPad, layout.footerSeparatorY + MenuScale(10))
-	bottomDock:SetSize(sidebarW - innerPad * 2, footerHeight - MenuScale(10))
-	bottomDock.Paint = function(this, w, h) end
-
-	local contentX = sidebarX + sidebarW + MenuScale(20)
-	local TraitorIcon = Material("sprites/meen.png")
-
-	self.ContentPanelPaint = function(this, w, h)
-		local r = MenuScale(6)
-		draw.RoundedBox(r, 0, 0, w, h, COL.surface)
-		surface.SetDrawColor(COL.border)
-		surface.DrawOutlinedRect(0, 0, w, h, 1)
-
-		if self.ShowIcon then
-			local iconW = TraitorIcon:Width()
-			local iconH = TraitorIcon:Height()
-			surface.SetDrawColor(255, 255, 255)
-			surface.SetMaterial(TraitorIcon)
-			surface.DrawTexturedRect((w - iconW) / 2, h - iconH, iconW, iconH)
-		end
-	end
-
-	self.panelparrent = vgui.Create("DPanel", self)
-	self.panelparrent:SetPos(contentX, sidebarY)
-	self.panelparrent:SetSize(ScrW() - contentX - MenuScale(24), sidebarH)
-	self.panelparrent.Paint = self.ContentPanelPaint
-
-	local gitHubURL = "https://github.com/RealZorf/Z-City"
-	local gitHubText = "GitHub.com/RealZorf/Z-City"
+	bottomDock:SetPos(innerPad, layout.footerY)
+	bottomDock:SetSize(sidebarW - innerPad * 2, layout.footerBlockH)
+	bottomDock:SetPaintBackground(false)
+	bottomDock.Paint = function() end
 
 	local git = vgui.Create("DLabel", bottomDock)
 	git:Dock(BOTTOM)
-	git:DockMargin(0, MenuScale(2), 0, MenuScale(12))
+	git:DockMargin(0, MenuScale(2), 0, MenuScale(8))
 	git:SetFont("ZC_MM_Tiny")
-	git:SetTextColor(COL.text_faint)
-	git:SetText(gitHubText)
+	git:SetText(GITHUB_URL)
+	git:SetTextColor(color_faint)
 	git:SetContentAlignment(4)
 	git:SetMouseInputEnabled(true)
 	git:SizeToContents()
-
 	function git:DoClick()
-		gui.OpenURL(gitHubURL)
+		PlayMenuSound("shitty/tap_depress.wav", 0.09)
+		gui.OpenURL(GITHUB_URL)
 	end
-
 	function git:Think()
-		local hov = self:IsHovered()
-		self:SetTextColor(hov and COL.accent or COL.text_faint)
+		self:SetTextColor(self:IsHovered() and color_crt_soft or color_faint)
 	end
 
 	local zteam = vgui.Create("DLabel", bottomDock)
 	zteam:Dock(BOTTOM)
-	zteam:DockMargin(0, 0, 0, MenuScale(6))
+	zteam:DockMargin(0, 0, 0, MenuScale(4))
 	zteam:SetFont("ZC_MM_Tiny")
-	zteam:SetTextColor(COL.text_dim)
+	zteam:SetTextColor(color_idle_dim)
 	zteam:SetText("Vottur, Zorf, Patidinho")
 	zteam:SetContentAlignment(4)
 	zteam:SizeToContents()
+
+	local contentX = sidebarX + sidebarW + MenuScale(20)
+	self.ContentX = contentX
+	self.ContentY = sidebarY
+	self.ContentW = ScrW() - contentX - MenuScale(24)
+	self.ContentH = sidebarH
+
+	self.panelparrent = vgui.Create("DPanel", self)
+	self.panelparrent:SetPos(self.ContentX, self.ContentY)
+	self.panelparrent:SetSize(self.ContentW, self.ContentH)
+	self.panelparrent:SetPaintBackground(false)
+	self.panelparrent.Paint = function() end
 end
 
-function PANEL:First(ply)
+function PANEL:RebuildContent(callback)
+	local pp = self.panelparrent
+	if not IsValid(pp) then return end
+
+	pp:AlphaTo(0, 0.12, 0, function()
+		if not IsValid(self) then return end
+		if IsValid(pp) then
+			pp:Remove()
+		end
+
+		self.panelparrent = vgui.Create("DPanel", self)
+		self.panelparrent:SetPos(self.ContentX, self.ContentY)
+		self.panelparrent:SetSize(self.ContentW, self.ContentH)
+		self.panelparrent:SetPaintBackground(false)
+		self.panelparrent.Paint = function() end
+		self.panelparrent:SetAlpha(0)
+
+		if callback then
+			callback(self.panelparrent)
+		end
+
+		if IsValid(self.panelparrent) then
+			self.panelparrent:AlphaTo(255, 0.12, 0)
+		end
+	end)
+end
+
+function PANEL:First()
 	self:AlphaTo(255, 0.15, 0, nil)
 end
 
@@ -361,11 +366,8 @@ function PANEL:Paint(w, h)
 	draw.RoundedBox(0, 0, 0, w, h, self.ColorBG)
 	hg.DrawBlur(self, 4)
 
-	surface.SetDrawColor(COL.accent_glow)
-	surface.DrawRect(0, 0, w, MenuScale(1))
-
 	local gridStep = MenuScale(64)
-	surface.SetDrawColor(255, 255, 255, 3)
+	surface.SetDrawColor(255, 255, 255, 2)
 	for gx = 0, w, gridStep do
 		surface.DrawRect(gx, 0, 1, h)
 	end
@@ -376,128 +378,109 @@ end
 
 function PANEL:AddSelect(pParent, strTitle, tbl)
 	local id = #self.Buttons + 1
-	self.Buttons[id] = vgui.Create("DLabel", pParent)
+	self.Buttons[id] = vgui.Create("DButton", pParent)
 	local btn = self.Buttons[id]
 	btn:SetText(strTitle)
-	btn:SetMouseInputEnabled(true)
-	btn:SizeToContents()
 	btn:SetFont("ZC_MM_Button")
-	btn:SetTall(MenuScale(40))
+	btn:SetTextColor(Color(255, 255, 255, 0))
+	btn:SetTall(self.ButtonHeight or MenuScale(40))
 	btn:SetWide(pParent:GetWide())
 	btn:Dock(BOTTOM)
 	btn:DockMargin(0, MenuScale(4), 0, 0)
-	btn.Func = tbl.Func
-	btn.HoveredFunc = tbl.HoveredFunc
 	btn.StrTitle = strTitle
 	btn.Featured = tbl.Featured == true
-	if btn.Featured then btn:SetTooltip("NEW") end
+	btn.Danger = tbl.Danger == true
+	btn.Support = tbl.Support == true
+	btn.Id = string.lower(strTitle)
+	btn.RColor = color_idle
+	btn.ActiveColor = color_text
+	if btn.Featured then
+		btn:SetTooltip("NEW")
+	end
+
 	local luaMenu = self
-	if tbl.CreatedFunc then tbl.CreatedFunc(btn, self, luaMenu) end
-	btn.RColor = COL.text_dim
-	btn.ActiveColor = COL.text
 
 	btn.Paint = function(this, w, h)
-		local isActive = curent_panel == string.lower(strTitle)
+		local isActive = current_panel == this.Id
 		local v = this.HoverLerp or 0
-		local pad = MenuScale(10)
-		local barW = MenuScale(3)
-
-		if isActive or v > 0.01 then
-			local bgAlpha = isActive and COL.active.a or math.floor(COL.hover.a * v)
-			draw.RoundedBox(MenuScale(4), 0, 0, w, h, Color(COL.hover.r, COL.hover.g, COL.hover.b, bgAlpha))
+		local r, g, b = CRT_R, CRT_G, CRT_B
+		if this.Danger then
+			r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
+		elseif this.Support then
+			r, g, b = color_gold.r, color_gold.g, color_gold.b
 		end
 
-		if isActive then
-			draw.RoundedBox(0, 0, MenuScale(6), barW, h - MenuScale(12), COL.accent)
-		elseif v > 0.01 then
-			local barAlpha = math.floor(255 * v)
-			draw.RoundedBox(0, 0, MenuScale(8), barW, h - MenuScale(16), Color(COL.accent.r, COL.accent.g, COL.accent.b, barAlpha))
+		if isActive or v > 0.02 then
+			surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 180)
+			surface.DrawRect(0, 0, w, h)
+			surface.SetDrawColor(r, g, b, isActive and 31 or math.floor(18 * v))
+			surface.DrawRect(1, 1, w - 2, h - 2)
+			surface.SetDrawColor(r, g, b, isActive and 216 or math.floor(120 + 90 * v))
+			surface.DrawOutlinedRect(0, 0, w, h, 1)
+			DrawCRTCorners(0, 0, w, h, 6, r, g, b, isActive and 230 or math.floor(140 * v))
 		end
 
-		local textCol = this.RColor:Lerp(isActive and btn.ActiveColor or select_color, isActive and 1 or v)
-		local textX = pad + barW + MenuScale(4)
+		local targetCol = isActive and this.ActiveColor or Color(r, g, b)
+		local textCol = this.RColor:Lerp(targetCol, isActive and 1 or v)
+		local textX = MenuScale(12)
 		local text = this:GetText()
 		draw.SimpleText(text, "ZC_MM_Button", textX, h * 0.5, textCol, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
 		if this.Featured then
 			surface.SetFont("ZC_MM_Button")
 			local textW = surface.GetTextSize(text)
-			local starX = textX + textW + MenuScale(9)
-			local starY = h * 0.5 - MenuScale(1)
-			draw.SimpleText("★", "ZC_MM_Button", starX + 1, starY + 1, COL.featured_shadow, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-			draw.SimpleText("★", "ZC_MM_Button", starX, starY, COL.featured, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-		end
-	end
-
-	function btn:DoClick()
-		if curent_panel == string.lower(strTitle) then
-			for i = 1, 3 do
-				surface.PlaySound("shitty/tap_release.wav")
-			end
-			luaMenu.panelparrent:AlphaTo(0, 0.2, 0, function()
-				luaMenu.panelparrent:Remove()
-				luaMenu.panelparrent = nil
-				luaMenu.panelparrent = vgui.Create("DPanel", luaMenu)
-
-				luaMenu.panelparrent:SetPos(some_coordinates_x, some_coordinates_y)
-				luaMenu.panelparrent:SetSize(some_size_x, some_size_y)
-				luaMenu.panelparrent.Paint = luaMenu.ContentPanelPaint
-				curent_panel = nil
-			end)
-			return
-		end
-		some_size_x = luaMenu.panelparrent:GetWide()
-		some_size_y = luaMenu.panelparrent:GetTall()
-		some_coordinates_x = luaMenu.panelparrent:GetX()
-		some_coordinates_y = luaMenu.panelparrent:GetY()
-		luaMenu.panelparrent:AlphaTo(0, 0.2, 0, function()
-			luaMenu.panelparrent:Remove()
-			luaMenu.panelparrent = nil
-			luaMenu.panelparrent = vgui.Create("DPanel", luaMenu)
-
-			luaMenu.panelparrent:SetPos(some_coordinates_x, some_coordinates_y)
-			luaMenu.panelparrent:SetSize(some_size_x, some_size_y)
-			luaMenu.panelparrent.Paint = luaMenu.ContentPanelPaint
-			btn.Func(luaMenu, luaMenu.panelparrent)
-			curent_panel = string.lower(strTitle)
-		end)
-		for i = 1, 3 do
-			surface.PlaySound("shitty/tap_depress.wav")
+			draw.SimpleText("★", "ZC_MM_Button", textX + textW + MenuScale(9), h * 0.5, color_gold, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 		end
 	end
 
 	function btn:Think()
-		self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, (self:IsHovered() or (IsValid(self:GetChild(0)) and self:GetChild(0):IsHovered()) or (IsValid(self:GetChild(0)) and IsValid(self:GetChild(0):GetChild(0)) and self:GetChild(0):GetChild(0):IsHovered())) and 1 or 0)
+		local hovered = self:IsHovered()
+		self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, (hovered or current_panel == self.Id) and 1 or 0)
 
-		local v = self.HoverLerp
-		self:SetTextColor(ColorAlpha(color_white, 0))
-
-		local targetText = (self:IsHovered()) and string.upper(strTitle) or strTitle
-		local crw = self:GetText()
-
-		if (crw ~= targetText) or (curent_panel == string.lower(strTitle)) then
-			local ntxt = ""
-			local will_text = (curent_panel == string.lower(strTitle) and not strTitle == 'Traitor Role') and '[ ' .. string.upper(strTitle) .. ' ]' or strTitle
-			for i = 1, #will_text do
-				local char = will_text:sub(i, i)
-				if i <= math.ceil(#will_text * v) then
-					ntxt = ntxt .. string.upper(char)
-				else
-					ntxt = ntxt .. char
-				end
-			end
-			if self:GetText() ~= ntxt then
-				surface.PlaySound("shitty/tap-resonant.wav")
-			end
+		local source = current_panel == self.Id and string.upper(strTitle) or strTitle
+		local ntxt = ""
+		local reveal = math.ceil(#source * self.HoverLerp)
+		for i = 1, #source do
+			local char = source:sub(i, i)
+			ntxt = ntxt .. (i <= reveal and string.upper(char) or char)
+		end
+		if self:GetText() ~= ntxt then
+			surface.PlaySound("shitty/tap-resonant.wav")
 			self:SetText(ntxt)
 		end
+
 		self:SetWide(pParent:GetWide())
-		self:SetTall(MenuScale(40))
+		self:SetTall(luaMenu.ButtonHeight or MenuScale(40))
+	end
+
+	function btn:DoClick()
+		if not tbl.OpensPanel then
+			PlayMenuSound("shitty/tap_depress.wav", 0.09)
+			tbl.Func(luaMenu, luaMenu.panelparrent)
+			return
+		end
+
+		if current_panel == self.Id then
+			PlayMenuSound("shitty/tap_release.wav", 0.05)
+			luaMenu:RebuildContent()
+			current_panel = nil
+			return
+		end
+
+		PlayMenuSound("shitty/tap_depress.wav", 0.09)
+		luaMenu:RebuildContent(function(pp)
+			tbl.Func(luaMenu, pp)
+			current_panel = btn.Id
+		end)
 	end
 end
 
 function PANEL:Close()
-	self:AlphaTo(0, 0.1, 0, function() self:Remove() end)
+	self:AlphaTo(0, 0.1, 0, function()
+		if IsValid(self) then
+			self:Remove()
+		end
+	end)
 	self:SetKeyboardInputEnabled(false)
 	self:SetMouseInputEnabled(false)
 end
@@ -506,7 +489,7 @@ vgui.Register("ZMainMenu", PANEL, "ZFrame")
 
 hook.Add("OnPauseMenuShow", "OpenMainMenu", function()
 	local run = hook.Run("OnShowZCityPause")
-	if run != nil then
+	if run ~= nil then
 		return run
 	end
 
