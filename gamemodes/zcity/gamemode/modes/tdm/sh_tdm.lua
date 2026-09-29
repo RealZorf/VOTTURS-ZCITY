@@ -69,13 +69,13 @@ AddItemToBUY( "Ballistic Mask", "Armor", "ent_armor_mask1", 650, "Equipment", {}
 AddItemToBUY( "III Vest", "Armor", "ent_armor_vest4", 650, "Equipment", {} )
 AddItemToBUY( "IV Vest", "Armor", "ent_armor_vest1", 1000, "Equipment", {} )
 
--- UTILITY
-AddItemToBUY( "Flashlight", "Armor", "hg_flashlight", 250, "Utility", {} )
-AddItemToBUY( "NVG-GPNVG-18", "Armor", "ent_armor_nightvision1", 450, "Utility", {} )
-AddItemToBUY( "Flashbang", "Weapon", "weapon_hg_flashbang_tpik", 250, "Utility", {} )
-AddItemToBUY( "Smoke Grenade", "Weapon", "weapon_hg_m18_tpik", 350, "Utility", {} )
-AddItemToBUY( "RGD-5", "Weapon", "weapon_hg_rgd_tpik", 450, "Utility", {} )
-AddItemToBUY( "M67", "Weapon", "weapon_hg_grenade_tpik", 500, "Utility", {} )
+-- GRENADES
+AddItemToBUY( "Flashlight", "Armor", "hg_flashlight", 250, "Grenades", {} )
+AddItemToBUY( "NVG-GPNVG-18", "Armor", "ent_armor_nightvision1", 450, "Grenades", {} )
+AddItemToBUY( "Flashbang", "Weapon", "weapon_hg_flashbang_tpik", 250, "Grenades", {} )
+AddItemToBUY( "Smoke Grenade", "Weapon", "weapon_hg_m18_tpik", 350, "Grenades", {} )
+AddItemToBUY( "RGD-5", "Weapon", "weapon_hg_rgd_tpik", 450, "Grenades", {} )
+AddItemToBUY( "M67", "Weapon", "weapon_hg_grenade_tpik", 500, "Grenades", {} )
 
 -- PISTOLS
 AddItemToBUY( "Colt M1911", "Weapon", "weapon_m1911", 400, "Pistols", {}, nil, 0 )
@@ -132,7 +132,7 @@ AddItemToBUY( "G3A3", "Weapon", "weapon_g3a3", 4000, "Rifles", {"holo4","holo1"}
 -- HEAVY WEAPONS
 AddItemToBUY( "RPK-74", "Weapon", "weapon_rpk", 4000, "Heavy", {"optic4"}, nil, 0 )
 AddItemToBUY( "RPK-74M", "Weapon", "weapon_rpk74m", 4000, "Heavy", {"optic4"}, nil, 1 )
-AddItemToBUY( "MG36", "Weapon", "weapon_mg36", 4000, "Heavy", {"supressor2","holo4","holo1","optic7"}, nil, 1 )
+AddItemToBUY( "MG36", "Weapon", "weapon_mg36", 4850, "Heavy", {"supressor2","holo4","holo1","optic7"}, nil, 1 )
 AddItemToBUY( "RPK", "Weapon", "weapon_rpk762", 4850, "Heavy", {"optic4"}, nil, 0 )
 AddItemToBUY( "FN MINIMI", "Weapon", "weapon_minimi", 5750, "Heavy", {"supressor2","holo2","holo12","optic9"}, nil, 0 )
 AddItemToBUY( "M249", "Weapon", "weapon_m249", 5750, "Heavy", {"supressor2","holo2","holo12","optic9"}, nil, 1 )
