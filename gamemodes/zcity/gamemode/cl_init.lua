@@ -1921,8 +1921,10 @@ function GM:ScoreboardShow()
 			players[#players + 1] = ply
 		end
 		table.sort(players, function(a, b)
-			if a:Alive() ~= b:Alive() then return a:Alive() end
-			return a:Name() < b:Name()
+			local an = string.lower(IsValid(a) and a:Name() or "")
+			local bn = string.lower(IsValid(b) and b:Name() or "")
+			if an ~= bn then return an < bn end
+			return (IsValid(a) and a:UserID() or 0) < (IsValid(b) and b:UserID() or 0)
 		end)
 		return players
 	end
