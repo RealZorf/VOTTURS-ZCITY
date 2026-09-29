@@ -1592,13 +1592,19 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 			nameCol = color_text
 		end
 		local nameX = rowH + SB_TEXT_PAD
+		local nameW = SB_DrawText(name, "SB_CRT_Item", nameX, y, nameCol, TEXT_ALIGN_LEFT)
+
 		if talking then
-			DrawSilkIcon(matIconTalk, nameX, y + math.floor((lineH - 16) * 0.5), 16, 255, 255, 255, 180 + talkVol * 75)
-			nameX = nameX + 18
+			local iconSize = 16
+			local iconX = nameX + nameW + 5
+			local iconY = y + math.floor((lineH - iconSize) * 0.5)
+
+			DrawSilkIcon(matIconTalk, iconX, iconY, iconSize, 255, 255, 255, 180 + talkVol * 75)
+
 			surface.SetDrawColor(ar, ag, ab, 80 + talkVol * 160)
 			surface.DrawRect(0, h - 2, w * talkVol, 2)
 		end
-		SB_DrawText(name, "SB_CRT_Item", nameX, y, nameCol, TEXT_ALIGN_LEFT)
+
 		if hasSub then
 			SB_DrawText(sub, "SB_CRT_Item", nameX, y + lineH + 1, color_idle_dim, TEXT_ALIGN_LEFT)
 		end
