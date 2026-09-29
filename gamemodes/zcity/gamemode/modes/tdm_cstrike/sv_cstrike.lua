@@ -36,6 +36,18 @@ end
 
 util.AddNetworkString("zb_cs_round_intermission")
 
+local function SyncTDMRoundGlobals()
+	local maxR = MODE.Rounds or 5
+	local left = zb.RoundsLeft
+	if not left then
+		SetGlobalInt("ZB_TDMRound", 0)
+		SetGlobalInt("ZB_TDMMaxRounds", 0)
+		return
+	end
+	SetGlobalInt("ZB_TDMRound", math.max(maxR - left, 0))
+	SetGlobalInt("ZB_TDMMaxRounds", maxR)
+end
+
 function MODE:DontKillPlayer(ply)
     return zb.RoundsLeft and (zb.RoundsLeft != self.Rounds)
 end
@@ -72,6 +84,7 @@ function MODE:Intermission()
     
     zb.RoundsLeft = zb.RoundsLeft or self.Rounds
     zb.Winners = zb.Winners or {}
+    SyncTDMRoundGlobals()
 
     self.GameStarted = zb.RoundsLeft == self.Rounds
     zb.rtype = zb.rtype or "bomb"
@@ -167,6 +180,7 @@ concommand.Add("tdm_setrounds", function(ply, cmd, args)
     local played = oldRounds - oldLeft
     MODE.Rounds = math.max(tonumber(args[1]) or oldRounds, 1)
     zb.RoundsLeft = math.max(MODE.Rounds - played, 0)
+    SyncTDMRoundGlobals()
     PrintMessage(HUD_PRINTTALK, "TDM rounds set to "..MODE.Rounds..". Rounds left: "..zb.RoundsLeft)
 end)
 
@@ -306,6 +320,7 @@ function MODE:EndRound()
         zb.rtype = nil
         zb.nextcsround = nil
         zb.RoundsLeft = nil
+        SyncTDMRoundGlobals()
 
         return
     end
@@ -314,6 +329,7 @@ function MODE:EndRound()
         zb.RoundsLeft = zb.RoundsLeft - 1
         
         zb.Winners[winner] = (zb.Winners[winner] or 0) + 1
+        SyncTDMRoundGlobals()
     else
         local winner
         local min = 0
@@ -331,6 +347,7 @@ function MODE:EndRound()
         end
 
         zb.RoundsLeft = nil
+        SyncTDMRoundGlobals()
     end
 end
 
