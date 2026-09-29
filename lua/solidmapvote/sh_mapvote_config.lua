@@ -696,9 +696,9 @@ SolidMapVote["Config"]["Specific Maps"] = {
     {
         filename = "zb_cabin_v8",
         displayname = "Cabin V8",
-        image = "https://images.steamusercontent.com/ugc/10597378782888453612/ECA46D3D92F4ADDC6F8B5C8DC81D4CE184C3AFF0/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
-        width = 268,
-        height = 268
+        image = "https://images.steamusercontent.com/ugc/18383851518271966709/E613B69F361B8D27EDA2476F8A8408BB5C9CBBD2/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 637,
+        height = 358
     },
     {
         filename = "gm_stage_6",
