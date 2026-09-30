@@ -50,23 +50,22 @@ local function AddItemToBUY(ItemName, Type, ItemClass, Price, Category, Attachme
 end
 
 --Pistols
-AddItemToBUY("Colt Python", "Weapon", "weapon_python", 800, "Pistols", {})
-AddItemToBUY("Browning HP", "Weapon", "weapon_browninghp", 700, "Pistols", {})
-AddItemToBUY("Mauser Red 9", "Weapon", "weapon_mauserred9", 600, "Pistols", {})
+AddItemToBUY("Walther PPK", "Weapon", "weapon_ppk", 400, "Pistols", {})
 AddItemToBUY("Colt M1911", "Weapon", "weapon_m1911", 500, "Pistols", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("Walther P38", "Weapon", "weapon_p38", 500, "Pistols", {}, nil, TEAM_GERMAN)
-AddItemToBUY("Walther PPK", "Weapon", "weapon_ppk", 400, "Pistols", {})
+AddItemToBUY("Mauser Red 9", "Weapon", "weapon_mauserred9", 600, "Pistols", {})
+AddItemToBUY("Browning HP", "Weapon", "weapon_browninghp", 700, "Pistols", {})
+AddItemToBUY("Colt Python", "Weapon", "weapon_python", 800, "Pistols", {})
 
 --Submachine guns
+AddItemToBUY("MP40", "Weapon", "weapon_mp40", 1300, "Submachine Guns", {}, nil, TEAM_GERMAN)
+AddItemToBUY("STEN MK2", "Weapon", "weapon_stenmk2", 1300, "Submachine Guns", {}, nil, TEAM_AMERICAN)
+AddItemToBUY("M3 Grease Gun", "Weapon", "weapon_m3greasegun", 1600, "Submachine Guns", {}, nil, TEAM_AMERICAN)
+AddItemToBUY("MP34", "Weapon", "weapon_mp34smg", 1600, "Submachine Guns", {}, nil, TEAM_GERMAN)
 AddItemToBUY("PPSh-41", "Weapon", "weapon_ppsh", 2300, "Submachine Guns", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("MP-41 R", "Weapon", "weapon_mp41r", 2300, "Submachine Guns", {}, nil, TEAM_GERMAN)
 AddItemToBUY("PPSh-41 Drum", "Weapon", "weapon_ppshboss", 2800, "Submachine Guns", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("Suomi KP31", "Weapon", "weapon_kp31", 2800, "Submachine Guns", {}, nil, TEAM_GERMAN)
-AddItemToBUY("Thompson M1A1", "Weapon", "weapon_thompson", 1900, "Submachine Guns", {})
-AddItemToBUY("M3 Grease Gun", "Weapon", "weapon_m3greasegun", 1600, "Submachine Guns", {}, nil, TEAM_AMERICAN)
-AddItemToBUY("MP34", "Weapon", "weapon_mp34smg", 1600, "Submachine Guns", {}, nil, TEAM_GERMAN)
-AddItemToBUY("MP40", "Weapon", "weapon_mp40", 1300, "Submachine Guns", {}, nil, TEAM_GERMAN)
-AddItemToBUY("STEN MK2", "Weapon", "weapon_stenmk2", 1300, "Submachine Guns", {}, nil, TEAM_AMERICAN)
 
 --Shotguns
 AddItemToBUY("Sawed-off IZh-43", "Weapon", "weapon_doublebarrel_short", 1600, "Shotguns", {})
@@ -75,15 +74,14 @@ AddItemToBUY("Itacha Model 37", "Weapon", "weapon_ithaca37", 2000, "Shotguns", {
 AddItemToBUY("Browning Auto 5", "Weapon", "weapon_auto5", 2600, "Shotguns", {})
 
 --Marksman Rifles (Marksman)
-AddItemToBUY("Gewehr 43", "Weapon", "weapon_gewehr43", 2400, "Marksman", {}, nil, TEAM_GERMAN)
-AddItemToBUY("M1 Garand", "Weapon", "weapon_m1garand", 2400, "Marksman", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("Karabiner 98k", "Weapon", "weapon_kar98", 2000, "Marksman", {"optic12"}, nil, TEAM_AMERICAN)
 AddItemToBUY("Karabiner 98k KM", "Weapon", "weapon_kar98kriegsmod", 2000, "Marksman", {"optic12"}, nil, TEAM_GERMAN)
-AddItemToBUY("De Lisle", "Weapon", "weapon_delisle", 1800, "Marksman", {"optic12"})
+AddItemToBUY("Gewehr 43", "Weapon", "weapon_gewehr43", 2400, "Marksman", {}, nil, TEAM_GERMAN)
+AddItemToBUY("M1 Garand", "Weapon", "weapon_m1garand", 2400, "Marksman", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("PTRS-41", "Weapon", "weapon_ptrs", 5500, "Marksman", {"optic12"})
 
 --Assault rifles
-AddItemToBUY("VG 1-5", "Weapon", "weapon_vg15", 2700, "Assault", {})
+AddItemToBUY("VG 1-5", "Weapon", "weapon_vg15", 3000, "Assault", {})
 AddItemToBUY("STG-45", "Weapon", "weapon_stg4567", 3200, "Assault", {})
 AddItemToBUY("STG-44", "Weapon", "weapon_stg443", 3600, "Assault", {opticstg44})
 AddItemToBUY("FG 42", "Weapon", "weapon_fg42", 5250, "Assault", {}, nil, TEAM_GERMAN)
@@ -98,10 +96,6 @@ AddItemToBUY("MG-42", "Weapon", "weapon_mg42", 7000, "Heavy", {})
 --Armor
 AddItemToBUY("M1940 Stahlhelm", "Armor", "ent_armor_helmet1", 350, "Armor", {}, nil, TEAM_GERMAN)
 AddItemToBUY("M1 Helmet", "Armor", "ent_armor_helmet7", 350, "Armor", {}, nil, TEAM_AMERICAN)
-AddItemToBUY("Flak Jacket", "Armor", "ent_armor_vest3", 450, "Armor", {})
-AddItemToBUY("Flak Vest", "Armor", "ent_armor_vest4", 650, "Armor", {})
-AddItemToBUY("Welding Mask", "Armor", "ent_armor_mask3", 650, "Armor", {})
-AddItemToBUY("Staloi Nagrudnik", "Armor", "ent_armor_vest5", 1000, "Armor", {})
 
 --Medical
 AddItemToBUY( "Cigarettes", "Weapon", "weapon_hg_cigarette", 20, "Medical", {} )
