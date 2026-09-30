@@ -906,6 +906,7 @@ end
 local matIconSound = Material("icon16/sound.png")
 local matIconMute = Material("icon16/sound_mute.png")
 local matIconTalk = Material("icon16/comment.png")
+local matIconDead = Material("icon16/cross.png")
 
 local STAFF_GROUPS = {
     superadmin = true,
@@ -1108,13 +1109,24 @@ local function GetTeamDisplay(teamID)
 	return string.upper(name), team.GetColor(teamID) or Color(CRT_R, CRT_G, CRT_B)
 end
 
+local function TeamHasScoreboardPlayers(teamID)
+	for _, ply in player.Iterator() do
+		if ply:Team() ~= teamID then continue end
+		if ShouldHideScoreboardPly(ply) then continue end
+		return true
+	end
+	return false
+end
+
 local function GetActiveTeams()
 	local rnd = CurrentRound()
 	local preset = rnd and TEAM_SCORE_INFO[rnd.name]
 	local teams = {}
 	if preset then
 		for id in pairs(preset) do
-			teams[#teams + 1] = id
+			if TeamHasScoreboardPlayers(id) then
+				teams[#teams + 1] = id
+			end
 		end
 	else
 		local seen = {}
@@ -1129,10 +1141,19 @@ local function GetActiveTeams()
 		end
 	end
 	table.sort(teams)
-	if #teams == 0 then
-		teams = {0, 1}
-	end
 	return teams
+end
+
+local function LocalPlayerIsSpectating()
+	local lp = LocalPlayer()
+	if not IsValid(lp) then return false end
+	return lp:Team() == TEAM_SPECTATOR or not lp:Alive()
+end
+
+local function IsScoreboardDeadPly(ply)
+	if not IsValid(ply) or ply:Alive() then return false end
+	if ply:Team() == TEAM_SPECTATOR then return false end
+	return true
 end
 
 local function DrawLabeledStat(x, rectY, rectH, label, value, valueCol)
@@ -1638,7 +1659,18 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 		elseif hovered or localPly then
 			nameCol = color_text
 		end
-		local nameX = rowH + SB_TEXT_PAD
+		local showDead = LocalPlayerIsSpectating() and IsScoreboardDeadPly(ply)
+		if showDead then
+			nameCol = color_dead
+		end
+		local textX = rowH + SB_TEXT_PAD
+		local nameX = textX
+		if showDead then
+			local iconSize = 16
+			local iconY = y + math.floor((lineH - iconSize) * 0.5)
+			DrawSilkIcon(matIconDead, textX, iconY, iconSize, 180, 180, 180, 230)
+			nameX = textX + iconSize + 4
+		end
 		local nameW = SB_DrawText(name, "SB_CRT_Item", nameX, y, nameCol, TEXT_ALIGN_LEFT)
 
 		if talking then
@@ -1653,7 +1685,7 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 		end
 
 		if hasSub then
-			SB_DrawText(sub, "SB_CRT_Item", nameX, y + lineH + 1, color_idle_dim, TEXT_ALIGN_LEFT)
+			SB_DrawText(sub, "SB_CRT_Item", textX, y + lineH + 1, color_idle_dim, TEXT_ALIGN_LEFT)
 		end
 	end
 
@@ -1729,7 +1761,7 @@ end)
 local function GetScoreboardSig()
 	local sig = player.GetCount()
 	for _, ply in player.Iterator() do
-		sig = (sig * 33 + ply:UserID() + ply:Team() * 17) % 2147483647
+		sig = (sig * 33 + ply:UserID() + ply:Team() * 17 + (ply:Alive() and 0 or 11)) % 2147483647
 		if ply:GetNWBool("ZB_SB_HideSelf", false) then sig = sig + 3 end
 		if ply:GetNWBool("ZB_SB_ShowRole", false) then sig = sig + 7 end
 	end
@@ -2014,26 +2046,30 @@ function GM:ScoreboardShow()
 		FillList(specList, specPlayers, specAccent, true)
 
 		if teamBased then
-			specWrap:Dock(BOTTOM)
-			specWrap:SetTall(math.max(ScreenScaleH(92), sizeY * 0.22))
-			specWrap:DockMargin(0, SB_GAP, 0, 0)
-
 			local teams = GetActiveTeams()
-			local teamHost = vgui.Create("DPanel", content)
-			teamHost:Dock(FILL)
-			teamHost:SetPaintBackground(false)
+			if #teams > 0 then
+				specWrap:Dock(BOTTOM)
+				specWrap:SetTall(math.max(ScreenScaleH(92), sizeY * 0.22))
+				specWrap:DockMargin(0, SB_GAP, 0, 0)
 
-			for i, teamID in ipairs(teams) do
-				local tName, tCol = GetTeamDisplay(teamID)
-				local list = CreateListPanel(teamHost, tName, tCol)
-				if i < #teams then
-					list:Dock(LEFT)
-					list:SetWide((sizeX - SB_OUTER * 2) / #teams - SB_GAP)
-					list:DockMargin(0, 0, SB_GAP, 0)
-				else
-					list:Dock(FILL)
+				local teamHost = vgui.Create("DPanel", content)
+				teamHost:Dock(FILL)
+				teamHost:SetPaintBackground(false)
+
+				for i, teamID in ipairs(teams) do
+					local tName, tCol = GetTeamDisplay(teamID)
+					local list = CreateListPanel(teamHost, tName, tCol)
+					if i < #teams then
+						list:Dock(LEFT)
+						list:SetWide((sizeX - SB_OUTER * 2) / #teams - SB_GAP)
+						list:DockMargin(0, 0, SB_GAP, 0)
+					else
+						list:Dock(FILL)
+					end
+					FillList(list, CollectPlayers(teamID), tCol)
 				end
-				FillList(list, CollectPlayers(teamID), tCol)
+			else
+				specWrap:Dock(FILL)
 			end
 		else
 			specWrap:Dock(RIGHT)
