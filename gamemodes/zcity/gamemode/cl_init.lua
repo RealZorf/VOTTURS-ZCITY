@@ -1215,6 +1215,62 @@ local function CreateCRTButton(parent, text, onClick, extra)
 	return but
 end
 
+local function GetVolumeSliderRGB(slider, ply)
+	local locked = IsValid(ply) and (IsVoiceLocked(ply) or ply:IsMuted())
+	local frac = slider:GetSlideX()
+	if locked then
+		return TRAITOR_R, TRAITOR_G, TRAITOR_B, frac, true
+	end
+	local r, g, b = GetVolumeRGB(frac)
+	return r, g, b, frac, false
+end
+
+local function PaintVolumeSlider(slider, ply)
+	local knob = math.max(9, math.floor(ScreenScale(4)))
+	slider.Knob:SetSize(knob, knob)
+	slider.Knob:SetCursor("hand")
+	slider.Knob.Paint = function(self, w, h)
+		local r, g, b = GetVolumeSliderRGB(slider, ply)
+		local active = self:IsHovered() or self:IsDown() or slider.Dragging
+		local pad = active and 0 or 1
+		draw.RoundedBox(w, pad, pad, w - pad * 2, h - pad * 2, Color(r, g, b, active and 255 or 230))
+		surface.SetDrawColor(12, 14, 12, 220)
+		surface.DrawOutlinedRect(pad, pad, w - pad * 2, h - pad * 2, 1)
+	end
+	slider.Paint = function(self, w, h)
+		local r, g, b, frac, locked = GetVolumeSliderRGB(self, ply)
+		local trackH = 3
+		local y = math.floor((h - trackH) * 0.5)
+		surface.SetDrawColor(0, 0, 0, 210)
+		surface.DrawRect(0, y, w, trackH)
+		surface.SetDrawColor(r, g, b, locked and 90 or 70)
+		surface.DrawRect(0, y, w, trackH)
+		surface.SetDrawColor(r, g, b, 230)
+		surface.DrawRect(0, y, math.max(0, w * frac), trackH)
+
+		local knob = self.Knob
+		local sliding = self.Dragging or self:IsHovered() or (IsValid(knob) and (knob:IsHovered() or knob:IsDown()))
+		if not sliding then return end
+
+		local label = math.Round(frac * 100) .. "%"
+		local fontH = SB_FontH("SB_CRT_Item")
+		local tw = SB_TextW("SB_CRT_Item", label)
+		local kx, ky = 0, 0
+		if IsValid(knob) then
+			kx, ky = knob:GetPos()
+			kx = kx + knob:GetWide() * 0.5
+		else
+			kx = w * frac
+		end
+		local ty = ky - fontH - 2
+		DisableClipping(true)
+		surface.SetDrawColor(8, 9, 9, 220)
+		surface.DrawRect(math.floor(kx - tw * 0.5) - 2, ty - 1, tw + 4, fontH + 2)
+		SB_DrawText(label, "SB_CRT_Item", kx, ty, color_text, TEXT_ALIGN_CENTER)
+		DisableClipping(false)
+	end
+end
+
 local function OpenPlayerSoundSettings(ply)
 	local Menu = DermaMenu()
 
@@ -1239,15 +1295,7 @@ local function OpenPlayerSoundSettings(ply)
 		ApplyPlayerVolume(ply, x)
 	end
 
-	function volumeSlider:Paint(w, h)
-		local frac = self:GetSlideX()
-		local r, g, b = GetVolumeRGB(frac)
-		draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0))
-		draw.RoundedBox(0, 0, 0, w * frac, h, Color(r, g, b))
-		SB_DrawInH(math.Round(frac * 100) .. "%", "SB_CRT_Item", w * 0.5, h, color_text, TEXT_ALIGN_CENTER)
-	end
-	function volumeSlider.Knob.Paint(self) end
-
+	PaintVolumeSlider(volumeSlider, ply)
 	Menu:AddPanel(volumeSlider)
 	Menu:Open()
 end
@@ -1411,59 +1459,58 @@ local function CreateMuteControls(parent, ply)
 	local wrap = vgui.Create("DPanel", parent)
 	wrap:SetPaintBackground(false)
 	wrap:Dock(RIGHT)
-	local muteInner = SB_PlayerRowH() - SB_TEXT_PAD * 2
-	wrap:SetWide(muteInner + SB_TEXT_PAD + 72)
+	wrap:SetWide(math.max(84, ScreenScale(38)))
 	wrap:DockMargin(SB_TEXT_PAD, SB_TEXT_PAD, SB_TEXT_PAD, SB_TEXT_PAD)
 
-	local speaker = vgui.Create("DButton", wrap)
-	speaker:Dock(LEFT)
-	speaker:SetWide(muteInner)
-	speaker:DockMargin(0, 0, SB_TEXT_PAD, 0)
-	speaker:SetText("")
-	speaker:SetTooltip("Mute this player. Drag the bar to set volume.")
-	speaker.DoClick = function()
+	local muteH = math.max(14, SB_FontH("SB_CRT_Item") + 2)
+	local mute = vgui.Create("DButton", wrap)
+	mute:Dock(BOTTOM)
+	mute:SetTall(muteH)
+	mute:SetText("")
+	mute:SetTooltip("Mute this player")
+	mute.DoClick = function()
 		TogglePlayerMute(ply)
 	end
-	speaker.DoRightClick = function()
+	mute.DoRightClick = function()
 		OpenPlayerSoundSettings(ply)
 	end
-	speaker.Paint = function(self, w, h)
+	mute.Paint = function(self, w, h)
 		if not IsValid(ply) then return end
+		local hovered = self:IsHovered()
 		local muted = ply:IsMuted() or IsVoiceLocked(ply)
-		local mat = muted and matIconMute or matIconSound
-		local size = math.min(16, math.max(12, math.floor(h * 0.55)))
-		DrawSilkIcon(mat, math.floor(w * 0.5 - size * 0.5), math.floor(h * 0.5 - size * 0.5), size, 255, 255, 255, self:IsHovered() and 255 or 220)
+		local r, g, b = CRT_R, CRT_G, CRT_B
+		if muted then
+			r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
+		end
+		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 220)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(r, g, b, muted and 160 or (hovered and 55 or 32))
+		surface.DrawRect(1, 1, w - 2, h - 2)
+		surface.SetDrawColor(r, g, b, hovered and 210 or 120)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		local label = "MUTE"
+		if IsVoiceLocked(ply) then
+			label = hg.muteall and "ALL" or "SPEC"
+		elseif muted then
+			label = "MUTED"
+		end
+		local textCol = muted and color_text_on or (hovered and color_text or color_idle)
+		SB_DrawInH(label, "SB_CRT_Item", math.floor(w * 0.5), h, textCol, TEXT_ALIGN_CENTER)
 	end
 
 	local slider = vgui.Create("DSlider", wrap)
 	slider:Dock(FILL)
+	slider:DockMargin(2, 0, 2, 2)
 	slider:SetLockY(0.5)
 	slider:SetTrapInside(true)
 	slider:SetSlideX(GetPlayerVolume(ply))
-	function slider.Knob:Paint() end
+	slider:SetTooltip("Drag the dot to set this player's volume")
+	PaintVolumeSlider(slider, ply)
 	slider.OnValueChanged = function(self, x)
 		ApplyPlayerVolume(ply, x)
 	end
-	slider.Paint = function(self, w, h)
-		if not IsValid(ply) then return end
-		local locked = IsVoiceLocked(ply) or ply:IsMuted()
-		local frac = locked and 0 or self:GetSlideX()
-		local r, g, b = GetVolumeRGB(frac)
-		if locked then
-			r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
-		end
-		surface.SetDrawColor(0, 0, 0, 200)
-		surface.DrawRect(0, 0, w, h)
-		surface.SetDrawColor(r, g, b, 190)
-		surface.DrawRect(0, 0, w * math.max(frac, locked and 1 or 0), h)
-		surface.SetDrawColor(r, g, b, 90)
-		surface.DrawOutlinedRect(0, 0, w, h, 1)
-		local label = ply:IsMuted() and "MUTE" or (math.Round(self:GetSlideX() * 100) .. "%")
-		if IsVoiceLocked(ply) then label = hg.muteall and "ALL" or "SPEC" end
-		SB_DrawInH(label, "SB_CRT_Item", w * 0.5, h, color_text, TEXT_ALIGN_CENTER)
-	end
 
-	ply.soundButton = speaker
+	ply.soundButton = mute
 	return wrap
 end
 
