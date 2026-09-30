@@ -906,6 +906,7 @@ end
 local matIconSound = Material("icon16/sound.png")
 local matIconMute = Material("icon16/sound_mute.png")
 local matIconTalk = Material("icon16/comment.png")
+local matIconDead = Material("icon16/cross.png")
 
 local STAFF_GROUPS = {
     superadmin = true,
@@ -1108,13 +1109,24 @@ local function GetTeamDisplay(teamID)
 	return string.upper(name), team.GetColor(teamID) or Color(CRT_R, CRT_G, CRT_B)
 end
 
+local function TeamHasScoreboardPlayers(teamID)
+	for _, ply in player.Iterator() do
+		if ply:Team() ~= teamID then continue end
+		if ShouldHideScoreboardPly(ply) then continue end
+		return true
+	end
+	return false
+end
+
 local function GetActiveTeams()
 	local rnd = CurrentRound()
 	local preset = rnd and TEAM_SCORE_INFO[rnd.name]
 	local teams = {}
 	if preset then
 		for id in pairs(preset) do
-			teams[#teams + 1] = id
+			if TeamHasScoreboardPlayers(id) then
+				teams[#teams + 1] = id
+			end
 		end
 	else
 		local seen = {}
@@ -1129,10 +1141,19 @@ local function GetActiveTeams()
 		end
 	end
 	table.sort(teams)
-	if #teams == 0 then
-		teams = {0, 1}
-	end
 	return teams
+end
+
+local function LocalPlayerIsSpectating()
+	local lp = LocalPlayer()
+	if not IsValid(lp) then return false end
+	return lp:Team() == TEAM_SPECTATOR or not lp:Alive()
+end
+
+local function IsScoreboardDeadPly(ply)
+	if not IsValid(ply) or ply:Alive() then return false end
+	if ply:Team() == TEAM_SPECTATOR then return false end
+	return true
 end
 
 local function DrawLabeledStat(x, rectY, rectH, label, value, valueCol)
@@ -1215,6 +1236,62 @@ local function CreateCRTButton(parent, text, onClick, extra)
 	return but
 end
 
+local function GetVolumeSliderRGB(slider, ply)
+	local locked = IsValid(ply) and (IsVoiceLocked(ply) or ply:IsMuted())
+	local frac = slider:GetSlideX()
+	if locked then
+		return TRAITOR_R, TRAITOR_G, TRAITOR_B, frac, true
+	end
+	local r, g, b = GetVolumeRGB(frac)
+	return r, g, b, frac, false
+end
+
+local function PaintVolumeSlider(slider, ply)
+	local knob = math.max(9, math.floor(ScreenScale(4)))
+	slider.Knob:SetSize(knob, knob)
+	slider.Knob:SetCursor("hand")
+	slider.Knob.Paint = function(self, w, h)
+		local r, g, b = GetVolumeSliderRGB(slider, ply)
+		local active = self:IsHovered() or self:IsDown() or slider.Dragging
+		local pad = active and 0 or 1
+		draw.RoundedBox(w, pad, pad, w - pad * 2, h - pad * 2, Color(r, g, b, active and 255 or 230))
+		surface.SetDrawColor(12, 14, 12, 220)
+		surface.DrawOutlinedRect(pad, pad, w - pad * 2, h - pad * 2, 1)
+	end
+	slider.Paint = function(self, w, h)
+		local r, g, b, frac, locked = GetVolumeSliderRGB(self, ply)
+		local trackH = 3
+		local y = math.floor((h - trackH) * 0.5)
+		surface.SetDrawColor(0, 0, 0, 210)
+		surface.DrawRect(0, y, w, trackH)
+		surface.SetDrawColor(r, g, b, locked and 90 or 70)
+		surface.DrawRect(0, y, w, trackH)
+		surface.SetDrawColor(r, g, b, 230)
+		surface.DrawRect(0, y, math.max(0, w * frac), trackH)
+
+		local knob = self.Knob
+		local sliding = self.Dragging or self:IsHovered() or (IsValid(knob) and (knob:IsHovered() or knob:IsDown()))
+		if not sliding then return end
+
+		local label = math.Round(frac * 100) .. "%"
+		local fontH = SB_FontH("SB_CRT_Item")
+		local tw = SB_TextW("SB_CRT_Item", label)
+		local kx, ky = 0, 0
+		if IsValid(knob) then
+			kx, ky = knob:GetPos()
+			kx = kx + knob:GetWide() * 0.5
+		else
+			kx = w * frac
+		end
+		local ty = ky - fontH - 2
+		DisableClipping(true)
+		surface.SetDrawColor(8, 9, 9, 220)
+		surface.DrawRect(math.floor(kx - tw * 0.5) - 2, ty - 1, tw + 4, fontH + 2)
+		SB_DrawText(label, "SB_CRT_Item", kx, ty, color_text, TEXT_ALIGN_CENTER)
+		DisableClipping(false)
+	end
+end
+
 local function OpenPlayerSoundSettings(ply)
 	local Menu = DermaMenu()
 
@@ -1239,15 +1316,7 @@ local function OpenPlayerSoundSettings(ply)
 		ApplyPlayerVolume(ply, x)
 	end
 
-	function volumeSlider:Paint(w, h)
-		local frac = self:GetSlideX()
-		local r, g, b = GetVolumeRGB(frac)
-		draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0))
-		draw.RoundedBox(0, 0, 0, w * frac, h, Color(r, g, b))
-		SB_DrawInH(math.Round(frac * 100) .. "%", "SB_CRT_Item", w * 0.5, h, color_text, TEXT_ALIGN_CENTER)
-	end
-	function volumeSlider.Knob.Paint(self) end
-
+	PaintVolumeSlider(volumeSlider, ply)
 	Menu:AddPanel(volumeSlider)
 	Menu:Open()
 end
@@ -1411,59 +1480,58 @@ local function CreateMuteControls(parent, ply)
 	local wrap = vgui.Create("DPanel", parent)
 	wrap:SetPaintBackground(false)
 	wrap:Dock(RIGHT)
-	local muteInner = SB_PlayerRowH() - SB_TEXT_PAD * 2
-	wrap:SetWide(muteInner + SB_TEXT_PAD + 72)
+	wrap:SetWide(math.max(84, ScreenScale(38)))
 	wrap:DockMargin(SB_TEXT_PAD, SB_TEXT_PAD, SB_TEXT_PAD, SB_TEXT_PAD)
 
-	local speaker = vgui.Create("DButton", wrap)
-	speaker:Dock(LEFT)
-	speaker:SetWide(muteInner)
-	speaker:DockMargin(0, 0, SB_TEXT_PAD, 0)
-	speaker:SetText("")
-	speaker:SetTooltip("Mute this player. Drag the bar to set volume.")
-	speaker.DoClick = function()
+	local muteH = math.max(14, SB_FontH("SB_CRT_Item") + 2)
+	local mute = vgui.Create("DButton", wrap)
+	mute:Dock(BOTTOM)
+	mute:SetTall(muteH)
+	mute:SetText("")
+	mute:SetTooltip("Mute this player")
+	mute.DoClick = function()
 		TogglePlayerMute(ply)
 	end
-	speaker.DoRightClick = function()
+	mute.DoRightClick = function()
 		OpenPlayerSoundSettings(ply)
 	end
-	speaker.Paint = function(self, w, h)
+	mute.Paint = function(self, w, h)
 		if not IsValid(ply) then return end
+		local hovered = self:IsHovered()
 		local muted = ply:IsMuted() or IsVoiceLocked(ply)
-		local mat = muted and matIconMute or matIconSound
-		local size = math.min(16, math.max(12, math.floor(h * 0.55)))
-		DrawSilkIcon(mat, math.floor(w * 0.5 - size * 0.5), math.floor(h * 0.5 - size * 0.5), size, 255, 255, 255, self:IsHovered() and 255 or 220)
+		local r, g, b = CRT_R, CRT_G, CRT_B
+		if muted then
+			r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
+		end
+		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 220)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(r, g, b, muted and 160 or (hovered and 55 or 32))
+		surface.DrawRect(1, 1, w - 2, h - 2)
+		surface.SetDrawColor(r, g, b, hovered and 210 or 120)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		local label = "MUTE"
+		if IsVoiceLocked(ply) then
+			label = hg.muteall and "ALL" or "SPEC"
+		elseif muted then
+			label = "MUTED"
+		end
+		local textCol = muted and color_text_on or (hovered and color_text or color_idle)
+		SB_DrawInH(label, "SB_CRT_Item", math.floor(w * 0.5), h, textCol, TEXT_ALIGN_CENTER)
 	end
 
 	local slider = vgui.Create("DSlider", wrap)
 	slider:Dock(FILL)
+	slider:DockMargin(2, 0, 2, 2)
 	slider:SetLockY(0.5)
 	slider:SetTrapInside(true)
 	slider:SetSlideX(GetPlayerVolume(ply))
-	function slider.Knob:Paint() end
+	slider:SetTooltip("Drag the dot to set this player's volume")
+	PaintVolumeSlider(slider, ply)
 	slider.OnValueChanged = function(self, x)
 		ApplyPlayerVolume(ply, x)
 	end
-	slider.Paint = function(self, w, h)
-		if not IsValid(ply) then return end
-		local locked = IsVoiceLocked(ply) or ply:IsMuted()
-		local frac = locked and 0 or self:GetSlideX()
-		local r, g, b = GetVolumeRGB(frac)
-		if locked then
-			r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
-		end
-		surface.SetDrawColor(0, 0, 0, 200)
-		surface.DrawRect(0, 0, w, h)
-		surface.SetDrawColor(r, g, b, 190)
-		surface.DrawRect(0, 0, w * math.max(frac, locked and 1 or 0), h)
-		surface.SetDrawColor(r, g, b, 90)
-		surface.DrawOutlinedRect(0, 0, w, h, 1)
-		local label = ply:IsMuted() and "MUTE" or (math.Round(self:GetSlideX() * 100) .. "%")
-		if IsVoiceLocked(ply) then label = hg.muteall and "ALL" or "SPEC" end
-		SB_DrawInH(label, "SB_CRT_Item", w * 0.5, h, color_text, TEXT_ALIGN_CENTER)
-	end
 
-	ply.soundButton = speaker
+	ply.soundButton = mute
 	return wrap
 end
 
@@ -1591,7 +1659,18 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 		elseif hovered or localPly then
 			nameCol = color_text
 		end
-		local nameX = rowH + SB_TEXT_PAD
+		local showDead = LocalPlayerIsSpectating() and IsScoreboardDeadPly(ply)
+		if showDead then
+			nameCol = color_dead
+		end
+		local textX = rowH + SB_TEXT_PAD
+		local nameX = textX
+		if showDead then
+			local iconSize = 16
+			local iconY = y + math.floor((lineH - iconSize) * 0.5)
+			DrawSilkIcon(matIconDead, textX, iconY, iconSize, 180, 180, 180, 230)
+			nameX = textX + iconSize + 4
+		end
 		local nameW = SB_DrawText(name, "SB_CRT_Item", nameX, y, nameCol, TEXT_ALIGN_LEFT)
 
 		if talking then
@@ -1606,7 +1685,7 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 		end
 
 		if hasSub then
-			SB_DrawText(sub, "SB_CRT_Item", nameX, y + lineH + 1, color_idle_dim, TEXT_ALIGN_LEFT)
+			SB_DrawText(sub, "SB_CRT_Item", textX, y + lineH + 1, color_idle_dim, TEXT_ALIGN_LEFT)
 		end
 	end
 
@@ -1682,7 +1761,7 @@ end)
 local function GetScoreboardSig()
 	local sig = player.GetCount()
 	for _, ply in player.Iterator() do
-		sig = (sig * 33 + ply:UserID() + ply:Team() * 17) % 2147483647
+		sig = (sig * 33 + ply:UserID() + ply:Team() * 17 + (ply:Alive() and 0 or 11)) % 2147483647
 		if ply:GetNWBool("ZB_SB_HideSelf", false) then sig = sig + 3 end
 		if ply:GetNWBool("ZB_SB_ShowRole", false) then sig = sig + 7 end
 	end
@@ -1921,8 +2000,10 @@ function GM:ScoreboardShow()
 			players[#players + 1] = ply
 		end
 		table.sort(players, function(a, b)
-			if a:Alive() ~= b:Alive() then return a:Alive() end
-			return a:Name() < b:Name()
+			local an = string.lower(IsValid(a) and a:Name() or "")
+			local bn = string.lower(IsValid(b) and b:Name() or "")
+			if an ~= bn then return an < bn end
+			return (IsValid(a) and a:UserID() or 0) < (IsValid(b) and b:UserID() or 0)
 		end)
 		return players
 	end
@@ -1965,26 +2046,30 @@ function GM:ScoreboardShow()
 		FillList(specList, specPlayers, specAccent, true)
 
 		if teamBased then
-			specWrap:Dock(BOTTOM)
-			specWrap:SetTall(math.max(ScreenScaleH(92), sizeY * 0.22))
-			specWrap:DockMargin(0, SB_GAP, 0, 0)
-
 			local teams = GetActiveTeams()
-			local teamHost = vgui.Create("DPanel", content)
-			teamHost:Dock(FILL)
-			teamHost:SetPaintBackground(false)
+			if #teams > 0 then
+				specWrap:Dock(BOTTOM)
+				specWrap:SetTall(math.max(ScreenScaleH(92), sizeY * 0.22))
+				specWrap:DockMargin(0, SB_GAP, 0, 0)
 
-			for i, teamID in ipairs(teams) do
-				local tName, tCol = GetTeamDisplay(teamID)
-				local list = CreateListPanel(teamHost, tName, tCol)
-				if i < #teams then
-					list:Dock(LEFT)
-					list:SetWide((sizeX - SB_OUTER * 2) / #teams - SB_GAP)
-					list:DockMargin(0, 0, SB_GAP, 0)
-				else
-					list:Dock(FILL)
+				local teamHost = vgui.Create("DPanel", content)
+				teamHost:Dock(FILL)
+				teamHost:SetPaintBackground(false)
+
+				for i, teamID in ipairs(teams) do
+					local tName, tCol = GetTeamDisplay(teamID)
+					local list = CreateListPanel(teamHost, tName, tCol)
+					if i < #teams then
+						list:Dock(LEFT)
+						list:SetWide((sizeX - SB_OUTER * 2) / #teams - SB_GAP)
+						list:DockMargin(0, 0, SB_GAP, 0)
+					else
+						list:Dock(FILL)
+					end
+					FillList(list, CollectPlayers(teamID), tCol)
 				end
-				FillList(list, CollectPlayers(teamID), tCol)
+			else
+				specWrap:Dock(FILL)
 			end
 		else
 			specWrap:Dock(RIGHT)
