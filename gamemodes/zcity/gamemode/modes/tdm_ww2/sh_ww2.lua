@@ -62,6 +62,7 @@ AddItemToBUY("MP40", "Weapon", "weapon_mp40", 1300, "Submachine Guns", {}, nil, 
 AddItemToBUY("STEN MK2", "Weapon", "weapon_stenmk2", 1300, "Submachine Guns", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("M3 Grease Gun", "Weapon", "weapon_m3greasegun", 1600, "Submachine Guns", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("MP34", "Weapon", "weapon_mp34smg", 1600, "Submachine Guns", {}, nil, TEAM_GERMAN)
+AddItemToBUY("Thompson M1A1", "Weapon", "weapon_thompson", 1900, "Submachine Guns", {})
 AddItemToBUY("PPSh-41", "Weapon", "weapon_ppsh", 2300, "Submachine Guns", {}, nil, TEAM_AMERICAN)
 AddItemToBUY("MP-41 R", "Weapon", "weapon_mp41r", 2300, "Submachine Guns", {}, nil, TEAM_GERMAN)
 AddItemToBUY("PPSh-41 Drum", "Weapon", "weapon_ppshboss", 2800, "Submachine Guns", {}, nil, TEAM_AMERICAN)
