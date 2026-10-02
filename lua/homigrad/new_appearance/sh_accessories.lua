@@ -362,6 +362,7 @@ hg.Accessories = {
         norender = true,
         placement = "face",
         bonemerge = true,
+        vpos = Vector(0,0,63),
         name = "Arctic Balaclava"
     },
 
@@ -375,6 +376,7 @@ hg.Accessories = {
         norender = true,
         placement = "face",
         bonemerge = true,
+        vpos = Vector(0,0,65),
         name = "Phoenix Balaclava"
     },
    	--[[
@@ -750,7 +752,7 @@ hg.Accessories = {
         model = "models/distac/monokl.mdl",
         bone = "ValveBiped.Bip01_Head1",
         malepos = {Vector(4.05,-4.8,-1.3),Angle(180,100,90),1},
-        fempos = {Vector(-1,-0.8,0),Angle(180,105,90),1},
+        fempos = {Vector(4.05,-4.8,-1.3),Angle(180,100,90),1},
         skin = 0,
         norender = true,
         bonemerge = true,
@@ -1508,7 +1510,7 @@ hg.Accessories = {
         model = "models/gruchk/jmod_dayz/hats/hw_boonie_hat.mdl",
         bone = "ValveBiped.Bip01_Head1",
         malepos = {Vector(6,0,0),Angle(0,110,90),1},
-        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        fempos = {Vector(5,-0.5,0),Angle(0,110,90),1},
         skin = 0,
         placement = "head",
         norender = true,
@@ -1523,7 +1525,7 @@ hg.Accessories = {
         model = "models/gruchk/jmod_dayz/backpacks/bp_hunter_backpack.mdl",
         bone = "ValveBiped.Bip01_Spine4",
         malepos = {Vector(-10.5,-5,0),Angle(0,80,90),1},
-        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        fempos = {Vector(-10,-5,0),Angle(0,80,90),0.85},
         skin = 0,
         placement = "torso",
         norender = true,
@@ -1537,8 +1539,8 @@ hg.Accessories = {
     ["cowboyhattt"] = {
         model = "models/gruchk/jmod_dayz/hats/hw_cowboy_hat.mdl",
         bone = "ValveBiped.Bip01_Head1",
-        malepos = {Vector(6,0,0),Angle(0,110,90),1},
-        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        malepos = {Vector(6.4,-0.5,0),Angle(0,110,90),1},
+        fempos = {Vector(5.7,-0.3,0),Angle(0,110,90),1},
         skin = 0,
         placement = "head",
         norender = true,
@@ -1553,7 +1555,7 @@ hg.Accessories = {
         model = "models/gruchk/jmod_dayz/backpacks/bt_hip_pack.mdl",
         bone = "ValveBiped.Bip01_Pelvis",
         malepos = {Vector(1,-2,-1),Angle(2000,550,90),1},
-        fempos = {Vector(0,0,0),Angle(0,0,0),1},
+        fempos = {Vector(1,-2,-1),Angle(2000,550,90),0.9},
         skin = 0,
         placement = "torso",
         norender = true,
@@ -1567,23 +1569,23 @@ hg.Accessories = {
     ["roberrybag"] = {
         model = "models/robberybag/robberybag.mdl",
         bone = "ValveBiped.Bip01_Spine4",
-        malepos = {Vector(-20,6,0.5),Angle(0,80,95),1},
-        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        malepos = {Vector(-17.5,6,0.5),Angle(0,80,95),0.9},
+        fempos = {Vector(-18,6,0.5),Angle(0,80,95),0.85},
         skin = 0,
         placement = "torso",
         norender = true,
         bonemerge = true,
         bPointShop = false,
         price = 2000,
-        vpos = Vector(0,0,0),
+        vpos = Vector(4,0,4),
         name = "Roberry Bag"
     },
 
     ["baff"] = {
         model = "models/gaiter/gaiter.mdl",
         bone = "ValveBiped.Bip01_Head1",
-        malepos = {Vector(-26.7,-5.3,0),Angle(0,-81.8,270),1},
-        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        malepos = {Vector(-28.7,-5.46,0),Angle(0,-81.8,270),1.05},
+        fempos = {Vector(-27.7,-5.1,0),Angle(0,-81.8,270),1},
         skin = 5,
         placement = "face",
         norender = true,
@@ -1591,15 +1593,15 @@ hg.Accessories = {
         bSetColor = false,
         bPointShop = true,
         price = 1500,
-        vpos = Vector(0,0,63),
+        vpos = Vector(0,0,25),
         name = "gaiter"
     },
 
     ["balaclava1"] = {
         model = "models/balaclava_hood/balaclava_hood.mdl",
         bone = "ValveBiped.Bip01_Head1",
-        malepos = {Vector(-26.7,-4.7,0),Angle(0,-81.8,270),1},
-        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        malepos = {Vector(-26.6,-5.0,0),Angle(0,-81.8,270),1},
+        fempos = {Vector(-27.3,-4.5,0),Angle(0,-81.8,270),1},
         skin = 8,
         placement = "head",
         norender = true,
@@ -1607,15 +1609,15 @@ hg.Accessories = {
         bSetColor = false,
         bPointShop = true,
         price = 1500,
-        vpos = Vector(0,0,63),
+        vpos = Vector(0,0,30),
         name = "Balaclava Hooded Skull"
     },
 
     ["balaclava2"] = {
         model = "models/balaclava_hood/balaclava_hood.mdl",
         bone = "ValveBiped.Bip01_Head1",
-        malepos = {Vector(-26.7,-4.7,0),Angle(0,-81.8,270),1},
-        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        malepos = {Vector(-26.6,-5.0,0),Angle(0,-81.8,270),1},
+        fempos = {Vector(-27.3,-4.5,0),Angle(0,-81.8,270),1},
         skin = 0,
         placement = "head",
         norender = true,
@@ -1623,7 +1625,7 @@ hg.Accessories = {
         bSetColor = false,
         bPointShop = true,
         price = 1500,
-        vpos = Vector(0,0,63),
+        vpos = Vector(0,0,30),
         name = "Balaclava Hooded"
     },
 
@@ -1631,7 +1633,7 @@ hg.Accessories = {
         model = "models/aviators/aviators.mdl",
         bone = "ValveBiped.Bip01_Head1",
         malepos = {Vector(0.5,-0.5,0),Angle(0,-81.8,270),1},
-        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        fempos = {Vector(-0.5,-0.5,0),Angle(0,-81.8,270),1},
         skin = 5,
         placement = "face",
         norender = true,
@@ -1639,7 +1641,7 @@ hg.Accessories = {
         bSetColor = false,
         bPointShop = true,
         price = 1500,
-        vpos = Vector(0,0,63),
+        vpos = Vector(0,0,0),
         name = "Aviators New"
     },
 }
@@ -1659,4 +1661,3 @@ hook.Add("Think","RemoveME",function()
 
     hook.Remove( "Think", "RemoveME" )
 end)
-
