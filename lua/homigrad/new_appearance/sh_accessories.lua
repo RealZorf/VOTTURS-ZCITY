@@ -1503,6 +1503,145 @@ hg.Accessories = {
         SubMat = "distac/41/cap_fire",
         name = "Cool Cap"
     },
+
+    ["panama1"] = {
+        model = "models/gruchk/jmod_dayz/hats/hw_boonie_hat.mdl",
+        bone = "ValveBiped.Bip01_Head1",
+        malepos = {Vector(6,0,0),Angle(0,110,90),1},
+        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        skin = 0,
+        placement = "head",
+        norender = true,
+        bonemerge = true,
+        bPointShop = false,
+        price = 2000,
+        vpos = Vector(0,0,0),
+        name = "Panama"
+    },
+
+    ["backpacksurvivor"] = {
+        model = "models/gruchk/jmod_dayz/backpacks/bp_hunter_backpack.mdl",
+        bone = "ValveBiped.Bip01_Spine4",
+        malepos = {Vector(-10.5,-5,0),Angle(0,80,90),1},
+        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        skin = 0,
+        placement = "torso",
+        norender = true,
+        bonemerge = true,
+        bPointShop = false,
+        price = 2000,
+        vpos = Vector(0,0,0),
+        name = "Survivor Backpack"
+    },
+
+    ["cowboyhattt"] = {
+        model = "models/gruchk/jmod_dayz/hats/hw_cowboy_hat.mdl",
+        bone = "ValveBiped.Bip01_Head1",
+        malepos = {Vector(6,0,0),Angle(0,110,90),1},
+        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        skin = 0,
+        placement = "head",
+        norender = true,
+        bonemerge = true,
+        bPointShop = false,
+        price = 2000,
+        vpos = Vector(0,0,0),
+        name = "cowboy Hat"
+    },
+
+    ["slingbag"] = {
+        model = "models/gruchk/jmod_dayz/backpacks/bt_hip_pack.mdl",
+        bone = "ValveBiped.Bip01_Pelvis",
+        malepos = {Vector(1,-2,-1),Angle(2000,550,90),1},
+        fempos = {Vector(0,0,0),Angle(0,0,0),1},
+        skin = 0,
+        placement = "torso",
+        norender = true,
+        bonemerge = true,
+        bPointShop = false,
+        price = 2000,
+        vpos = Vector(0,0,0),
+        name = "Sling Bag"
+    },
+
+    ["roberrybag"] = {
+        model = "models/robberybag/robberybag.mdl",
+        bone = "ValveBiped.Bip01_Spine4",
+        malepos = {Vector(-20,6,0.5),Angle(0,80,95),1},
+        fempos = {Vector(0.5,1.5,0),Angle(180,80,90),1},
+        skin = 0,
+        placement = "torso",
+        norender = true,
+        bonemerge = true,
+        bPointShop = false,
+        price = 2000,
+        vpos = Vector(0,0,0),
+        name = "Roberry Bag"
+    },
+
+    ["baff"] = {
+        model = "models/gaiter/gaiter.mdl",
+        bone = "ValveBiped.Bip01_Head1",
+        malepos = {Vector(-26.7,-5.3,0),Angle(0,-81.8,270),1},
+        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        skin = 5,
+        placement = "face",
+        norender = true,
+        bonemerge = false,
+        bSetColor = false,
+        bPointShop = true,
+        price = 1500,
+        vpos = Vector(0,0,63),
+        name = "gaiter"
+    },
+
+    ["balaclava1"] = {
+        model = "models/balaclava_hood/balaclava_hood.mdl",
+        bone = "ValveBiped.Bip01_Head1",
+        malepos = {Vector(-26.7,-4.7,0),Angle(0,-81.8,270),1},
+        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        skin = 8,
+        placement = "head",
+        norender = true,
+        bonemerge = false,
+        bSetColor = false,
+        bPointShop = true,
+        price = 1500,
+        vpos = Vector(0,0,63),
+        name = "Balaclava Hooded Skull"
+    },
+
+    ["balaclava2"] = {
+        model = "models/balaclava_hood/balaclava_hood.mdl",
+        bone = "ValveBiped.Bip01_Head1",
+        malepos = {Vector(-26.7,-4.7,0),Angle(0,-81.8,270),1},
+        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        skin = 0,
+        placement = "head",
+        norender = true,
+        bonemerge = false,
+        bSetColor = false,
+        bPointShop = true,
+        price = 1500,
+        vpos = Vector(0,0,63),
+        name = "Balaclava Hooded"
+    },
+
+    ["aviatorssew"] = {
+        model = "models/aviators/aviators.mdl",
+        bone = "ValveBiped.Bip01_Head1",
+        malepos = {Vector(0.5,-0.5,0),Angle(0,-81.8,270),1},
+        fempos = {Vector(-63.6,-12,0),Angle(90,10,0),1},
+        skin = 5,
+        placement = "face",
+        norender = true,
+        bonemerge = false,
+        bSetColor = false,
+        bPointShop = true,
+        price = 1500,
+        vpos = Vector(0,0,63),
+        name = "Aviators New"
+    },
 }
 
 hook.Add("Think","RemoveME",function()
