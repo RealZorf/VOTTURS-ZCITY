@@ -1494,9 +1494,9 @@ SolidMapVote["Config"]["Specific Maps"] = {
     {
         filename = "ttt_interrogation",
         displayname = "Interrogation",
-        image = "https://images.steamusercontent.com/ugc/1022823310308799085/538B8BC115C9693B130CDB7E6533DF826B9D6D15/?ima=fit&impolicy=Letterbox&imcolor=%23000000&imw=288&imh=288&letterbox=true",
-        width = 268,
-        height = 268
+        image = "https://images.steamusercontent.com/ugc/1022823310308811605/7ECC3561CD996516F5CAFA3EBFBB0F3126563C28/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 637,
+        height = 358
     },
     {
         filename = "ttt_kappukeki_streets",
