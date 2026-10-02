@@ -1908,7 +1908,7 @@ function GM:ScoreboardShow()
 		end
 	end, function() return hg.muteall end, "Mute every player")
 
-	AddToolButton("MUTE SPEC", function()
+	local muteSpecBut = AddToolButton("MUTE SPEC", function()
 		hg.mutespect = not hg.mutespect
 		for _, ply in player.Iterator() do
 			if not ply:Alive() then
@@ -1916,6 +1916,7 @@ function GM:ScoreboardShow()
 			end
 		end
 	end, function() return hg.mutespect end, "Mute dead and spectator voice")
+	local muteSpecSlot = muteSpecBut:GetWide() + SB_GAP
 
 	if IsStaffPly(LocalPlayer()) then
 		AddToolButton("HIDE SELF", function()
@@ -1932,7 +1933,17 @@ function GM:ScoreboardShow()
 			net.SendToServer()
 		end, function() return LocalPlayer():GetNWBool("ZB_SB_ShowRole", false) end, "Show your real staff group to everyone")
 	end
+
 	tools:SetWide(math.max(0, toolWide - SB_GAP))
+	local function ApplyMuteSpecVisibility()
+		local lp = LocalPlayer()
+		local showMuteSpec = IsValid(lp) and not lp:Alive()
+		if muteSpecBut:IsVisible() == showMuteSpec then return end
+		muteSpecBut:SetVisible(showMuteSpec)
+		tools:SetWide(math.max(0, toolWide - SB_GAP - (showMuteSpec and 0 or muteSpecSlot)))
+	end
+	tools.Think = ApplyMuteSpecVisibility
+	ApplyMuteSpecVisibility()
 
 	local footer = vgui.Create("DPanel", scoreBoardMenu)
 	footer:Dock(BOTTOM)
