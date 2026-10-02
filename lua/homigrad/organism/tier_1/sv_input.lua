@@ -180,6 +180,7 @@ local sounds = {
 
 local ents_Create = ents.Create
 function hg.organism.AmputateLimb(org, limb, attacker, damageContext)
+	if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then return end
 	if org[limb.."amputated"] == nil or org[limb.."amputated"] then return end
 	local recentContext = org.HGRecentAmputationDamage
 	if not istable(damageContext) and istable(recentContext) and (recentContext.time or 0) + 0.25 >= CurTime() then
@@ -639,6 +640,11 @@ function hg.ExplodeHead(ent)
 	if !IsValid(ent) then return end
 
 	local ply = ent:IsRagdoll() and hg.RagdollOwner(ent) or ent
+	if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then
+		if IsValid(ply) and ply:IsPlayer() and ply:Alive() then ply:Kill() end
+		if ent:IsNPC() and ent.organism then ent.organism.shock = 100 end
+		return
+	end
 	if ply:IsPlayer() and ply:Alive() then ply:Kill() end
 	if ent:IsNPC() and ent.organism then ent.organism.shock = 100 end
 	local target = ent

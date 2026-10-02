@@ -29,6 +29,7 @@ local function recursive_bone(rag, bone, list)
 end
 
 function Gib_RemoveBone(rag, bone, phys_bone, nohuys)
+	if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then return end
 	rag.gibRemove = rag.gibRemove or {}
 
 	removeBone(rag, bone, phys_bone, nohuys)
@@ -214,6 +215,7 @@ for _, snd in ipairs(sounds) do
 	util.PrecacheSound(snd)
 end
 function Gib_Input(rag, bone, force)
+	if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then return end
 	if not IsValid(rag) then return end
 	
 	local gibRemove = rag.gibRemove

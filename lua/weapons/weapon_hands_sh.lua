@@ -1035,6 +1035,7 @@ function SWEP:CanPickup(ent)
 	if ent:IsNPC() or ent:IsNextBot() then return false end
 	if ent:IsPlayer() then return false end
 	if ent:IsWorld() then return false end
+	if ent.ZCWheelchairOccupant or ent:GetNWBool("ZCWheelchairOccupant", false) then return false end
 	local class = ent:GetClass()
 	if pickupWhiteList[class] then return true end
 	if CLIENT then return true end
@@ -1293,7 +1294,18 @@ function SWEP:SecondaryAttack()
 				sound.Play("Flesh.ImpactSoft", owner:GetShootPos(), 65, math.random(90, 110))
 				self:SetCarrying(tr.Entity, tr.PhysicsBone, tr.HitPos, Dist)
 				tr.Entity.Touched = true
-				self:ApplyForce()
+
+				local wheelchairHandled = false
+				if tr.Entity.IsGlideWheelchair then
+					if tr.Entity.ClaimWheelchairPusher and tr.Entity:ClaimWheelchairPusher(owner) then
+						wheelchairHandled = true
+					elseif IsValid(tr.Entity:GetDriver()) then
+						self:SetCarrying()
+						wheelchairHandled = true
+					end
+				end
+
+				if not wheelchairHandled then self:ApplyForce() end
 			--end
 		elseif IsValid(tr.Entity) and tr.Entity:IsPlayer() then
 			local Dist = (select(1, hg.eye(owner)) - tr.HitPos):Length()

@@ -57,7 +57,7 @@ end )
 
 local matBlur = Material( 'pp/blurscreen' )
 hook.Add( 'HUDPaint', 'SolidMapVote.DrawBackgroundBlur', function()
-    if SolidMapVote.isOpen then
+    if SolidMapVote.isOpen and not SolidMapVote.IsStaff( LocalPlayer() ) then
         surface.SetDrawColor( 255, 255, 255, 255 )
         surface.SetMaterial( matBlur )
 

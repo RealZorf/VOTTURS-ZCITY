@@ -663,34 +663,22 @@ function playerMeta:GetLookTrace()
     return util.TraceLine(tr)
 end
 
-hook.Add("Player Think", "loot-fellows",function(ply)
-    if not ply:Alive() then return end
-    ply.keypressed = ply.keypressed or false
-    --if not ply:GetLookTrace() then return end
+concommand.Add("zc_search_loot", function(ply)
+	if not IsValid(ply) or not ply:Alive() then return end
+	if ply:KeyDown(IN_USE) and ply:KeyDown(IN_ATTACK2)
+		and (IsValid(ply.FakeRagdoll) or ply:KeyDown(IN_ATTACK)) then return end
+	if (ply.ZCNextLootSearch or 0) > CurTime() then return end
+	ply.ZCNextLootSearch = CurTime() + 0.3
 
-    local use = IsValid(ply.FakeRagdoll) and (ply:KeyDown(IN_WALK) and ply:KeyDown(IN_SPEED) and not ply:KeyDown(IN_ATTACK) and not ply:KeyDown(IN_ATTACK2)) or (not IsValid(ply.FakeRagdoll) and (ply:KeyDown(IN_ATTACK2) and ply:KeyDown(IN_USE)))
-    
-    if use then
-        local trace = hg.eyeTrace(ply, 60)
-    
-        if not trace then return end
-        local ent = resolveLootEntityFromTrace(ply, trace)
-		local _ply, _ent, canloot = hook.Run("ZB_CanLootInventory", ply, ent, canloot)
-		if canloot ~= nil and canloot == false then
-			ply.keypressed = true
-			return
-		end
-    
-        hook.Run("ZB_InventoryChecked", ply, ent)
-        
-        if not IsValid(ent) or not ent:GetNetVar("Inventory") then return end
-        
-        if not ply.keypressed then ply:OpenInventory(ent) end
-        
-        ply.keypressed = true
-    else
-        ply.keypressed = false
-    end
+	local trace = hg.eyeTrace(ply, 60)
+	if not trace then return end
+	local ent = resolveLootEntityFromTrace(ply, trace)
+	local _ply, _ent, canloot = hook.Run("ZB_CanLootInventory", ply, ent)
+	if canloot == false then return end
+
+	hook.Run("ZB_InventoryChecked", ply, ent)
+	if not IsValid(ent) or not ent:GetNetVar("Inventory") then return end
+	ply:OpenInventory(ent)
 end)
 
 -- Prop inventory example

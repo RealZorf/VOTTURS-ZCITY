@@ -49,6 +49,7 @@ function PANEL:OnRemove()
 end
 
 function PANEL:Paint( w, h )
+    if SolidMapVote.IsStaff( LocalPlayer() ) then return end
     surface.SetDrawColor( 255, 255, 255, 255 )
     surface.SetMaterial( self.matBlur )
 

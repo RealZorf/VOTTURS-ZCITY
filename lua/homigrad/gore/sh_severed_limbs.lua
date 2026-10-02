@@ -365,6 +365,7 @@ if SERVER then
 	end)
 
 	function hg.SpawnSeveredLimb(source, limb, damageContext)
+		if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then return end
 		local rootName = hg.SeveredLimbBones[limb]
 		if not IsValid(source) or not rootName then return end
 
@@ -547,6 +548,7 @@ if SERVER then
 	end
 
 	function hg.organism.SeparateTorso(org, attacker, damageContext)
+		if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then return false end
 		if not istable(org) or org.torsoamputated then return false end
 		local owner = org.owner
 		if not IsValid(owner) or not owner:IsPlayer() or owner.HGTorsoSeparated then return false end
@@ -651,6 +653,7 @@ if SERVER then
 	end
 
 	function hg.organism.Decapitate(org, attacker, damageContext, acceptExternalState)
+		if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then return false end
 		if not istable(org) or org.headamputated and not acceptExternalState then return false end
 		local owner = org.owner
 		if not IsValid(owner) or owner.HGDecapitated then return false end

@@ -15,35 +15,6 @@ local function IsPlayerFake(ply)
 	return IsValid(ply.FakeRagdoll) or IsValid(ply:GetNWEntity("FakeRagdoll", NULL))
 end
 
-local function HasSearchableFakeTarget(ply)
-	if not IsPlayerFake(ply) or not hg.eyeTrace then return false end
-
-	local trace = hg.eyeTrace(ply, 60)
-	if not trace then return false end
-
-	local function isSearchable(ent)
-		if not IsValid(ent) or ent == ply then return false end
-
-		local owner = hg.RagdollOwner and hg.RagdollOwner(ent)
-		if IsValid(owner) then
-			if owner == ply then return false end
-			ent = owner
-		end
-
-		if ent:IsPlayer() then return ent ~= ply end
-		return ent:GetNetVar("Inventory") ~= nil
-	end
-
-	if isSearchable(trace.Entity) then return true end
-	if not isvector(trace.HitPos) then return false end
-
-	for _, ent in ipairs(ents.FindInSphere(trace.HitPos, 40)) do
-		if isSearchable(ent) then return true end
-	end
-
-	return false
-end
-
 local COLOR = {
 	background = Color(5, 10, 8, 232),
 	panel = Color(5, 17, 11, 218),
@@ -150,21 +121,13 @@ local ACTIONS = {
 	},
 	{
 		id = "search_loot",
+		bindKey = "search_loot",
 		group = "INTERACTION",
 		title = "Search / Loot",
-		description = "Search the aimed body or container while standing or ragdolled.",
-		mode = "hold",
-		canActivate = function(ply)
-			return not IsPlayerFake(ply) or HasSearchableFakeTarget(ply)
-		end,
-		getInputBits = function(ply)
-			if IsPlayerFake(ply) then return bit.bor(IN_WALK, IN_SPEED) end
-			return bit.bor(IN_ATTACK2, IN_USE)
-		end,
-		getClearInputBits = function(ply)
-			if IsPlayerFake(ply) then return bit.bor(IN_ATTACK, IN_ATTACK2) end
-		end,
-		default = {MOUSE_RIGHT, KEY_E},
+		description = "Search the aimed body or container. Ragdoll controls and firing take priority over conflicting binds.",
+		command = "zc_search_loot",
+		mode = "press",
+		default = KEY_J,
 	},
 	{
 		id = "special_interaction",
@@ -276,7 +239,7 @@ local GROUPS = {
 local actionByKey = {}
 local actionByID = {}
 for _, action in ipairs(ACTIONS) do
-	action.bindKey = action.command or action.id
+	action.bindKey = action.bindKey or action.command or action.id
 	actionByKey[action.bindKey] = action
 	actionByID[action.id] = action
 end
@@ -455,6 +418,17 @@ local function SanitiseBinds(source)
 	return binds
 end
 
+local function MigrateSearchDefault(binds)
+	local slots = binds.search_loot
+	local first = slots and slots[1]
+	if first and #first == 2
+		and ((first[1] == MOUSE_RIGHT and first[2] == KEY_E)
+			or (first[1] == KEY_E and first[2] == MOUSE_RIGHT)) then
+		slots[1] = {KEY_J}
+	end
+	return binds
+end
+
 local function SanitiseProfileName(value)
 	local name = string.Trim(tostring(value or ""))
 	name = string.gsub(name, "[%c]", "")
@@ -481,9 +455,11 @@ local function ReadSavedProfiles()
 		if name == "" or usedNames[nameKey] then continue end
 
 		usedNames[nameKey] = true
+		local binds = SanitiseBinds(saved.binds)
+		if decoded.version ~= 2 then MigrateSearchDefault(binds) end
 		profiles[#profiles + 1] = {
 			name = name,
-			binds = SanitiseBinds(saved.binds),
+			binds = binds,
 			savedAt = math.max(0, tonumber(saved.savedAt) or 0),
 		}
 
@@ -511,9 +487,11 @@ local function ReadSavedBinds()
 
 	local decoded = util.JSONToTable(raw)
 	if not istable(decoded) then return FreshDefaults(), false end
-	migrated = migrated or decoded.version ~= 2
+	local binds = SanitiseBinds(decoded.binds or decoded)
+	if decoded.version ~= 3 then MigrateSearchDefault(binds) end
+	migrated = migrated or decoded.version ~= 3
 
-	return SanitiseBinds(decoded.binds or decoded), migrated
+	return binds, migrated
 end
 
 Keybinds.Views = Keybinds.Views or setmetatable({}, {__mode = "k"})
@@ -522,7 +500,7 @@ Keybinds.Profiles = ReadSavedProfiles()
 
 function Keybinds.Save()
 	file.CreateDir(STORAGE_DIRECTORY)
-	file.Write(STORAGE_PATH, util.TableToJSON({version = 2, binds = Keybinds.Binds}, true))
+	file.Write(STORAGE_PATH, util.TableToJSON({version = 3, binds = Keybinds.Binds}, true))
 end
 
 local function RefreshViews()
@@ -533,7 +511,7 @@ end
 
 local function SaveProfiles()
 	file.CreateDir(STORAGE_DIRECTORY)
-	file.Write(PROFILE_STORAGE_PATH, util.TableToJSON({version = 1, profiles = Keybinds.Profiles}, true))
+	file.Write(PROFILE_STORAGE_PATH, util.TableToJSON({version = 2, profiles = Keybinds.Profiles}, true))
 end
 
 local activeHeld = {}
@@ -688,6 +666,11 @@ end
 
 local FAKE_HAND_INPUT_BITS = bit.bor(bit.bor(IN_ATTACK, IN_ATTACK2), bit.bor(IN_SPEED, IN_WALK))
 
+local function SearchConflictsWithControls(ply)
+	if not input.IsButtonDown(KEY_E) or not input.IsButtonDown(MOUSE_RIGHT) then return false end
+	return IsPlayerFake(ply) or input.IsButtonDown(MOUSE_LEFT)
+end
+
 hook.Add("CreateMove", "ZC_Keybinds_Runtime", function(cmd)
 	local ply = LocalPlayer()
 	if not IsValid(ply) or InputIsBlocked() then
@@ -699,7 +682,8 @@ hook.Add("CreateMove", "ZC_Keybinds_Runtime", function(cmd)
 	for _, action in ipairs(ACTIONS) do
 		if IsActionContextValid(action, ply) then
 			local chord = GetActiveChord(action)
-			if chord and (not action.canActivate or action.canActivate(ply)) then
+			if chord and not (action.id == "search_loot" and SearchConflictsWithControls(ply))
+				and (not action.canActivate or action.canActivate(ply)) then
 				matches[#matches + 1] = {action = action, chord = chord}
 			end
 		end
@@ -836,7 +820,7 @@ function Keybinds.ResolveDisplayText(value)
 
 	local text = value
 	local special = Keybinds.GetDisplayBinding("special_interaction", "LALT + E")
-	local search = Keybinds.GetDisplayBinding("search_loot", "RMB + E")
+	local search = Keybinds.GetDisplayBinding("search_loot", "J")
 	local weaponButt = Keybinds.GetDisplayBinding("weapon_butt", "E + LMB")
 
 	text = string.gsub(text, "%f[%a]ALT%s*%+%s*E%f[^%a]", function() return special end)

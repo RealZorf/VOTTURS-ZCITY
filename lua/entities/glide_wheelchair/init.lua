@@ -401,6 +401,11 @@ function ENT:RestoreFakeOccupantMass()
     local masses = self.wheelchairFakeMasses
     local materials = self.wheelchairFakeMaterials
 
+    if IsValid( ragdoll ) and ragdoll.ZCWheelchairOccupant == self then
+        ragdoll.ZCWheelchairOccupant = nil
+        ragdoll:SetNWBool( "ZCWheelchairOccupant", false )
+    end
+
     if IsValid( ragdoll ) and masses then
         for physIndex, mass in pairs( masses ) do
             local phys = ragdoll:GetPhysicsObjectNum( physIndex )
@@ -455,6 +460,8 @@ function ENT:SetFakeOccupantRagdoll( ragdoll )
     self.wheelchairFakeRagdoll = ragdoll
     self.wheelchairFakeMasses = masses
     self.wheelchairFakeMaterials = materials
+    ragdoll.ZCWheelchairOccupant = self
+    ragdoll:SetNWBool( "ZCWheelchairOccupant", true )
 end
 
 function ENT:IsOccupantTaped( driver )

@@ -1,6 +1,23 @@
 SolidMapVote = SolidMapVote or {}
 SolidMapVote["Config"] = SolidMapVote["Config"] or {}
 
+local staffGroups = {
+    owner = true,
+    servermanager = true,
+    headdeveloper = true,
+    staffmanager = true,
+    headadmin = true,
+    developer = true,
+    moderator = true,
+    operator = true,
+}
+
+function SolidMapVote.IsStaff(ply)
+    if not IsValid(ply) then return false end
+    if ply:IsAdmin() then return true end
+    return staffGroups[string.lower(ply:GetUserGroup() or "")] == true
+end
+
 -- Time in seconds until the mapvote is over from when it starts.
 SolidMapVote["Config"]["Length"] = 25
 

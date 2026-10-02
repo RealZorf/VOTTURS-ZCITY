@@ -814,7 +814,7 @@ function MODE:SetZombieState(ply, patientZero, zombieClass)
 end
 
 function MODE:SyncZombieStateFromPlayerClass(ply, className)
-    if ply.ZSExtracted then return false end
+    if self:IsExtractedThisRound(ply) then return false end
 	if not IsValid(ply) or zb.ROUND_STATE ~= 1 or CurrentRound() ~= self or not self.InfectionStarted then return false end
 
 	className = className or ply.PlayerClassName
@@ -885,15 +885,14 @@ function MODE:PromotePoisonZombie()
 	local infected = 0
 	local candidates = {}
 	local livingCandidates = {}
-	local patientZero
 
 	for _, ply in player.Iterator() do
 		if not IsParticipant(ply) then continue end
 
 		if ply.ZSIsZombie then
 			infected = infected + 1
-			if ply.ZSIsPatientZero then patientZero = patientZero or ply end
-			if not ply.ZSIsPoisonZombie and not ply.ZSIsPatientZero then
+			if not ply.ZSIsPoisonZombie and not ply.ZSIsPatientZero
+				and ply.PlayerClassName ~= "fastzombie" and ply.ZSZombieClass ~= "fastzombie" then
 				candidates[#candidates + 1] = ply
 				if ply:Alive() then livingCandidates[#livingCandidates + 1] = ply end
 			end
@@ -906,7 +905,6 @@ function MODE:PromotePoisonZombie()
 
 	local promoted = table.Random(livingCandidates)
 	if not IsValid(promoted) then promoted = table.Random(candidates) end
-	if not IsValid(promoted) then promoted = patientZero end
 	if not IsValid(promoted) then return end
 
 	promoted.ZSIsPoisonZombie = true
@@ -993,7 +991,7 @@ function MODE:QueuePreInfectionRespawn(ply, delay)
 end
 
 function MODE:QueueOutbreakLateJoin(ply)
-    if ply.ZSExtracted then return false end
+	if self:IsExtractedThisRound(ply) then return false end
 	if not IsValid(ply) then return false end
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self or not self.InfectionStarted then return false end
 
@@ -1024,16 +1022,33 @@ function MODE:QueueOutbreakLateJoin(ply)
 	return true
 end
 
+function MODE:IsExtractedThisRound(ply)
+	if not IsValid(ply) then return false end
+	if ply.ZSExtracted then return true end
+	local steamID = ply:SteamID64()
+	return not ply:IsBot() and steamID and (self.ExtractedSteamIDs or {})[steamID] == true
+end
+
 function MODE:BeginLateJoinEnrollment(ply)
-    if ply.ZSExtracted then return end
 	if not IsValid(ply) then return end
+	if self:IsExtractedThisRound(ply) then
+		ply.ZSExtracted = true
+		ply:SetNWBool("ZS_Extracted", true)
+		if ply:Team() ~= TEAM_SPECTATOR then
+			ply.ZSLateJoinChangingTeam = true
+			ply:SetTeam(TEAM_SPECTATOR)
+			ply.ZSLateJoinChangingTeam = nil
+		end
+		if ply:Alive() then ply:KillSilent() end
+		return
+	end
 
 	local roundSerial = self.RoundSerial
 	local timerName = LateJoinTimerName(ply)
 	ply.ZSLateJoinPendingSerial = roundSerial
 	timer.Remove(timerName)
 	timer.Create(timerName, 0.5, 40, function()
-		if IsValid(ply) and ply.ZSExtracted then timer.Remove(timerName) return end
+		if IsValid(ply) and MODE:IsExtractedThisRound(ply) then timer.Remove(timerName) return end
 		if not IsValid(ply) then
 			timer.Remove(timerName)
 			return
@@ -1087,7 +1102,12 @@ function MODE:BeginLateJoinEnrollment(ply)
 end
 
 function MODE:PlayerSpawn(ply)
-    if ply.ZSExtracted then return end
+	if self:IsExtractedThisRound(ply) then
+		timer.Simple(0, function()
+			if IsValid(ply) and MODE:IsExtractedThisRound(ply) then MODE:BeginLateJoinEnrollment(ply) end
+		end)
+		return
+	end
 	if self.SpawningRoundPlayers or ply.ZSSurvivorSpawnInProgress or ply.ZSIsZombie then return end
 
 	local initialJoin = ply.initialspawn == true
@@ -1095,7 +1115,7 @@ function MODE:PlayerSpawn(ply)
 	timer.Simple(0, function()
 		if not IsValid(ply) or zb.ROUND_STATE ~= 1 then return end
 		if CurrentRound() ~= MODE or MODE.RoundSerial ~= roundSerial then return end
-		if ply.ZSExtracted then return end
+		if MODE:IsExtractedThisRound(ply) then return end
 		if ply.ZSIsZombie then return end
 		if ply:Team() == TEAM_SPECTATOR and not initialJoin then return end
 
@@ -1133,6 +1153,14 @@ end)
 function MODE:OnPlayerChangedTeam(ply, oldTeam, newTeam)
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self then return end
 	if ply.ZSLateJoinChangingTeam then return end
+	if self:IsExtractedThisRound(ply) then
+		if newTeam ~= TEAM_SPECTATOR then
+			ply.ZSLateJoinChangingTeam = true
+			ply:SetTeam(TEAM_SPECTATOR)
+			ply.ZSLateJoinChangingTeam = nil
+		end
+		return
+	end
 
 	local freshJoin = ply.ZSLateJoinPendingSerial == self.RoundSerial
 	local leftSpectators = oldTeam == TEAM_SPECTATOR and newTeam ~= TEAM_SPECTATOR
@@ -1144,6 +1172,7 @@ end
 hook.Add("OnPlayerChangedTeam", "ZCityZombieSurvival_LateJoinTeamChange", function(ply, oldTeam, newTeam)
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= MODE then return end
 	if ply.ZSLateJoinChangingTeam then return end
+	if MODE:IsExtractedThisRound(ply) then return end
 
 	local freshJoin = ply.ZSLateJoinPendingSerial == MODE.RoundSerial
 	local leftSpectators = (oldTeam == TEAM_SPECTATOR or oldTeam == TEAM_UNASSIGNED)
@@ -1168,6 +1197,7 @@ function MODE:ReconcileLateJoiners()
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self then return end
 
 	for _, ply in player.Iterator() do
+		if self:IsExtractedThisRound(ply) then continue end
 		if self.InfectionStarted then
 			self:SyncZombieStateFromPlayerClass(ply)
 		end
@@ -1187,7 +1217,7 @@ function MODE:ReconcileLateJoiners()
 end
 
 function MODE:SpawnZombie(ply, requestedSpawnPos)
-    if ply.ZSExtracted then return end
+    if self:IsExtractedThisRound(ply) then return end
 	if not IsValid(ply) or not ply.ZSIsZombie then return end
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self then return end
 
@@ -1353,6 +1383,11 @@ function MODE:StartInfection()
 end
 
 function MODE:Intermission()
+    local extractedPlayers = {}
+    for _, ply in player.Iterator() do
+        if self:IsExtractedThisRound(ply) then extractedPlayers[ply] = true end
+    end
+    self.ExtractedSteamIDs = nil
     self:ResetExtraction()
 	game.CleanUpMap()
 	self:ClearRoundTimers()
@@ -1373,12 +1408,12 @@ function MODE:Intermission()
 		ply.SubRole = nil
 		ply.Profession = nil
 
-		if ply:Team() == TEAM_SPECTATOR or ply:Team() == TEAM_UNASSIGNED then
+		if not extractedPlayers[ply] and (ply:Team() == TEAM_SPECTATOR or ply:Team() == TEAM_UNASSIGNED) then
 			if ply.PlayerClassName ~= "none" then ply:SetPlayerClass() end
 			continue
 		end
 
-		ply:KillSilent()
+		if not extractedPlayers[ply] then ply:KillSilent() end
 		if ply.PlayerClassName ~= "none" then ply:SetPlayerClass() end
 		ply:SetupTeam(0)
 	end
@@ -1389,6 +1424,7 @@ end
 
 function MODE:RoundStart()
 	self.RoundSerial = (self.RoundSerial or 0) + 1
+	self.ExtractedSteamIDs = nil
 	self.InfectionStarted = false
 	self.InfectionFailed = false
 	self.InfectionAt = CurTime() + self.InfectionDelay
@@ -1463,7 +1499,7 @@ function MODE:RoundThink()
 end
 
 function MODE:HandleZombieSurvivalDeath(victim)
-    if victim.ZSExtracted then return end
+	if self:IsExtractedThisRound(victim) then return end
 	if zb.ROUND_STATE ~= 1 then return end
 	if not IsParticipant(victim) then return end
 	if CurTime() - (victim.ZSDeathHandledAt or -math.huge) < 0.25 then return end
@@ -1547,7 +1583,7 @@ function MODE:EndRound()
 end
 
 function MODE:CanSpawn(ply)
-    if IsValid(ply) and ply.ZSExtracted then return false end
+    if self:IsExtractedThisRound(ply) then return false end
 	return zb.ROUND_STATE == 1
 		and CurrentRound() == self
 		and not self.InfectionStarted

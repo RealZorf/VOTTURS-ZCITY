@@ -6,6 +6,7 @@ MODE.LootSpawn = true
 MODE.GuiltDisabled = true
 MODE.randomSpawns = true
 MODE.noBoxes = true
+MODE.DisableDismemberment = true
 
 MODE.GuiltDisabled = true
 MODE.Chance = 0.04

@@ -117,6 +117,11 @@ if SERVER then
                 ply:SetNWFloat("ZS_ExtractionStartedAt", now)
             elseif now - started >= self.ExtractionHoldTime then
                 ply.ZSExtracted = true
+                self.ExtractedSteamIDs = self.ExtractedSteamIDs or {}
+                local steamID = ply:SteamID64()
+                if not ply:IsBot() and steamID and steamID ~= "" then
+                    self.ExtractedSteamIDs[steamID] = true
+                end
                 ply:SetNWBool("ZS_Extracted", true)
                 ply:SetNWFloat("ZS_ExtractionStartedAt", 0)
                 self.ExtractedCount = self.ExtractedCount + 1
@@ -124,6 +129,7 @@ if SERVER then
                 ply:KillSilent()
                 ply:SetTeam(TEAM_SPECTATOR)
                 PrintMessage(HUD_PRINTTALK, ply:Nick() .. " escaped the outbreak!")
+                ply:ChatPrint("You will rejoin the players when this round ends.")
             end
         end
     end
