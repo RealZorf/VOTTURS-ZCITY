@@ -69,10 +69,10 @@ AddItemToBUY("PPSh-41 Drum", "Weapon", "weapon_ppshboss", 2800, "Submachine Guns
 AddItemToBUY("Suomi KP31", "Weapon", "weapon_kp31", 2800, "Submachine Guns", {}, nil, TEAM_GERMAN)
 
 --Shotguns
-AddItemToBUY("Sawed-off IZh-43", "Weapon", "weapon_doublebarrel_short", 1600, "Shotguns", {})
-AddItemToBUY("Izh-43", "Weapon", "weapon_doublebarrel", 1800, "Shotguns", {})
-AddItemToBUY("Itacha Model 37", "Weapon", "weapon_ithaca37", 2000, "Shotguns", {})
-AddItemToBUY("Browning Auto 5", "Weapon", "weapon_auto5", 2600, "Shotguns", {})
+AddItemToBUY("Sawed-off IZh-43", "Weapon", "weapon_doublebarrel_short", 2600, "Shotguns", {})
+AddItemToBUY("Izh-43", "Weapon", "weapon_doublebarrel", 2800, "Shotguns", {})
+AddItemToBUY("Itacha Model 37", "Weapon", "weapon_ithaca37", 4000, "Shotguns", {})
+AddItemToBUY("Browning Auto 5", "Weapon", "weapon_auto5", 5200, "Shotguns", {})
 
 --Marksman Rifles (Marksman)
 AddItemToBUY("Karabiner 98k", "Weapon", "weapon_kar98", 2000, "Marksman", {"optic12"}, nil, TEAM_AMERICAN)
