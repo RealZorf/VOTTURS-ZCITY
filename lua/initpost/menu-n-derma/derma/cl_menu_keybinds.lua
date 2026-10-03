@@ -127,7 +127,7 @@ local ACTIONS = {
 		description = "Search the aimed body or container. Ragdoll controls and firing take priority over conflicting binds.",
 		command = "zc_search_loot",
 		mode = "press",
-		default = KEY_J,
+		default = KEY_F,
 	},
 	{
 		id = "special_interaction",
@@ -418,14 +418,8 @@ local function SanitiseBinds(source)
 	return binds
 end
 
-local function MigrateSearchDefault(binds)
-	local slots = binds.search_loot
-	local first = slots and slots[1]
-	if first and #first == 2
-		and ((first[1] == MOUSE_RIGHT and first[2] == KEY_E)
-			or (first[1] == KEY_E and first[2] == MOUSE_RIGHT)) then
-		slots[1] = {KEY_J}
-	end
+local function MigrateSearchToF(binds)
+	binds.search_loot = {{KEY_F}, {}}
 	return binds
 end
 
@@ -439,11 +433,11 @@ end
 
 local function ReadSavedProfiles()
 	local raw = file.Read(PROFILE_STORAGE_PATH, "DATA")
-	if not raw then return {} end
+	if not raw then return {}, false end
 
 	local decoded = util.JSONToTable(raw)
 	local source = istable(decoded) and (decoded.profiles or decoded) or nil
-	if not istable(source) then return {} end
+	if not istable(source) then return {}, false end
 
 	local profiles = {}
 	local usedNames = {}
@@ -456,7 +450,7 @@ local function ReadSavedProfiles()
 
 		usedNames[nameKey] = true
 		local binds = SanitiseBinds(saved.binds)
-		if decoded.version ~= 2 then MigrateSearchDefault(binds) end
+		if decoded.version ~= 3 then MigrateSearchToF(binds) end
 		profiles[#profiles + 1] = {
 			name = name,
 			binds = binds,
@@ -471,7 +465,7 @@ local function ReadSavedProfiles()
 		return a.savedAt > b.savedAt
 	end)
 
-	return profiles
+	return profiles, decoded.version ~= 3
 end
 
 local function ReadSavedBinds()
@@ -488,19 +482,19 @@ local function ReadSavedBinds()
 	local decoded = util.JSONToTable(raw)
 	if not istable(decoded) then return FreshDefaults(), false end
 	local binds = SanitiseBinds(decoded.binds or decoded)
-	if decoded.version ~= 3 then MigrateSearchDefault(binds) end
-	migrated = migrated or decoded.version ~= 3
+	if decoded.version ~= 4 then MigrateSearchToF(binds) end
+	migrated = migrated or decoded.version ~= 4
 
 	return binds, migrated
 end
 
 Keybinds.Views = Keybinds.Views or setmetatable({}, {__mode = "k"})
 Keybinds.Binds, Keybinds.MigratedLegacy = ReadSavedBinds()
-Keybinds.Profiles = ReadSavedProfiles()
+Keybinds.Profiles, Keybinds.MigratedProfiles = ReadSavedProfiles()
 
 function Keybinds.Save()
 	file.CreateDir(STORAGE_DIRECTORY)
-	file.Write(STORAGE_PATH, util.TableToJSON({version = 3, binds = Keybinds.Binds}, true))
+	file.Write(STORAGE_PATH, util.TableToJSON({version = 4, binds = Keybinds.Binds}, true))
 end
 
 local function RefreshViews()
@@ -511,7 +505,7 @@ end
 
 local function SaveProfiles()
 	file.CreateDir(STORAGE_DIRECTORY)
-	file.Write(PROFILE_STORAGE_PATH, util.TableToJSON({version = 2, profiles = Keybinds.Profiles}, true))
+	file.Write(PROFILE_STORAGE_PATH, util.TableToJSON({version = 3, profiles = Keybinds.Profiles}, true))
 end
 
 local activeHeld = {}
@@ -738,6 +732,7 @@ hook.Add("OnSpawnMenuOpen", "ZC_Keybinds_Release", Keybinds.ReleaseHeld)
 hook.Add("OnContextMenuOpen", "ZC_Keybinds_Release", Keybinds.ReleaseHeld)
 
 if Keybinds.MigratedLegacy then Keybinds.Save() end
+if Keybinds.MigratedProfiles then SaveProfiles() end
 
 concommand.Add("zc_keybinds_reset", function()
 	Keybinds.Reset()
@@ -820,7 +815,7 @@ function Keybinds.ResolveDisplayText(value)
 
 	local text = value
 	local special = Keybinds.GetDisplayBinding("special_interaction", "LALT + E")
-	local search = Keybinds.GetDisplayBinding("search_loot", "J")
+	local search = Keybinds.GetDisplayBinding("search_loot", "F")
 	local weaponButt = Keybinds.GetDisplayBinding("weapon_butt", "E + LMB")
 
 	text = string.gsub(text, "%f[%a]ALT%s*%+%s*E%f[^%a]", function() return special end)

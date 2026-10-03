@@ -663,22 +663,34 @@ function playerMeta:GetLookTrace()
     return util.TraceLine(tr)
 end
 
-concommand.Add("zc_search_loot", function(ply)
-	if not IsValid(ply) or not ply:Alive() then return end
+local function trySearchLoot(ply)
+	if not IsValid(ply) or not ply:Alive() then return false end
 	if ply:KeyDown(IN_USE) and ply:KeyDown(IN_ATTACK2)
-		and (IsValid(ply.FakeRagdoll) or ply:KeyDown(IN_ATTACK)) then return end
-	if (ply.ZCNextLootSearch or 0) > CurTime() then return end
-	ply.ZCNextLootSearch = CurTime() + 0.3
-
+		and (IsValid(ply.FakeRagdoll) or ply:KeyDown(IN_ATTACK)) then return false end
 	local trace = hg.eyeTrace(ply, 60)
-	if not trace then return end
+	if not trace then return false end
 	local ent = resolveLootEntityFromTrace(ply, trace)
 	local _ply, _ent, canloot = hook.Run("ZB_CanLootInventory", ply, ent)
-	if canloot == false then return end
+	if canloot == false or not IsValid(ent) or isOwnInventoryTarget(ply, ent)
+		or not canSearchPlayerInventory(ply, ent) then return false end
+	if (ply.ZCNextLootSearch or 0) > CurTime() then
+		return ent:GetNetVar("Inventory") ~= nil
+	end
 
 	hook.Run("ZB_InventoryChecked", ply, ent)
-	if not IsValid(ent) or not ent:GetNetVar("Inventory") then return end
+	if not IsValid(ent) or not ent:GetNetVar("Inventory") then return false end
+	ply.ZCNextLootSearch = CurTime() + 0.3
 	ply:OpenInventory(ent)
+	return true
+end
+
+concommand.Add("zc_search_loot", function(ply)
+	trySearchLoot(ply)
+end)
+
+hook.Add("StartCommand", "ZCitySearchBeforeFlashlight", function(ply, cmd)
+	if cmd:GetImpulse() ~= 100 then return end
+	if trySearchLoot(ply) then cmd:SetImpulse(0) end
 end)
 
 -- Prop inventory example
