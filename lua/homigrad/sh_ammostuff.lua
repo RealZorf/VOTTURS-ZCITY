@@ -3487,10 +3487,71 @@ end
 if SERVER then
     util.AddNetworkString( "drop_ammo" )
 
+    local drop_cooldown = {}
+    local max_drops_per_second = 2
+    local max_ammo_net_violations = 5
+    local violation_decay = 5
+    local AMMO_NET_BAN_REASON = "Suspected SV crasher"
+
+    local function ammo_net_ban( ply )
+        drop_cooldown[ply] = nil
+
+        if ulx and ulx.ban then
+            ulx.ban( NULL, ply, 0, AMMO_NET_BAN_REASON )
+        elseif ULib and ULib.ban then
+            ULib.ban( ply, 0, AMMO_NET_BAN_REASON )
+        else
+            ply:Kick( AMMO_NET_BAN_REASON )
+        end
+    end
+
     net.Receive( "drop_ammo", function( len, ply )
+        if not IsValid(ply) then return end
+
+        local now = CurTime()
+        local state = drop_cooldown[ply]
+
+        if not state or now - state.last > violation_decay then
+            state = { drops = {}, violations = 0, last = now }
+            drop_cooldown[ply] = state
+        end
+
+        state.last = now
+
+        local last_drops = state.drops
+
+        for i = #last_drops, 1, -1 do
+            if now - last_drops[i] > 1 then
+                table.remove(last_drops, i)
+            end
+        end
+
+        if #last_drops >= max_drops_per_second then
+            state.violations = state.violations + 1
+
+            if state.violations >= max_ammo_net_violations then
+                ammo_net_ban( ply )
+
+                return
+            end
+
+            ply:ChatPrint("Ammo dropped too quickly. Please wait before dropping more.")
+
+            return
+        end
+
+        last_drops[#last_drops + 1] = now
+
         if !ply:Alive() or ply.organism.otrub or !ply.organism.canmove then return end
         local ammotype = net.ReadFloat()
         local count = net.ReadFloat()
+
+        ammotype = math.floor(ammotype or 0)
+        count = math.floor(count or 0)
+
+        if not game.GetAmmoName(ammotype) then return end
+        count = math.min(count, ply:GetAmmoCount(ammotype))
+
         local pos = ply:EyePos()+ply:EyeAngles():Forward()*15
         if ply:GetAmmoCount(ammotype)-count < 0 then ply:ChatPrint(((math.random(1,100) == 100 or 1) and "I need mor booolets!!!" ) or "You don't have enogh ammo") return end
         if count < 1 then ply:ChatPrint("You can't drop zero ammo") return end
@@ -3513,5 +3574,9 @@ if SERVER then
         ply:EmitSound("snd_jack_hmcd_ammobox.wav", 75, math.random(80,90), 1, CHAN_ITEM )
 		ply.inventory.Ammo = ply:GetAmmo()
 		ply:SetNetVar("Inventory",ply.inventory)
+    end)
+
+    hook.Add("PlayerDisconnected", "drop_ammo_cleanup", function(pl)
+        drop_cooldown[pl] = nil
     end)
 end
