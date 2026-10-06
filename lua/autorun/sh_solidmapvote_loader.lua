@@ -60,14 +60,14 @@ if SERVER then
                 return
             end
 
-            if SolidMapVote.isOpen then return end
+            if SolidMapVote.isOpen or SolidMapVote.finished or SolidMapVote.changingMap then return end
 
             zb.votestarted = true
             SolidMapVote.start()
         end
 
         zb.CheckRTVVotes = function()
-            return SolidMapVote.RTVCompleted or SolidMapVote.startVoteAfterRound or SolidMapVote.isOpen
+            return SolidMapVote.RTVCompleted or SolidMapVote.startVoteAfterRound or SolidMapVote.isOpen or SolidMapVote.finished or SolidMapVote.changingMap
         end
 
         zb.ClearRTVVotes = function()

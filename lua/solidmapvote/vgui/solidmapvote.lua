@@ -33,8 +33,10 @@ function PANEL:Init()
     hook.Add( 'SolidMapVote.WinningMaps', 'SolidMapVote.WinningMaps.main', function( winningMaps, realWinner, fixedWinner )
         self.finished = true
 
-        local realDisplayName = string.upper( SolidMapVote.GetMapConfigInfo( realWinner ).displayname )
-        local fixedDisplayName = string.upper( SolidMapVote.GetMapConfigInfo( fixedWinner ).displayname )
+        local realInfo = SolidMapVote.GetMapConfigInfo( realWinner )
+        local fixedInfo = SolidMapVote.GetMapConfigInfo( fixedWinner )
+        local realDisplayName = string.upper( realInfo.displayname or tostring( realWinner or 'unknown' ) )
+        local fixedDisplayName = string.upper( fixedInfo.displayname or tostring( fixedWinner or 'unknown' ) )
 
         if #winningMaps > 1 then
             if realWinner == 'extend' then

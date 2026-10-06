@@ -6,14 +6,14 @@ zb = zb or {}
 zb.votestarted = zb.votestarted or false
 
 function zb.StartRTV()
-    if SolidMapVote and SolidMapVote.start and not SolidMapVote.isOpen then
+    if SolidMapVote and SolidMapVote.start and not SolidMapVote.isOpen and not SolidMapVote.finished and not SolidMapVote.changingMap then
         zb.votestarted = true
         SolidMapVote.start()
     end
 end
 
 function zb.CheckRTVVotes()
-    return SolidMapVote and (SolidMapVote.RTVCompleted or SolidMapVote.startVoteAfterRound or SolidMapVote.isOpen)
+    return SolidMapVote and (SolidMapVote.RTVCompleted or SolidMapVote.startVoteAfterRound or SolidMapVote.isOpen or SolidMapVote.finished or SolidMapVote.changingMap)
 end
 
 function zb.ClearRTVVotes()

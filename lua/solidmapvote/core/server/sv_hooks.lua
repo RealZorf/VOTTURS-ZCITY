@@ -39,6 +39,9 @@ hook.Add( 'InitPostEntity', 'SolidMapVote.Init', function()
     SolidMapVote.cooldownsRecorded = false
     SolidMapVote.realWinner = ''
     SolidMapVote.fixedWinner = ''
+    SolidMapVote.changeQueue = {}
+    SolidMapVote.triedMaps = {}
+    SolidMapVote.changingMap = false
 
     SolidMapVote.startTime = 0
     SolidMapVote.endTime = 0
@@ -219,6 +222,8 @@ hook.Add( 'HG_PlayerSay', 'SolidMapVote.PlayerCommands', function( ply, txtTbl, 
 end )
 
 hook.Add( 'Think', 'SolidMapVote.ServerLoop', function()
+    if not SolidMapVote.votes or not SolidMapVote.RTVs then return end
+
     SolidMapVote.checkForRTV()
 
     SolidMapVote.checkForVoteEnd()
@@ -229,7 +234,9 @@ hook.Add( 'Think', 'SolidMapVote.ServerLoop', function()
 end )
 
 function SolidMapVote.checkForRTV()
-    if #SolidMapVote.RTVs >= SolidMapVote.getRTVAmount() and not SolidMapVote.isOpen and #player.GetAll() > 0 then
+    if SolidMapVote.finished or SolidMapVote.changingMap or SolidMapVote.isOpen then return end
+
+    if #SolidMapVote.RTVs >= SolidMapVote.getRTVAmount() and #player.GetAll() > 0 then
         if (SolidMapVote.isTTT or
         SolidMapVote.isDeathRun or
         SolidMapVote.isMurder or
@@ -249,63 +256,32 @@ function SolidMapVote.checkForRTV()
 end
 
 function SolidMapVote.checkForVoteEnd()
+    if not SolidMapVote.endTime then return end
     if SolidMapVote.endTime < CurTime() and SolidMapVote.isOpen and not SolidMapVote.finished then
         SolidMapVote.close()
     end
 end
 
-local mapChangeTriggered = false
-
 function SolidMapVote.postMapVoteChange()
-    if SolidMapVote.changeTime < RealTime() and SolidMapVote.finished then
-        SolidMapVote.isOpen = false
+    if not SolidMapVote.finished then return end
+    if SolidMapVote.changingMap then return end
+    if ( tonumber( SolidMapVote.changeTime ) or 0 ) >= RealTime() then return end
 
-        if SolidMapVote.realWinner == 'extend' then
-            if SolidMapVote[ 'Config' ][ 'Enable Vote Autostart' ] then
+    SolidMapVote.isOpen = false
 
-                SolidMapVote.close()
-                SolidMapVote.reset()
-                RTV_ACTIVE = false
-                if zb then 
-                    zb.Roundscount = 0
-                    zb.ROUND_STATE = 0
-                    zb.votestarted = false
-                    if zb.RoundStart then zb:RoundStart() end 
-                end
-            else
-                SolidMapVote.close()
-                SolidMapVote.reset()
-                CURRENT_ROUND = 0
-                RTV_ROUNDS = 20
-                RTV_ACTIVE = false
-                if zb then 
-                    zb.Roundscount = 0
-                    zb.ROUND_STATE = 0
-                    zb.votestarted = false
-                    if zb.RoundStart then zb:RoundStart() end 
-                end
-            end
-        elseif SolidMapVote.realWinner == 'random' and !mapChangeTriggered then
-            mapChangeTriggered = true
-            if SolidMapVote.fixedWinner and SolidMapVote.fixedWinner ~= "" then
-                RunConsoleCommand( 'changelevel', SolidMapVote.fixedWinner )
-            else
-                ErrorNoHalt("SolidMapVote: Random winner selected but fixedWinner is invalid!\n")
-            end
-        elseif !mapChangeTriggered then
-            mapChangeTriggered = true
-            if SolidMapVote.realWinner and SolidMapVote.realWinner ~= "" then
-                RunConsoleCommand( 'changelevel', SolidMapVote.realWinner )
-            else
-                ErrorNoHalt("SolidMapVote: RealWinner is invalid!\n")
-            end
-        end
+    if SolidMapVote.realWinner == 'extend' then
+        SolidMapVote.applyExtend()
+        return
     end
+
+    SolidMapVote.tryNextMapChange()
 end
 
 function SolidMapVote.checkForAutostart()
+    if SolidMapVote.finished or SolidMapVote.changingMap then return end
     if SolidMapVote[ 'Config' ][ 'Enable Vote Autostart' ] and not SolidMapVote.isOpen then
-        local timeRemaining = math.ceil( SolidMapVote.autoStartTime - RealTime() )
+        local autoStartTime = tonumber( SolidMapVote.autoStartTime ) or 0
+        local timeRemaining = math.ceil( autoStartTime - RealTime() )
 
         if not SolidMapVote.reminded and timeRemaining < SolidMapVote[ 'Config' ][ 'Autostart Reminder' ] then
             SolidMapVote.reminded = true

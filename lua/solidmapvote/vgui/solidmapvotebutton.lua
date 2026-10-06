@@ -95,6 +95,8 @@ function PANEL:GetPercentage()
         maxVoteCount = maxVoteCount + power
     end
 
+    if maxVoteCount <= 0 then return 0 end
+
     return math.Round( 100 * (self.votes / maxVoteCount) )
 end
 

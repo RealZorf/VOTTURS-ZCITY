@@ -28,9 +28,22 @@ function SolidMapVote.close()
 end
 
 function SolidMapVote.GetMapConfigInfo( map )
-    for _, mapData in pairs( SolidMapVote[ 'Config' ][ 'Specific Maps' ] ) do
-        if map == mapData.filename then
-            return mapData
+    if not isstring( map ) or map == '' then
+        return {
+            filename = '',
+            displayname = 'unknown',
+            image = SolidMapVote[ 'Config' ][ 'Missing Image' ],
+            width = SolidMapVote[ 'Config' ][ 'Missing Image Size' ].width,
+            height = SolidMapVote[ 'Config' ][ 'Missing Image Size' ].height
+        }
+    end
+
+    local specificMaps = SolidMapVote[ 'Config' ] and SolidMapVote[ 'Config' ][ 'Specific Maps' ]
+    if istable( specificMaps ) then
+        for _, mapData in pairs( specificMaps ) do
+            if map == mapData.filename then
+                return mapData
+            end
         end
     end
 
