@@ -3,7 +3,7 @@ MODE.PrintName = "Crisis Response"
 
 MODE.ForBigMaps = false
 MODE.ROUND_TIME = 480
-MODE.Chance = 0.05
+MODE.Chance = 0.00
 MODE.start_time = 90
 MODE.end_time = 9
 
