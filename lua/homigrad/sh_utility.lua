@@ -510,10 +510,10 @@ end
 	}
 	local hg_sandboxmusic = ConVarExists("hg_sandboxmusic") and GetConVar("hg_sandboxmusic") or CreateConVar("hg_sandboxmusic", 0, FCVAR_REPLICATED + FCVAR_ARCHIVE, "Toggle dynamic music in sandbox gamemode", 0, 1)
 	local gamemod = engine.ActiveGamemode()
-	local hg_movement_runspeed = CreateConVar("hg_movement_runspeed", 280, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes run speed, new default - 280 old - 350", 0, 9999)
-	local hg_movement_walkspeed = CreateConVar("hg_movement_walkspeed", 85, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes walk speed, new default - 85 old - 100", 0, 9999)
-	local hg_movement_slowwalkspeed = CreateConVar("hg_movement_slowwalkspeed", 40, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes slowwalk speed, new default - 40 old - 60", 0, 9999)
-	local hg_movement_ladderclimbspeed = CreateConVar("hg_movement_ladderclimbspeed", 100, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes leader climb speed, new default - 100 old - 150", 0, 9999)
+	local hg_movement_runspeed = CreateConVar("hg_movement_runspeed", 350, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes run speed, new default - 280 old - 350", 0, 9999)
+	local hg_movement_walkspeed = CreateConVar("hg_movement_walkspeed", 100, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes walk speed, new default - 85 old - 100", 0, 9999)
+	local hg_movement_slowwalkspeed = CreateConVar("hg_movement_slowwalkspeed", 60, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes slowwalk speed, new default - 40 old - 60", 0, 9999)
+	local hg_movement_ladderclimbspeed = CreateConVar("hg_movement_ladderclimbspeed", 150, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes leader climb speed, new default - 100 old - 150", 0, 9999)
 	local hg_movement_crouchwalkspeed = CreateConVar("hg_movement_crouchwalkspeed", 60, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes crouch walk speed, default 60", 0, 9999)
 
 	hook.Add("player_spawn", "homigrad-spawn3", function(data)
