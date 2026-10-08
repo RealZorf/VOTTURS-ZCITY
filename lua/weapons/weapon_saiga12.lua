@@ -56,6 +56,9 @@ SWEP.AnimList = {
 	["reload_empty"] = "reload_empty",
 }
 
+SWEP.EjectPos = Vector(5,19,-3)
+SWEP.EjectAng = Angle(-45,-80,0)
+
 SWEP.FakeVPShouldUseHand = false
 
 SWEP.WepSelectIcon2 = Material("pwb/sprites/saiga_12.png")

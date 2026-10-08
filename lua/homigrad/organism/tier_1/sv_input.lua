@@ -28,7 +28,9 @@ local function Trace_Bullet(box, hit, ricochet, org, organs, dmg, dmgInfo, dir)
 	dmg = hook_info.dmg
 	
 	if func and !hook_info.restricted then
-		return func(org, bone, dmg, dmgInfo, box[6], dir, hit, ricochet)
+		local oldBox = box[8]
+		local oldOrgan = (oldBox and oldBox[6] and organs[oldBox[6]][oldBox[7]])
+		return func(org, bone, dmg, dmgInfo, box[6], dir, hit, ricochet, organ, oldOrgan)
 	else
 		return 0
 	end
@@ -46,7 +48,7 @@ local function Trace_Blast(box, amt, org, organs, dmg, dmgInfo)
 
 	local amount = amt * dmg
 	
-	if func then return func(org, 1, amount, dmgInfo, box[6], vector_origin, true, false) end
+	if func then return func(org, 1, amount, dmgInfo, box[6], vector_origin, true, false, organ) end
 end
 
 local dir = Vector(0, 0, 0)
@@ -743,17 +745,14 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 
 	local dmgtype = dmgInfo:GetDamageType()
 	
-	local org = ent.organism
-	if not org then return end
-	
+	if org.godmode then return true end
+
 	local ply = (ent:IsPlayer() and ent) or hg.RagdollOwner(ent)
 	if IsValid(ply) and dmgInfo:IsDamageType(DMG_FALL) then
 		dmgInfo:ScaleDamage(tonumber(ply.FallDamageMul) or 1)
 	end
 
 	org.isPly = IsValid(ply)
-	
-	if org.godmode then return true end
 
 	if ent == ply and IsValid(ply.FakeRagdoll) and dmgInfo:IsDamageType(DMG_BURN) then
 		return true
@@ -961,7 +960,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 				bullet.limit_ricochet = bullet.limit_ricochet or 0
 				bullet.penetrated = bullet.penetrated + 1
 				bullet.limit_ricochet = bullet.limit_ricochet + 1
-				bullet.Penetration = distance
+				bullet.Penetration = bullet.Penetration
 				inf:FireLuaBullets(bullet, true)
 
 				local tr = util.QuickTrace(outputHole[#outputHole], -outputDir:GetNormalized() * 10, ent)
@@ -1512,7 +1511,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			dmgInfo:GetAttacker():Remove()
 		end
 	end
-	
+
 	return !ent:IsNPC()
 end)
 

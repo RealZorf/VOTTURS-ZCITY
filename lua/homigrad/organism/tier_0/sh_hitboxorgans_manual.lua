@@ -254,7 +254,7 @@ table.insert(male["ValveBiped.Bip01_Head1"],1,{"helmet3", 1, Vector(3.5, -0.9, 0
 table.insert(male["ValveBiped.Bip01_Head1"],1,{"helmet5", 1, Vector(6.5, -1, 0), Angle(0, 20, 0), Vector(2.7, 6, 4.5), Color(250, 255, 0), true, hg.armor.head["helmet5"].protection})
 table.insert(male["ValveBiped.Bip01_Head1"],1,{"helmet5", 1, Vector(1, 2, 0), Angle(0, 0, 0), Vector(1.5, 1.7, 4.5), Color(250, 255, 0), true, hg.armor.head["helmet5"].protection})
 
-table.insert(male["ValveBiped.Bip01_Head1"],1,{"helmet7", 1, Vector(6.5, -0.9, 0), Angle(0, 12, 0), Vector(2.7, 7, 4.5), Color(250, 255, 0), true, hg.armor.head["helmet1"].protection})
+table.insert(male["ValveBiped.Bip01_Head1"],1,{"helmet7", 1, Vector(6.5, -0.4, 0), Angle(0, 28, 0), Vector(4.2, 6, 4.5), Color(250, 255, 0), true, hg.armor.head["helmet1"].protection})
 
 table.insert(male["ValveBiped.Bip01_Head1"],1,{"mask1", 1, Vector(3.5, -4, 0), Angle(0, 0, 0), Vector(5, 3, 4.5), Color(255, 0, 221), true, hg.armor.face["mask1"].protection})
 
@@ -280,8 +280,8 @@ table.insert(male["ValveBiped.Bip01_Spine2"],1,{"vest8", 1, Vector(-7, -2.5, 0),
 
 table.insert(male["ValveBiped.Bip01_Head1"],1,{"helmet6", 1, Vector(6.5, -1, 0), Angle(0, 15, 0), Vector(2.7, 6, 4.5), Color(250, 255, 0), true, hg.armor.head["helmet6"].protection})
 --table.insert(male["ValveBiped.Bip01_Head1"],1,{"helmet6", 1, Vector(1, 2, 0), Angle(0, 0, 0), Vector(1.5, 1.7, 4.5), Color(250, 255, 0), true, hg.armor.head["helmet6"].protection})
-local female = {}
-table.CopyFromTo(male, female)
+local female = table.Copy(male)
+--table.CopyFromTo(male, female)
 
 female["ValveBiped.Bip01_Head1"] = {
 	{
@@ -509,5 +509,57 @@ local cmb_mdls = {
 }
 
 function hg.organism.GetHitBoxOrgans(model, ent)
+	if IsValid(ent) and ThatPlyIsFemale then
+		return (ThatPlyIsFemale(ent) and female) or male
+	end
 	return (models_female[model] and female) or male
 end
+
+function hg.organism:HitBox(strBone, strName, nValue, vLocalPos, aLocalAng, vSize, cColor, bBool, nProtect)
+	local HBD = {} --HitBoxData
+	HBD.strBone = strBone
+	HBD.strName = strName
+	HBD.nValue = nValue
+	HBD.vLocalPos = vLocalPos
+	HBD.aLocalAng = aLocalAng
+	HBD.vSize = vSize
+	HBD.cColor = cColor
+	HBD.bBool = bBool
+	HBD.nProtect = nProtect
+	return HBD
+end
+
+local HitBoxByName = {}
+
+function hg.organism:CreateHitBox(UID, maleHitBoxData, femaleHitBoxData,p)
+	local MHD = maleHitBoxData
+
+	if HitBoxByName[MHD.strName .. UID] then
+		male[MHD.strBone][HitBoxByName[MHD.strName .. UID]] = {MHD.strName, MHD.nValue, MHD.vLocalPos, MHD.aLocalAng, MHD.vSize, MHD.cColor, MHD.bBool, MHD.nProtect, UID}
+	else
+		HitBoxByName[MHD.strName .. UID] =
+			table.insert(
+				male[MHD.strBone],
+				{MHD.strName, MHD.nValue, MHD.vLocalPos, MHD.aLocalAng, MHD.vSize, MHD.cColor, MHD.bBool, MHD.nProtect, UID}
+			)
+	end
+
+	local FHD = femaleHitBoxData or MHD
+
+	if HitBoxByName["F" .. FHD.strName .. UID] then
+		female[FHD.strBone][HitBoxByName["F" .. FHD.strName .. UID]] = {FHD.strName, FHD.nValue, FHD.vLocalPos, FHD.aLocalAng, FHD.vSize, FHD.cColor, FHD.bBool, FHD.nProtect, UID}
+	else
+		HitBoxByName["F" .. FHD.strName .. UID] =
+			table.insert(
+				female[FHD.strBone],
+				{FHD.strName, FHD.nValue, FHD.vLocalPos, FHD.aLocalAng, FHD.vSize, FHD.cColor, FHD.bBool, FHD.nProtect, UID}
+			)
+	end
+end
+
+HG_BaseHitBoxSetLoaded = false
+hook.Add("Think", "RemoveMeHitbox", function()
+	hook.Run("HG_BaseHitBoxSetLoaded")
+	HG_BaseHitBoxSetLoaded = true
+	hook.Remove("Think", "RemoveMeHitbox")
+end)

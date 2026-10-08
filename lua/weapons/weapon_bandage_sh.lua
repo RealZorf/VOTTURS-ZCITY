@@ -441,7 +441,9 @@ function SWEP:SpawnGarbage(mdl_custom, skin_custom, snd_custom, clr_custom, bgs_
 	ent:Activate()
 	ent:Spawn()
 	ent:SetOwner(owner)
-	ent.FallSnd = Sound((snd_custom and snd_custom ~= nil) and snd_custom or self.FallSnd)
+	if snd_custom or self.FallSnd then
+		ent.FallSnd = Sound((snd_custom and snd_custom ~= nil) and snd_custom or self.FallSnd)
+	end
 
 	if clr_custom and clr_custom ~= nil and IsColor(clr_custom) then
 		ent:SetColor(clr_custom)

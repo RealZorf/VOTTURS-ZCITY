@@ -14,8 +14,8 @@ SWEP.WepSelectIcon2 = Material("vgui/icons/ico_winchester1984.png")
 SWEP.IconOverride = "vgui/icons/ico_winchester1984.png"
 
 SWEP.CustomShell = "EjectBrass_57"
-SWEP.EjectPos = Vector(0,15,2)
-SWEP.EjectAng = Angle(0,-90,0)
+SWEP.EjectPos = Vector(-5.6,1.2,1)
+SWEP.EjectAng = Angle(0,0,0)
 
 SWEP.weight = 3
 SWEP.ScrappersSlot = "Primary"
@@ -93,7 +93,7 @@ SWEP.blackoutsize = 2500
 SWEP.sizeperekrestie = 2048
 SWEP.ShockMultiplier = 1.5
 
-SWEP.attPos = Vector(8,0.4,0)
+SWEP.attPos = Vector(0.8,0,0)
 SWEP.attAng = Angle(-0.1,0.3,0)
 
 if CLIENT then

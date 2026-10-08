@@ -102,7 +102,6 @@ if SERVER then
 			if self:GetHolding() < 100 then return end
 		end
 
-		local owner = self:GetOwner()
 		local entOwner = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
 		entOwner:EmitSound("snd_jack_hmcd_needleprick.wav", 80, math.random(115, 120))
 

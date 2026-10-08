@@ -22,6 +22,8 @@ SWEP.RecoilMul = 0.8
 
 local cos, sin, math_max, math_min = math.cos, math.sin, math.max, math.min
 
+local hg_recoilmul = CreateConVar("hg_recoilmul", 1, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Multiply weapon physical recoil")
+
 local function GetPerfusionGripRecoilMul(org)
 	if not org then return 1 end
 
@@ -35,7 +37,7 @@ function SWEP:GetPrimaryMul()
 	local finalStandMul = self:GetLMSFinalStandMultiplier()
 	self:ApplyForce(mul * finalStandMul)
 	local org = owner.organism
-	mul = (mul or 0) * (self.Supressor and 0.75 or 1) * (org and org.recoilmul or 1) * (org and org.cigaretteAimMul or 1) * GetPerfusionGripRecoilMul(org) * finalStandMul
+	mul = (mul or 0) * (self.Supressor and 0.75 or 1) * (org and org.recoilmul or 1) * (org and org.cigaretteAimMul or 1) * GetPerfusionGripRecoilMul(org) * finalStandMul * hg_recoilmul:GetFloat()
 	return mul
 end
 
@@ -44,7 +46,7 @@ SWEP.sprayAngles = Angle(0,0,0)
 SWEP.weaponSway = Angle(0,0,0)
 
 local hg_coolcamera = ConVarExists("hg_coolcamera") and GetConVar("hg_coolcamera") or CreateConVar("hg_coolcamera", 0, FCVAR_ARCHIVE + FCVAR_REPLICATED, "Cool camera movement", 0, 1)
-
+local hg_spreadmul = CreateConVar("hg_spreadmul", 1, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Multiply weapon camera recoil, aka spread (spray)")
 function SWEP:PrimarySpread()
 	self.Primary.Force2 = (hg.ammotypeshuy[self.Primary.Ammo] and hg.ammotypeshuy[self.Primary.Ammo].BulletSettings and hg.ammotypeshuy[self.Primary.Ammo].BulletSettings.Force) or self.Primary.Force
 	self:SetLastShootTime(CurTime())
@@ -98,7 +100,7 @@ function SWEP:PrimarySpread()
 		
 		local angranda = AngleRand(self.SprayRand[1], self.SprayRand[2])
 		angranda[3] = 0
-		spray = spray + angranda * self.addSprayMul * mul * (self.randmul or 1)
+		spray = (spray + angranda * self.addSprayMul * mul * (self.randmul or 1)) * hg_spreadmul:GetFloat()
 
 		local angrand2 = AngleRand(-force, force)
 		

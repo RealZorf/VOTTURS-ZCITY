@@ -203,6 +203,22 @@ function SWEP:AnimationPost()
 	end
 end
 
+function SWEP:DrawPost()
+	local wep = self:GetWeaponEntity()
+	self.vec = self.vec or Vector(0,0,0)
+	local vec = self.vec
+	if CLIENT and IsValid(wep) then
+		self.shooanim = Lerp(FrameTime()*2.5,self.shooanim or 0,0)
+		self.shooanim = (!self.reload and self:Clip1() < 1 and 2) or (self.reload and 0) or self.shooanim
+		vec[1] = -1*self.shooanim
+		vec[2] = 0*self.shooanim
+		vec[3] = -0.04*self.shooanim
+		wep:ManipulateBonePosition(2,vec,false)
+		vec[2] = 0
+		wep:ManipulateBonePosition(2,vec*2,false)
+	end
+end
+
 -- Inspect Assault
 
 SWEP.InspectAnimWepAng = {

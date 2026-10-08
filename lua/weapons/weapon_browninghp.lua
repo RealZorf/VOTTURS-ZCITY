@@ -51,7 +51,7 @@ SWEP.ZoomPos = Vector(0, -0.019, 2.8179)
 SWEP.SprayRand = {Angle(-0.03, -0.03, 0), Angle(-0.05, 0.03, 0)}
 SWEP.Ergonomics = 1
 SWEP.Penetration = 9
-SWEP.WorldPos = Vector(4.5, -1.3, -2)
+SWEP.WorldPos = Vector(4.5, -1.1, -2.17)
 SWEP.WorldAng = Angle(0, 0, 0)
 
 SWEP.LocalMuzzlePos = Vector(6,0,2.1)
@@ -83,7 +83,7 @@ SWEP.LHandPos = false
 SWEP.RHPos = Vector(10,-4.5,3)
 SWEP.RHAng = Angle(0,-5,90)
 --local to rh
-SWEP.LHPos = Vector(-1.2,-1.4,-2.5)
+SWEP.LHPos = Vector(-0.5,-0.7,-2.13)
 SWEP.LHAng = Angle(5,9,-100)
 
 local finger1 = Angle(-25,10,25)

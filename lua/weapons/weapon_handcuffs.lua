@@ -101,7 +101,6 @@ end
 function SWEP:Initialize()
 	self:SetHold(self.HoldType)
 end
-
 local function handcuff(ragdoll)
 	local body = ragdoll:GetPhysicsObjectNum(0)
 	local lh = ragdoll:GetPhysicsObjectNum(hg.realPhysNum(ragdoll,5))
@@ -137,11 +136,39 @@ function SWEP:Tie(tr)
     local ent = tr.Entity
 	--self:EmitSound()
 	--timer.Simple(1,function()
-		if IsValid(ent) and IsValid(self) and IsValid(self:GetOwner()) and self:GetOwner():Alive() and self:GetOwner():GetPos():Distance(ent:GetPos()) < 500 then 
+		if IsValid(ent) and IsValid(self) and IsValid(self:GetOwner()) and self:GetOwner():Alive() and self:GetOwner():GetPos():Distance(ent:GetPos()) < 500 then
 			if IsValid(ent) and (ent:IsRagdoll() or (ent:IsPlayer() and ent:GetVelocity():Length() < 1)) and hg.RagdollOwner(ent) ~= self:GetOwner() then
 				--if ent.handcuffed then return end
-				self:GetOwner():ChatPrint("Threat handcuffed.")
-				
+				local criswat = zb and zb.CROUND == "criresp" and self:GetOwner():Team() == 0
+
+				local victim = hg.RagdollOwner(ent)
+				local owner = self:GetOwner()
+
+				if not IsValid(owner:GetActiveWeapon()) or IsValid(owner:GetActiveWeapon()) and owner:GetActiveWeapon() ~= self then
+					return -- you could just fool your enemy by switching your weapon while trace was active then end up tying them
+				end
+
+				if criswat and IsValid(victim) and victim:IsPlayer() and victim:Team() == 0 then
+					owner:ChatPrint("You cant handcuff your buddies >:(")
+					return
+				end
+
+				owner:ChatPrint("Threat handcuffed.")
+				if ent:IsPlayer() then
+					if IsValid(ent:GetActiveWeapon()) then
+						local activewep = ent:GetActiveWeapon()
+						if activewep:GetClass() ~= "weapon_hands_sh" or "weapon_handcuffs_key" then
+							if ent:HasWeapon("weapon_hands_sh") then
+								local hands = "weapon_hands_sh"
+								ent:SelectWeapon(hands)
+							else
+								local hands = ent:Give("weapon_hands_sh")
+								ent:SelectWeapon(hands)
+							end
+						end
+					end
+				end
+
 				if ent:IsRagdoll() then handcuff(ent) end
 
 				ent:EmitSound("weapons/357/357_reload3.wav")
@@ -153,15 +180,17 @@ function SWEP:Tie(tr)
 					ply:SelectWeapon("weapon_hands_sh")
 					ply:SetNetVar("handcuffed",true)
 				end
-				
-				self:GetOwner():SelectWeapon("weapon_hands_sh")
+
+				owner:SelectWeapon("weapon_hands_sh")
 
 				org.handcuffed = true
 				ent:SetNetVar("handcuffed",true)
-				self:Remove()
+
+				if not criswat then
+					self:Remove()
+				end
 			end
 		end
-	--end)
 end
 
 if SERVER then

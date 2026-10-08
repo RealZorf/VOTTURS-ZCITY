@@ -7,14 +7,13 @@ SWEP.AutoSwitchTo = false
 SWEP.AutoSwitchFrom = false
 SWEP.SpecialTime = 0
 
-local math = math -- owo
+local math, util, Vector, Angle = math, util, Vector, Angle -- owo
 local math_random, math_Clamp, CurTime, Color = math.random, math.Clamp, CurTime, Color
 
 local ang4 = Angle(0,0,180)
 local ang5 = Angle(0,0,0)
 
 local ang3 = Angle(0,0,180)
-local clamp = math_Clamp
 
 local function WhomILookinAt(ply, cone, dist)
 	local CreatureTr, ObjTr, OtherTr
@@ -61,47 +60,76 @@ function SWEP:Deploy()
 	return true
 end
 
+local clawClasses = {
+	["furry"] = 0.5,
+	["headcrabzombie"] = 1.5
+}
+
+local trMins, trMaxs = Vector(-5, -5, -5), Vector(5, 5, 5)
+local trMinsClaws, trMaxsClaws = Vector(-8, -8, -8), Vector(8, 8, 8)
 function SWEP:SecondaryAttack()
-	if self:GetOwner():InVehicle() then return end
+	local owner = self:GetOwner()
+	if owner:InVehicle() then return end
 	if not IsFirstTimePredicted() then return end
-	if self:GetFists() and self:GetOwner().PlayerClassName == "sc_infiltrator" then
+	if self:GetFists() and owner.PlayerClassName == "sc_infiltrator" then
 		self:PrimaryAttack(true)
 	end
-	if self:GetFists() then return end
-	if self:GetOwner():GetNetVar("handcuffed",false) then return end
-	if SERVER then
-		self:SetCarrying()
-		local ply = self:GetOwner()
-		local pos = hg.eye(self:GetOwner())
-		local tr = util.QuickTrace(pos, self:GetOwner():GetAimVector() * self.ReachDistance, {self:GetOwner()})
 
-		if ply.PlayerClassName == "furry" then
+	if self:GetFists() --[[and owner.PlayerClassName ~= "headcrabzombie"]] then return end
+	--[[if self:GetFists() and owner.PlayerClassName == "headcrabzombie" then
+		self:SetFists(false)
+	end--]]
+	if owner:GetNetVar("handcuffed",false) then return end
+
+	self:SetCarrying()
+	local ply = owner
+	local pos = hg.eye(ply)
+	local tr = util.QuickTrace(pos, owner:GetAimVector() * self.ReachDistance, {owner})
+
+	if clawClasses[ply.PlayerClassName] then
+		tr = util.TraceHull({
+			start = pos,
+			endpos = pos + owner:GetAimVector() * self.ReachDistance,
+			filter = {ply, hg.GetCurrentCharacter(ply)},
+			mins = trMinsClaws,
+			maxs = trMaxsClaws,
+		})
+	else
+		tr = util.TraceLine({
+			start = pos,
+			endpos = pos + owner:GetAimVector() * self.ReachDistance,
+			filter = {ply, hg.GetCurrentCharacter(ply)},
+			mins = trMins,
+			maxs = trMaxs,
+		})
+
+		if !tr.Hit or tr.Entity:IsWorld() then
 			tr = util.TraceHull({
 				start = pos,
-				endpos = pos + self:GetOwner():GetAimVector() * self.ReachDistance,
-				filter = {self:GetOwner()},
-				mins = Vector(-5, -5, -5),
-				maxs = Vector(5, 5, 5),
+				endpos = pos + owner:GetAimVector() * self.ReachDistance,
+				filter = {ply, hg.GetCurrentCharacter(ply)},
+				mins = trMins,
+				maxs = trMaxs,
 			})
 		end
 
 		--if (IsValid(tr.Entity) or game.GetWorld() == tr.Entity) and self:CanPickup(tr.Entity) and not tr.Entity:IsPlayer() then
 		if (IsValid(tr.Entity)) and self:CanPickup(tr.Entity) and not tr.Entity:IsPlayer() then
-			local Dist = (select(1, hg.eye(self:GetOwner())) - tr.HitPos):Length()
+			local Dist = (select(1, hg.eye(owner)) - tr.HitPos):Length()
 			--if Dist < self.ReachDistance then
-				sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", self:GetOwner():GetShootPos(), 65, math_random(90, 110))
+				sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", owner:GetShootPos(), 65, math_random(90, 110))
 				self:SetCarrying(tr.Entity, tr.PhysicsBone, tr.HitPos, Dist)
 				tr.Entity.Touched = true
 				self:ApplyForce()
 			--end
 		elseif IsValid(tr.Entity) and tr.Entity:IsPlayer() then
-			local Dist = (select(1, hg.eye(self:GetOwner())) - tr.HitPos):Length()
+			local Dist = (select(1, hg.eye(owner)) - tr.HitPos):Length()
 			if Dist < self.ReachDistance then
-				sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", self:GetOwner():GetShootPos(), 65, math_random(90, 110))
-				self:GetOwner():SetVelocity(self:GetOwner():GetAimVector() * 20)
-				tr.Entity:SetVelocity((self:GetOwner():KeyDown(IN_SPEED) and 1 or -1) * self:GetOwner():GetAimVector() * 50)
+				sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", owner:GetShootPos(), 65, math_random(90, 110))
+				owner:SetVelocity(owner:GetAimVector() * 20)
+				tr.Entity:SetVelocity((owner:KeyDown(IN_SPEED) and 1 or -1) * owner:GetAimVector() * 50)
 				self:SetNextSecondaryFire(CurTime() + .25)
-				if self:GetOwner().organism.superfighter or self:GetOwner().PlayerClassName == "sc_infiltrator" or (self:GetOwner().PlayerClassName == "furry" and tr.Entity.PlayerClassName ~= "furry") or self:GetOwner():IsBerserk() then
+				if owner.organism.superfighter or owner.PlayerClassName == "sc_infiltrator" or (clawClasses[owner.PlayerClassName] and !(tr.Entity.PlayerClassName == "furry" or (tr.Entity.IsBerserk and tr.Entity:IsBerserk()))) or owner:IsBerserk() then
 					hg.LightStunPlayer(tr.Entity, 3)
 					timer.Simple(0,function()
 						local rag = hg.GetCurrentCharacter(tr.Entity)
@@ -117,7 +145,7 @@ end
 
 SWEP.Checking = 0
 
--- function SWEP:AdjustMouseSensitivity()
+-- function SWEP:AdjustMouseSensitivity() --!! TODO: uncomment??? needs testing
 -- 	local owner = self:GetOwner()
 -- 	local ent = owner:GetNetVar("carryent", nil)
 -- 	if IsValid(ent) and ent:IsRagdoll() and owner.PlayerClassName ~= "sc_infiltrator" and owner.PlayerClassName ~= "superfighter" then
@@ -180,6 +208,10 @@ function SWEP:ApplyForce()
 			mul = mul * (1 + ply.organism.berserk / 5)
 		end
 
+		if (ply.organism and ply.organism.noradrenaline >= 0.5) then
+			mul = mul * (1 + ply.organism.noradrenaline / 5)
+		end
+
 		local avec = vec * len * 8 - phys:GetVelocity()
 
 		local Force = avec * mul
@@ -187,7 +219,8 @@ function SWEP:ApplyForce()
 
 		Force = Force:GetNormalized() * ForceMagnitude
 
-		if len > 12000 then
+		local maxlen = self.ReachDistance * 2.5 * (ply.organism.superfighter and 2 or 1) * (1 + ply.organism.berserk) * (1 + ply.organism.noradrenaline)
+		if len > maxlen then
 			self:SetCarrying()
 			return
 		end
@@ -213,21 +246,21 @@ function SWEP:ApplyForce()
 		end
 
 		if self.CarryEnt:GetClass() == "prop_ragdoll" then
-			local ply2 = RagdollOwner(self.CarryEnt) or self.CarryEnt
+			local ply2 = hg.RagdollOwner(self.CarryEnt) or self.CarryEnt
 			local bone = self.CarryEnt:GetBoneName(self.CarryEnt:TranslatePhysBoneToBone(self.CarryBone))
 
 			if ply:KeyPressed(IN_RELOAD) then
 				if not ply2.noHead and ply2.organism then
 
 					if ply2.organism.CantCheckPulse then
-						ply:ChatPrint("The armor is too thick to feel the pulse.")
+						--ply:ChatPrint("The armor is too thick to feel the pulse.")
 					elseif ((bone == "ValveBiped.Bip01_L_Hand") or (bone == "ValveBiped.Bip01_R_Hand") or (bone == "ValveBiped.Bip01_Head1")) then
 						local org = ply2.organism
 
 						if org.heartstop then
-							ply:ChatPrint("No pulse.")
+							--ply:ChatPrint("No pulse.")
 						else
-							ply:ChatPrint(org.pulse < 20 and "Barely can feel the pulse." or (org.pulse <= 50 and "Low pulse.") or (org.pulse <= 90 and "Normal pulse.") or "High pulse.")
+							--ply:ChatPrint(org.pulse < 20 and "Barely can feel the pulse." or (org.pulse <= 50 and "Low pulse.") or (org.pulse <= 90 and "Normal pulse.") or "High pulse.")
 						end
 
 						if (org.last_heartbeat + 60) > CurTime() then
@@ -280,13 +313,13 @@ function SWEP:ApplyForce()
 						end
 
 						if (bone == "ValveBiped.Bip01_Head1") then
-							if (org.o2[1] < 10 or not org.alive) then
-								ply:ChatPrint("Not breathing.")
+							if (org.o2.curregen == 0 or not org.alive or org.holdingbreath) then
+								--ply:ChatPrint("Not breathing.")
 							else
-								ply:ChatPrint("Breathing.")
+								--ply:ChatPrint("Breathing.")
 							end
 
-							ply:ChatPrint(org.otrub and "No reaction." or "Reaction present.")
+							--ply:ChatPrint(org.otrub and "No reaction." or "Reaction present.")
 
 							if org.isPly and not org.otrub then
 								org.owner:ChatPrint("You were checked for reaction.")
@@ -309,11 +342,12 @@ function SWEP:ApplyForce()
 
 				local tr = {}
 				tr.start = TargetPos
-				tr.endpos = TargetPos - vector_up * 16
-				tr.mask = MASK_SOLID_BRUSHONLY
+				tr.endpos = TargetPos - vector_up * 32
+				tr.mask = MASK_SOLID
+				tr.filter = {self.CarryEnt, self, ply}
 				local trace = util.TraceLine(tr)
-
-				if bone != "ValveBiped.Bip01_Spine2" or not trace.Hit then
+				
+				if bone != "ValveBiped.Bip01_Spine2" or !trace.Hit then
 					phys:ApplyForceCenter(ply:GetAimVector() * math.min(5000, phys:GetMass() * 800))
 					self:SetCarrying()
 				end
@@ -360,13 +394,9 @@ function SWEP:ApplyForce()
 				self.firstTimePrint2 = true
 			end
 
-			if ply:KeyDown(IN_ATTACK) and ply.PlayerClassName == "furry" and org ~= nil and org.alive and org.owner.PlayerClassName != "furry" then
+			if ply:KeyDown(IN_ATTACK) and ply.PlayerClassName == "furry" and org ~= nil and org.alive and org.owner.PlayerClassName != "furry" and !(org.owner.IsBerserk and org.owner:IsBerserk()) then
 				org.assimilated = math.Approach(org.assimilated, 1, FrameTime() / 6)
 				ply:SetLocalVar("assimilation", org.assimilated)
-
-				if org.assimilated == 1 then
-					org.owner:SetPlayerClass("furry")
-				end
 
 				hg.LightStunPlayer(org.owner, 1)
 
@@ -574,7 +604,7 @@ function SWEP:Think()
 		end]]
 
 		if owner.organism and not owner.organism.rarmamputated then
-			self.SpecialTime = math.Clamp(self.SpecialTime - 0.1, Time, self.SpecialTime)
+			self.SpecialTime = math_Clamp(self.SpecialTime - 0.1, Time, self.SpecialTime)
 
 			if self.SpecialTime > 0 and self.SpecialTime <= Time then
 				self:PlayAnim("attack_charge_end",0.9)
@@ -656,9 +686,7 @@ function SWEP:PrimaryAttack(forcespecial)
 	self:SetNextDown(CurTime() + 7)
 	if not self:GetFists() then
 		self:SetFists(true)
-		if CLIENT then
-			self:EmitSound("pwb2/weapons/matebahomeprotection/mateba_cloth.wav", 60, math.random(90, 100), 1, CHAN_BODY)
-		end
+		self:EmitSound("pwb2/weapons/matebahomeprotection/mateba_cloth.wav", 60, math_random(90, 100), 1, CHAN_BODY)
 		owner:ViewPunch(depang)
 		if not isfur then
 			self:PlayAnim("draw",1)
@@ -748,6 +776,17 @@ function SWEP:AttackFront(special_attack, rand)
 	--self.PenetrationCopy = -(-self.Penetration) -- this is how
 	owner:LagCompensation(true)
 	local Ent, HitPos, _, physbone, trace = WhomILookinAt(owner, .3, special_attack and 35 or 45)
+	local pos = hg.eye(owner)
+	trace = util.TraceHull({
+		start = pos,
+		endpos = pos + owner:GetAimVector() * self.ReachDistance,
+		filter = {owner, hg.GetCurrentCharacter(owner)},
+		mins = trMins,
+		maxs = trMaxs,
+	})
+	Ent = trace.Entity
+	HitPos = trace.HitPos
+
 	local AimVec = owner:GetAimVector()
 	local isfur = owner.PlayerClassName == "furry"
 	if IsValid(Ent) or (Ent and Ent.IsWorld and Ent:IsWorld()) then
@@ -794,8 +833,8 @@ function SWEP:AttackFront(special_attack, rand)
 				end)
 			end
 		else
-			if not isfur and not owner.organism.superfighter and not havekastet and not owner:IsBerserk() and math.random(special_attack and 2 or 1, special_attack and 6 or 4) > 3 then
-				owner.organism.painadd = owner.organism.painadd + (math.random(3, 6) * (special_attack and 2.5 or 1.5))
+			if not isfur and not owner.organism.superfighter and not havekastet and not owner:IsBerserk() and math_random(special_attack and 2 or 1, special_attack and 6 or 4) > 3 then
+				owner.organism.painadd = owner.organism.painadd + (math_random(3, 6) * (special_attack and 2.5 or 1.5))
 				hg.organism.AddWoundManual(owner, math_random(6, 8) * (special_attack and 2 or 1), vector_origin, AngleRand(), owner:LookupBone("ValveBiped.Bip01_"..(rand and "R" or "L").."_Hand"), CurTime())
 			end
 			sound.Play(owner.PlayerClassName == "furry" and "pwb/weapons/knife/hitwall.wav" or "weapons/melee/blunt_light"..math_random(8)..".wav", HitPos, 65, math_random(90, 110))
@@ -900,3 +939,15 @@ function SWEP:Reload()
 		end
 	end
 end
+
+local hg_coolhands = CreateConVar("hg_coolhands", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Give cool hands instead of default hands on spawn")
+hook.Add("PlayerSpawn", "Toggle_CoolHands", function(ply)
+	if not IsValid(ply) then return end
+	if not hg_coolhands:GetBool() or ply.PlayerClassName and ply.PlayerClassName == "headcrabzombie" then return end
+
+	if ply:HasWeapon("weapon_hands_sh") then
+		ply:StripWeapon("weapon_hands_sh")
+	end
+	ply:Give("weapon_hg_coolhands")
+	ply:SelectWeapon("weapon_hg_coolhands")
+end)

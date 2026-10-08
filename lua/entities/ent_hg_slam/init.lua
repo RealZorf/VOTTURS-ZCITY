@@ -116,8 +116,8 @@ function ENT:ActivateExplosive()
 
 	if #recipients > 0 then
 		net.Start("projectileFarSound", true)
-			net.WriteString(table.Random(self.Sound))
-			net.WriteString(table.Random(self.SoundFar))
+			net.WriteString(self.Sound[math.random(#self.Sound)])
+			net.WriteString(self.SoundFar[math.random(#self.SoundFar)])
 			net.WriteVector(selfPos)
 			net.WriteEntity(self)
 			net.WriteBool(self:WaterLevel() > 0)

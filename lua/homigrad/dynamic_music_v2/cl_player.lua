@@ -106,9 +106,9 @@ local function LayerFadeOut(channel)
     channel:SetVolume(l_volume)
 end
 
-local function LayerFade(channel, volume)
+local function LayerFade(channel, volume, howfast)
     if !IsValid(channel) then return end
-    local l_volume = LerpFT(0.02, channel:GetVolume(), volume or 1)
+    local l_volume = LerpFT( howfast or 0.02, channel:GetVolume(), volume or 1)
     channel:SetVolume(l_volume)
 end
 
@@ -151,7 +151,7 @@ function hg.DynamicMusicV2.Player.Think()
         local layer = layers[i]
         local PresetLayer = Preset and Preset[layer[1]] or false
         if PresetLayer then
-            LayerFade(layer[2],PresetLayer.volume)
+            LayerFade(layer[2],PresetLayer.volume, PresetLayer.howfast)
         else
             LayerFadeOut(layer[2])
         end

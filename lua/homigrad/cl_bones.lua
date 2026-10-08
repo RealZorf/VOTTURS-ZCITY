@@ -736,6 +736,7 @@
 		function hg.set_hold(ent, hold, copyent)
 			local lhmat = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_L_Hand"))
 			ent.hold = hold
+			if not hand_poses[hold] then return end
 			for bone, invmat in pairs(hand_poses[hold]) do
 				local name = bone
 				bone = isstring(bone) and ent:LookupBone(bone) or bone

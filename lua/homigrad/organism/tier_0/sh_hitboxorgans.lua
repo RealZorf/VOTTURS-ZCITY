@@ -1,5 +1,6 @@
 hg.organism = hg.organism or {}
 local empty = {}
+local hook_Run = hook.Run
 local Vector = Vector --yyy
 local vecZero, angZero = Vector(0, 0, 0), Angle(0, 0, 0)
 local box, _mins = Vector(0, 0, 0), Vector(0, 0, 0)
@@ -17,6 +18,12 @@ local function getTransform(pos, ang, mins, maxs, obbCenter)
 end
 
 local LocalToWorld = LocalToWorld
+
+local ShowOnlyArmor = false
+if CLIENT then
+	ShowOnlyArmor = CreateConVar("hg_show_hitbox_onlyarmor", "0")
+end
+
 function hg.organism.ShootMatrix(ent, organs)
 	if not organs or not istable(organs) or table.IsEmpty(organs) then return end
 	local boxs = {}
@@ -52,9 +59,13 @@ function hg.organism.ShootMatrix(ent, organs)
 			local additional = organ[7]
 			if additional then
 				local ent = ent:IsPlayer() and ent or ent:IsRagdoll() and IsValid(hg.RagdollOwner(ent)) and hg.RagdollOwner(ent) or ent
-				if ent and ent.armors and not table.HasValue(ent.armors,organ[1]) then
-					continue
+				local result = hook_Run("HG_OrganAvalible", ent, organ[1], organ)
+
+				if result != nil and result != true and not (ent and ent.armors and table.HasValue(ent.armors,organ[1])) then
+					continue 
 				end
+			elseif ShowOnlyArmor and ShowOnlyArmor:GetBool() then
+				continue 
 			end
 			mins = -organ[5]
 			maxs = -mins

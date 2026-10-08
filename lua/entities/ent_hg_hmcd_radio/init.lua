@@ -39,7 +39,9 @@ util.AddNetworkString("paint_radio")
 
 net.Receive("RadioURLInput", function(len, ply)
 	local url = net.ReadString()
+	if not isstring(url) or not url then return end
 	local ent = net.ReadEntity()
+	if not IsValid(ent) then return end
 	
 	if ent:GetClass() != "ent_hg_hmcd_radio" or (ent:GetPos():Distance(ply:EyePos()) > 75) then return end
 
@@ -51,8 +53,9 @@ end)
 
 net.Receive("paint_radio", function(len, ply)
 	local url = net.ReadString()
+	if not isstring(url) or not url then return end
 	local ent = net.ReadEntity()
-
+	if not IsValid(ent) then return end
 	if ent:GetClass() != "ent_hg_hmcd_radio" or (ent:GetPos():Distance(ply:EyePos()) > 75) then return end
 
 	ent:SetTextureURL( url )
@@ -66,8 +69,11 @@ end)
 
 net.Receive("RadioChangeValue", function(len, ply)
 	local val = net.ReadFloat()
+	if not val or not isnumber(val) then return end
 	local index = net.ReadInt(32)
+	if not index then return end
 	local ent = Entity(index)
+	if not IsValid(ent) then return end
 
 	if ent:GetClass() != "ent_hg_hmcd_radio" or (ent:GetPos():Distance(ply:EyePos()) > 75) then return end
 
@@ -79,8 +85,11 @@ end)
 
 net.Receive("RadioChangeVolume", function(len, ply)
 	local val = net.ReadFloat()
+	if not val or not isnumber(val) then return end
 	local index = net.ReadInt(32)
+	if not index then return end
 	local ent = Entity(index)
+	if not IsValid(ent) then return end
 	
 	if ent:GetClass() != "ent_hg_hmcd_radio" or (ent:GetPos():Distance(ply:EyePos()) > 75) then return end
 
@@ -92,7 +101,9 @@ end)
 
 net.Receive("RadioPause", function(len, ply)
 	local bool = net.ReadBool()
+	if not bool or not isbool(bool) then return end
 	local ent = net.ReadEntity()
+	if not IsValid(ent) then return end
 	
 	if ent:GetClass() != "ent_hg_hmcd_radio" or (ent:GetPos():Distance(ply:EyePos()) > 75) then return end
 	

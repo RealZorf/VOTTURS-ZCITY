@@ -57,7 +57,7 @@ SWEP.SprayRand = {Angle(-0.7, -0.5, 0), Angle(-0.7, 0.5, 0)}
 
 SWEP.AnimShootMul = 4
 SWEP.AnimShootHandMul = 2
-SWEP.WorldPos = Vector(10, -0.5, -3.5)
+SWEP.WorldPos = Vector(10, -0.5, -3.6)
 SWEP.WorldAng = Angle(0, 180, 0)
 SWEP.LocalMuzzleAng = Angle(0, 180, 0)
 SWEP.UseCustomWorldModel = true
@@ -82,7 +82,7 @@ SWEP.podkid = 2
 SWEP.RHPos = Vector(12,-4.5,3)
 SWEP.RHAng = Angle(0,-5,90)
 --local to rh
-SWEP.LHPos = Vector(-1.2,-1.4,-2.5)
+SWEP.LHPos = Vector(-0.5,-0.7,-2.13)
 SWEP.LHAng = Angle(5,9,-100)
 
 SWEP.ShootAnimMul = 7

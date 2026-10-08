@@ -245,6 +245,18 @@ if SERVER then
 			return ply, mtcop_phrases[math.random(#mtcop_phrases)], muffed, pitch
 		end
 	end)
+
+    hook.Add("HG_PlayerFootstep","metropolice_footsteps",function(ply)
+        local chr = hg.GetCurrentCharacter(ply)
+        if ply:Alive() and ply.PlayerClassName == "Metrocop" and ply:IsSprinting() then
+            --;; Если есть ragdoll и т.п.
+            ply.CombineLerpedFootStep = LerpFT(0.5,ply.CombineLerpedFootStep or 60, (not ply:IsSprinting() and (ply:KeyDown(IN_DUCK) or ply:KeyDown(IN_WALK))) and 20 or 60)
+            if IsValid(ply.FakeRagdoll) and ply:GetNetVar("lastFake") == 0 then return end
+            chr:EmitSound("npc/metropolice/gear" .. math.random(1,6) .. ".wav",
+                ply.CombineLerpedFootStep, math.random(92, 108), 0.7
+            )
+        end
+    end)
 end
 
 if CLIENT then

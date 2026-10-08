@@ -3531,49 +3531,74 @@ if SERVER then
 
             if state.violations >= max_ammo_net_violations then
                 ammo_net_ban( ply )
-
                 return
             end
 
             ply:ChatPrint("Ammo dropped too quickly. Please wait before dropping more.")
-
             return
         end
 
         last_drops[#last_drops + 1] = now
 
-        if !ply:Alive() or ply.organism.otrub or !ply.organism.canmove then return end
-        local ammotype = net.ReadFloat()
-        local count = net.ReadFloat()
+        if not ply:Alive() then return end
+        if not ply.organism or ply.organism.otrub or not ply.organism.canmove then return end
 
-        ammotype = math.floor(ammotype or 0)
-        count = math.floor(count or 0)
+        if ply.nextDrop and ply.nextDrop > CurTime() then return end
+        ply.nextDrop = CurTime() + 0.5
 
-        if not game.GetAmmoName(ammotype) then return end
-        count = math.min(count, ply:GetAmmoCount(ammotype))
+        local ammotype = math.floor( net.ReadFloat() )
+		if not ammotype or not isnumber(ammotype) or ammotype == -1 then return end
+        local cnt = math.floor( net.ReadFloat() )
+		if not cnt or not isnumber(cnt) then return end
 
-        local pos = ply:EyePos()+ply:EyeAngles():Forward()*15
-        if ply:GetAmmoCount(ammotype)-count < 0 then ply:ChatPrint(((math.random(1,100) == 100 or 1) and "I need mor booolets!!!" ) or "You don't have enogh ammo") return end
-        if count < 1 then ply:ChatPrint("You can't drop zero ammo") return end
-			--if not ammolistent[ammotype] then ply:ChatPrint("Invalid entitytype...") return end
-			--print(game.GetAmmoName(ammotype))
-		
-        local AmmoEnt = ents.Create( "ent_ammo_"..string.lower( string.Replace(game.GetAmmoName(ammotype)," ", "") ) )
-		if not IsValid(AmmoEnt) then
-			ply:ChatPrint("Invalid entitytype...")
-		else
-			AmmoEnt:SetPos( pos )
-			AmmoEnt:Spawn()
-			AmmoEnt.AmmoCount = count
-			local phys = AmmoEnt:GetPhysicsObject()
-			if IsValid(phys) then
-				phys:SetMass((game.GetAmmoForce(ammotype) * count) / 1500)
-			end
-		end
-        ply:SetAmmo(ply:GetAmmoCount(ammotype)-count,ammotype)
-        ply:EmitSound("snd_jack_hmcd_ammobox.wav", 75, math.random(80,90), 1, CHAN_ITEM )
-		ply.inventory.Ammo = ply:GetAmmo()
-		ply:SetNetVar("Inventory",ply.inventory)
+        local ammoname = game.GetAmmoName( ammotype )
+        if not ammoname or ammoname == "" then
+            ply:ChatPrint("Invalid ammo type...")
+            return
+        end
+
+        if cnt < 1 then
+            ply:ChatPrint("You can't drop zero ammo")
+            return
+        end
+
+        local haveammo = ply:GetAmmoCount(ammotype)
+        if not haveammo or haveammo - cnt < 0 then
+            ply:ChatPrint("You don't have enough ammo")
+            return
+        end
+
+        local classname = "ent_ammo_" .. string.lower( string.Replace( ammoname, " ", "" ) )
+		if not classname or classname == "ent_ammo_" or classname == "ent_ammo_ " then return end
+
+        if not scripted_ents.GetStored(classname) then
+            ply:ChatPrint("Invalid entitytype...")
+            return
+        end
+
+        local ammobox = ents.Create( classname )
+        if not IsValid(ammobox) then
+            ply:ChatPrint("Invalid entitytype...")
+            return
+        end
+
+        local droppos = ply:EyePos() + ply:EyeAngles():Forward() * 15
+
+        ammobox:SetPos( droppos )
+        ammobox:Spawn()
+        ammobox.AmmoCount = cnt
+
+        local phys = ammobox:GetPhysicsObject()
+        if IsValid(phys) then
+            local force = game.GetAmmoForce(ammotype) or 1
+            phys:SetMass( math.Clamp( (force * cnt) / 1500, 1, 50000 ) )
+        end
+
+        ply:SetAmmo( haveammo - cnt, ammotype )
+        ply:EmitSound( "snd_jack_hmcd_ammobox.wav", 75, math.random(80, 90), 1, CHAN_ITEM )
+
+        ply.inventory.Ammo = ply:GetAmmo()
+        ply:SetNetVar("Inventory", ply.inventory)
     end)
 
     hook.Add("PlayerDisconnected", "drop_ammo_cleanup", function(pl)

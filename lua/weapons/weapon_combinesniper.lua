@@ -36,7 +36,7 @@ SWEP.Ergonomics = 0.7
 SWEP.WorldPos = Vector(19,-1.1,-5)
 SWEP.WorldAng = Angle(0, 0, 0)
 
-SWEP.attPos = Vector(0,0,2)
+SWEP.attPos = Vector(-32.2,-1.3,0.1)
 SWEP.attAng = Angle(-90,0,0)
 
 SWEP.DistSound = "weapons/tfa_ins2/m40a1/m40a1_fire.wav"

@@ -692,6 +692,7 @@ MODE.LootTable = {
 		{0.5,"weapon_hg_crowbar"},
 		{0.4,"weapon_tomahawk"},
 		{0.4,"weapon_hatchet"},
+		{0.4,"weapon_hg_spear"},
 		{0.25,"weapon_hg_axe"},
 		{0.25,"weapon_hg_sledgehammer"},
 		{0.27, "ent_armor_helmet2"},
@@ -751,7 +752,7 @@ MODE.LootTable = {
 		{4,"weapon_tmp"},
 
 		{4,"weapon_hg_molotov_tpik"},
-		{4,"weapon_hg_pipebomb_tpik"},
+		{4,"weapon_hg_grenade_pipebomb"},
 
 		{3,"weapon_kar98"},
 		{3,"weapon_ar_pistol"},
@@ -762,27 +763,21 @@ MODE.LootTable = {
 		{3,"ent_armor_vest3"},
 		{3,"ent_armor_helmet1"},
 
-		{3,"weapon_hg_grenade_tpik"},
-		{3, "weapon_hg_f1_tpik"},
-
 		{2,"weapon_mp7"},
 		{2,"weapon_sks"},
 		{2,"weapon_ar15"},
 
 		{2,"ent_armor_vest4"},
 
-		{1,"weapon_akmwreked"},
+		--{1,"weapon_akm"},
 		{1,"weapon_vpo136"},
 		{1,"weapon_sr25"},
 	}},
 	{2, {
-		{4, "weapon_m4a1"},
-		{4, "weapon_akm"},
-		{3, "weapon_ash12"},
-		{2, "weapon_m60"},
 		{1, "weapon_fury13"}
 	}}
 }
+
 
 function MODE:CanPlayerEnterVehicle(ply, ent) -- damdn i forgot about the broken mode hooks lmao
 	if ply.PlayerClassName == "furry" then
@@ -1073,6 +1068,10 @@ function MODE:ZB_JoinSpectators(ply)
 end
 
 function MODE.GuiltCheck(Attacker, Victim, add, harm, amt)
+	if MODE.saved.traitors[Attacker] or MODE.saved.traitors[Victim] then
+		return 0, false
+	end
+
     if Victim:GetPlayerClass() == Attacker:GetPlayerClass() then
         return 1, true
     end

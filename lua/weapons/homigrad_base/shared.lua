@@ -37,12 +37,43 @@ SWEP.AmmoTypes2 = {
 	["9x19 mm Parabellum"] = {
 		[1] = {"9x19 mm Parabellum"},
 		[2] = {"9x19 mm Green Tracer"},
-		[3] = {"9x19 mm QuakeMaker"}
+		[3] = {"9x19 mm QuakeMaker"},
+		[4] = {"9x19 mm PBP gzh"}
+	}, 
+	["9x18 mm"] = {
+		[1] = {"9x18 mm"},
+		[2] = {"9x18 mm PBM"}
+	}, 
+	[".366 TKM"] = {
+		[1] = {".366 TKM"},
+		[2] = {".366 TKM 'Geksa'"}
+	}, 
+	["7.62x54 mm"] = {
+		[1] = {"7.62x54 mm"},
+		[2] = {"7.62x54 mm 7N26"}
+	}, 
+	["4.6x30 mm"] = {
+		[1] = {"4.6x30 mm"},
+		[2] = {"4.6x30 mm AP SX"}
+	}, 
+	["5.7x28 mm"] = {
+		[1] = {"5.7x28 mm"},
+		[2] = {"5.7x28 mm SS190"}
+	}, 
+	["5.45x39 mm"] = {
+		[1] = {"5.45x39 mm"},
+		[2] = {"5.45x39 mm BP 7N22"},
+		[3] = {"5.45x39 mm PPBS 7N39"}
+	}, 
+	["9x39 mm"] = {
+		[1] = {"9x39 mm"},
+		[2] = {"9x39 mm SP-6"}
 	}, 
 	["5.56x45 mm"] = {
 		[1] = {"5.56x45 mm"},
-		[2] = {"5.56x45 mm M856"},
-		[3] = {"5.56x45 mm AP"}
+		[2] = {"5.56x45 mm M855"},
+		[3] = {"5.56x45 mm M855A1"},
+		[4] = {"5.56x45 mm M995"}	
 	},
 	["7.62x39 mm"] = {
 		[1] = {"7.62x39 mm"},
@@ -60,6 +91,7 @@ SWEP.AmmoTypes2 = {
 	[".45 ACP"] = {
 		[1] = {".45 ACP"},
 		[2] = {".45 ACP Hydro Shock"},
+		[3] = {".45 ACP +P"}
 	},
 	[".50 Action Express"] = {
 		[1] = {".50 Action Express"},
@@ -68,11 +100,11 @@ SWEP.AmmoTypes2 = {
 	},
 	["9mm PAK Blank"] = {
 		[1] = {"9mm PAK Blank"},
-		[2] = {"9mm PAK Flash Defense"},
+		[2] = {"9mm PAK Flash Defense"}
 	},
 	["18x45mm Traumatic"] = {
 		[1] = {"18x45mm Traumatic"}, -- T
-		[2] = {"18x45mm Flash Defense"}, -- LAS
+		[2] = {"18x45mm Flash Defense"} -- LAS
 	},
 	["23x75 SH10"] = {
 		[1] = {"23x75 SH10"},
@@ -84,7 +116,7 @@ SWEP.AmmoTypes2 = {
 	["20/70 gauge"] = {
 		[1] = {"20/70 gauge"},
 		[2] = {"20/70 Slug"},
-		[3] = {"20/70 Flechette"},
+		[3] = {"20/70 Flechette"}
 	},
 }
 
@@ -151,7 +183,8 @@ function SWEP:Initialize()
 
 	self:WorldModel_Transform()
 
-	table.insert(hg.weapons,self)
+	--юзлик тут насрач клиентам был жесткий
+	if not table.HasValue(hg.weapons, self) then table.insert(hg.weapons, self) end
 	self.ishgweapon = true
 
 	if SERVER then
@@ -184,7 +217,6 @@ function SWEP:Initialize()
 		end
 	end)
 
-	if SERVER then hg.SyncWeapons() end
 	self:InitializePost()
 end
 
@@ -221,12 +253,6 @@ function SWEP:DrawWeaponSelection( x, y, wide, tall, alpha )
 end
 
 if CLIENT then
-	hook.Add("OnGlobalVarSet","hg-weapons",function(key,var)
-		if key == "weapons" then
-			hg.weapons = var
-		end
-	end)
-
 	hook.Add("OnNetVarSet","weapons-net-var",function(index,key,var)
 		if key == "attachments" then
 			local ent = Entity(index)
@@ -243,10 +269,6 @@ if CLIENT then
 			ent.attachments = var
 		end
 	end)
-else
-	function hg.SyncWeapons()
-		SetNetVar("weapons",hg.weapons)
-	end
 end
 
 function SWEP:ShouldDropOnDie()
@@ -287,47 +309,99 @@ end
 
 hg.weaponsDead = hg.weaponsDead or {}
 function SWEP:OnRemove()
-	if SERVER then
-		table.RemoveByValue(hg.weapons,self)
-
-		SetNetVar("weapons",hg.weapons)
-	end
+	table.RemoveByValue(hg.weapons, self)
 end
 
-local hg_aimtoshoot = ConVarExists("hg_aimtoshoot") and GetConVar("hg_aimtoshoot") or CreateConVar("hg_aimtoshoot", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Toggle DarkRP-like shooting system (aim to shoot)", 0, 1)
-
+local hg_aimtoshoot = ConVarExists("hg_aimtoshoot") and GetConVar("hg_aimtoshoot") or CreateConVar("hg_aimtoshoot", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Toggle DarkRP-like shooting system (aim to shoot): 0 - disabled; 1 - hipfire only; 2 - aiming only", 0, 2)
 local owner
 local CurTime = CurTime
 function SWEP:IsZoom()
 	local owner = self:GetOwner()
-	--print( (owner.armors and (hg.armor.head[owner.armors["head"]] and not hg.armor.head[owner.armors["head"]].cantsight)))
-	return self:CanUse() and
-		(!hg_aimtoshoot:GetBool() or self:GetNWBool("aiming")) and
-		(self:GetButtstockAttack() - CurTime() < -1) and 
-		(self:GetOwner():IsPlayer() and self:KeyDown(IN_ATTACK2) and not self:IsSprinting()) and
-		!(self:IsSprinting() and !IsValid(owner.FakeRagdoll)) and
-		((IsValid(owner.FakeRagdoll) and (self:KeyDown(IN_USE) or hg.RagdollCombatInUse(owner))) or
-		(owner:IsOnGround() or owner:InVehicle())) and 
-		not owner.suiciding and !(owner.organism and (owner.organism.larm and !self:IsPistolHoldType())
-		and owner.organism.rarm and (owner.organism.larm > 0.99 or owner.organism.rarm > 0.99))
-		
-		-- and owner.posture ~= 1 and owner.posture ~= 3-- and (not IsValid(owner.FakeRagdoll) or self:KeyDown(IN_JUMP))
+
+	if not self:CanUse() then
+		return false
+	end
+
+	local aimtoshoot = hg_aimtoshoot:GetInt() == 0 or hg_aimtoshoot:GetInt() == 2 or self:GetNWBool("aiming")
+	if not aimtoshoot then
+		return false
+	end
+
+	if self:GetButtstockAttack() - CurTime() >= -1 then
+		return false
+	end
+
+	local attacking = owner:IsPlayer() and self:KeyDown(IN_ATTACK2) and not self:IsSprinting()
+	if not attacking then
+		return false
+	end
+
+	local validrag = IsValid(owner.FakeRagdoll)
+
+	if self:IsSprinting() and validrag then
+		return false
+	end
+
+	if owner.suiciding then
+		return false
+	end
+
+	local canzoom = validrag and (self:KeyDown(IN_USE) or hg.RagdollCombatInUse(owner)) or (owner:IsOnGround() or owner:InVehicle())
+
+	if not canzoom then
+		return false
+	end
+
+	local rightarm = owner.organism.rarm and (owner.organism.larm > 0.99 or owner.organism.rarm > 0.99)
+	if owner.organism and (owner.organism.larm and not self:IsPistolHoldType()) and rightarm then
+		return false
+	end
+
+	return true
 end
 
+
 function SWEP:CanUse()
-    local owner = self:GetOwner()
-	if not IsValid(owner) then return true end
-    if owner:IsNPC() then return true end
-	if owner.organism and owner.organism.rarmamputated and !self:IsPistolHoldType() then return false end
-	return not (self.reload or self.deploy or (owner:IsPlayer() and (self:IsSprinting() or (owner.organism and owner.organism.otrub))))
+	local owner = self:GetOwner()
+
+	if not IsValid(owner) then
+		return true
+	end
+
+	if owner:IsNPC() then
+		return true
+	end
+
+	local hasAmputatedArm = owner.organism and owner.organism.rarmamputated and not self:IsPistolHoldType()
+	if hasAmputatedArm then
+		return false
+	end
+
+	local sprinting = owner:IsPlayer() and self:IsSprinting()
+	local otrub = owner.organism and owner.organism.otrub
+
+	local blockedState = self.reload or self.deploy or sprinting or otrub
+
+	return not blockedState
 end
 
 function SWEP:IsSprinting()
 	local ply = self:GetOwner()
-	if hg_aimtoshoot:GetBool() then
-		return not ply:IsNPC() and (self:KeyDown(IN_SPEED) and ply:GetVelocity():LengthSqr() > 150 * 150) or not self:KeyDown(IN_ATTACK2) and not IsValid(ply.FakeRagdoll)
+
+	if ply:IsNPC() then
+		return false
+	end
+
+	local isfast = ply:GetVelocity():LengthSqr() > 150 * 150
+	local sprinting = self:KeyDown(IN_SPEED)
+	local validrag = IsValid(ply.FakeRagdoll)
+
+	if hg_aimtoshoot:GetInt() > 0 then
+		local sprintCondition = sprinting and isfast
+		local aimCondition = not self:KeyDown(IN_ATTACK2) and not validrag
+		return sprintCondition or aimCondition
 	else
-		return not ply:IsNPC() and self:KeyDown(IN_SPEED) and ply:GetVelocity():LengthSqr() > 150 * 150 and not IsValid(ply.FakeRagdoll)
+		return sprinting and isfast and not validrag
 	end
 end
 
@@ -1584,12 +1658,12 @@ hg.postureFunctions2 = {
 		local epicRunY = self.EpicRunPos and self.EpicRunPos[2]
 		local epicRunX = self.EpicRunPos and self.EpicRunPos[1]
 
-		local posturehold = !self:IsSprinting()
+		local posturehold = !self:IsSprinting() or (hg_aimtoshoot:GetInt() >= 1 and not self:GetNWBool("aiming"))
 		local running = posturehold or ply:GetVelocity():LengthSqr() > 150 * 150
 		
 		if !running then return end
 
-		local runmul = posturehold and 1 or math.Clamp((ply:GetVelocity():Length() - 150) / 300, 0, 1) * (1 - math.sin((self.reload and (self.reload - CurTime()) / self.StaminaReloadTime or 1) * math.pi))
+		local runmul = (posturehold or ply.posture == 3) and 1 or math.Clamp((ply:GetVelocity():Length() - 150) / ply:GetRunSpeed(), 0, 1) * (1 - math.sin((self.reload and (self.reload - CurTime()) / self.StaminaReloadTime or 1) * math.pi))
 		
 		self.AdditionalPosPreLerp[2] = self.AdditionalPosPreLerp[2] - (3 + (pistolRun and (isLocal and (epicRunZ or (running and 6 or 2)) - 6 or 4) or (isLocal and -2 or -6 + (ply:GetNWFloat("InLegKick", 0) and 5 or 0)) )) * runmul
 		self.AdditionalPosPreLerp[1] = self.AdditionalPosPreLerp[1] - (-7 + (pistolRun and (isLocal and (epicRunY or (running and 6 or 4)) + 3 or 8 + (ply:GetNWFloat("InLegKick", 0) and -5 or 0)) or (isLocal and 8 or 2 + (ply:GetNW2Float("InLegKick", 0) and 8 or 0)) ) + 3 * math.Clamp(-ply:EyeAngles()[1] / 20, self:IsPistolHoldType() and -1 or -1, 0)) * runmul
@@ -1608,8 +1682,8 @@ hg.postureFunctions2 = {
 
 		--self.weaponAng:Add((self:IsPistolHoldType() and angPosture7) or (ply:IsFlagSet(FL_ANIMDUCKING) and angPosture8 or angPosture4))
 		self.AdditionalAngPreLerp:Add(((self:IsPistolHoldType() or self.CanEpicRun) and angPosture3pistol or angPosture3) * runmul)
-		
 	end,
+
 	[4] = function(self,ply,force)
 		if self:IsZoom() and not force then return end
 		if self:IsPistolHoldType() then 
@@ -2000,7 +2074,7 @@ function SWEP:GetAdditionalValues()
 	
 	if not huypitch then
 		local torso = ent:LookupBone("ValveBiped.Bip01_Spine1")
-		local tmat = torso and ent:GetBoneMatrix(torso)
+		local tmat = torso and ent:GetBoneMatrix(torso) or nil
 		
 		if tmat then
 			local ang2 = tmat:GetAngles():Forward()
@@ -2375,7 +2449,7 @@ elseif CLIENT then
         local ent = net.ReadEntity()
         local sendtoclient = net.ReadBool()
         if IsValid(ent) and ent.PlayAnim and ( sendtoclient and sendtoclient or !ent:IsLocal()) then
-            ent:PlayAnim(tbl.anim,tbl.data,tbl.cycling,tbl.callback,tbl.reverse)
+            ent:PlayAnim(tbl.anim,tbl.data,tbl.cycling,tbl.callback,tbl.reverse, nil, tbl.curtime)
         end
     end)
 end
@@ -2400,13 +2474,15 @@ SWEP.AnimList = {
 
 --PrintAnims(Entity(1):GetActiveWeapon():GetWM())
 --Entity(1):GetActiveWeapon():PlayAnim("idle", 1, false, nil, false, false)
-function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient)
+function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient, curtime)
     local start = 0
 	local time = 1
+	local callbackAdjust = 0
 
 	if istable(data) then
 		time = data[1]
 		start = data[2]
+		callbackAdjust = data[3] or 0
 	else
 		time = data or time
 	end
@@ -2419,7 +2495,8 @@ function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient)
                 data = data,
                 cycling = cycling,
                 --callback = callback,
-                reverse = reverse
+                reverse = reverse,
+				curtime = CurTime()
             }
             net.WriteTable(netTbl) 
             net.WriteEntity(self)
@@ -2428,11 +2505,37 @@ function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient)
 		
 		self.callback = callback
 		--print(self.callback)
-		timer.Create("AnimCallback"..self:EntIndex(), time or 0, 1, function()
+		timer.Create("AnimCallback"..self:EntIndex(), time - callbackAdjust or 0, 1, function()
 			if not self.callback then return end
 			self.callback(self)
 			--self.callback = nil
 		end)
+
+		self.seq = self.AnimList[anim] or anim
+
+		if self.AnimsEvents and (self.AnimsEvents[anim]) then
+			local Time = time
+			for k,v in pairs(self.AnimsEvents[anim]) do
+				self.VM_TimerEvents = self.VM_TimerEvents or {}
+
+				local TimerName = "VM_Events_ZC-Base" .. self:EntIndex() .. anim .. k
+				local TimerID = #self.VM_TimerEvents + 1
+				local seq = self.seq
+				if istable(v) and v[2] and (v[2] == 1 or v[2] == 2) then
+					if k < 0 then v[1](self) continue end
+
+					timer.Create(TimerName, Time * k, 1, function()
+					if not IsValid(self) then return end
+						if seq != self.seq then self:VM_RemoveAllEvents() end
+						v[1](self, mdl)
+						self.VM_TimerEvents[TimerID] = nil
+					end)
+
+					self.VM_TimerEvents[TimerID] = TimerName
+					continue 
+				end
+			end
+		end
 
 		return
 	end
@@ -2456,7 +2559,9 @@ function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient)
 	self.tries = 10
 	self.seq = self.AnimList[anim] or anim
 	mdl:SetSequence(self.seq)
-    self.animtime = CurTime() + time - start
+	local local_curtime = CurTime()
+	local curtime = curtime or local_curtime
+    self.animtime = curtime + time - start
     self.animspeed = time
     self.cycling = cycling
     self.reverseanim = reverse
@@ -2472,7 +2577,24 @@ function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient)
 			local TimerName = "VM_Events_ZC-Base" .. self:EntIndex() .. self.seq .. k
 			local TimerID = #self.VM_TimerEvents + 1
 			local seq = self.seq
+			k = k + start
+
+			if istable(v) and v[2] and (v[2] == 0 or v[2] == 2) then
+				if k < 0 then v[1](self) continue end
+				k = k + (curtime - local_curtime)
+				timer.Create(TimerName, Time * k, 1, function()
+					if not IsValid(self) then return end
+					if seq != self.seq then self:VM_RemoveAllEvents() end
+					v[1](self, mdl)
+					self.VM_TimerEvents[TimerID] = nil
+				end)
+
+				self.VM_TimerEvents[TimerID] = TimerName
+				continue 
+			end
+
 			if k < 0 then v(self) continue end
+			k = k + (curtime - local_curtime)
 			timer.Create(TimerName, Time * k, 1, function()
 				if not IsValid(self) then return end
 				if seq != self.seq then self:VM_RemoveAllEvents() end
@@ -2485,14 +2607,23 @@ function SWEP:PlayAnim(anim, data, cycling, callback, reverse, sendtoclient)
 	end
 end
 
-if CLIENT then
-	function SWEP:VM_RemoveAllEvents()
-		for k,v in ipairs(self.VM_TimerEvents) do
-			timer.Remove(v)
-		end
-		table.Empty(self.VM_TimerEvents)
+function SWEP:VM_RemoveAllEvents()
+	for k,v in ipairs(self.VM_TimerEvents) do
+		timer.Remove(v)
 	end
+	table.Empty(self.VM_TimerEvents)
+end
 
+--[[
+	SWEP.AnimsEvents = {
+		["animname"] = {
+			[fTime] = {function() end,2}, -- 0 for clientside only, 1 for serverside only, 2 for shared!
+			[fTime] = function() end -- still we can use legacy way
+		}
+	}
+--]]
+
+if CLIENT then
 	function PrintPosParameters(ent)
 		for i=0, ent:GetNumPoseParameters() - 1 do
 			local min, max = ent:GetPoseParameterRange( i )

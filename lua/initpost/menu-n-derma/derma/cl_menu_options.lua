@@ -129,6 +129,12 @@ if not game.IsDedicated() then
 	hg.settings:AddOpt("Server", "hg_furcity", "Furcity models", nil, nil, nil, "Enable Furcity player models")
 	hg.settings:AddOpt("Server", "hg_appearance_access_for_all", "Anyone can change appearance", nil, nil, "bool", "Let every player use the full appearance menu")
 	hg.settings:AddOpt("Server", "homicide_traitoramount", "Homicide traitor count", nil, nil, "int", "How many traitors spawn in Homicide")
+	hg.settings:AddOpt("Server", "hg_allow_gopro", "Allow GoPro-like first-person camera", nil, nil, nil, "Let clients use the helmet-mounted camera")
+	hg.settings:AddOpt("Server", "hg_allow_gopro_pos", "Allow editing GoPro camera position", nil, nil, nil, "Let clients move the helmet camera")
+	hg.settings:AddOpt("Server", "hg_giveammomul", "Spawnmenu ammo multiplier", nil, nil, "int", "Multiply ammo given with weapons from the spawn menu")
+	hg.settings:AddOpt("Server", "hg_ixanims", "Helix-like NPC player animations", nil, nil, nil, "Experimental animations on NPC player models")
+	hg.settings:AddOpt("Server", "hg_coolhands", "Give cool hands on spawn", nil, nil, nil, "Replace default hands with cool hands")
+	hg.settings:AddOpt("Server", "hg_loadcontent", "Load workshop content", nil, nil, nil, "resource.AddWorkshop for clients. Needs a server restart")
 end
 
 hg.settings:AddOpt("Debug", "hg_show_hitbox", "Show hitboxes", nil, nil, nil, "Draw player hitboxes")

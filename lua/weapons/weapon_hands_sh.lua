@@ -65,6 +65,16 @@ SWEP.ModelScale2 = 1.5
 
 SWEP.blockinganim = 0
 
+if CLIENT then
+	function SWEP:PreDrawViewModel()
+		return true
+	end
+
+	function SWEP:ViewModelDrawn()
+		return false
+	end
+end
+
 local clawClasses = {
 	["furry"] = 0.5,
 	["headcrabzombie"] = 1.5,
@@ -1403,6 +1413,10 @@ function SWEP:ApplyForce()
 			mul = mul * (1 + ply.organism.berserk / 5)
 		end
 
+		if (ply.organism and ply.organism.noradrenaline >= 0.5) then
+			mul = mul * (1 + ply.organism.noradrenaline / 5)
+		end
+
 		local avec = vec * len * 8 - phys:GetVelocity()
 
 		local Force = avec * mul
@@ -1411,7 +1425,10 @@ function SWEP:ApplyForce()
 
 		Force = Force:GetNormalized() * ForceMagnitude
 
-		if len > (juggernautOverpowering and 145 or 100) then
+		local org = ply.organism or {}
+		local maxlen = self.ReachDistance * 2.5 * (org.superfighter and 2 or 1) * (1 + (org.berserk or 0)) * (1 + (org.noradrenaline or 0))
+		if juggernautOverpowering then maxlen = math.max(maxlen, 145) end
+		if len > maxlen then
 			self:SetCarrying()
 			return
 		end
@@ -1453,9 +1470,9 @@ function SWEP:ApplyForce()
 						end
 
 						if org.heartstop then
-							--ply:ChatPrint("No pulse.")
+							ply:ChatPrint("No pulse.")
 						else
-							--ply:ChatPrint(org.pulse < 20 and "Barely can feel the pulse." or (org.pulse <= 50 and "Low pulse.") or (org.pulse <= 90 and "Normal pulse.") or "High pulse.")
+							ply:ChatPrint(org.pulse < 20 and "Barely can feel the pulse." or (org.pulse <= 50 and "Low pulse.") or (org.pulse <= 90 and "Normal pulse.") or "High pulse.")
 						end
 
 						if (org.last_heartbeat + 60) > CurTime() then
@@ -1519,7 +1536,7 @@ function SWEP:ApplyForce()
 							--ply:ChatPrint(org.otrub and "No reaction." or "Reaction present.")
 
 							if org.isPly and not org.otrub then
-								org.owner:ChatPrint("You were checked for reaction.")
+								--org.owner:ChatPrint("You were checked for reaction.")
 							end
 						end
 					end
@@ -2507,7 +2524,6 @@ if SERVER then
 			end
 
 			local TargetPos = phys:GetPos()
-
 			if ent:IsRagdoll() then
 				TargetPos = LocalToWorld(pos, angle_zero, phys:GetPos(), phys:GetAngles())
 			else
@@ -2517,30 +2533,30 @@ if SERVER then
 			local target,_ = LocalToWorld(target,angle_zero,ply:EyePos(),(ent.rememberedang or ply:EyeAngles()) - (not ply:KeyDown(IN_USE) and ent.addang or ent.oldaddang or angle_zero))
 			local vec = target - TargetPos
 			local len, mul = vec:Length(), phys:GetMass()
-	
+
 			vec:Normalize()
-	
+
 			if (ply.organism and ply.organism.superfighter) then
 				mul = mul * 5
 			end
-	
+
 			if (ply.organism and ply:IsBerserk()) then
 				mul = mul * (1 + ply.organism.berserk / 5)
 			end
-	
+
 			local avec = vec * len * 8 - phys:GetVelocity()
-	
+
 			local Force = avec * mul
 			local ForceMagnitude = math.min(Force:Length(), 3000) * (1 / math.max(phys:GetVelocity():Dot(vec) / 25, 1))
-	
-			Force = Force:GetNormalized() * ForceMagnitude
 
+			Force = Force:GetNormalized() * ForceMagnitude
 			phys:Wake()
 
-			if len > 100 then
+			local maxlen = 100 * (ply.organism.superfighter and 2 or 1) * (1 + ply.organism.berserk) * (1 + ply.organism.noradrenaline)
+			if len > maxlen then
 				hg.SetCarryEnt2(ply)
 				heldents[i] = nil
-				
+
 				continue
 			end
 	

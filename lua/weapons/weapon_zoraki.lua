@@ -70,7 +70,7 @@ SWEP.AnimShootHandMul = 0.1
 SWEP.addSprayMul = 0.5
 SWEP.Penetration = 4
 SWEP.ShockMultiplier = 2
-SWEP.WorldPos = Vector(4.5, -1.4, 0.45)
+SWEP.WorldPos = Vector(4.5, -1.02, 0.15)
 SWEP.WorldAng = Angle(0, 90, 0)
 SWEP.UseCustomWorldModel = true
 SWEP.attPos = Vector(-6, -4, 0.1)
@@ -87,8 +87,8 @@ SWEP.podkid = 0.1
 SWEP.RHPos = Vector(12,-4.5,3.5)
 SWEP.RHAng = Angle(5,-5,90)
 --local to rh
-SWEP.LHPos = Vector(-1.2,-1.4,-2.5)
-SWEP.LHAng = Angle(5,9,-110)
+SWEP.LHPos = Vector(-0.5,-0.7,-2.13)
+SWEP.LHAng = Angle(5,9,-100)
 
 --RELOAD ANIMS PISTOL
 SWEP.ReloadAnimLH = {

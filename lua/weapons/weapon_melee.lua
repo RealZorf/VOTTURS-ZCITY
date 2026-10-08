@@ -127,6 +127,14 @@ if CLIENT then
 	SWEP.WepSelectIcon = Material("vgui/hud/tfa_iw7_tactical_knife")
 	SWEP.IconOverride = "vgui/hud/tfa_iw7_tactical_knife.png"
 	SWEP.BounceWeaponIcon = false
+
+	function SWEP:PreDrawViewModel()
+		return true
+	end
+
+	function SWEP:ViewModelDrawn()
+		return false
+	end
 end
 
 SWEP.AttackSwing = "weapons/slam/throw.wav" --!! replace sounds
@@ -1115,9 +1123,14 @@ function SWEP:PlayEffects(trace, attacktype)
         owner:EmitSound(self.AttackHit,75)
         owner:EmitSound(self.AttackHit, 75)
 
-        if self.DamageType ~= DMG_SLASH and trace.MatType ~= MAT_GLASS then
-            util.Decal("Impact.BluntAdd" .. math.random(bluntDecalsRand), trace.HitPos + trace.HitNormal, trace.HitPos - trace.HitNormal, owner)
-        end
+		if self.weight >= 1.4 and trace.MatType ~= MAT_GLASS and not attacktype then
+			if self.DamageType ~= DMG_SLASH then
+				util.Decal("Impact.BluntAdd" .. math.random(bluntDecalsRand), trace.HitPos + trace.HitNormal, trace.HitPos - trace.HitNormal, owner)
+			else
+				util.Decal("ManhackCut", trace.HitPos + trace.HitNormal, trace.HitPos - trace.HitNormal, owner)
+			end
+			owner:ScreenShake(trace.HitPos, 35, 10, 0.5, 150, false)
+		end
     end
 end
 
@@ -1832,6 +1845,8 @@ function SWEP:CustomThink()
                 else
                     dmg = dmg / 1.5
                 end
+
+                hg.AddForceRag(ent, trace.PhysicsBone or 0, trace.Normal * math.min(dmg, 25) * 400, 0.5)
                                 
                 local dmginfo = DamageInfo()
 
@@ -1849,6 +1864,7 @@ function SWEP:CustomThink()
                 dmginfo:SetDamagePosition(trace.HitPos)
                 
                 hg.AddForceRag(ent, trace.PhysicsBone or 0, trace.Normal * math.min(dmg, 25) * 400 * MELEE_GLOBAL_KNOCKBACK_MUL, 0.5)
+                self.attackedOnce = true
 
                 self:PunchPlayer(ent, false, trace.Normal, dmg)
 
@@ -1971,6 +1987,8 @@ function SWEP:CustomThink()
                 if self.MultiDmg2 or not self:IsEntSoft(ent) then
                     dmg = dmg / math.max(1,self.AttackRads2 * self.Attack2TimeLength)
                 end
+
+                hg.AddForceRag(ent, trace.PhysicsBone or 0, trace.Normal * math.min(dmg, 25) * 400, 0.5)
 
                 local dmginfo = DamageInfo()
 
@@ -2794,6 +2812,17 @@ function SWEP:NPCThink()
 							phys:ApplyForceOffset(trace.Normal * forceMultiplier * 0.2, trace.HitPos)
 						end
 					end
+
+					local dmginfo = DamageInfo()
+					dmginfo:SetAttacker(npc)
+					dmginfo:SetInflictor(self)
+					dmginfo:SetDamage(dmg)
+					dmginfo:SetDamageForce(trace.Normal * dmg * 1)
+					dmginfo:SetDamageType(self.DamageType)
+					dmginfo:SetDamagePosition(trace.HitPos)
+					trEnt:TakeDamageInfo(dmginfo)
+					npc:EmitSound(self.AttackHitFlesh, 60)
+
 				end
 				if timer.Exists(timerId) then timer.Remove(timerId) end
 			end)

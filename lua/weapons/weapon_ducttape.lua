@@ -13,25 +13,7 @@ SWEP.Secondary.Ammo = "none"
 SWEP.Secondary.DefaultClip = 0
 SWEP.Secondary.ClipSize = 0
 SWEP.Primary.Automatic = true
-
---__settings__--
-SWEP.fastHitAllow = false
 SWEP.HoldType = "slam"
-SWEP.DamageType = DMG_CLUB
-SWEP.Penetration = 2
-SWEP.traceOffsetAng = Angle(70, -5, 0)
-SWEP.traceOffsetVec = Vector(3, .5, 0)
-SWEP.traceLen = 12
-SWEP.offsetVec = Vector(4, -3.5, -1.5)
-SWEP.offsetAng = Angle(90, 180, 0)
-SWEP.HitSound = "Flesh.ImpactHard"
-SWEP.HitSound2 = "Flesh.ImpactHard"
-SWEP.HitWorldSound = "Flesh.ImpactHard"
-SWEP.r_forearm = Angle(0, 15, 0)
-SWEP.r_upperarm = Angle(5, -60, 15)
-SWEP.r_hand = Angle(0, 0, 0)
-SWEP.l_forearm = Angle(0, 0, 0)
-SWEP.l_upperarm = Angle(0, 0, 0)
 
 SWEP.weaponInvCategory = false
 SWEP.DeploySnd = "physics/body/body_medium_impact_soft5.wav"

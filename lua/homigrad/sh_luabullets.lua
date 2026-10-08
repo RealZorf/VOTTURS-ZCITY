@@ -746,11 +746,13 @@ function ENTITY:FireLuaBullets(tInfo)
 					filter = Filter
 				})
 			
+			local tries = 50
 			local organismSkipAttempts = 0
 			local lastOrganismSkipKey
 
-			while (IsValid(tr.Entity) and tr.Entity.organism) do
+			while (tries > 0 and IsValid(tr.Entity) and tr.Entity.organism) do
 				local ent = tr.Entity
+				tries = tries - 1
 				local bonename = ent:GetBoneName(ent:TranslatePhysBoneToBone(tr.PhysicsBone))
 				local hitgroup = hg.bonetohitgroup[bonename]--( ent:IsPlayer() and tr.HitGroup or hg.bonetohitgroup[bonename])
 				
@@ -1336,5 +1338,6 @@ function PLAYER:FireCSSBullets(tInfo)
 	
 	if (bIsPlayer) then
 		self:LagCompensation(false)
+		self.bullet = nil
 	end
 end

@@ -206,7 +206,7 @@ function SWEP:DoRT()
 			local toscreen = aimWay:ToScreen()
 			local x, y = toscreen.x, toscreen.y
 			local hitPos
-			if hg_show_hitposmuzzle:GetBool() then
+			if hg_show_hitposmuzzle:GetBool() and lply:IsAdmin() then
 				hitPos = self:GetTrace(true).HitPos:ToScreen()
 			end
 		cam.End3D()
@@ -231,7 +231,7 @@ function SWEP:DoRT()
 		render.PushFilterMin(TEXFILTER.ANISOTROPIC)
 		render.PushFilterMag(TEXFILTER.ANISOTROPIC)
 		cam.Start2D()
-			if hg_show_hitposmuzzle:GetBool() then
+			if hg_show_hitposmuzzle:GetBool() and lply:IsAdmin() then
 				draw.RoundedBox(0, hitPos.x / (scrw / ScrW()) - 2, hitPos.y / (scrh / ScrH()) - 2, 4, 4, color_red)
 			end
 			local blackout = self.blackoutsize * 0.75

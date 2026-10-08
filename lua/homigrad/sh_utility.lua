@@ -5,6 +5,16 @@ local PLAYER = FindMetaTable("Player")
 
 hg.ConVars = hg.ConVars or {}
 
+--\\ find lua file
+function GetCurrentLuaFile()
+    local source = debug.getinfo(2, "S").source
+    if source:sub(1,1) == "@" then
+        return source:sub(2)
+    else
+        error("Caller was not defined in a file", 2)
+    end
+end
+--//
 --\\ Is Changed
 	local ChangedTable = {}
 
@@ -500,6 +510,12 @@ hg.ConVars = hg.ConVars or {}
 	}
 	local hg_sandboxmusic = ConVarExists("hg_sandboxmusic") and GetConVar("hg_sandboxmusic") or CreateConVar("hg_sandboxmusic", 0, FCVAR_REPLICATED + FCVAR_ARCHIVE, "Toggle dynamic music in sandbox gamemode", 0, 1)
 	local gamemod = engine.ActiveGamemode()
+	local hg_movement_runspeed = CreateConVar("hg_movement_runspeed", 280, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes run speed, new default - 280 old - 350", 0, 9999)
+	local hg_movement_walkspeed = CreateConVar("hg_movement_walkspeed", 85, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes walk speed, new default - 85 old - 100", 0, 9999)
+	local hg_movement_slowwalkspeed = CreateConVar("hg_movement_slowwalkspeed", 40, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes slowwalk speed, new default - 40 old - 60", 0, 9999)
+	local hg_movement_ladderclimbspeed = CreateConVar("hg_movement_ladderclimbspeed", 100, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes leader climb speed, new default - 100 old - 150", 0, 9999)
+	local hg_movement_crouchwalkspeed = CreateConVar("hg_movement_crouchwalkspeed", 60, FCVAR_REPLICATED + FCVAR_ARCHIVE + FCVAR_NOTIFY, "Changes crouch walk speed, default 60", 0, 9999)
+
 	hook.Add("player_spawn", "homigrad-spawn3", function(data)
 		local ply = Player(data.userid)
 		if not IsValid(ply) then return end
@@ -514,16 +530,16 @@ hg.ConVars = hg.ConVars or {}
 		timer.Simple(0, function()
 			if not IsValid(ply) then return end
 
-			ply:SetWalkSpeed(100)
-			ply:SetRunSpeed(350) -- 230
+			ply:SetWalkSpeed(hg_movement_walkspeed:GetInt())
+			ply:SetRunSpeed(hg_movement_runspeed:GetInt()) -- 230
 
 			ply:SetJumpPower(DEFAULT_JUMP_POWER)
 
 			hg.ApplyScaledPlayerHull(ply, true)
 
-			ply:SetSlowWalkSpeed(60)
-			ply:SetLadderClimbSpeed(150)
-			ply:SetCrouchedWalkSpeed(60)
+			ply:SetSlowWalkSpeed(hg_movement_slowwalkspeed:GetInt())
+			ply:SetLadderClimbSpeed(hg_movement_ladderclimbspeed:GetInt())
+			ply:SetCrouchedWalkSpeed(hg_movement_crouchwalkspeed:GetInt())
 			ply:SetDuckSpeed(0.4)
 			ply:SetUnDuckSpeed(0.4)
 			ply:AddEFlags(EFL_NO_DAMAGE_FORCES)
@@ -1940,7 +1956,24 @@ duplicator.Allow( "homigrad_base" )
 	hg.MaxLookX,hg.MinLookX = 55,-55 
 	hg.MaxLookY,hg.MinLookY = 45,-45
 --
+--\\ Give ammo on weapon spawn
+	local hg_giveammomul = CreateConVar("hg_giveammomul", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Multiply given ammo for weapon spawned from spawnmenu")
+	hook.Add("PlayerGiveSWEP", "hg_giveammo", function(ply, class, tbl)
+		if hg_giveammomul:GetInt() <= 0 then return end
 
+		if not class then return end
+
+		local wep = weapons.Get(class)
+		if not wep then return end
+
+		if not wep.Category or not string.find(wep.Category, "Weapons - ") then return end
+
+		local ammoType = wep.Primary.Ammo
+		if ammoType and ammoType ~= nil and ammoType ~= "none" then
+			ply:GiveAmmo(wep.Primary.ClipSize * hg_giveammomul:GetInt(), ammoType, true)
+		end
+	end)
+--//
 --\\ Screen Capture
 	if CLIENT then
 		local tex = GetRenderTargetEx("rt_hg_screencapture_1",
@@ -1981,6 +2014,9 @@ duplicator.Allow( "homigrad_base" )
 		end
 	end
 --
+
+CreateConVar("hg_allow_gopro", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Allow GoPro-like first-person camera")
+CreateConVar("hg_allow_gopro_pos", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Allow editing GoPro camera position")
 
 --\\ Custom table.IsEmpty
 	hg.isempty = hg.isempty or table.IsEmpty

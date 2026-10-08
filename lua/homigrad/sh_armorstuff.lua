@@ -1,3 +1,4 @@
+
 hg.armor = {}
 local hg_gopro = ConVarExists("hg_gopro") and GetConVar("hg_gopro") or CreateClientConVar("hg_gopro", "0", true, false, "Toggle GoPro-like first-person camera view", 0, 1)
 
@@ -44,7 +45,6 @@ local function DrawFirstPersonHelmet(ply, strModel, vecAdjust, fFov, setMat)
 	end
 
 	local gp = hg_gopro:GetBool()
-
 	local view = render.GetViewSetup()
 	cam.Start3D(view.origin,view.angles,view.fov + fFov,nil,nil,nil,nil,1,10)
 		--cam.IgnoreZ(true)
@@ -76,7 +76,9 @@ local function DrawFirstPersonHelmet(ply, strModel, vecAdjust, fFov, setMat)
 			render.SetBlend(1)
 			render.SetStencilCompareFunction( STENCIL_EQUAL )
 			mdl:DrawModel()
-			DrawBokehDOF(8,0.9,15)
+			if not hg.ConVars.potatopc:GetBool() then
+				DrawBokehDOF(8,0.9,15)
+			end
 			-- Let everything render normally again
 			render.SetStencilEnable( false )
 		render.SetColorModulation(1,1,1)
@@ -883,3 +885,4 @@ end
 
 initArmor()
 hook.Add("Initialize", "init-atts", initArmor)
+

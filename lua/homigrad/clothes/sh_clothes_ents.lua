@@ -1,9 +1,7 @@
-ZC_CLOTHES_SLOT_TORSO = 0
-ZC_CLOTHES_SLOT_PANTS = 1
-ZC_CLOTHES_SLOT_BOOTS = 2
-ZC_CLOTHES_SLOT_BACKPACK = 3
+
 -- if you really want this NOW https://steamcommunity.com/sharedfiles/filedetails/?id=3670069780
-local clothes = {
+local function register()
+    local clothes = {
     wintercoat1 = {
         PrintName = "Winter Coat 1",
         Model = "models/props_junk/cardboard_box003a.mdl",
@@ -340,11 +338,7 @@ local clothes = {
         WarmSave = 0.1
     },
 }
-
-
 --ModelSubMaterials = {[""] = ""},
-
-local function register()
     for k, v in pairs(clothes) do
         local ENT = {}
         ENT.Base = "ent_zcity_clothes_base"
@@ -365,7 +359,9 @@ local function register()
         scripted_ents.Register(ENT, "ent_zcity_colthes_" .. k)
     end
 end
+
 if CLIENT and !steamworks.ShouldMountAddon("3670069780") then return end -- anyway client not abile to see it when no
+
 hook.Add("Think","remove-me-clothes",function()
     register()
     hook.Remove("Think","remove-me-clothes")

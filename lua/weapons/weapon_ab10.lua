@@ -81,19 +81,19 @@ SWEP.WeaponEyeAngles = Angle(0,0,0)
 SWEP.RHPos = Vector(8,-5,3)
 SWEP.RHAng = Angle(0,-2,90)
 --local to rh
-SWEP.LHPos = Vector(4.5,-2,-2.5)
-SWEP.LHAng = Angle(-5,0,-90)
+SWEP.LHPos = Vector(5.9,1,-2.9)
+SWEP.LHAng = Angle(-15,-10,-80)
 
 local finger1 = Angle(0,0, 0)
 
 function SWEP:AnimHoldPost(model)
-	self:BoneSet("l_finger0", Vector(0, 0, 0), Angle(-5, -10, 0))
+	self:BoneSet("l_finger0", Vector(0.1, 0, 0), Angle(15, -40, 12))
 	self:BoneSet("l_finger02", Vector(0, 0, 0), Angle(0, 25, 0))
-	self:BoneSet("l_finger01", Vector(0, 0, 0), Angle(-25, 40, 0))
-	self:BoneSet("l_finger1", Vector(0, 0, 0), Angle(-10, -40, 0))
-	self:BoneSet("l_finger11", Vector(0, 0, 0), Angle(-10, -40, 0))
-	self:BoneSet("l_finger2", Vector(0, 0, 0), Angle(-5, -50, 0))
-	self:BoneSet("l_finger21", Vector(0, 0, 0), Angle(0, -10, 0))
+	self:BoneSet("l_finger01", Vector(0, 0, 0), Angle(-25, 35, -10))
+	self:BoneSet("l_finger1", Vector(0, 0, 0), Angle(30, -52, 0))
+	self:BoneSet("l_finger11", Vector(0, 0, 0), Angle(1, -60, 0))
+	self:BoneSet("l_finger2", Vector(0, 0, 0), Angle(19, -73, 0))
+	self:BoneSet("l_finger21", Vector(0, 0, 0), Angle(-10, -15, 10))
 end
 
 --RELOAD ANIMS SMG????
@@ -105,12 +105,14 @@ SWEP.ReloadAnimLH = {
 	Vector(-15,5,-15),
 	Vector(0,0,0),
 	Vector(0,0,0),
+	"fastreload",
 	Vector(0,0,0),
 	Vector(5,0,5),
 	Vector(-2,1,1),
 	Vector(-2,1,1),
 	Vector(-2,1,1),
 	Vector(0,0,0),
+	"reloadend",
 	Vector(0,0,0)
 }
 SWEP.ReloadAnimLHAng = {

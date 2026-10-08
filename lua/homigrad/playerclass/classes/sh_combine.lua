@@ -724,7 +724,7 @@ if SERVER then
             ply.CombineLerpedFootStep = LerpFT(0.5,ply.CombineLerpedFootStep or 60, (not ply:IsSprinting() and (ply:KeyDown(IN_DUCK) or ply:KeyDown(IN_WALK))) and 20 or 60)
             if IsValid(ply.FakeRagdoll) and ply:GetNetVar("lastFake") == 0 then return end
             chr:EmitSound("npc/combine_soldier/gear" .. math.random(1,6) .. ".wav",
-                ply.CombineLerpedFootStep
+                ply.CombineLerpedFootStep, math.random(92, 108), 0.7
             )
         end
     end)

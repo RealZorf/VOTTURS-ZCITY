@@ -399,3 +399,55 @@ AddTrack(
     140,
     0.15
 )
+
+AddTrack(
+    "battery",
+    { -- Presets
+        [0] = {
+            ["calm"]        = { volume = 1 },
+        },
+        [1] = {
+            ["fight"]        = { volume = 1 },
+        },
+        [2] = {
+            ["noammo"]        = { volume = 1, howfast = 0.1 },
+        },
+        [3] = {
+            ["something_wrong"]        = { volume = 1 },
+        },
+        [4] = {
+            ["calm2"]        = { volume = 1 },
+        },
+    },
+    { -- Layers
+        ["calm"] = "am_music/background/lighthouse(calm).mp3",
+        ["calm2"] = "am_music/background/battery(calm).mp3",
+        ["fight"] = "am_music/battle/lighthouse(stress).mp3",
+        ["noammo"] = "am_music/battle_intensive/lighthouse(intense).mp3",
+        ["something_wrong"] = "am_music/suspense/lighthouse(suspense).mp3",
+    },
+    function(ply)
+        local intens = 0
+        local org = ply.organism
+        if (!org or org.otrub) or !ply:Alive() then return -1 end
+        if org.fear > 0 then
+            intens = 4
+        end
+        if org.fear > 0 or org.adrenaline > 0 then
+            intens = 3
+            if org.fear > 0 and org.adrenaline > 0 then
+                intens = 1
+            end
+
+            if IsValid(ply:GetActiveWeapon()) and ishgweapon(ply:GetActiveWeapon()) and ply:GetActiveWeapon():Clip1() < (ply:GetActiveWeapon():GetMaxClip1() / 6) or !ishgweapon(ply:GetActiveWeapon()) then
+                intens = 2
+            end
+        end
+        
+        return intens
+    end,
+    "idk",
+    "battery",
+    140,
+    0
+)

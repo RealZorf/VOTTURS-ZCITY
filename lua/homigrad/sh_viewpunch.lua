@@ -269,9 +269,10 @@ local IsValid = IsValid
 			speed = -lply:GetVelocity().z
 
 			if prev_on_ground != current_on_ground and current_on_ground and lply:GetMoveType() != MOVETYPE_NOCLIP then
-				angle_hitground.p = math_Clamp(speedPrevious / 25, 0, 20)
+				angle_hitground.p = math_Clamp(speedPrevious / 100, 0, 20)
 
-				ViewPunch(angle_hitground)
+				ViewPunch(angle_hitground * 0.8)
+				ViewPunch2(angle_hitground * 1.5)
 			end
 		end)
 
