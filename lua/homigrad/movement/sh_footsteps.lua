@@ -1,7 +1,7 @@
 local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vector, AngleRand, VectorRand, math, hook, util, game
 local hook_Run = hook.Run
 local hg_gopro = ConVarExists("hg_gopro") and GetConVar("hg_gopro") or CreateClientConVar("hg_gopro", "0", true, false, "Toggle GoPro-like camera view", 0, 1)
-local hg_coolcamera = ConVarExists("hg_coolcamera") and GetConVar("hg_coolcamera") or CreateConVar("hg_coolcamera", 1, FCVAR_ARCHIVE + FCVAR_REPLICATED, "Cool camera movement", 0, 1)
+local hg_coolcamera = ConVarExists("hg_coolcamera") and GetConVar("hg_coolcamera") or CreateConVar("hg_coolcamera", 0, FCVAR_ARCHIVE + FCVAR_REPLICATED, "Cool camera movement", 0, 1)
 
 --\\ custom footsteps
 	local EmitSound, SoundDuration, hg, ViewPunch, CurTime, math = EmitSound, SoundDuration, hg, ViewPunch, CurTime, math
