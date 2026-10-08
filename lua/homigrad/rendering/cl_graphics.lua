@@ -43,7 +43,6 @@ local multicoreProfile = {
 	cl_threaded_bone_setup = 1,
 	cl_forcepreload = 1,
 	mat_queue_mode = 2,
-	mat_reducefillrate = 1,
 	spawnicon_queue = 1,
 	snd_mix_async = 1
 }
