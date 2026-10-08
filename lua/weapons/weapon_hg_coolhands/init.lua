@@ -940,7 +940,7 @@ function SWEP:Reload()
 	end
 end
 
-local hg_coolhands = CreateConVar("hg_coolhands", 0, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Give cool hands instead of default hands on spawn")
+local hg_coolhands = CreateConVar("hg_coolhands", 1, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Give cool hands instead of default hands on spawn")
 hook.Add("PlayerSpawn", "Toggle_CoolHands", function(ply)
 	if not IsValid(ply) then return end
 	if not hg_coolhands:GetBool() or ply.PlayerClassName and ply.PlayerClassName == "headcrabzombie" then return end
