@@ -222,17 +222,35 @@ function WS.GetWeaponTable( ply )
 
     local frame = FrameNumber()
     if wepCachePly == ply and wepCacheBuilt ~= -1 and (frame - wepCacheBuilt) < 5 then
-        wepCacheFrame = frame
-        return formattedSlots, slotCounts
+        local cacheValid = true
+        for i = 1, wepCacheN do
+            if not IsValid(wepCache[i]) then
+                cacheValid = false
+                wepCacheBuilt = -1
+                break
+            end
+        end
+        if cacheValid then
+            wepCacheFrame = frame
+            return formattedSlots, slotCounts
+        end
     end
 
-    local WeaponsGet = ply:GetWeapons()
-    local n = #WeaponsGet
+    local rawWeapons = ply:GetWeapons()
+    local WeaponsGet = {}
+    local n = 0
+    for i = 1, #rawWeapons do
+        local wep = rawWeapons[i]
+        if IsValid(wep) then
+            n = n + 1
+            WeaponsGet[n] = wep
+        end
+    end
     local unchanged = n == wepCacheN
     if unchanged then
         for i = 1, n do
             local wep = WeaponsGet[i]
-            if wepCache[i] ~= wep or wepCacheSlot[i] ~= (wep.Slot or 0) or wepCacheSlotPos[i] ~= (wep.SlotPos or 0) then
+            if not IsValid(wep) or wepCache[i] ~= wep or wepCacheSlot[i] ~= (wep.Slot or 0) or wepCacheSlotPos[i] ~= (wep.SlotPos or 0) then
                 unchanged = false
                 break
             end
@@ -288,10 +306,19 @@ function WS.GetSelectedWeapon(Weapons)
     if not IsValid( ply ) or not ply:Alive() then return end
     Weapons = Weapons or WS.GetWeaponTable( ply )
     if not Weapons then return end
-    return Weapons[WS.SelectedSlot] and Weapons[WS.SelectedSlot][WS.SelectedSlotPos] or Weapons[WS.LastSelectedSlot][WS.LastSelectedSlotPos] or Weapons[0][0]
+
+    local wep = Weapons[WS.SelectedSlot] and Weapons[WS.SelectedSlot][WS.SelectedSlotPos]
+    if IsValid(wep) then return wep end
+
+    wep = Weapons[WS.LastSelectedSlot] and Weapons[WS.LastSelectedSlot][WS.LastSelectedSlotPos]
+    if IsValid(wep) then return wep end
+
+    wep = Weapons[0] and Weapons[0][0]
+    if IsValid(wep) then return wep end
 end
 
 function WS.GetPrintName( self )
+	if not IsValid(self) then return "" end
 	local class = self:GetClass()
 	local cached = printNameCache[class]
 	if cached then return cached end
@@ -433,7 +460,7 @@ function WS.WeaponSelectorDraw( ply )
         local cursorY = innerY + headerH + pad
         for Id = 0, #slotTbl do
             local wep = slotTbl[Id]
-            if not wep then continue end
+            if not IsValid(wep) then continue end
 
             local selected = SelectedWep == wep
             local sizeH = selected and selH or rowH
