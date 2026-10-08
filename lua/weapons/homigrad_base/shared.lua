@@ -575,9 +575,7 @@ function SWEP:Shoot(override)
 	if override then self.drawBullet = true end
 	
 	if !self.drawBullet or (self:Clip1() == 0 and !override) then
-		self.LastPrimaryDryFire = CurTime()
 		self:PrimaryShootEmpty()
-		primary.Automatic = false
 
 		return false
 	end
@@ -603,7 +601,6 @@ function SWEP:PrimaryAttack(broadcast)
 	local clipBefore = self:Clip1()
 	if clipBefore == 0 then
 		if not self:CanPrimaryAttack() or not self:CanUse() then return false end
-		self.LastPrimaryDryFire = CurTime()
 		self:PrimaryShootEmpty()
 		return false
 	end
@@ -702,6 +699,19 @@ SWEP.SightSlideOffset = 1
 
 function SWEP:PrimaryShootEmpty()
 	if CLIENT then return end
+
+	local primary = self.Primary
+	local now = CurTime()
+	local delay = math.max((primary and primary.Wait) or 0.2, 0.2)
+	if (self.LastPrimaryDryFire or 0) + delay > now then return end
+
+	self.LastPrimaryDryFire = now
+	if primary then
+		local stored = weapons_Get(self:GetClass())
+		primary.RealAutomatic = primary.RealAutomatic or (stored and stored.Primary and stored.Primary.Automatic)
+		primary.Automatic = false
+	end
+
 	self:PlaySnd(self.Primary.SoundEmpty, true, CHAN_AUTO)
 end
 
