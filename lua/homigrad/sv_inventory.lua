@@ -468,8 +468,6 @@ function hg.TransferItems(ply,ragdoll)
 		
 		ply:SetNetVar("Armor",{})
 		ply.armors = ply:GetNetVar("Armor",{})
-		
-		hg.SyncWeapons()
 	end
 end
 
