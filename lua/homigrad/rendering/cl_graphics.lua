@@ -16,7 +16,6 @@ local lowGraphicsProfile = {
 	mat_specular = 0,
 	mat_filtertextures = 0,
 	mat_mipmaptextures = 0,
-	r_waterforceexpensive = 0,
 	r_flashlightdepthtexture = 0,
 	props_break_max_pieces = 0,
 	hg_potatopc = 1,
@@ -35,11 +34,18 @@ local lowGraphicsProfile = {
 
 local multicoreProfile = {
 	gmod_mcore_test = 1,
-	mat_queue_mode = -1,
-	cl_threaded_bone_setup = 1,
-	r_threaded_renderables = 1,
+	r_fastzreject = 1,
 	r_threaded_particles = 1,
-	r_queued_ropes = 1
+	r_queued_ropes = 1,
+	r_queued_decals = 1,
+	r_threaded_renderables = 1,
+	cl_threaded_client_leaf_system = 1,
+	cl_threaded_bone_setup = 1,
+	cl_forcepreload = 1,
+	mat_queue_mode = 2,
+	mat_reducefillrate = 1,
+	spawnicon_queue = 1,
+	snd_mix_async = 1
 }
 
 local optimizationDefaults = {
