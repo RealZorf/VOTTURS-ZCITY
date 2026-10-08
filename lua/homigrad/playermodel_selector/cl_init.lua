@@ -1,23 +1,23 @@
 --;; Huge thanks to the developers of the Enhanced PlayerModel Selector mod. I borrowed some parts of it for certain features.
 
 local clr = {
-	bg = Color(28, 28, 28, 240),
-	border = Color(75, 75, 75),
-	cat = Color(60, 60, 60),
-	catbar = Color(42, 42, 42),
-	row = Color(43, 43, 43, 235),
-	rowhov = Color(56, 56, 56, 240),
-	rowbar = Color(47, 47, 47, 235),
-	red = Color(160, 45, 45),
-	redhov = Color(190, 60, 60),
-	green = Color(80, 125, 65),
-	greenhov = Color(100, 150, 85),
-	orange = Color(220, 150, 45),
-	text = Color(235, 235, 235, 235),
-	dim = Color(140, 140, 140, 220),
-	dark = Color(28, 28, 28),
+	bg = Color(6, 14, 10, 240),
+	border = Color(35, 225, 110, 220),
+	cat = Color(10, 28, 18),
+	catbar = Color(35, 225, 110, 180),
+	row = Color(10, 22, 16, 235),
+	rowhov = Color(16, 48, 30, 240),
+	rowbar = Color(12, 36, 22, 235),
+	red = Color(180, 40, 40),
+	redhov = Color(220, 55, 55),
+	green = Color(25, 160, 80),
+	greenhov = Color(35, 225, 110),
+	orange = Color(220, 175, 55),
+	text = Color(225, 245, 232, 235),
+	dim = Color(118, 140, 128, 220),
+	dark = Color(4, 12, 8),
 	shadow = Color(0, 0, 0, 55),
-	gray = Color(70, 70, 70)
+	gray = Color(20, 90, 50)
 }
 
 for name, tbl in pairs({Title = {26, 500}, Category = {21, 400}, Item = {19, 400}, Small = {14, 300}, Btn = {16, 500}}) do
@@ -37,7 +37,7 @@ local function PaintBG(self, w, h)
 	surface.SetDrawColor(clr.bg)
 	surface.DrawRect(0, 0, w, h)
 
-	surface.SetDrawColor(120, 120, 130, 12)
+	surface.SetDrawColor(35, 225, 110, 10)
 	local sp, off = 64, (CurTime() * 18) % 64
 	for x = 0, math.ceil(w / sp) do surface.DrawRect(x * sp - off, 0, 1, h) end
 	for y = 0, math.ceil(h / sp) do surface.DrawRect(0, y * sp - off + sp, w, 1) end
@@ -81,7 +81,7 @@ local function CloseCross(parent, frame)
 	b:DockMargin(0, 1, 6, 1)
 	b:SetText("")
 	b.Paint = function(self, w, h)
-		surface.SetDrawColor(self:IsHovered() and Color(255, 110, 110) or clr.text)
+		surface.SetDrawColor(self:IsHovered() and clr.greenhov or clr.text)
 		for i = -1, 1 do
 			surface.DrawLine(12, 12 + i, w - 12, h - 12 + i)
 			surface.DrawLine(w - 12, 12 + i, 12, h - 12 + i)
@@ -103,7 +103,7 @@ local function StyleScroll(scroll)
 		surface.DrawRect(1, 0, w - 2, h)
 	end
 	bar.btnGrip.Paint = function(self, w, h)
-		surface.SetDrawColor(self:IsHovered() and 120 or 90, self:IsHovered() and 120 or 90, self:IsHovered() and 120 or 90)
+		surface.SetDrawColor(self:IsHovered() and Color(35, 225, 110, 220) or Color(20, 90, 50, 220))
 		surface.DrawRect(1, 0, w - 2, h)
 	end
 end
@@ -116,7 +116,7 @@ local function StyleEntry(entry, placeholder)
 		surface.DrawRect(0, 0, w, h)
 		surface.SetDrawColor(self.BorderColor or clr.gray)
 		surface.DrawOutlinedRect(0, 0, w, h, 1)
-		self:DrawTextEntryText(clr.text, Color(120, 120, 120), clr.text)
+		self:DrawTextEntryText(clr.text, Color(35, 160, 90), clr.text)
 		if placeholder and self:GetText() == "" then
 			draw.SimpleText(placeholder, "ZB_PMS_Item", 8, h / 2, clr.dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 		end
@@ -148,7 +148,7 @@ local function ToggleRow(parent, text, getState, onClick)
 		draw.RoundedBox(0, 2, 2, w - 4, h - 4, Color(0, 0, 0, 30))
 		local size = h - 12
 		local pos = Lerp(anim, 6, w - size - 6)
-		draw.RoundedBox(0, pos, 6, size, size, Color(Lerp(anim, 180, 80), Lerp(anim, 30, 120), Lerp(anim, 30, 50)))
+		draw.RoundedBox(0, pos, 6, size, size, Color(Lerp(anim, 40, 35), Lerp(anim, 50, 225), Lerp(anim, 40, 110)))
 		surface.SetDrawColor(0, 0, 0, Lerp(anim, 150, 40))
 		surface.DrawRect(pos, size + 4, size, 3)
 	end
