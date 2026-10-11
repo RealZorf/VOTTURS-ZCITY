@@ -1558,51 +1558,121 @@ SolidMapVote["Config"]["Specific Maps"] = {
         height = 268
     },
     {
-        filename = "ZS_BDF_B3",
+        filename = "zs_bdf_b3",
         displayname = "Butcher's Den",
         image = "https://images.steamusercontent.com/ugc/1464184070058754616/91E682CC1307901F9685FE7B1863D835B797D14C/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
         width = 268,
         height = 268
     },
     {
-        filename = "ZC OLDPARAMENTI",
+        filename = "zc_oldparamenti",
         displayname = "Old Paramenti",
         image = "https://images.steamusercontent.com/ugc/14193782822325190199/C25F3C633D694F3C593E06486114CA98AC9D2113/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true",
         width = 268,
         height = 268
     },
     {
-        filename = "TTT_SKYCRAPER_OCTG",
+        filename = "ttt_skycraper_octg",
         displayname = "Skycraper OCTG",
         image = "https://images.steamusercontent.com/ugc/1298674930030932627/9A43872054633CDBB094096B8BECADE611B8A393/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true",
         width = 268,
         height = 268
     },
     {
-        filename = "TTT_GROVESTREET_REMASTERED_A14",
+        filename = "ttt_grovestret_remastered_a14",
         displayname = "Groverhaus Remastered",
         image = "https://images.steamusercontent.com/ugc/31068856139390656/C5A07CEE1BEC8BA5CE3FDF508D428F4FB80EFAF4/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true",
         width = 268,
         height = 268
     },
     {
-        filename = "MU_GREENWOOD",
+        filename = "mu_greenwood",
         displayname = "Greenwood",
         image = "https://images.steamusercontent.com/ugc/585783475599374604/E5229110E11947ADEB3A65ED5E27C2BDC28F5D3F/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true",
         width = 268,
         height = 268
     },
     {
-    filename = "GM_HMCD_ROOFTOPS_PUBERTFIX_V1",
+    filename = "gm_hmcd_rooftops_pubertfix_v1",
         displayname = "HMCD Rooftops",
         image = "https://images.steamusercontent.com/ugc/12422119049239738749/14514337FC7B50CB471A3324AC2E9B2E885FFFD4/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
         width = 268,
         height = 268
     },
     {
-        filename = "GM_CSGOSAFEHOUSE",
+        filename = "gm_csgosafehouse",
         displayname = "CSGO Safehouse",
         image = "https://images.steamusercontent.com/ugc/843710577598660213/2E441FE0D58E645E0F9E7BDEC4646F8599530CC2/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_abyss",
+        displayname = "Abyss",
+        image = "https://images.steamusercontent.com/ugc/40864495465315627/536004E10A28F1DCF0FEA585150E1CFAD1CB356F/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_blackfactory",
+        displayname = "Blackfactory",
+        image = "https://images.steamusercontent.com/ugc/1634233932261093171/3FEBA937F513404EF63C4349EFB091C5428A8FC9/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_dolls_szkolna17",
+        displayname = "TTT Dolls",
+        image = "https://images.steamusercontent.com/ugc/775102075316198864/5316607CEAE46FD129331A9EAF929EC113871B44/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_goldenplixprison_v3",
+        displayname = "Goldenplix Prison",
+        image = "https://images.steamusercontent.com/ugc/1455013778432416116/87F812A88301DCC69C27985AF845FB96FD66C5ED/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_greenbelt",
+        displayname = "Postal Greenbelt",
+        image = "https://images.steamusercontent.com/ugc/2262559980386442038/CE22AF60EB32D75D51F1C4E021C36D8C19ABA4C0/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_groverhaus_remastered_a4",
+        displayname = "Groverhaus",
+        image = "https://images.steamusercontent.com/ugc/31068856139390656/C5A07CEE1BEC8BA5CE3FDF508D428F4FB80EFAF4/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_icebreak_v3",
+        displayname = "Icebreak",
+        image = "https://images.steamusercontent.com/ugc/12981130008094951291/5283C4EAA70834A3B6A0971E775B29830FF349C1/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_lost_bunker",
+        displayname = "Lost Bunker",
+        image = "https://images.steamusercontent.com/ugc/12302613016544486441/71A7B86E900B72D34F02038D0A710F1928577513/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_minecraftcity_v5",
+        displayname = "Minecraft City",
+        image = "https://images.steamusercontent.com/ugc/2047488292150557573/BB39B9F4B0455876D080F2933B52E1431DB8DE39/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+    {
+        filename = "ttt_skyscraper_octg",
+        displayname = "Skyscraper OCTG",
+        image = "https://images.steamusercontent.com/ugc/1298674930030932627/9A43872054633CDBB094096B8BECADE611B8A393/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
         width = 268,
         height = 268
     },
