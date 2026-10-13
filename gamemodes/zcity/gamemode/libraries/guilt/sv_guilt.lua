@@ -107,6 +107,10 @@ local function GetPlayerKarmaCap(ply)
     return zb.MaxKarma
 end
 
+function zb.GetPlayerKarmaCap(ply)
+    return GetPlayerKarmaCap(ply)
+end
+
 local IMMUNE_GROUPS = {
     "superadmin",
     "owner",
@@ -171,6 +175,8 @@ local function GetGuiltDamageSource(attacker, dmgInfo)
 
     return "damage"
 end
+
+zb.GetGuiltDamageSource = GetGuiltDamageSource
 
 local function GetPairHarm(from, to)
     if not IsValid(from) or not IsValid(to) then return 0 end
@@ -498,6 +504,19 @@ SyncKarmaRuntime = function(ply, karma)
     zb.GuiltSQL.PlayerInstances[steamID64].value = karma
 end
 
+function zb.SetPlayerKarma(ply, amount, persist)
+    if not IsValid(ply) or not ply:IsPlayer() then return false end
+
+    amount = math.Clamp(tonumber(amount) or 0, -60, GetPlayerKarmaCap(ply))
+    SyncKarmaRuntime(ply, amount)
+
+    if persist ~= false and ply.guilt_SetValue then
+        ply:guilt_SetValue(amount)
+    end
+
+    return true
+end
+
 local function IsLookingAt(ply, targetVec)
     if not IsValid(ply) or not ply:IsPlayer() then return false end
     local diff = targetVec - ply:GetShootPos()
@@ -523,6 +542,8 @@ local function ResolveGuiltPlayer(ent)
 
     return nil
 end
+
+zb.ResolveGuiltPlayer = ResolveGuiltPlayer
 
 local GUILT_NEAR_MISS_RADIUS = 24
 local guiltNearMissMins = Vector(-24, -24, -24)
@@ -1193,9 +1214,6 @@ concommand.Add("hg_setkarma",function(ply,cmd,args)
     newply:guilt_SetValue(newply.Karma)
 end)
 
-util.AddNetworkString("open_guilt_menu")
-util.AddNetworkString("forgive_player")
-
 hook.Add("PlayerInitialSpawn", "GuiltRefundInit", function(ply)
     ResetRoundRefundState(ply)
 end)
@@ -1245,37 +1263,6 @@ hook.Add("PlayerDeath", "GuiltRefundOnSuicide", function(ply)
 
         ply:ChatPrint("You regained " .. math.Round(refund, 2) .. " karma from your round penalties.")
     end)
-end)
-
-net.Receive("open_guilt_menu",function(len, ply)
-    if ply:Alive() then return end
-    local tbl = zb.HarmDoneKarma[ply] or {}
-    net.Start("open_guilt_menu")
-    net.WriteTable(tbl)
-    net.Send(ply)
-    --current round guilt
-end)
-
-net.Receive("forgive_player", function(len, ply)
-    if ply:Alive() then return end
-    if not zb.IsRoundGuiltActive() then return end
-    local ent = net.ReadEntity()
-    if not IsValid(ent) or not ent:IsPlayer() or not zb.HarmDoneKarma[ply] then return end
-    if zb.IsTraitorLike(ent) then return end
-    local harm = zb.HarmDoneKarma[ply][ent]
-    if not harm or harm <= 0 then return end
-
-    if IsRefundableWrongKill(ent, ply, CurrentRound()) then
-        ent.GuiltWrongKillLossThisRound = math.max((ent.GuiltWrongKillLossThisRound or 0) - harm, 0)
-    end
-
-    SyncKarmaRuntime(ent, math.Clamp(ent.Karma + harm, 0, GetPlayerKarmaCap(ent)))
-
-    if zb.HarmDone[ply] then zb.HarmDone[ply][ent] = 0 end
-    zb.HarmDoneKarma[ply][ent] = 0
-    net.Start("open_guilt_menu")
-    net.WriteTable(zb.HarmDoneKarma[ply])
-    net.Send(ply)
 end)
 
 hook.Add("Player Spawn", "GuiltKnown",function(ply)
