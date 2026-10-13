@@ -497,6 +497,21 @@ power:addParam{type = ULib.cmds.PlayerArg, default = "^", ULib.cmds.optional}
 power:defaultAccess(ULib.ACCESS_SUPERADMIN)
 power:help("Toggles super power for a player.")
 
+function ulx.guiltadmin(calling_ply)
+    if not IsValid(calling_ply) or not calling_ply:IsPlayer() then return end
+
+    if SERVER then
+        net.Start("zcity_guilt_admin_openmenu")
+        net.Send(calling_ply)
+    end
+
+    ulx.fancyLogAdmin(calling_ply, "#A opened the guilt admin menu")
+end
+
+local guiltadmin = ulx.command(ZCITY_CATEGORY_NAME, "ulx guiltadmin", ulx.guiltadmin, "!guiltadmin")
+guiltadmin:defaultAccess(ULib.ACCESS_ADMIN)
+guiltadmin:help("Opens the Z-City guilt admin menu.")
+
 if SERVER then
     ULib.ucl.registerAccess("ulx power", {"superadmin", "owner", "servermanager", "headdeveloper", "staffmanager", "headadmin"}, "Grants access to the ulx power command", "Command")
     timer.Simple(0, function()
