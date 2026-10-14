@@ -430,35 +430,56 @@ local hg_gopro = ConVarExists("hg_gopro") and GetConVar("hg_gopro") or CreateCli
 local hg_distortedsounds = ConVarExists("hg_distortedsounds") and GetConVar("hg_distortedsounds") or CreateClientConVar("hg_distortedsounds", "0", true, false, "Toggle distorted sounds for the gunshots", 0, 1)
 
 local math_random = math.random
+local function GetPlaySndEntity(self)
+	if not IsValid(self) then return nil end
+
+	local owner = self:GetOwner()
+	if IsValid(owner) then
+		local char = hg.GetCurrentCharacter and hg.GetCurrentCharacter(owner)
+		if IsValid(char) then return char end
+		return owner
+	end
+
+	return self
+end
+
 function SWEP:PlaySnd(snd, server, chan, vol, pitch, entity, tripleaffirmative)
 	if SERVER and not server then return end
-	local owner = self:GetOwner()
-	owner = IsValid(owner) and owner or self
+	if not IsValid(self) then return end
+
+	local owner = GetPlaySndEntity(self)
+	if not IsValid(owner) then return end
 
 	local dsproom = (hg_distortedsounds:GetBool() or hg_gopro:GetBool()) and 18 or nil
 	if CLIENT then
 		local view = render.GetViewSetup(true)
-		local time = owner:GetPos():Distance(view.origin) / 17836
+		local viewOrigin = view and isvector(view.origin) and view.origin
+		local time = 0
+		if viewOrigin and not vgui.CursorVisible() then
+			time = owner:GetPos():Distance(viewOrigin) / 17836
+			if time > 3 then time = 0 end
+		end
 		local playsnd1 = function()
-			if not IsValid(self) then return end
-			local ent = hg.GetCurrentCharacter(self:GetOwner())
+			owner = GetPlaySndEntity(self)
+			if not IsValid(owner) then return end
+
+			local pos = owner:GetPos()
+			local entIndex = owner:EntIndex()
 
 			if type(snd) == "table" then
 				local rand = math.random(-5,5)
-				EmitSound( snd[1], owner:GetPos(), (entity or owner:EntIndex()) + owner:EntIndex(), CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+				EmitSound( snd[1], pos, (entity or entIndex) + entIndex, CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
 				if tripleaffirmative and !hg_quietshots:GetBool() then
-					EmitSound( snd[1], owner:GetPos()-vector_up, (entity or owner:EntIndex()) + 1 + owner:EntIndex(), CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
-					EmitSound( snd[1], owner:GetPos(), (entity or owner:EntIndex()) + 2 + owner:EntIndex(), CHAN_WEAPON, vol, (snd[2] or (self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd[1], pos-vector_up, (entity or entIndex) + 1 + entIndex, CHAN_WEAPON, vol, snd[2] or (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd[1], pos, (entity or entIndex) + 2 + entIndex, CHAN_WEAPON, vol, (snd[2] or (self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
 				end
-				-- self:EmitSound(snd[1], (snd[2] or (self.Supressor and 75 or 75)), (pitch or 100) + rand, vol, CHAN_AUTO)
 			else
 				local rand = math.random(-5,5)
-				EmitSound( snd, owner:GetPos(), (entity or owner:EntIndex()) + owner:EntIndex(), CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+				EmitSound( snd, pos, (entity or entIndex) + entIndex, CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
 				if tripleaffirmative and !hg_quietshots:GetBool() then
-					EmitSound( snd, owner:GetPos()-vector_up, (entity or owner:EntIndex()) + 1 + owner:EntIndex(), CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
-					EmitSound( snd, owner:GetPos(), (entity or owner:EntIndex()) + 2 + owner:EntIndex(), CHAN_WEAPON, vol, ((self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd, pos-vector_up, (entity or entIndex) + 1 + entIndex, CHAN_WEAPON, vol, (self.Supressor and 75 or 75), nil, (pitch or 100) + rand, dsproom)
+					EmitSound( snd, pos, (entity or entIndex) + 2 + entIndex, CHAN_WEAPON, vol, ((self.Supressor and 75 or 75)) + 1, nil, (pitch or 100) + rand, dsproom)
 				end
-				-- self:EmitSound(snd[1], ((self.Supressor and 75 or 75)), (pitch or 100) + rand, vol, CHAN_AUTO)
 			end
 		end
 		if time > 0.1 then
@@ -481,12 +502,15 @@ SOUND_LEVEL_GUNFIRE = 150
 
 function SWEP:PlaySndDist(snd)
 	if SERVER then return end
-	local owner = IsValid(self:GetOwner().FakeRagdoll) and self:GetOwner().FakeRagdoll or self:GetOwner()
-	owner = IsValid(owner) and owner or self
+	if not IsValid(self) then return end
+	local plyOwner = self:GetOwner()
+	local owner = IsValid(plyOwner) and (IsValid(plyOwner.FakeRagdoll) and plyOwner.FakeRagdoll or plyOwner) or self
+	if not IsValid(owner) then return end
 	local view = render.GetViewSetup(true)
+	local viewOrigin = view and isvector(view.origin) and view.origin or owner:GetPos()
 	local pos = owner:GetPos() + vector_up * 72
-	local dist = owner:GetPos():Distance(view.origin)
-	local time = dist / 17836
+	local dist = owner:GetPos():Distance(viewOrigin)
+	local time = (vgui.CursorVisible() and 0) or math.min(dist / 17836, 3)
 	
 
 	local bRoom = util.IsSkyboxVisibleFromPoint(pos)
@@ -1271,6 +1295,7 @@ local bashvpang = Angle(-10, 0, 0)
 local gamemod = engine.ActiveGamemode()
 function SWEP:CoreStep()
 	local owner = self:GetOwner()
+	if not IsValid(owner) then return end
 	local actwep = owner.GetActiveWeapon and owner:GetActiveWeapon() or nil
 	
 	if CLIENT and IsValid(self:GetWeaponEntity()) then self:GetWeaponEntity():SetLOD(0); end

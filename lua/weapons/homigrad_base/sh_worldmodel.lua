@@ -358,9 +358,9 @@ local function DrawWorldModel(self, force)
 
 	local willdraw = false
 	
-	local localdraw = (self:IsLocal2() and owner:GetActiveWeapon() == self and not owner:InVehicle()) and not force
+	local localdraw = IsValid(owner) and (self:IsLocal2() and owner:GetActiveWeapon() == self and not owner:InVehicle()) and not force
 	
-	if not owner:IsNPC() then self:DrawPost() end
+	if IsValid(owner) and not owner:IsNPC() then self:DrawPost() end
 	--self.worldModel:SetRenderOrigin(self:GetPos())
 	--self.worldModel:SetPos(self:GetPos())
 	
@@ -377,7 +377,7 @@ local function DrawWorldModel(self, force)
 				self:ClearAttModels()
 				return
 			end
-		elseif owner:IsNPC() or (owner.GetActiveWeapon and owner:GetActiveWeapon() == self) then
+		elseif IsValid(owner) and (owner:IsNPC() or (owner.GetActiveWeapon and owner:GetActiveWeapon() == self)) then
 			self:WorldModel_Transform()
 			
 			if self.deploy then
