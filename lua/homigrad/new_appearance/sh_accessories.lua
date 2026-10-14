@@ -2465,8 +2465,10 @@ hg.Accessories = {
         modelPreRenderCallback = function(ply,ent,model,accessories) -- я не знаю почему, но почему-то флексы начинают уходить в минус бесконечность, поэтому приходится менять флекс каждый кадр... изивините
             local accessories1 = accessories or ent.PredictedAccessories
             model.mfdoom = ((accessories1 and accessories1[2] == "mfdoom mask") and true or false)
-            --print(model.mfdoom)
-            model.flex = model.flex or model:GetFlexIDByName("M")
+            if model.flex == nil then
+                model.flex = model:GetFlexIDByName("M") or model:GetFlexIDByName("F") or false
+            end
+            if not model.flex then return end
             model:SetFlexWeight(model.flex, model.mfdoom and 1 or 0)
         end,
     },
