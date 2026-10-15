@@ -477,10 +477,6 @@ net.Receive("RoundInfo", function()
 
 	zb.ROUND_STATE = net.ReadInt(4)
 
-	if zb.ROUND_STATE == 1 and zb.SnapshotScoreboardKarma then
-		zb.SnapshotScoreboardKarma()
-	end
-	
 	if zb.ROUND_STATE == 0 then
 		zb.fade = 7
 	end
@@ -1036,28 +1032,12 @@ local function ShouldHideScoreboardPly(ply)
 	return false
 end
 
-local function SnapshotScoreboardKarma()
-	zb.SBKarma = zb.SBKarma or {}
-	for _, ply in player.Iterator() do
-		if IsValid(ply) then
-			zb.SBKarma[ply:SteamID()] = tonumber(ply.GetNetVar and ply:GetNetVar("Karma", 100)) or 100
-		end
-	end
-end
-zb.SnapshotScoreboardKarma = SnapshotScoreboardKarma
-
-if (zb.ROUND_STATE or 0) == 1 then
-	SnapshotScoreboardKarma()
-end
-
 local function GetScoreboardKarma(ply)
 	if not IsValid(ply) then return 100 end
-	zb.SBKarma = zb.SBKarma or {}
-	local sid = ply:SteamID()
-	if zb.SBKarma[sid] == nil then
-		zb.SBKarma[sid] = tonumber(ply.GetNetVar and ply:GetNetVar("Karma", 100)) or 100
+	if ply.Karma ~= nil then
+		return tonumber(ply.Karma) or 100
 	end
-	return zb.SBKarma[sid]
+	return tonumber(ply.GetNetVar and ply:GetNetVar("Karma", 100)) or 100
 end
 
 local function IsVoiceLocked(ply)
@@ -1584,7 +1564,7 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 		karmaPnl:Dock(RIGHT)
 		karmaPnl:SetWide(SB_StackW("KARMA", "000"))
 		karmaPnl:SetMouseInputEnabled(false)
-		karmaPnl:SetTooltip("Karma from the start of this round")
+		karmaPnl:SetTooltip("Current karma")
 		karmaPnl.Paint = function(self, w, h)
 			if not IsValid(ply) then return end
 			local total = lineH * 2 + 1
