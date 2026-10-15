@@ -126,18 +126,21 @@ local function resetAutoExpireRoundLoss(ply)
 end
 
 local function getManualPunishRoundLoss(ply)
-    if not IsValid(ply) then return 0 end
-    return math.max(0, tonumber(ZCITY_GUILT.ManualPunishRoundLoss[ply]) or 0)
+    local steamid64 = isstring(ply) and ply or (IsValid(ply) and tostring(ply:SteamID64() or "") or "")
+    return math.max(0, tonumber(ZCITY_GUILT.ManualPunishRoundLoss[steamid64]) or 0,
+        IsValid(ply) and tonumber(ZCITY_GUILT.ManualPunishRoundLoss[ply]) or 0)
 end
 
 local function addManualPunishRoundLoss(ply, amount)
-    if not IsValid(ply) then return end
-    ZCITY_GUILT.ManualPunishRoundLoss[ply] = getManualPunishRoundLoss(ply) + math.max(0, tonumber(amount) or 0)
+    local steamid64 = isstring(ply) and ply or (IsValid(ply) and tostring(ply:SteamID64() or "") or "")
+    if steamid64 == "" or steamid64 == "0" then return end
+    ZCITY_GUILT.ManualPunishRoundLoss[steamid64] = getManualPunishRoundLoss(ply) + math.max(0, tonumber(amount) or 0)
 end
 
 local function resetManualPunishRoundLoss(ply)
-    if not IsValid(ply) then return end
-    ZCITY_GUILT.ManualPunishRoundLoss[ply] = 0
+    if IsValid(ply) then ZCITY_GUILT.ManualPunishRoundLoss[ply] = nil end
+    local steamid64 = isstring(ply) and ply or (IsValid(ply) and tostring(ply:SteamID64() or "") or "")
+    ZCITY_GUILT.ManualPunishRoundLoss[steamid64] = 0
 end
 
 local function getEffectiveConfig()
@@ -173,8 +176,10 @@ local function normalizeDeferredPunishTable(tbl)
         steamid64 = tostring(steamid64 or "")
         if steamid64 == "" or steamid64 == "0" then continue end
 
-        local amount = math.max(0, math.floor(tonumber(istable(entry) and entry.amount or entry) or 0))
-        if amount <= 0 then continue end
+        -- Positive balances are debts; negative balances are refunds/rewards.
+        -- Existing positive-only deferred files remain compatible.
+        local amount = tonumber(istable(entry) and entry.amount or entry) or 0
+        if amount == 0 or amount ~= amount or math.abs(amount) == math.huge then continue end
 
         out[steamid64] = amount
     end
@@ -341,6 +346,7 @@ local function notifyStaff(msg)
 end
 
 local function getPlayerSteamID64(ply)
+    if isstring(ply) then return ply end
     if not IsValid(ply) or not ply:IsPlayer() then return "" end
     return tostring(ply:SteamID64() or "")
 end
@@ -531,6 +537,11 @@ local function getVictimData(ply)
         wasTraitorThisRound = false
     }
 
+    local data = ZCITY_GUILT.Data[steamid64]
+    if IsValid(ply) and data.playerInstance ~= ply then
+        data.playerInstance = ply
+        data.lastPendingBool, data.lastPendingCount = nil, nil
+    end
     ZCITY_GUILT.Data[steamid64].victimName = IsValid(ply) and ply:Nick() or ZCITY_GUILT.Data[steamid64].victimName
     return ZCITY_GUILT.Data[steamid64]
 end
@@ -647,42 +658,34 @@ end
 
 local function queueDeferredPunish(steamid64, amount)
     steamid64 = tostring(steamid64 or "")
-    amount = math.max(0, math.floor(tonumber(amount) or 0))
-
-    if steamid64 == "" or steamid64 == "0" or amount <= 0 then
-        return 0
-    end
-
-    ZCITY_GUILT.DeferredPunish[steamid64] = math.max(0, math.floor(tonumber(ZCITY_GUILT.DeferredPunish[steamid64]) or 0)) + amount
+    amount = tonumber(amount) or 0
+    if steamid64 == "" or steamid64 == "0" or amount == 0 or amount ~= amount or math.abs(amount) == math.huge then return false end
+    ZCITY_GUILT.DeferredPunish[steamid64] = (tonumber(ZCITY_GUILT.DeferredPunish[steamid64]) or 0) + amount
     saveDeferredPunish()
-    return ZCITY_GUILT.DeferredPunish[steamid64]
-end
-
-local function consumeDeferredPunish(ply)
-    if not IsValid(ply) or not ply:IsPlayer() then return 0 end
-
-    local steamid64 = tostring(ply:SteamID64() or "")
-    if steamid64 == "" or steamid64 == "0" then return 0 end
-
-    local amount = math.max(0, math.floor(tonumber(ZCITY_GUILT.DeferredPunish[steamid64]) or 0))
-    if amount <= 0 then
-        ZCITY_GUILT.DeferredPunish[steamid64] = nil
-        return 0
-    end
-
-    ZCITY_GUILT.DeferredPunish[steamid64] = nil
-    saveDeferredPunish()
-    return amount
+    return true
 end
 
 local function applyDeferredPunish(ply)
-    local amount = consumeDeferredPunish(ply)
-    if amount <= 0 then return end
+    if not IsValid(ply) or not ply:IsPlayer() or ply.GuiltKarmaLoaded ~= true then return end
+    local steamid64 = getPlayerSteamID64(ply)
+    local amount = tonumber(ZCITY_GUILT.DeferredPunish[steamid64]) or 0
+    if amount == 0 then return end
 
-    subtractKarma(ply, amount)
-    addAutoExpireRoundLoss(ply, amount)
-    notifyPlayer(ply, "You received a pending guilt punishment (-" .. amount .. " karma) because you disconnected before a guilt case was resolved.")
-    logLine("Applied deferred guilt punishment to " .. ply:Nick() .. " (-" .. amount .. " karma) after reconnect.")
+    -- Apply only after the SQL join callback, so it cannot overwrite this change.
+    if not subtractKarma(ply, amount) then return end
+    ZCITY_GUILT.DeferredPunish[steamid64] = nil
+    saveDeferredPunish()
+    notifyPlayer(ply, "Pending guilt decisions applied (" .. (amount > 0 and "-" or "+") .. math.abs(amount) .. " karma).")
+    logLine("Applied deferred guilt decisions to " .. ply:Nick() .. " (" .. -amount .. " karma).")
+end
+
+local function adjustCaseKarma(target, entry, amount)
+    if IsValid(target) and target:IsPlayer() and target.GuiltKarmaLoaded == true then return addKarma(target, amount) end
+    return queueDeferredPunish(entry.steamid64, -amount)
+end
+
+local function casePlayerName(target, entry)
+    return IsValid(target) and target:Nick() or tostring(entry.name or entry.steamid64 or "Disconnected player")
 end
 
 local function teamsDifferLikeNative(a, b)
@@ -777,10 +780,11 @@ local function allowsPostRoundGuiltCases(mode, modeName, roundName)
         or (zb and string.lower(tostring(zb.CROUND or "")) == "overstimulated")
 end
 
-local function getInteractionBlockReason(victim, attacker, allowInactiveRound)
-    if not IsValid(victim) or not IsValid(attacker) then return "Invalid player." end
-    if victim == attacker then return "Self damage is not punishable." end
-    if not victim:IsPlayer() or not attacker:IsPlayer() then return "Invalid player." end
+local function getInteractionBlockReason(victim, attacker, allowInactiveRound, evidence)
+    local recorded = istable(evidence) and evidence.hasRuleEvidence == true
+    if not recorded and (not IsValid(victim) or not IsValid(attacker)) then return "Invalid player." end
+    if not recorded and victim == attacker then return "Self damage is not punishable." end
+    if not recorded and (not victim:IsPlayer() or not attacker:IsPlayer()) then return "Invalid player." end
 
     local mode, modeName, roundName = getRoundInfo()
 
@@ -803,6 +807,8 @@ local function getInteractionBlockReason(victim, attacker, allowInactiveRound)
         return "Round was not active when this was checked."
     end
 
+    if recorded then return evidence.ruleBlockReason end
+
     if attacker.IsBerserk and attacker:IsBerserk() then
         return "Attacker was berserk."
     end
@@ -823,11 +829,12 @@ local function getInteractionBlockReason(victim, attacker, allowInactiveRound)
     end
 end
 
-local function shouldAllowGuiltInteraction(victim, attacker, allowInactiveRound)
-    return getInteractionBlockReason(victim, attacker, allowInactiveRound) == nil
+local function shouldAllowGuiltInteraction(victim, attacker, allowInactiveRound, evidence)
+    return getInteractionBlockReason(victim, attacker, allowInactiveRound, evidence) == nil
 end
 
-local function shouldSkipTransparencyCase(victim, attacker)
+local function shouldSkipTransparencyCase(victim, attacker, evidence)
+    if istable(evidence) and evidence.hasRuleEvidence == true then return evidence.skipTransparency == true end
     if not IsValid(victim) or not IsValid(attacker) then return true end
     if victim == attacker then return true end
     if not victim:IsPlayer() or not attacker:IsPlayer() then return true end
@@ -921,11 +928,7 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
 
     for steamid64, row in pairs(activeCase.rows) do
         local attacker = IsValid(row.ent) and row.ent or findPlayerBySteamID64(row.steamid64 or steamid64, playerCache)
-        if not IsValid(attacker) or not attacker:IsPlayer() then
-            continue
-        end
-
-        row.ent = attacker
+        row.ent = IsValid(attacker) and attacker or nil
 
         if row.decided == true then
             continue
@@ -933,17 +936,17 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
 
         local harm = tonumber(row.harm) or 0
         local nativeKarma = math.max(0, tonumber(row.nativeKarma or row.karma) or 0)
-        local usedThisRound = getAutoExpireRoundLoss(attacker)
+        local usedThisRound = getAutoExpireRoundLoss(steamid64)
         local remainingCap = math.max(0, autoExpireRoundCap - usedThisRound)
 
-        if nativeKarma <= 0 or row.actionAllowed == false or not shouldAllowGuiltInteraction(victim, attacker, true) then
+        if nativeKarma <= 0 or row.actionAllowed == false or not shouldAllowGuiltInteraction(victim, attacker, true, row) then
             row.decided = true
             row.decision = "auto_expire_blocked"
             row.autoExpired = true
             continue
         end
 
-        if isSelfDefenseLockout(victim, attacker) or isProportionalSelfDefense(row, harm) then
+        if row.groupSelfDefense == true or isProportionalSelfDefense(row, harm) then
             row.decided = true
             row.decision = "auto_expire_self_defense"
             row.autoExpired = true
@@ -972,124 +975,24 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
             continue
         end
 
-        subtractKarma(attacker, applied)
-        addAutoExpireRoundLoss(attacker, applied)
+        if not adjustCaseKarma(attacker, row, -applied) then continue end
+        addAutoExpireRoundLoss(steamid64, applied)
 
         row.decided = true
         row.decision = "auto_expire_punish"
         row.autoExpired = true
 
         local caseAge = math.max(0, CurTime() - (tonumber(activeCase.createdAt) or CurTime()))
-        local msg = victim:Nick() .. "'s unresolved guilt case auto-punished " .. attacker:Nick() .. " for -" .. applied .. " karma after " .. math.Round(caseAge, 1) .. " seconds. Harm: " .. math.Round(harm, 1)
-        notifyPlayer(attacker, "You received an automatic guilt punishment (-" .. applied .. " karma) after " .. victim:Nick() .. "'s case expired unresolved.")
+        local msg = (IsValid(victim) and victim:Nick() or data.victimName or "Disconnected victim") .. "'s unresolved guilt case auto-punished " .. casePlayerName(attacker, row) .. " for -" .. applied .. " karma after " .. math.Round(caseAge, 1) .. " seconds. Harm: " .. math.Round(harm, 1)
+        notifyPlayer(attacker, "You received an automatic guilt punishment (-" .. applied .. " karma) after " .. (IsValid(victim) and victim:Nick() or data.victimName or "Disconnected victim") .. "'s case expired unresolved.")
         logLine(msg)
     end
 
     data.case = nil
 end
 
-local function queueDisconnectPunish(victim, attacker, row)
-    if not IsValid(victim) or not victim:IsPlayer() then
-        return false
-    end
-
-    if not IsValid(attacker) or not attacker:IsPlayer() then
-        return false
-    end
-
-    if not istable(row) or row.decided == true or row.debugCase == true or not CFG.AllowPunish then
-        return false
-    end
-
-    if row.actionAllowed == false or not shouldAllowGuiltInteraction(victim, attacker, true) then
-        return false
-    end
-
-    if math.max(0, tonumber(row.nativeKarma or row.karma) or 0) <= 0 then
-        return false
-    end
-
-    local preset = getAutoExpirePreset()
-    if not preset then
-        return false
-    end
-
-    local autoExpireAmount = math.max(0, math.floor(tonumber(CFG.AutoExpireAmount) or 0))
-    local autoExpireRoundCap = math.max(0, math.floor(tonumber(CFG.AutoExpireRoundCap) or 0))
-    if autoExpireAmount <= 0 or autoExpireRoundCap <= 0 then
-        return false
-    end
-
-    local harm = tonumber(row.harm) or 0
-    local requiredHarm = math.max(tonumber(preset.minharm) or 0, tonumber(CFG.AutoExpireMinHarm) or 0)
-    if harm < requiredHarm then
-        return false
-    end
-
-    if isSelfDefenseLockout(victim, attacker) or isProportionalSelfDefense(row, harm) then
-        return false
-    end
-
-    local usedThisRound = getAutoExpireRoundLoss(attacker)
-    local remainingCap = math.max(0, autoExpireRoundCap - usedThisRound)
-    local applied = math.min(autoExpireAmount, remainingCap)
-    if applied <= 0 then
-        return false
-    end
-
-    local steamid64 = tostring(row.steamid64 or attacker:SteamID64() or "")
-    if steamid64 == "" or steamid64 == "0" then
-        return false
-    end
-
-    queueDeferredPunish(steamid64, applied)
-    addAutoExpireRoundLoss(attacker, applied)
-
-    local victimName = IsValid(victim) and victim:Nick() or "Unknown"
-    local attackerName = row.name or attacker:Nick()
-    logLine(victimName .. "'s unresolved guilt case queued a disconnect punishment for " .. attackerName .. " (-" .. applied .. " karma). Harm: " .. math.Round(harm, 1))
-    return true
-end
-
-local function queueDisconnectedAttackerPunish(victim, steamid64, row)
-    steamid64 = tostring(steamid64 or (row and row.steamid64) or "")
-    if steamid64 == "" or steamid64 == "0" then return false end
-    if not IsValid(victim) or not victim:IsPlayer() then return false end
-    if not istable(row) or row.deferredQueued == true or not CFG.AllowPunish then return false end
-    if row.actionAllowed == false then return false end
-    if math.max(0, tonumber(row.nativeKarma or row.karma) or 0) <= 0 then return false end
-
-    local preset = getAutoExpirePreset()
-    if not preset then return false end
-
-    local autoExpireAmount = math.max(0, math.floor(tonumber(CFG.AutoExpireAmount) or 0))
-    local autoExpireRoundCap = math.max(0, math.floor(tonumber(CFG.AutoExpireRoundCap) or 0))
-    if autoExpireAmount <= 0 or autoExpireRoundCap <= 0 then return false end
-
-    local harm = tonumber(row.harm) or 0
-    local requiredHarm = math.max(tonumber(preset.minharm) or 0, tonumber(CFG.AutoExpireMinHarm) or 0)
-    if harm < requiredHarm then return false end
-
-    if isProportionalSelfDefense(row, harm) then
-        return false
-    end
-
-    local usedThisRound = getAutoExpireRoundLoss(steamid64)
-    local remainingCap = math.max(0, autoExpireRoundCap - usedThisRound)
-    local applied = math.min(autoExpireAmount, remainingCap)
-    if applied <= 0 then return false end
-
-    queueDeferredPunish(steamid64, applied)
-    addAutoExpireRoundLoss(steamid64, applied)
-
-    row.deferredQueued = true
-    row.decision = "disconnect_deferred"
-
-    local victimName = IsValid(victim) and victim:Nick() or "Unknown"
-    local attackerName = row.name or steamid64
-    logLine(victimName .. "'s death queued a deferred disconnect punishment for " .. attackerName .. " (" .. steamid64 .. ") (-" .. applied .. " karma). Harm: " .. math.Round(harm, 1))
-    return true
-end
+-- Disconnecting does not decide or discard a case. Its normal deadline and
+-- recorded evidence still apply; an offline decision is settled on reconnect.
 
 local function hasPendingRespect(activeCase)
     for _, row in pairs(activeCase.rows or {}) do
@@ -1149,13 +1052,9 @@ local function getPendingCase(victim, playerCache)
 
     for steamid64, row in pairs(activeCase.rows or {}) do
         local attacker = IsValid(row.ent) and row.ent or findPlayerBySteamID64(row.steamid64 or steamid64, playerCache)
-        if not IsValid(attacker) or not attacker:IsPlayer() then
-            continue
-        end
+        row.ent = IsValid(attacker) and attacker or nil
 
-        row.ent = attacker
-
-        if row.debugCase ~= true and row.respectEligible ~= true and shouldSkipTransparencyCase(victim, attacker) then
+        if row.debugCase ~= true and row.respectEligible ~= true and shouldSkipTransparencyCase(victim, attacker, row) then
             activeCase.rows[steamid64] = nil
             continue
         end
@@ -1178,9 +1077,8 @@ local function getPendingCount(victim, playerCache)
     if not case then return 0 end
 
     local count = 0
-    for steamid64, row in pairs(case.rows or {}) do
-        local attacker = IsValid(row.ent) and row.ent or findPlayerBySteamID64(row.steamid64 or steamid64, playerCache)
-        if row.decided ~= true and IsValid(attacker) then
+    for _, row in pairs(case.rows or {}) do
+        if row.decided ~= true then
             count = count + 1
         end
     end
@@ -1218,6 +1116,7 @@ local function startTrackedLife(victim)
     data.recentIncoming = {}
     data.deathAttackerSteamID64 = nil
     data.deathAttackerWasTraitor = nil
+    data.deathKarmaExempt = nil
     data.harmBaseline, data.karmaBaseline = getRoundSnapshots(victim)
     data.lastFinalize = 0
 end
@@ -1230,6 +1129,7 @@ local function clearVictimTracking(victim)
     data.recentIncoming = {}
     data.deathAttackerSteamID64 = nil
     data.deathAttackerWasTraitor = nil
+    data.deathKarmaExempt = nil
     data.harmBaseline = {}
     data.karmaBaseline = {}
     data.case = nil
@@ -1240,7 +1140,8 @@ local function clearVictimTracking(victim)
     syncVictimState(victim)
 end
 
-local function getDamageRejectReason(victim, attacker, amount)
+local function getDamageRejectReason(victim, attacker, amount, dmginfo)
+    if zb and zb.IsKarmaExemptDamage and zb.IsKarmaExemptDamage(dmginfo) then return "Taser damage is excluded from karma." end
     if not IsValid(victim) or not victim:IsPlayer() then return "Invalid victim." end
     if not IsValid(attacker) or not attacker:IsPlayer() then return "Invalid attacker or unresolved damage owner." end
     if victim == attacker then return "Self damage is ignored." end
@@ -1257,8 +1158,8 @@ local function getDamageRejectReason(victim, attacker, amount)
     if shouldSkipTransparencyCase(victim, attacker) then return "Skipped by transparency rules." end
 end
 
-local function canTrackDamage(victim, attacker, amount)
-    return getDamageRejectReason(victim, attacker, amount) == nil
+local function canTrackDamage(victim, attacker, amount, dmginfo)
+    return getDamageRejectReason(victim, attacker, amount, dmginfo) == nil
 end
 
 local function refreshRoundBaselines(playerCache)
@@ -1337,6 +1238,14 @@ local function applyThreatFields(row, victim, attacker, fallback)
     fallback = fallback or {}
 
     local state = zb and zb.GuiltThreatStates and zb.GuiltThreatStates[victim] and zb.GuiltThreatStates[victim][attacker] or nil
+    if not istable(state) and fallback.hasThreatEvidence == true then
+        for _, key in ipairs({"threatScore", "selfDefenseMul", "incomingHarm", "responseRatio", "damageSource",
+            "threatReasons", "severeSelfDefense", "meleeSelfDefense", "protectedSelfDefense"}) do
+            row[key] = fallback[key]
+        end
+        row.hasThreatEvidence = true
+        return row
+    end
     if not istable(state) and zb and zb.GetGuiltThreatState then
         state = zb.GetGuiltThreatState(victim, attacker, nil, fallback.harm, fallback.harm)
     end
@@ -1353,17 +1262,30 @@ local function applyThreatFields(row, victim, attacker, fallback)
     row.meleeSelfDefense = state.meleeSelfDefense == true
     row.protectedSelfDefense = state.protectedSelfDefense == true or row.severeSelfDefense
 
+    row.hasThreatEvidence = true
     return row
 end
 
-local function applyActionFields(row, victim, attacker)
-    row.attackerWasTraitor = row.attackerWasTraitor == true or wasTraitorThisRound(attacker)
-    row.victimWasTraitor = row.victimWasTraitor == true or wasTraitorThisRound(victim)
+local function applyActionFields(row, victim, attacker, evidence)
+    if row.rulesLocked == true then return row end
+    if istable(evidence) and evidence.hasRuleEvidence == true then
+        row.attackerWasTraitor = evidence.attackerWasTraitor == true
+        row.victimWasTraitor = evidence.victimWasTraitor == true
+        row.skipTransparency = evidence.skipTransparency == true
+        row.groupSelfDefense = evidence.groupSelfDefense == true
+    else
+        row.attackerWasTraitor = row.attackerWasTraitor == true or wasTraitorThisRound(attacker)
+        row.victimWasTraitor = row.victimWasTraitor == true or wasTraitorThisRound(victim)
+        row.skipTransparency = shouldSkipTransparencyCase(victim, attacker)
+        row.groupSelfDefense = isSelfDefenseLockout(victim, attacker)
+    end
     row.respectEligible = row.victimWasTraitor == true
         and row.attackerWasTraitor ~= true
         and row.deathKiller == true
 
-    local blockReason = getInteractionBlockReason(victim, attacker, true)
+    local blockReason = getInteractionBlockReason(victim, attacker, true, evidence)
+    row.ruleBlockReason = blockReason
+    row.hasRuleEvidence = true
 
     row.actionAllowed = blockReason == nil
     row.actionLockReason = blockReason or ""
@@ -1494,6 +1416,16 @@ local function getLifeKarmaDelta(victim, attacker, data, nativeSnapshot)
     end
 
     local baseline = tonumber(data.karmaBaseline and data.karmaBaseline[steamid64]) or 0
+    local entry = data.attackers and data.attackers[steamid64]
+    if entry and entry.disconnectedInstance then
+        local carried = tonumber(entry.disconnectedNativeKarma) or 0
+        if attacker ~= entry.disconnectedInstance then
+            -- A new player entity starts a new native pair, but this victim's
+            -- life and the already charged losses still belong to the case.
+            return carried + math.max(0, current)
+        end
+        return math.max(carried, current - baseline)
+    end
     return math.max(0, current - baseline)
 end
 
@@ -1513,17 +1445,19 @@ local function buildNativeRows(victim, data, nativeSnapshot)
             continue
         end
 
-        if shouldSkipTransparencyCase(victim, attacker) then
+        local tracked = data.attackers and data.attackers[steamid64] or nil
+        if shouldSkipTransparencyCase(victim, attacker, tracked) then
             continue
         end
 
-        local tracked = data.attackers and data.attackers[steamid64] or nil
         local deathKiller = data.deathAttackerSteamID64 == steamid64
         local attackerWasTraitor = (tracked and tracked.attackerWasTraitor == true)
             or (deathKiller and data.deathAttackerWasTraitor == true)
             or wasTraitorThisRound(attacker)
-        local respectEligible = victimWasTraitor and not attackerWasTraitor and deathKiller
-        if (victimWasTraitor and not respectEligible) or (not victimWasTraitor and attackerWasTraitor) then
+        local rowVictimWasTraitor = victimWasTraitor
+        if tracked and tracked.hasRuleEvidence then rowVictimWasTraitor = tracked.victimWasTraitor == true end
+        local respectEligible = rowVictimWasTraitor and not attackerWasTraitor and deathKiller
+        if (rowVictimWasTraitor and not respectEligible) or (not rowVictimWasTraitor and attackerWasTraitor) then
             continue
         end
 
@@ -1539,7 +1473,7 @@ local function buildNativeRows(victim, data, nativeSnapshot)
             continue
         end
 
-        local karmaDelta = getLifeKarmaDelta(victim, attacker, data, nativeSnapshot)
+        local karmaDelta = math.max(getLifeKarmaDelta(victim, attacker, data, nativeSnapshot), tonumber(tracked and tracked.nativeKarma) or 0)
         if karmaDelta <= 0 then
             karmaDelta = math.max(0, currentKarma)
         end
@@ -1553,14 +1487,12 @@ local function buildNativeRows(victim, data, nativeSnapshot)
             name = attacker:Nick(),
             steamid = attacker:SteamID(),
             steamid64 = attacker:SteamID64(),
-            victimWasTraitor = victimWasTraitor,
+            victimWasTraitor = rowVictimWasTraitor,
             attackerWasTraitor = attackerWasTraitor,
             deathKiller = deathKiller,
             decided = false
-        }, victim, attacker, {
-            harm = harm,
-            source = data.attackers and data.attackers[steamid64] and data.attackers[steamid64].source
-        }), victim, attacker)
+        }, victim, attacker, tracked or {harm = harm}), victim, attacker, tracked)
+        rows[steamid64].rulesLocked = true
     end
 
     return rows
@@ -1574,20 +1506,11 @@ local function buildRowsFromCurrentLife(victim, data, nativeSnapshot)
 
     for steamid64, entry in pairs(data.attackers or {}) do
         local attacker = IsValid(entry.ent) and entry.ent or findPlayerBySteamID64(entry.steamid64 or steamid64)
-        if not IsValid(attacker) or not attacker:IsPlayer() then
-            if entry.disconnected == true then
-                queueDisconnectedAttackerPunish(victim, steamid64, entry)
-            end
-
-            data.attackers[steamid64] = nil
-            continue
-        end
-
         if steamid64 == "" or steamid64 == "0" or rows[steamid64] then
             continue
         end
 
-        if shouldSkipTransparencyCase(victim, attacker) then
+        if shouldSkipTransparencyCase(victim, attacker, entry) then
             continue
         end
 
@@ -1595,8 +1518,10 @@ local function buildRowsFromCurrentLife(victim, data, nativeSnapshot)
         local attackerWasTraitor = entry.attackerWasTraitor == true
             or (deathKiller and data.deathAttackerWasTraitor == true)
             or wasTraitorThisRound(attacker)
-        local respectEligible = victimWasTraitor and not attackerWasTraitor and deathKiller
-        if (victimWasTraitor and not respectEligible) or (not victimWasTraitor and attackerWasTraitor) then
+        local rowVictimWasTraitor = victimWasTraitor
+        if entry.hasRuleEvidence then rowVictimWasTraitor = entry.victimWasTraitor == true end
+        local respectEligible = rowVictimWasTraitor and not attackerWasTraitor and deathKiller
+        if (rowVictimWasTraitor and not respectEligible) or (not rowVictimWasTraitor and attackerWasTraitor) then
             continue
         end
 
@@ -1613,7 +1538,7 @@ local function buildRowsFromCurrentLife(victim, data, nativeSnapshot)
             continue
         end
 
-        local karmaDelta = getLifeKarmaDelta(victim, attacker, data, nativeSnapshot)
+        local karmaDelta = math.max(getLifeKarmaDelta(victim, attacker, data, nativeSnapshot), tonumber(entry.nativeKarma) or 0)
 
         rows[steamid64] = applyActionFields(applyThreatFields({
             ent = attacker,
@@ -1621,17 +1546,15 @@ local function buildRowsFromCurrentLife(victim, data, nativeSnapshot)
             karma = math.Round(karmaDelta, 1),
             nativeKarma = math.Round(karmaDelta, 1),
             last = entry.last or now,
-            name = entry.name or attacker:Nick(),
-            steamid = entry.steamid or attacker:SteamID(),
-            steamid64 = entry.steamid64 or attacker:SteamID64(),
-            victimWasTraitor = victimWasTraitor,
+            name = casePlayerName(attacker, entry),
+            steamid = entry.steamid or "",
+            steamid64 = tostring(entry.steamid64 or steamid64),
+            victimWasTraitor = rowVictimWasTraitor,
             attackerWasTraitor = attackerWasTraitor,
             deathKiller = deathKiller,
             decided = false
-        }, victim, attacker, {
-            harm = harm,
-            source = entry.source
-        }), victim, attacker)
+        }, victim, attacker, entry), victim, attacker, entry)
+        rows[steamid64].rulesLocked = true
     end
 
     return rows
@@ -1731,11 +1654,7 @@ local function buildOpenPayload(victim, playerCache)
 
     for steamid64, row in pairs(activeCase.rows or {}) do
         local attacker = IsValid(row.ent) and row.ent or findPlayerBySteamID64(row.steamid64 or steamid64, playerCache)
-        if not IsValid(attacker) or not attacker:IsPlayer() then
-            continue
-        end
-
-        row.ent = attacker
+        row.ent = IsValid(attacker) and attacker or nil
         if row.deathKiller == true then
             row.harm = math.max(tonumber(row.harm) or 0, getLethalContributionHarm())
         end
@@ -1743,7 +1662,7 @@ local function buildOpenPayload(victim, playerCache)
             applyActionFields(row, victim, attacker)
         end
 
-        if row.debugCase ~= true and row.respectEligible ~= true and shouldSkipTransparencyCase(victim, attacker) then
+        if row.debugCase ~= true and row.respectEligible ~= true and shouldSkipTransparencyCase(victim, attacker, row) then
             continue
         end
 
@@ -1752,7 +1671,8 @@ local function buildOpenPayload(victim, playerCache)
         end
 
         out[#out + 1] = {
-            ent = attacker,
+            ent = IsValid(attacker) and attacker or NULL,
+            name = casePlayerName(attacker, row),
             caseid = tonumber(activeCase.id) or 0,
             steamid64 = tostring(row.steamid64 or steamid64 or ""),
             harm = tonumber(row.harm) or 0,
@@ -1818,6 +1738,13 @@ local function sendOpenPayload(victim, playerCache)
         end
     end
 
+    -- Append names without changing the row layout read by older clients.
+    net.WriteUInt(0x5A43474E, 32)
+    net.WriteUInt(#payload, 8)
+    for _, row in ipairs(payload) do
+        net.WriteString(row.name or "Disconnected player")
+    end
+
     net.Send(victim)
 end
 
@@ -1827,7 +1754,7 @@ hook.Add("HomigradDamage", "ZCITY_GUILT_TrackDamage", function(target, dmginfo, 
     local attacker = resolveAttackerPlayer(rawAttacker, dmginfo)
     local amount = tonumber(harm) or (dmginfo and dmginfo.GetDamage and dmginfo:GetDamage()) or 0
 
-    if not canTrackDamage(victim, attacker, amount) then return end
+    if not canTrackDamage(victim, attacker, amount, dmginfo) then return end
 
     recordDamage(victim, attacker, amount, dmginfo)
 end)
@@ -1849,11 +1776,18 @@ local function getTrackedDeathAttacker(victim, data)
     return bestAttacker
 end
 
-local function captureDeathAttacker(victim, attacker)
+local function captureDeathAttacker(victim, attacker, inflictor)
     if not IsValid(victim) or not victim:IsPlayer() then return end
 
     local data = getVictimData(victim)
     if not data then return end
+
+    if zb and zb.IsKarmaExemptWeapon and zb.IsKarmaExemptWeapon(inflictor) then
+        data.deathKarmaExempt = true
+        data.deathAttackerSteamID64 = nil
+        data.deathAttackerWasTraitor = nil
+    end
+    if data.deathKarmaExempt then return end
 
     attacker = resolvePlayerOwner(attacker)
     if not IsValid(attacker) or not attacker:IsPlayer() or attacker == victim then
@@ -1902,24 +1836,25 @@ hook.Add("Player_Death", "ZCITY_GUILT_FinalizeDeathEarly", function(victim)
     queueVictimDeathFinalize(victim)
 end)
 
-hook.Add("PlayerDeath", "ZCITY_GUILT_FinalizeDeathEngine", function(victim, _, attacker)
-    captureDeathAttacker(victim, attacker)
+hook.Add("PlayerDeath", "ZCITY_GUILT_FinalizeDeathEngine", function(victim, inflictor, attacker)
+    captureDeathAttacker(victim, attacker, inflictor)
     queueVictimDeathFinalize(victim)
 end)
 
 hook.Add("PlayerInitialSpawn", "ZCITY_GUILT_Initialise", function(ply)
-    getVictimData(ply)
+    local data = getVictimData(ply)
+    if data then data.lastPendingBool, data.lastPendingCount = nil, nil end
     startTrackedLife(ply)
     syncVictimState(ply)
     sendConfig(ply)
-    resetAutoExpireRoundLoss(ply)
-    resetManualPunishRoundLoss(ply)
 
     timer.Simple(1, function()
         if not IsValid(ply) or not ply:IsPlayer() then return end
         applyDeferredPunish(ply)
     end)
 end)
+
+hook.Add("ZB_KarmaLoaded", "ZCITY_GUILT_ApplyDeferred", applyDeferredPunish)
 
 hook.Add("Player Spawn", "ZCITY_GUILT_OnRealSpawn", function(ply)
     if not IsValid(ply) or OverrideSpawn then return end
@@ -1928,6 +1863,14 @@ hook.Add("Player Spawn", "ZCITY_GUILT_OnRealSpawn", function(ply)
 end)
 
 hook.Add("ZB_StartRound", "ZCITY_GUILT_ClearRoundStart", function()
+    ZCITY_GUILT.AutoExpireRoundLoss = {}
+    ZCITY_GUILT.ManualPunishRoundLoss = {}
+    local playerCache = buildConnectedPlayerCache()
+    for steamid64 in pairs(ZCITY_GUILT.Data) do
+        if not IsValid(findPlayerBySteamID64(steamid64, playerCache)) then
+            ZCITY_GUILT.Data[steamid64] = nil
+        end
+    end
     ZCITY_GUILT.RoundSerial = tonumber(zb and zb.GuiltRoundId) or ((ZCITY_GUILT.RoundSerial or 0) + 1)
 
     for _, ply in player.Iterator() do
@@ -1980,40 +1923,45 @@ hook.Add("PlayerDisconnected", "ZCITY_GUILT_CleanupDisconnect", function(ply)
     local playerCache = buildConnectedPlayerCache()
 
     for victimSteamID64, data in pairs(ZCITY_GUILT.Data) do
-        if victimSteamID64 == leavingSteamID64 then continue end
         if not istable(data) then continue end
-        local victim = findPlayerBySteamID64(victimSteamID64, playerCache)
-        if istable(data.attackers) then
-            local tracked = data.attackers[leavingSteamID64]
-            if istable(tracked) then
-                tracked.disconnected = true
-                tracked.disconnectedAt = CurTime()
-                tracked.ent = nil
+        local victim = victimSteamID64 == leavingSteamID64 and ply or findPlayerBySteamID64(victimSteamID64, playerCache)
+
+        -- Capture native totals before the leaving entity becomes invalid.
+        -- Death can occur later from bleeding, even while its attacker is offline.
+        for steamid64, entry in pairs(data.attackers or {}) do
+            local attacker = steamid64 == leavingSteamID64 and ply or findPlayerBySteamID64(steamid64, playerCache)
+            if IsValid(victim) and IsValid(attacker) then
+                entry.nativeKarma = math.max(tonumber(entry.nativeKarma) or 0, getLifeKarmaDelta(victim, attacker, data))
+                applyThreatFields(entry, victim, attacker, {harm = entry.harm})
+                entry.groupSelfDefense = entry.groupSelfDefense == true or isSelfDefenseLockout(victim, attacker)
+            end
+            if steamid64 == leavingSteamID64 then
+                entry.disconnectedNativeKarma = tonumber(entry.nativeKarma) or 0
+                entry.disconnectedInstance = ply
+                entry.disconnected = true
+                entry.disconnectedAt = CurTime()
+                entry.ent = nil
             end
         end
-        if istable(data.recentIncoming) then
-            local recent = data.recentIncoming[leavingSteamID64]
-            if istable(recent) then
-                recent.disconnected = true
-                recent.disconnectedAt = CurTime()
-                recent.ent = nil
-            end
+
+        -- Disconnect ends this life; do not depend on the separate kill hook's order.
+        if victimSteamID64 == leavingSteamID64 and next(data.attackers or {}) then
+            finalizeVictimDeath(ply)
         end
-        if istable(data.case) and istable(data.case.rows) then
-            local row = data.case.rows[leavingSteamID64]
-            if istable(row) and row.decided ~= true then
-                queueDisconnectPunish(victim, ply, row)
-            end
-            data.case.rows[leavingSteamID64] = nil
+        if istable(data.case) then
+            local row = data.case.rows and data.case.rows[leavingSteamID64]
+            if row then row.ent = nil end
         end
-        if IsValid(victim) then
-            syncVictimState(victim, playerCache)
-        end
+        if IsValid(victim) and victim ~= ply then syncVictimState(victim, playerCache) end
     end
 
-    ZCITY_GUILT.Data[leavingSteamID64] = nil
-    ZCITY_GUILT.AutoExpireRoundLoss[ply] = nil
-    ZCITY_GUILT.ManualPunishRoundLoss[ply] = nil
+    timer.Remove(FINALIZE_TIMER_PREFIX .. leavingSteamID64)
+    local data = ZCITY_GUILT.Data[leavingSteamID64]
+    if data then
+        data.playerInstance = nil
+        data.lastPendingBool, data.lastPendingCount = nil, nil
+    end
+    -- SteamID-keyed cases and round caps intentionally survive reconnects.
 end)
 
 timer.Create(EXPIRY_TIMER_NAME, 1, 0, function()
@@ -2021,13 +1969,8 @@ timer.Create(EXPIRY_TIMER_NAME, 1, 0, function()
 
     for victimSteamID64, _ in pairs(ZCITY_GUILT.Data) do
         local victim = findPlayerBySteamID64(victimSteamID64, playerCache)
-        if not IsValid(victim) or not victim:IsPlayer() then
-            ZCITY_GUILT.Data[victimSteamID64] = nil
-            continue
-        end
-
-        getPendingCase(victim, playerCache)
-        syncVictimState(victim, playerCache)
+        getPendingCase(IsValid(victim) and victim or victimSteamID64, playerCache)
+        if IsValid(victim) then syncVictimState(victim, playerCache) end
     end
 end)
 
@@ -2451,8 +2394,7 @@ local function canActOnTarget(victim, target, caseid, attackerSteamID64, action,
 
     -- Resolve from the validated server case key, never from the submitted entity.
     target = findPlayerBySteamID64(attackerSteamID64, playerCache)
-    if not IsValid(target) or not target:IsPlayer() then return false, "Target is no longer connected." end
-    if victim == target then return false, "Invalid target." end
+    if getPlayerSteamID64(victim) == attackerSteamID64 then return false, "Invalid target." end
 
     entry.ent = target
 
@@ -2468,7 +2410,7 @@ local function canActOnTarget(victim, target, caseid, attackerSteamID64, action,
         return true, nil, entry, activeCase, target
     end
 
-    if wasTraitorThisRound(victim) then
+    if entry.victimWasTraitor == true then
         return false, "Traitor kill cases can only be resolved by giving respect."
     end
 
@@ -2476,14 +2418,14 @@ local function canActOnTarget(victim, target, caseid, attackerSteamID64, action,
         return false, "Traitor kill cases can only be resolved by giving respect."
     end
 
-    local modeBlockReason = getInteractionBlockReason(victim, target, true)
+    local modeBlockReason = getInteractionBlockReason(victim, target, true, entry)
     if modeBlockReason then
         entry.actionAllowed = false
         entry.actionLockReason = modeBlockReason
         return false, modeBlockReason
     end
 
-    if shouldSkipTransparencyCase(victim, target) then
+    if shouldSkipTransparencyCase(victim, target, entry) then
         entry.actionAllowed = false
         entry.actionLockReason = "This case is not punishable in the current round state."
         return false, entry.actionLockReason
@@ -2501,7 +2443,7 @@ local function doForgive(victim, target, entry, activeCase)
 
     local nativeRefund = math.max(0, tonumber(entry.nativeKarma or entry.karma) or 0)
     if nativeRefund > 0 then
-        addKarma(target, nativeRefund)
+        if not adjustCaseKarma(target, entry, nativeRefund) then return false, "Could not save the refund." end
     end
 
     clearNativeGuiltFor(victim, target)
@@ -2513,8 +2455,8 @@ local function doForgive(victim, target, entry, activeCase)
     entry.decided = true
     entry.decision = "forgive"
 
-    local msg = victim:Nick() .. " forgave " .. target:Nick() .. ". Harm: " .. math.Round(entry.harm or 0, 1)
-    notifyPlayer(victim, "You forgave " .. target:Nick() .. ".")
+    local msg = victim:Nick() .. " forgave " .. casePlayerName(target, entry) .. ". Harm: " .. math.Round(entry.harm or 0, 1)
+    notifyPlayer(victim, "You forgave " .. casePlayerName(target, entry) .. ".")
     logLine(msg)
     hook.Run("ZC_RoundStars_RecordForgive", victim, target)
 
@@ -2527,22 +2469,22 @@ local function doRespect(victim, target, entry)
     end
 
     local reward = 3
-    addKarma(target, reward)
+    if not adjustCaseKarma(target, entry, reward) then return false, "Could not save the reward." end
     clearNativeGuiltFor(victim, target)
 
     entry.decided = true
     entry.decision = "respect"
 
-    notifyPlayer(victim, "You gave respect to " .. target:Nick() .. " (+" .. reward .. " karma).")
-    notifyPlayer(target, victim:Nick() .. " gave you respect for the kill (+" .. reward .. " karma).")
-    logLine(victim:Nick() .. " gave respect to " .. target:Nick() .. " for killing a traitor (+" .. reward .. " karma).")
+    notifyPlayer(victim, "You gave respect to " .. casePlayerName(target, entry) .. " (+" .. reward .. " karma).")
+    if IsValid(target) then notifyPlayer(target, victim:Nick() .. " gave you respect for the kill (+" .. reward .. " karma).") end
+    logLine(victim:Nick() .. " gave respect to " .. casePlayerName(target, entry) .. " for killing a traitor (+" .. reward .. " karma).")
     return true
 end
 
 local function doPunish(victim, target, action, entry, activeCase)
     if not CFG.AllowPunish then return false, "Punishment is disabled." end
 
-    local modeBlockReason = getInteractionBlockReason(victim, target, true)
+    local modeBlockReason = getInteractionBlockReason(victim, target, true, entry)
     if modeBlockReason then
         return false, modeBlockReason
     end
@@ -2566,7 +2508,7 @@ local function doPunish(victim, target, action, entry, activeCase)
         return false, "Not enough recorded harm for this punishment."
     end
 
-    if isSelfDefenseLockout(victim, target) then
+    if entry.groupSelfDefense == true then
         return false, "Punishment is locked because this appears to be self-defense against multiple attackers."
     end
 
@@ -2580,7 +2522,7 @@ local function doPunish(victim, target, action, entry, activeCase)
     end
 
     local roundCap = math.max(0, math.floor(tonumber(CFG.ManualPunishRoundCap) or 0))
-    local usedThisRound = getManualPunishRoundLoss(target)
+    local usedThisRound = getManualPunishRoundLoss(entry.steamid64)
     local remainingCap = math.max(0, roundCap - usedThisRound)
 
     if remainingCap <= 0 then
@@ -2592,14 +2534,14 @@ local function doPunish(victim, target, action, entry, activeCase)
         return false, "No punish amount available."
     end
 
-    subtractKarma(target, applied)
-    addManualPunishRoundLoss(target, applied)
+    if not adjustCaseKarma(target, entry, -applied) then return false, "Could not save the punishment." end
+    addManualPunishRoundLoss(entry.steamid64, applied)
 
     entry.decided = true
     entry.decision = action
 
-    local msg = victim:Nick() .. " punished " .. target:Nick() .. " with " .. preset.name .. " for -" .. applied .. " karma. Harm: " .. math.Round(entry.harm or 0, 1)
-    notifyPlayer(victim, "You punished " .. target:Nick() .. " (-" .. applied .. " karma).")
+    local msg = victim:Nick() .. " punished " .. casePlayerName(target, entry) .. " with " .. preset.name .. " for -" .. applied .. " karma. Harm: " .. math.Round(entry.harm or 0, 1)
+    notifyPlayer(victim, "You punished " .. casePlayerName(target, entry) .. " (-" .. applied .. " karma).")
     logLine(msg)
     hook.Run("ZC_RoundStars_RecordPunish", victim, target)
 
@@ -2612,8 +2554,8 @@ local function doReport(victim, target, entry, activeCase)
     entry.decided = true
     entry.decision = "report"
 
-    local msg = victim:Nick() .. " reported " .. target:Nick() .. " after death. Harm: " .. math.Round(entry.harm or 0, 1)
-    notifyPlayer(victim, "Report sent for " .. target:Nick() .. ".")
+    local msg = victim:Nick() .. " reported " .. casePlayerName(target, entry) .. " after death. Harm: " .. math.Round(entry.harm or 0, 1)
+    notifyPlayer(victim, "Report sent for " .. casePlayerName(target, entry) .. ".")
     notifyStaff(msg)
     logLine(msg)
 

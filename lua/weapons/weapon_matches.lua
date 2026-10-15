@@ -142,6 +142,8 @@ function SWEP:PrimaryAttack()
         ent:Spawn()
 
         ent.debil = owner
+        ent.owner = owner
+        ent:SetPhysicsAttacker(owner, 15)
 
         local phys = ent:GetPhysicsObject()
         if not IsValid(phys) then if IsValid(ent) then ent:Remove() end return end

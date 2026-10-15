@@ -166,6 +166,7 @@ function SWEP:Shoot(override)
 			d:SetDamage(5)
 			d:SetAttacker(self:GetOwner())
 			d:SetInflictor(self)
+			d:SetDamageCustom(9204) -- Taser damage is excluded from karma/guilt accounting.
 			d:SetDamageType(DMG_SLASH) 
 			d:SetDamagePosition(tr.HitPos)
 			d:SetDamageForce(tr.Normal * 50)
