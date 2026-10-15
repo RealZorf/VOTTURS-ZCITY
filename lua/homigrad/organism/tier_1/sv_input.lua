@@ -435,14 +435,15 @@ local function isNeckSlash(ent, dmgInfo, hitgroup)
 	return hitPos:DistToSqr(neckPos) <= THROAT_CUT_NECK_DIST_SQR
 end
 
-hook.Add("HomigradDamage", "ZCity_SlashThroatCut", function(ent, dmgInfo, hitgroup, attackerEnt, harm)
+hook.Remove("HomigradDamage", "ZCity_SlashThroatCut")
+local function applySlashThroatCut(ent, dmgInfo, hitgroup, harm)
 	if not isNeckSlash(ent, dmgInfo, hitgroup) then return end
 
 	local force = dmgInfo:GetDamageForce()
 	local dir = isvector(force) and force:LengthSqr() > 1 and force:GetNormalized() or nil
 	local severity = math.Clamp((dmgInfo:GetDamage() + (tonumber(harm) or 0) * 0.18) / 18, 0.6, 1.15)
 	hg.organism.CutThroat(ent, dmgInfo, dmgInfo:GetDamagePosition(), dir, severity)
-end)
+end
 
 concommand.Add("zc_debug_nosebleed", function(ply)
 	if IsValid(ply) and not ply:IsAdmin() then return end
@@ -890,7 +891,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		hg.organism.AddWoundManual(ent,dmg,vector_origin,angle_zero,math.random(0,ent:GetBoneCount()),CurTime())
 	end
 
-	if attacker:IsPlayer() then
+	if attacker:IsPlayer() and not (zb and zb.IsKarmaExemptDamage and zb.IsKarmaExemptDamage(dmgInfo)) then
 		ent:SetPhysicsAttacker(attacker, 15)
 	end
 
@@ -1158,6 +1159,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 	
 	if ply or org.fakePlayer then
+		applySlashThroatCut(org.fakePlayer and ent or ply, dmgInfo, bonetohitgroup[bonename], attacker.harm)
 		hook_Run("HomigradDamage", org.fakePlayer and ent or ply, dmgInfo, bonetohitgroup[bonename], ent, attacker.harm, hitBoxs, inputHole)
 	end
 	

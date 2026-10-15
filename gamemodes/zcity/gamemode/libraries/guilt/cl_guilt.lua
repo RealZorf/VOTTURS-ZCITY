@@ -265,12 +265,12 @@ local function getPresetColor(preset)
 end
 
 local function sendAction(row, action)
-    if not row or not IsValid(row.ent) then return end
+    if not row or tostring(row.steamid64 or "") == "" then return end
 
     net.Start("zcity_guilt_action")
     net.WriteUInt(math.Clamp(math.floor(tonumber(row.caseid) or 0), 0, 4294967295), 32)
     net.WriteString(tostring(row.steamid64 or ""))
-    net.WriteEntity(row.ent)
+    net.WriteEntity(IsValid(row.ent) and row.ent or NULL)
     net.WriteString(action)
     net.SendToServer()
 end
@@ -321,11 +321,16 @@ local function replacementSafe(text)
     return tostring(text or ""):gsub("%%", "%%%%")
 end
 
+local function getCaseName(row)
+    if IsValid(row.ent) then return getCharacterName(row.ent) end
+    return tostring(row.name or "Disconnected player") .. " (offline)"
+end
+
 local function formatCaseText(text, row)
     text = tostring(text or "")
 
     local victimName = getCharacterName(LocalPlayer())
-    local attackerName = row and getCharacterName(row.ent) or "attacker"
+    local attackerName = row and getCaseName(row) or "attacker"
 
     text = text:gsub("%f[%a]Victim%f[%A]", replacementSafe(victimName))
     text = text:gsub("%f[%a]victim%f[%A]", replacementSafe(victimName))
@@ -472,7 +477,7 @@ local function rebuildRightPanel()
         surface.DrawRect(0, 0, w, h)
         drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, ui(2))
 
-        if not selectedData or not IsValid(selectedData.ent) then
+        if not selectedData then
             nativePenaltyHelp:SetVisible(false)
             draw.SimpleText("Select a player", FONT_HEADER, ui(14), ui(12), COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
             draw.SimpleText("Choose someone from the left panel to review their case.", FONT_SMALL, ui(14), ui(46), COL_MUTED, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
@@ -480,7 +485,7 @@ local function rebuildRightPanel()
             return
         end
 
-        local name = getCharacterName(selectedData.ent)
+        local name = getCaseName(selectedData)
         local state = getDisplayedCaseState(selectedData)
         local harm = math.Round(selectedData.harm or 0, 1)
         local karma = math.Round(selectedData.karma or 0, 1)
@@ -492,7 +497,7 @@ local function rebuildRightPanel()
         draw.SimpleText("Case state: " .. state, FONT_SMALL, ui(14), ui(88), selectedData.decided and COL_MUTED or COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
     end
 
-    if not selectedData or not IsValid(selectedData.ent) then
+    if not selectedData then
         return
     end
 
@@ -548,7 +553,7 @@ local function rebuildRightPanel()
             function()
                 sendAction(selectedData, "respect")
             end,
-            "Reward " .. getCharacterName(selectedData.ent) .. " for a successful traitor kill."
+            "Reward " .. getCaseName(selectedData) .. " for a successful traitor kill."
         )
     elseif CFG().AllowForgive then
         createActionButton(
@@ -607,7 +612,7 @@ local function rebuildRightPanel()
             function()
                 sendAction(selectedData, "report")
             end,
-            "Send " .. getCharacterName(selectedData.ent) .. "'s case to admins."
+            "Send " .. getCaseName(selectedData) .. "'s case to admins."
         )
     end
 
@@ -632,8 +637,6 @@ local function createEligibleRow(parent, row)
     end
 
     function card:Paint(w, h)
-        if not IsValid(row.ent) then return end
-
         surface.SetDrawColor(COL_BG2)
         surface.DrawRect(0, 0, w, h)
         surface.SetDrawColor(COL_BG3)
@@ -648,7 +651,7 @@ local function createEligibleRow(parent, row)
         local subClr = row.decided and Color(140, 140, 140) or COL_TEXT
         local harm = math.Round(row.harm or 0, 1)
 
-        draw.SimpleText(getCharacterName(row.ent), FONT_MED, ui(78), ui(12), nameClr, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText(getCaseName(row), FONT_MED, ui(78), ui(12), nameClr, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
         draw.SimpleText("Harm: " .. harm, FONT_SMALL, ui(78), ui(38), subClr, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
         draw.SimpleText(getDisplayedCaseState(row), FONT_TINY, w - ui(12), ui(14), row.decided and COL_MUTED or COL_WHITE, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
     end
@@ -670,8 +673,8 @@ local function rebuildLeftPanel()
         if ah == bh then
             local ak, bk = tonumber(a and a.karma) or 0, tonumber(b and b.karma) or 0
             if ak == bk then
-                local an = IsValid(a and a.ent) and a.ent:Nick() or ""
-                local bn = IsValid(b and b.ent) and b.ent:Nick() or ""
+                local an = getCaseName(a)
+                local bn = getCaseName(b)
                 return string.lower(an) < string.lower(bn)
             end
             return ak > bk
@@ -680,7 +683,7 @@ local function rebuildLeftPanel()
     end)
 
     for _, row in ipairs(cachedRows or {}) do
-        if IsValid(row.ent) then
+        if tostring(row.steamid64 or "") ~= "" then
             createEligibleRow(leftScroll, row)
         end
     end
@@ -691,7 +694,7 @@ function openMenu(rows)
 
     cachedRows = {}
     for _, row in ipairs(rows or {}) do
-        if IsValid(row.ent) then
+        if tostring(row.steamid64 or "") ~= "" then
             cachedRows[#cachedRows + 1] = row
         end
     end
@@ -877,8 +880,9 @@ end)
 net.Receive("zcity_guilt_open", function()
     local count = net.ReadUInt(8)
     local rows = {}
+    local wireRows = {}
 
-    for _ = 1, count do
+    for index = 1, count do
         local caseid = net.ReadUInt(32)
         local steamid64 = net.ReadString()
         local ent = net.ReadEntity()
@@ -900,7 +904,7 @@ net.Receive("zcity_guilt_open", function()
             threatReasons[#threatReasons + 1] = net.ReadString()
         end
 
-        if IsValid(ent) then
+        if steamid64 ~= "" and steamid64 ~= "0" then
             rows[#rows + 1] = {
                 ent = ent,
                 caseid = caseid,
@@ -918,6 +922,17 @@ net.Receive("zcity_guilt_open", function()
                 respectEligible = respectEligible,
                 threatReasons = threatReasons
             }
+            wireRows[index] = rows[#rows]
+        end
+    end
+
+    -- Names are an optional extension; older server messages still work.
+    local _, bitsLeft = net.BytesLeft()
+    if (bitsLeft or 0) >= 40 and net.ReadUInt(32) == 0x5A43474E then
+        local nameCount = net.ReadUInt(8)
+        for i = 1, nameCount do
+            local name = net.ReadString()
+            if wireRows[i] then wireRows[i].name = name end
         end
     end
 

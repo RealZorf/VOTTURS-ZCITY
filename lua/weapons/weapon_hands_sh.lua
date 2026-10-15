@@ -1761,6 +1761,10 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
             local attackerBlockTier = self.BlockTier or 1
 
             if defenderBlockTier >= attackerBlockTier then
+                if SERVER and zb and zb.RecordGuiltBlockedMelee then
+                    zb.RecordGuiltBlockedMelee(owner, ent, self)
+                end
+
                 if wep.BlockImpactSound then
                     ent:EmitSound(wep.BlockImpactSound, 60)
                 end

@@ -28,6 +28,13 @@ local ignitable = { -- Very sorry for this silly table, but i don't want allow t
     ["models/gibs/wood_gib01e.mdl"] = true
 }
 
+function ENT:GetIgnitionAttacker()
+    local handler = self:GetPhysicsAttacker(15)
+    if IsValid(handler) and handler:IsPlayer() then return handler end
+    if IsValid(self.owner) and self.owner:IsPlayer() then return self.owner end
+    if IsValid(self.debil) and self.debil:IsPlayer() then return self.debil end
+end
+
 function ENT:Initialize()
     self:SetModel(self.Model)
 
@@ -49,6 +56,7 @@ function ENT:Initialize()
             if ent1:GetFireLeft() <= 0 then return end
             local pos = ent1:GetPos()
             local ent = data.HitEntity
+            local igniter = ent1:GetIgnitionAttacker()
             --print(IsValid(ent), ignitable[ent:GetModel()], ent:GetModel())
             if IsValid(ent) and ignitable[ent:GetModel()] then
                 ent:Ignite()
@@ -57,7 +65,7 @@ function ENT:Initialize()
             for _,v in ipairs(hg.gasolinePath) do
                 if v[1]:Distance(pos) > 30 or v[2] ~= false then continue end
                 v[2] = CurTime()
-                v[3] = owner
+                v[3] = igniter
             end
             if IsValid(data.HitEntity) and hg.drums[data.HitEntity:EntIndex()] then
                 local drum = hg.drums[data.HitEntity:EntIndex()]
@@ -66,7 +74,7 @@ function ENT:Initialize()
                 for i, point in ipairs(drum.high_point) do
                     local pos2 = LocalToWorld(point[1], angle_zero, drumEnt:GetPos(), drumEnt:GetAngles())
                     if pos:DistToSqr(pos2) < 5 * 5 then
-                        drumEnt.owner = ent1.debil
+                        drumEnt.owner = igniter
                         hg.PropExplosion( drumEnt, tbl.ExpType, (drumEnt.Volume or tbl.Force) * 2, drumEnt:GetPhysicsObject():GetMass() )
                     end
                 end
@@ -86,6 +94,7 @@ function ENT:Use(ply)
 
 	ply:PickupObject(self)
 	self.owner = ply
+	self:SetPhysicsAttacker(ply, 15)
 
 	self.UseCD = CurTime() + 0.6
 end
