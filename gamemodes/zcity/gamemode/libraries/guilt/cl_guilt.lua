@@ -571,12 +571,13 @@ local function rebuildRightPanel()
     if CFG().AllowPunish and not selectedData.respectEligible then
         for _, preset in ipairs(CFG().Presets or {}) do
             local minharm = tonumber(preset.minharm) or 0
+            local punishAmount = ZCITY_GUILT.GetPunishAmount(preset, selectedData)
             local incoming = tonumber(selectedData.incomingHarm) or 0
             local threatScore = tonumber(selectedData.threatScore) or 0
             local defenseMul = tonumber(selectedData.selfDefenseMul) or 1
             local actionLocked = selectedData.actionAllowed == false
             local defenseLocked = actionLocked or defenseMul <= 0.2 or (incoming >= harm * 0.75 and threatScore >= 0.35)
-            local unlocked = harm >= minharm and not defenseLocked
+            local unlocked = harm >= minharm and punishAmount > 0 and not defenseLocked
             local subtitle
 
             if actionLocked then
@@ -585,14 +586,15 @@ local function rebuildRightPanel()
             elseif defenseLocked then
                 subtitle = "Locked: likely proportional self-defense."
             elseif unlocked then
-                subtitle = "Available at " .. math.Round(harm, 1) .. " harm."
+                subtitle = "Up to " .. math.Round(punishAmount, 1) .. " karma; limited by the calculated penalty and round cap."
             else
                 subtitle = "Requires " .. minharm .. " harm."
             end
 
             createActionButton(
                 rightScroll,
-                tostring(preset.name or "Punish"),
+                tostring(preset.name or "Punish"):gsub("%s*%(%-%d+%.?%d*%s+[Kk]arma%)%s*$", "")
+                    .. " (-" .. math.Round(punishAmount, 1) .. " Karma)",
                 getPresetColor(preset),
                 unlocked,
                 function()
