@@ -700,7 +700,7 @@ function SWEP:PlayAnim(anim,time,cycling,callbackFuncName,reverse,sendtoclient,c
     mdl.ZCAnimAssigned = true
     mdl:SetSequence(seq)
     local local_curtime = CurTime()
-    curtime = curtime or local_curtime
+    local curtime = isnumber(curtime) and curtime or local_curtime
     self.animtime = curtime + ( time or tAnim[2] or 1)
     self.animspeed = time or tAnim[2] or 1
     self.cycling = cycling or (tAnim[3] ~= nil and tAnim[3])

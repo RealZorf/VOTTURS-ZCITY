@@ -1781,14 +1781,23 @@ hook.Add("SetupMove", "bm_force_foosteps", function(ply, mv)
 end)
 
 local hg_fallonsideland = CreateConVar("hg_fallonsideland", "0", {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED},"Toggle fall from side landing (if player land direction != player eye direction)")
+
+local function IsLookingSide(ply, targetVec)
+	if !IsValid(ply) or !ply:IsPlayer() then return true end
+	local diff = targetVec - ply:GetShootPos()
+	local look = ply:EyeAngles()
+	look[1] = 0
+	return look:Forward():Dot(diff) / diff:Length() >= 0.8
+end
+
 hook.Add("Move", "CP_detectland", function(ply)
 	if !hg_fallonsideland:GetBool() then return end
 	local vel = ply:GetVelocity()
 	vel[3] = 0
 
-	if !ply.prev_on_ground and ply:OnGround() and vel:LengthSqr() > 100 * 100 and ply:GetMoveType() != MOVETYPE_NOCLIP then
+	if !ply.prev_on_ground and ply:OnGround() and vel:LengthSqr() > 200 * 200 and ply:GetMoveType() != MOVETYPE_NOCLIP then
 		local lookat = ply:GetPos() + vel * 5
-		if !IsLookingAt(ply, lookat, 0.2) then
+		if !IsLookingSide(ply, lookat, 0.4) then
 			hg.Fake(ply)
 		end
 	end
