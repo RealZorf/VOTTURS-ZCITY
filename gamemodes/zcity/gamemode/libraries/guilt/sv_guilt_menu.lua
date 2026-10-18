@@ -1429,8 +1429,10 @@ local function getLifeKarmaDelta(victim, attacker, data, nativeSnapshot)
     return math.max(0, current - baseline)
 end
 
-local function getLethalContributionHarm()
-    return math.max(tonumber(zb and zb.MaximumHarm) or 10, 1)
+local function getRecordedCaseHarm(entry, nativeHarm)
+    -- Per-life tracking keeps measured injury harm; native totals are capped for karma accounting.
+    local trackedHarm = istable(entry) and tonumber(entry.harm) or nil
+    return math.max(0, trackedHarm or 0, tonumber(nativeHarm) or 0)
 end
 
 local function buildNativeRows(victim, data, nativeSnapshot)
@@ -1465,10 +1467,7 @@ local function buildNativeRows(victim, data, nativeSnapshot)
         local currentKarma = tonumber(nativeRow.karma) or 0
 
         local baselineHarm = tonumber(data.harmBaseline and data.harmBaseline[steamid64]) or 0
-        local harm = math.max(0, currentHarm - baselineHarm)
-        if deathKiller then
-            harm = math.max(harm, getLethalContributionHarm())
-        end
+        local harm = getRecordedCaseHarm(tracked, currentHarm - baselineHarm)
         if harm < CFG.MinHarm and not deathKiller then
             continue
         end
@@ -1530,10 +1529,7 @@ local function buildRowsFromCurrentLife(victim, data, nativeSnapshot)
             continue
         end
 
-        local harm = tonumber(entry.harm) or 0
-        if deathKiller then
-            harm = math.max(harm, getLethalContributionHarm())
-        end
+        local harm = getRecordedCaseHarm(entry)
         if harm < CFG.MinHarm and not deathKiller then
             continue
         end
@@ -1655,9 +1651,6 @@ local function buildOpenPayload(victim, playerCache)
     for steamid64, row in pairs(activeCase.rows or {}) do
         local attacker = IsValid(row.ent) and row.ent or findPlayerBySteamID64(row.steamid64 or steamid64, playerCache)
         row.ent = IsValid(attacker) and attacker or nil
-        if row.deathKiller == true then
-            row.harm = math.max(tonumber(row.harm) or 0, getLethalContributionHarm())
-        end
         if row.debugCase ~= true and row.respectEligible ~= true then
             applyActionFields(row, victim, attacker)
         end
@@ -2498,10 +2491,6 @@ local function doPunish(victim, target, action, entry, activeCase)
     end
 
     local harm = tonumber(entry.harm) or 0
-    if entry.deathKiller == true then
-        harm = math.max(harm, getLethalContributionHarm())
-        entry.harm = harm
-    end
     local minharm = tonumber(preset.minharm) or 0
 
     if harm < minharm then
