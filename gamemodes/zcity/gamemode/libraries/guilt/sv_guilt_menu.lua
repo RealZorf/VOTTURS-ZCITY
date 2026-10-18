@@ -967,7 +967,7 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
             continue
         end
 
-        local applied = math.min(autoExpireAmount, remainingCap)
+        local applied = math.min(autoExpireAmount, remainingCap, nativeKarma)
         if applied <= 0 then
             row.decided = true
             row.decision = "auto_expire_capped"
@@ -2529,7 +2529,7 @@ local function doPunish(victim, target, action, entry, activeCase)
         return false, "This player's manual punish cap for the round has already been reached."
     end
 
-    local applied = math.min(math.max(0, tonumber(preset.amount) or 0), remainingCap)
+    local applied = math.min(ZCITY_GUILT.GetPunishAmount(preset, entry), remainingCap)
     if applied <= 0 then
         return false, "No punish amount available."
     end

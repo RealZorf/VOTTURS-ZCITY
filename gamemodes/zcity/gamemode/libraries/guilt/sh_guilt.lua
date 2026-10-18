@@ -108,6 +108,13 @@ function ZCITY_GUILT.GetPreset(action)
     end
 end
 
+-- Injury/death labels must not turn a small native penalty into a large fixed punishment.
+function ZCITY_GUILT.GetPunishAmount(preset, row)
+    local requested = math.max(0, tonumber(preset and preset.amount) or 0)
+    local native = math.max(0, tonumber(row and (row.nativeKarma or row.karma)) or 0)
+    return math.min(requested, native)
+end
+
 function ZCITY_GUILT.GetPresetColor(preset)
     local c = normalizeColorEntry(preset and preset.color)
     return Color(c.r, c.g, c.b)

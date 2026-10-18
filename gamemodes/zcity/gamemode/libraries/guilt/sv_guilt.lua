@@ -10,6 +10,7 @@ zb.GuiltCombatHistory = zb.GuiltCombatHistory or {}
 zb.GuiltThreatStates = zb.GuiltThreatStates or {}
 zb.GuiltSQL = zb.GuiltSQL or {}
 zb.GuiltSQL.PlayerInstances = zb.GuiltSQL.PlayerInstances or {}
+zb.GuiltLowKarmaBans = zb.GuiltLowKarmaBans or {}
 
 local hg_developer = ConVarExists("hg_developer") and GetConVar("hg_developer") or CreateConVar("hg_developer",0,FCVAR_SERVER_CAN_EXECUTE,"Toggle developer mode (enables damage traces)",0,1)
 local KARMA_SUICIDE_REFUND_RATE = 0.1
@@ -413,7 +414,7 @@ local function ApplySelfDefenseKarmaMul(threatState, responseRatio, retaliation)
 end
 
 
-local SyncKarmaRuntime
+local SyncKarmaRuntime, EnforceLowKarma
 
 hook.Add("DatabaseConnected", "GuiltCreateData", function()
 	local query
@@ -457,19 +458,9 @@ hook.Add( "PlayerInitialSpawn","ZB_GuiltSQL", function( ply )
                 ply:SetNetVar("Karma", ply.Karma)
 
                 if zb.GuiltSQL.PlayerInstances[steamID64].value < 0 then
-                    local previousKarma = zb.GuiltSQL.PlayerInstances[steamID64].value
-
-                    SyncKarmaRuntime(ply, 30)
-                    -- Finish the reset before pending decisions are applied.
-                    if not IsBanImmune(ply) then ply:guilt_SetValue(30) end
-
-                    timer.Simple(0, function()
-                        if not IsValid(ply) then return end
-                        if IsBanImmune(ply) then return end
-
-                        ply:Ban(5, false)
-                        ply:Kick("Your karma is too low: " .. math.Round(previousKarma, 0) .. ". Try again in 5 minutes.")
-                    end)
+                    -- Finish the existing join reset before pending decisions are applied.
+                    if IsBanImmune(ply) then SyncKarmaRuntime(ply, 30)
+                    else EnforceLowKarma(ply, 30, 5) end
                 end
 			else
 				local insertQuery = mysql:Insert("zb_guilt")
@@ -505,6 +496,12 @@ end
 
 function plyMeta:guilt_SetValue( zb_guilt )
 
+    zb_guilt = tonumber(zb_guilt) or 100
+    if zb_guilt <= 0 and not IsBanImmune(self) then
+        SyncKarmaRuntime(self, math.max(zb_guilt, -60))
+        if EnforceLowKarma(self) then return end
+    end
+
     local steamID64 = self:SteamID64()
 	
 	zb.GuiltSQL.PlayerInstances[self:SteamID64()] = zb.GuiltSQL.PlayerInstances[self:SteamID64()] or {}
@@ -527,11 +524,41 @@ SyncKarmaRuntime = function(ply, karma)
     zb.GuiltSQL.PlayerInstances[steamID64].value = karma
 end
 
+EnforceLowKarma = function(ply, resetKarma, banMinutes)
+    if not IsValid(ply) or not ply:IsPlayer() or IsBanImmune(ply) then return false end
+    local karma = tonumber(ply.Karma) or 100
+    if karma > 0 then return false end
+
+    local steamID64 = ply:SteamID64()
+    local minutes = banMinutes or math.max(5, math.Round(60 - math.max(karma, -60) * 4, 0))
+    local pending = zb.GuiltLowKarmaBans[steamID64]
+    if pending then
+        pending.minutes = math.max(pending.minutes, minutes)
+    else
+        zb.GuiltLowKarmaBans[steamID64] = {steamID = ply:SteamID(), name = ply:Name(), minutes = minutes}
+        timer.Simple(0, function()
+            local ban = zb.GuiltLowKarmaBans[steamID64]
+            zb.GuiltLowKarmaBans[steamID64] = nil
+            if not ban or (IsValid(ply) and IsBanImmune(ply)) then return end
+            -- ULib records offline SteamIDs too; disconnecting cannot cancel this decision.
+            ULib.addBan(ban.steamID, ban.minutes, "Kicked and banned for having too low karma.", ban.name, "System")
+            PrintMessage(HUD_PRINTTALK, "Player " .. ban.name .. " has been banned for " .. ban.minutes .. " minutes for having too low karma.")
+        end)
+    end
+
+    -- Persist the existing post-ban reset before later case decisions or disconnect saves.
+    resetKarma = resetKarma or 10
+    SyncKarmaRuntime(ply, resetKarma)
+    ply:guilt_SetValue(resetKarma)
+    return true
+end
+
 function zb.SetPlayerKarma(ply, amount, persist)
     if not IsValid(ply) or not ply:IsPlayer() then return false end
 
     amount = math.Clamp(tonumber(amount) or 0, -60, GetPlayerKarmaCap(ply))
     SyncKarmaRuntime(ply, amount)
+    if EnforceLowKarma(ply) then return true end
 
     if persist ~= false and ply.guilt_SetValue then
         ply:guilt_SetValue(amount)
@@ -1086,26 +1113,7 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
     
     zb.GuiltTable[Attacker][Victim] = math.Clamp((zb.GuiltTable[Attacker][Victim] or 0) + guiltadd, 0, 200)
 
-    if Attacker.Karma <= 0 then
-        if IsBanImmune(Attacker) then return end
-
-        local steamID = Attacker:SteamID()
-        local steamID64 = Attacker:SteamID64()
-        local name = Attacker:Name()
-        local karmaForBan = Attacker.Karma
-        local banTime = math.max(5, math.Round(60 - karmaForBan * 4, 0))
-
-        timer.Create("simplewaitforkarmadrop"..steamID64, 0, 1, function()
-            if not IsValid(Attacker) then return end
-            if IsBanImmune(Attacker) then return end
-
-            ULib.addBan(steamID, banTime, "Kicked and banned for having too low karma.", name, "System")
-
-            PrintMessage(HUD_PRINTTALK, "Player " .. name .. " has been banned for " .. banTime .. " minutes for having too low karma.")
-        end)
-
-        SyncKarmaRuntime(Attacker, 10)
-    end
+    EnforceLowKarma(Attacker)
 end)
 
 function zb.IsForce(Attacker)
@@ -1282,9 +1290,7 @@ concommand.Add("hg_setkarma",function(ply,cmd,args)
     local requestedKarma = tonumber(lenargs > 1 and args[2] or args[1])
     if not requestedKarma then return end
 
-    newply.Karma = math.Clamp(requestedKarma, -60, GetPlayerKarmaCap(newply))
-    newply:SetNetVar("Karma", newply.Karma)
-    newply:guilt_SetValue(newply.Karma)
+    zb.SetPlayerKarma(newply, requestedKarma, true)
 end)
 
 hook.Add("PlayerInitialSpawn", "GuiltRefundInit", function(ply)
