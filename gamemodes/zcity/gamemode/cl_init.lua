@@ -952,13 +952,17 @@ local TEAM_SCORE_INFO = {
 		[2] = {name = "SWAT", color = Color(35, 140, 225)},
 	},
 	criresp = {
-		[0] = {name = "SUSPECTS", color = Color(225, 35, 35)},
-		[1] = {name = "SWAT", color = Color(70, 90, 255)},
+		[0] = {name = "SWAT", color = Color(70, 90, 255)},
+		[1] = {name = "SUSPECTS", color = Color(225, 35, 35)},
 	},
 	overstimulated = {
 		[0] = {name = "SWAT", color = Color(68, 10, 255)},
 		[1] = {name = "VICTIMS", color = Color(220, 220, 220)},
 		[2] = {name = "OVERSTIMULATED", color = Color(228, 49, 49)},
+	},
+	zombiesurvival = {
+		[0] = {name = "SURVIVORS", color = Color(70, 180, 90)},
+		[1] = {name = "ZOMBIES", color = Color(200, 50, 50)},
 	},
 }
 
