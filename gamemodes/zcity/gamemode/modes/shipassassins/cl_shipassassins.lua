@@ -1,7 +1,6 @@
 MODE.name = "assassinsgreed"
 
 local MODE = MODE
-
 local startFade = 0
 local lastTarget
 local targetPortrait
@@ -977,7 +976,7 @@ function MODE:HUDPaint()
 			drawSectionLine(introX + ui(34), introY + ui(62), introW - ui(68), 125 * fade)
 			draw.SimpleText("CONTRACT ONLINE", "ZB_ShipAssassinsMedium", sw * 0.5, introY + ui(88), ColorAlpha(neutralColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 			draw.SimpleText("Only your target or hunter matters. Interference gets you slain.", "ZB_ShipAssassinsSmall", sw * 0.5, introY + ui(117), ColorAlpha(warningColor, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			draw.SimpleText("Contract kills pay $250. F3 opens the Black Market.", "ZB_ShipAssassinsSmall", sw * 0.5, introY + ui(137), ColorAlpha(mutedText, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("Contract kills pay $250. F4 opens the Black Market.", "ZB_ShipAssassinsSmall", sw * 0.5, introY + ui(137), ColorAlpha(mutedText, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		end
 	end
 
@@ -1052,7 +1051,7 @@ function MODE:HUDPaint()
 			draw.SimpleText("IGNORE OTHER FIGHTS", "ZB_ShipAssassinsSmall", warningX + ui(14), warningY + ui(10), warningColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 			draw.SimpleText("WRONG TARGET/HUNTER = SLAY", "ZB_ShipAssassinsSmall", warningX + ui(14), warningY + ui(25), warningColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 			drawTargetDirectionArrow(warningX + warningW * 0.58, warningY + ui(18), ui(16), target, 230)
-			draw.SimpleText("F3 TO OPEN MARKET", "ZB_ShipAssassinsSmall", warningX + warningW - ui(14), warningY + ui(25), mutedText, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+			draw.SimpleText("F4 TO OPEN MARKET", "ZB_ShipAssassinsSmall", warningX + warningW - ui(14), warningY + ui(25), mutedText, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
 		end
 
 		if IsValid(target) then
@@ -1083,7 +1082,7 @@ function MODE:HUDPaint()
 
 	if cashHintUntil > CurTime() and lply:Alive() then
 		local fade = math.Clamp((cashHintUntil - CurTime()) / 4, 0, 1)
-		drawToast("CONTRACT REWARD $" .. tostring(cashHintAmount), "F3 opens the Black Market", sh - ui(128), titleColor, fade)
+		drawToast("CONTRACT REWARD $" .. tostring(cashHintAmount), "F4 opens the Black Market", sh - ui(128), titleColor, fade)
 	end
 
 	if objectiveHintUntil > CurTime() and lply:Alive() then
@@ -1093,7 +1092,7 @@ function MODE:HUDPaint()
 end
 
 hook.Add("PlayerButtonDown", "ShipAssassins_BuyMenuToggle", function(ply, btn)
-	if ply ~= LocalPlayer() or btn ~= KEY_F3 then return end
+	if ply ~= LocalPlayer() or btn ~= KEY_F4 then return end
 
 	local round = CurrentRound and CurrentRound()
 	if not round or round.name ~= MODE.name then return end

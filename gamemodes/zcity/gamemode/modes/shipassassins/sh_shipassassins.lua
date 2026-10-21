@@ -23,7 +23,7 @@ MODE.ContractWarningThresholds = {60, 30, 10}
 
 MODE.IntroTitle = "Assassin's Greed"
 MODE.IntroRoleName = "Assassin"
-MODE.IntroObjective = "Only attack your target or your hunter. Other fights are not your concern, and interfering gets you slain. Each contract lasts 4 minutes, and a successful contract gives you 30 seconds of grace before the next one begins. Contract kills pay $250. Press F3 to buy equipment."
+MODE.IntroObjective = "Only attack your target or your hunter. Other fights are not your concern, and interfering gets you slain. Each contract lasts 4 minutes, and a successful contract gives you 30 seconds of grace before the next one begins. Contract kills pay $250. Press F4 to buy equipment."
 MODE.IntroColor = Color(193, 118, 36)
 
 MODE.AssassinRoleColor = Color(193, 118, 36)

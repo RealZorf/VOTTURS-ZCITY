@@ -173,7 +173,7 @@ end
 function MODE:PlayerDeath(ply)
 end
 util.AddNetworkString( "tdm_open_buymenu" )
-function MODE:ShowSpare1(ply ) -- OpenMenu
+function MODE:ShowSpare2(ply ) -- OpenMenu
 	if not zb:CanActivelyParticipate(ply) then return end
 	net.Start( "tdm_open_buymenu" )
 	net.Send( ply )

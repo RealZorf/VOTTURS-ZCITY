@@ -27,7 +27,7 @@ local contractWarningLines = {
 	"[Assassin's Greed] If two other players are fighting, leave them alone. Their fight is not your contract.",
 	"[Assassin's Greed] Hurting anyone else for more than 15 harm will get you slain instantly.",
 	"[Assassin's Greed] Each contract lasts 4 minutes. A successful contract gives you 30 seconds of grace before the next one starts.",
-	"[Assassin's Greed] Personally killing your target pays $250. Press F3 to open the buy menu."
+	"[Assassin's Greed] Personally killing your target pays $250. Press F4 to open the buy menu."
 }
 
 local sideObjectivePool = {
