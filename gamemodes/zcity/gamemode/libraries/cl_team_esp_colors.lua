@@ -81,6 +81,10 @@ TeamESP.ColorsByMode = {
 		[0] = Color(190, 0, 0),
 		[1] = Color(0, 120, 190),
 	},
+	tdmmelee = {
+		[0] = Color(150, 20, 45),
+		[1] = Color(40, 40, 45),
+	},
 	criresp = {
 		[0] = Color(68, 10, 255),
 		[1] = Color(228, 49, 49),

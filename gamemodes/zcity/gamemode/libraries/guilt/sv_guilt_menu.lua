@@ -37,7 +37,8 @@ local REPO_MODE_NAMES = {
     wildwest = true,
     tdm = true,
     tdm_cstrike = true,
-    cstrike = true
+    cstrike = true,
+    tdmmelee = true
 }
 
 local NON_PUNISHABLE_MODE_NAMES = {

@@ -946,6 +946,10 @@ local TEAM_SCORE_INFO = {
 		[0] = {name = "RIOTERS", color = Color(225, 35, 35)},
 		[1] = {name = "LAW", color = Color(35, 140, 225)},
 	},
+	tdmmelee = {
+		[0] = {name = "HOOLIGANS", color = Color(150, 20, 45)},
+		[1] = {name = "ROADMEN", color = Color(40, 40, 45)},
+	},
 	gwars = {
 		[0] = {name = "BLOODZ", color = Color(225, 35, 35)},
 		[1] = {name = "GROOVE", color = Color(35, 225, 110)},

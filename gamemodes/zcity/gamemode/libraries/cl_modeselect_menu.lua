@@ -309,6 +309,7 @@ if CLIENT then
             ["hl3"] = true,
             ["pathowogen"] = true,
             ["riot"] = true,
+            ["tdmmelee"] = true,
             ["sandbox"] = true,
             ["scugarena"] = true,
             ["superfighters"] = true,
