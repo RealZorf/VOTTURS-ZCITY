@@ -68,8 +68,8 @@ hg.settings:AddOpt("Gameplay", "hg_cheats", "Client cheats", nil, nil, nil, "All
 hg.settings:AddOpt("Gameplay", "hg_wos_animmenus", "wOS animation wheel (H/F3)", nil, nil, nil, "Animation wheel/TF2")
 
 timer.Simple(0, function()
-	hook.Remove("PlayerBindPress", "wOS.TFTaunts.TFTauntMenu")
-	hook.Remove("HUDPaint", "wOS.TF2Taunts.ShowMenu")
+	hook.Add("PlayerBindPress", "wOS.TFTaunts.TFTauntMenu", function() end)
+	hook.Add("HUDPaint", "wOS.TF2Taunts.ShowMenu", function() end)
 
 	local hooks = hook.GetTable()
 	local think = hooks.Think and hooks.Think.WOS_AnimWheel_KeyHandler
