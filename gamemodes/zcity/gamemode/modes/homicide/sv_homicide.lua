@@ -69,7 +69,7 @@ MODE.LootTable = {
 		{2,"weapon_hg_extinguisher"},
 		{2,"weapon_barbedbat"},
 		{10,"weapon_heavy_wrench"}, 
-		{3,"weapon_hg_katana"}, 
+		{0.8,"weapon_hg_katana"}, 
 
 		{2,"weapon_hg_crowbar"},
 		{1.2,"weapon_hatchet"},
