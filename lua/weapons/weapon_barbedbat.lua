@@ -26,7 +26,7 @@ if CLIENT then
 	SWEP.BounceWeaponIcon = false
 end
 
-SWEP.DamageType = DMG_SLASH
+SWEP.DamageType = DMG_CLUB
 SWEP.DamagePrimary = 27
 SWEP.NeckBreakChance = 0.04
 SWEP.DamageSecondary = 12
@@ -139,7 +139,7 @@ function SWEP:CanSecondaryAttack()
     self.DamageType = DMG_CLUB
     timer.Simple(0.5,function()
         if IsValid(self) then
-            self.DamageType = DMG_SLASH
+            self.DamageType = DMG_CLUB
         end
     end)
     return true
