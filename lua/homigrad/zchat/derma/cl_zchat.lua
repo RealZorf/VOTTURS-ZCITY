@@ -11,7 +11,7 @@ local color_bezel = Color(12, 13, 13)
 local color_panel = Color(20, 22, 21)
 local color_text = Color(236, 238, 236)
 local color_idle_dim = Color(112, 118, 116)
-local color_radio = Color(35, 255, 110)
+local color_radio = Color(35, 225, 110)
 
 local function S(n)
 	return math.max(1, math.Round(ScreenScale(n)))
