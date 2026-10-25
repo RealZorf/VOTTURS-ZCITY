@@ -127,7 +127,6 @@ if SERVER then
                 self.ExtractedCount = self.ExtractedCount + 1
                 self:StopZombieConsume(ply)
                 ply:KillSilent()
-                ply:SetTeam(TEAM_SPECTATOR)
                 PrintMessage(HUD_PRINTTALK, ply:Nick() .. " escaped the outbreak!")
                 ply:ChatPrint("You will rejoin the players when this round ends.")
             end

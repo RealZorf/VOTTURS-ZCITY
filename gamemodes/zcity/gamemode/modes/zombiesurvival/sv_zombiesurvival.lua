@@ -1034,11 +1034,6 @@ function MODE:BeginLateJoinEnrollment(ply)
 	if self:IsExtractedThisRound(ply) then
 		ply.ZSExtracted = true
 		ply:SetNWBool("ZS_Extracted", true)
-		if ply:Team() ~= TEAM_SPECTATOR then
-			ply.ZSLateJoinChangingTeam = true
-			ply:SetTeam(TEAM_SPECTATOR)
-			ply.ZSLateJoinChangingTeam = nil
-		end
 		if ply:Alive() then ply:KillSilent() end
 		return
 	end
@@ -1153,14 +1148,7 @@ end)
 function MODE:OnPlayerChangedTeam(ply, oldTeam, newTeam)
 	if zb.ROUND_STATE ~= 1 or CurrentRound() ~= self then return end
 	if ply.ZSLateJoinChangingTeam then return end
-	if self:IsExtractedThisRound(ply) then
-		if newTeam ~= TEAM_SPECTATOR then
-			ply.ZSLateJoinChangingTeam = true
-			ply:SetTeam(TEAM_SPECTATOR)
-			ply.ZSLateJoinChangingTeam = nil
-		end
-		return
-	end
+	if self:IsExtractedThisRound(ply) then return end
 
 	local freshJoin = ply.ZSLateJoinPendingSerial == self.RoundSerial
 	local leftSpectators = oldTeam == TEAM_SPECTATOR and newTeam ~= TEAM_SPECTATOR
@@ -1383,10 +1371,6 @@ function MODE:StartInfection()
 end
 
 function MODE:Intermission()
-    local extractedPlayers = {}
-    for _, ply in player.Iterator() do
-        if self:IsExtractedThisRound(ply) then extractedPlayers[ply] = true end
-    end
     self.ExtractedSteamIDs = nil
     self:ResetExtraction()
 	game.CleanUpMap()
@@ -1408,12 +1392,12 @@ function MODE:Intermission()
 		ply.SubRole = nil
 		ply.Profession = nil
 
-		if not extractedPlayers[ply] and (ply:Team() == TEAM_SPECTATOR or ply:Team() == TEAM_UNASSIGNED) then
+		if ply:Team() == TEAM_SPECTATOR then
 			if ply.PlayerClassName ~= "none" then ply:SetPlayerClass() end
 			continue
 		end
 
-		if not extractedPlayers[ply] then ply:KillSilent() end
+		ply:KillSilent()
 		if ply.PlayerClassName ~= "none" then ply:SetPlayerClass() end
 		ply:SetupTeam(0)
 	end
