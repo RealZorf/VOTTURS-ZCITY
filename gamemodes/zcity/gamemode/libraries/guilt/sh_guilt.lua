@@ -101,18 +101,23 @@ local function normalizeColorEntry(v)
 end
 
 function ZCITY_GUILT.GetPreset(action)
-    for _, preset in ipairs(ZCITY_GUILT.Config.Presets or {}) do
+    local presets = (ZCITY_GUILT.Config and ZCITY_GUILT.Config.Presets)
+        or (ZCITY_GUILT.DefaultConfig and ZCITY_GUILT.DefaultConfig.Presets)
+        or {}
+
+    for _, preset in ipairs(presets) do
         if preset.id == action then
             return preset
         end
     end
 end
 
--- Injury/death labels must not turn a small native penalty into a large fixed punishment.
 function ZCITY_GUILT.GetPunishAmount(preset, row)
     local requested = math.max(0, tonumber(preset and preset.amount) or 0)
-    local native = math.max(0, tonumber(row and (row.nativeKarma or row.karma)) or 0)
-    return math.min(requested, native)
+    local minharm = math.max(0, tonumber(preset and preset.minharm) or 0)
+    local harm = math.max(0, tonumber(row and row.harm) or 0)
+    if harm < minharm then return 0 end
+    return math.min(requested, harm)
 end
 
 function ZCITY_GUILT.GetPresetColor(preset)

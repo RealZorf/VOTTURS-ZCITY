@@ -38,7 +38,8 @@ local REPO_MODE_NAMES = {
     tdm = true,
     tdm_cstrike = true,
     cstrike = true,
-    tdmmelee = true
+    tdmmelee = true,
+    gungame = true
 }
 
 local NON_PUNISHABLE_MODE_NAMES = {
@@ -936,11 +937,10 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
         end
 
         local harm = tonumber(row.harm) or 0
-        local nativeKarma = math.max(0, tonumber(row.nativeKarma or row.karma) or 0)
         local usedThisRound = getAutoExpireRoundLoss(steamid64)
         local remainingCap = math.max(0, autoExpireRoundCap - usedThisRound)
 
-        if nativeKarma <= 0 or row.actionAllowed == false or not shouldAllowGuiltInteraction(victim, attacker, true, row) then
+        if row.actionAllowed == false or not shouldAllowGuiltInteraction(victim, attacker, true, row) then
             row.decided = true
             row.decision = "auto_expire_blocked"
             row.autoExpired = true
@@ -968,7 +968,7 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
             continue
         end
 
-        local applied = math.min(autoExpireAmount, remainingCap, nativeKarma)
+        local applied = math.min(autoExpireAmount, remainingCap, math.max(0, harm))
         if applied <= 0 then
             row.decided = true
             row.decision = "auto_expire_capped"
@@ -1297,30 +1297,6 @@ local function applyActionFields(row, victim, attacker, evidence)
             and "Protected self-defense after a recent limb amputation."
             or row.meleeSelfDefense and "Protected self-defense against a recent lethal melee attack."
             or "Protected self-defense against recent incoming gunfire."
-    end
-
-    local nativeKarma = math.max(0, tonumber(row.nativeKarma or row.karma) or 0)
-    if nativeKarma <= 0 then
-        local nativeNote = "Native guilt calculated no karma loss; this case is shown for transparency only."
-        if row.respectEligible ~= true then
-            row.actionAllowed = false
-            if row.protectedSelfDefense ~= true and row.severeSelfDefense ~= true then
-                row.actionLockReason = "Native guilt calculated no karma loss."
-            end
-        end
-        row.threatReasons = normalizeThreatReasons(row.threatReasons)
-
-        local alreadyListed = false
-        for _, reason in ipairs(row.threatReasons) do
-            if reason == nativeNote then
-                alreadyListed = true
-                break
-            end
-        end
-
-        if not alreadyListed and #row.threatReasons < 5 then
-            row.threatReasons[#row.threatReasons + 1] = nativeNote
-        end
     end
 
     if blockReason and blockReason ~= "" then
@@ -2486,11 +2462,6 @@ local function doPunish(victim, target, action, entry, activeCase)
     local preset = ZCITY_GUILT.GetPreset(action)
     if not preset then return false, "Invalid punishment action." end
 
-    local nativeKarma = math.max(0, tonumber(entry.nativeKarma or entry.karma) or 0)
-    if nativeKarma <= 0 then
-        return false, "Native guilt calculated no karma loss, so this case is transparency-only."
-    end
-
     local harm = tonumber(entry.harm) or 0
     local minharm = tonumber(preset.minharm) or 0
 
@@ -2504,7 +2475,7 @@ local function doPunish(victim, target, action, entry, activeCase)
 
     if entry.actionAllowed == false then
         local reason = tostring(entry.actionLockReason or "")
-        return false, reason ~= "" and reason or "Punishment is locked because native guilt did not allow this case."
+        return false, reason ~= "" and reason or "Punishment is locked for this case."
     end
 
     if isProportionalSelfDefense(entry, harm) then

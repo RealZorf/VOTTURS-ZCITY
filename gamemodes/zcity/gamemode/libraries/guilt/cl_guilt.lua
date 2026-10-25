@@ -586,7 +586,7 @@ local function rebuildRightPanel()
             elseif defenseLocked then
                 subtitle = "Locked: likely proportional self-defense."
             elseif unlocked then
-                subtitle = "Up to " .. math.Round(punishAmount, 1) .. " karma; limited by the calculated penalty and round cap."
+                subtitle = "Up to " .. math.Round(punishAmount, 1) .. " karma; limited by recorded harm and the round cap."
             else
                 subtitle = "Requires " .. minharm .. " harm."
             end
