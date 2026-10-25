@@ -1716,7 +1716,7 @@ local function CreateListPanel(parent, title, accent)
 	wrap.Paint = function(self, w, h)
 		DrawCRTFrame(0, 0, w, h, self.Accent.r, self.Accent.g, self.Accent.b, false)
 		local inset = SB_INSET
-		surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 185)
+		surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 210)
 		surface.DrawRect(inset, inset, w - inset * 2, h - inset * 2)
 	end
 
@@ -1727,7 +1727,7 @@ local function CreateListPanel(parent, title, accent)
 	header:DockMargin(inset, inset, inset, 0)
 	header:SetPaintBackground(false)
 	header.Paint = function(self, w, h)
-		surface.SetDrawColor(32, 34, 33, 220)
+		surface.SetDrawColor(32, 34, 33, 210)
 		surface.DrawRect(0, 0, w, h)
 		surface.SetDrawColor(wrap.Accent.r, wrap.Accent.g, wrap.Accent.b, 36)
 		surface.DrawRect(0, 0, w, h)
@@ -1837,8 +1837,8 @@ function GM:ScoreboardShow()
 			scoreBoardMenu[key]:SetVisible(false)
 		end
 	end
-	scoreBoardMenu:SetColorBR(Color(FRAME_R, FRAME_G, FRAME_B, 180))
-	scoreBoardMenu:SetColorBG(Color(14, 15, 15, 236))
+	scoreBoardMenu:SetColorBR(Color(FRAME_R, FRAME_G, FRAME_B, 150))
+	scoreBoardMenu:SetColorBG(Color(14, 15, 15, 150))
 	if scoreBoardMenu.SetBlurStrengh then
 		scoreBoardMenu:SetBlurStrengh(0)
 	end
@@ -1861,9 +1861,9 @@ function GM:ScoreboardShow()
 		local inset = SB_INSET
 		local innerW = w - inset * 2
 		local titleY = inset
-		surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 185)
+		surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 210)
 		surface.DrawRect(inset, inset, innerW, h - inset * 2)
-		surface.SetDrawColor(32, 34, 33, 220)
+		surface.SetDrawColor(32, 34, 33, 210)
 		surface.DrawRect(inset, titleY, innerW, headerH)
 		surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 36)
 		surface.DrawRect(inset, titleY, innerW, headerH)
@@ -1905,7 +1905,7 @@ function GM:ScoreboardShow()
 	toolbar:DockMargin(SB_ALIGN, SB_GAP, SB_ALIGN, 0)
 	toolbar:SetPaintBackground(false)
 	toolbar.Paint = function(self, w, h)
-		SB_DrawInRect("Right-click a player for profile, Steam ID, and more.", "SB_CRT_Item", 0, 0, h, color_idle_dim, TEXT_ALIGN_LEFT)
+		SB_DrawInRect("Right-click a player for profile, Steam ID, and more.", "SB_CRT_Item", 0, 0, h, color_text, TEXT_ALIGN_LEFT)
 	end
 
 	local tools = vgui.Create("DPanel", toolbar)

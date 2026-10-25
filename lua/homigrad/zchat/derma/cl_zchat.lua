@@ -37,7 +37,7 @@ local function DrawCRTFrame(x, y, w, h, selected)
 	surface.DrawRect(ix + iw - len, iy + ih - 2, len, 2)
 	surface.DrawRect(ix + iw - 2, iy + ih - len, 2, len)
 
-	surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 185)
+	surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 210)
 	surface.DrawRect(ix + 1, iy + 1, iw - 2, ih - 2)
 end
 
