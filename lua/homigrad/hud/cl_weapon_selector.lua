@@ -246,7 +246,7 @@ function WS.WeaponSelectorDraw(ply)
 		local innerY = topY + bezel + pad
 		local innerW = sizeX - (bezel + pad) * 2
 
-		surface.SetDrawColor(32, 34, 33, a * 0.82)
+		surface.SetDrawColor(64, 70, 68, a * 0.62)
 		surface.DrawRect(innerX, innerY, innerW, headerH)
 		if selectedCol then
 			surface.SetDrawColor(ar, ag, ab, a * 0.14)
