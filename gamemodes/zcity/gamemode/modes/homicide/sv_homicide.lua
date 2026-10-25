@@ -68,7 +68,7 @@ MODE.LootTable = {
 		{4.2,"weapon_leadpipe"},
 		{2,"weapon_hg_extinguisher"},
 		{2,"weapon_barbedbat"},
-		{10,"weapon_heavy_wrench"}, 
+		{1,"weapon_heavy_wrench"}, 
 		{0.8,"weapon_hg_katana"}, 
 
 		{2,"weapon_hg_crowbar"},
@@ -222,7 +222,7 @@ MODE.LootTableStandard = {
 		{10,"weapon_pocketknife"},
 		{10,"weapon_switchblade"},
 		{8,"weapon_hg_nunchuks"},
-		{6,"weapon_heavy_wrench"},
+		{1,"weapon_heavy_wrench"},
 
 		{4,"weapon_bat"},
 		{3.5,"weapon_batmetal"},
