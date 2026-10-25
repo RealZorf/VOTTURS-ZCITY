@@ -67,71 +67,46 @@ end
 
 local CRT_R, CRT_G, CRT_B = 35, 225, 110
 local TRAITOR_R, TRAITOR_G, TRAITOR_B = 225, 35, 35
-local color_crt_soft = Color(160, 255, 200)
-local color_traitor_soft = Color(255, 160, 160)
-local color_idle = Color(172, 180, 174)
-local color_bezel = Color(8, 9, 9)
-local infoHeaderH
+local FRAME_R, FRAME_G, FRAME_B = 86, 94, 90
+local color_bezel = Color(12, 13, 13)
+local color_panel = Color(20, 22, 21)
+local color_text = Color(236, 238, 236)
+
+local function S(n)
+	return math.max(1, math.Round(n * ScrH() / 1080))
+end
 
 local function CreateWeaponInfoFonts()
 	surface.CreateFont("WepInfo_CRT_Header", {
 		font = "Bahnschrift",
-		size = math.max(16, ScreenScale(8)),
+		size = math.max(16, S(24)),
 		weight = 700,
 		antialias = true,
 		extended = true
 	})
 	surface.CreateFont("WepInfo_CRT_Body", {
 		font = "Bahnschrift",
-		size = math.max(12, ScreenScale(5.5)),
+		size = math.max(12, S(17)),
 		weight = 600,
 		antialias = true,
 		extended = true
 	})
-	surface.SetFont("WepInfo_CRT_Header")
-	_, infoHeaderH = surface.GetTextSize("1")
 end
 
 CreateWeaponInfoFonts()
 hook.Add("OnScreenSizeChanged", "WeaponInfo_CRTFonts", CreateWeaponInfoFonts)
 
-local function DrawWeaponInfoText(text, font, posX, posY, color, textAlign, alpha)
-	surface.SetFont(font)
-	if textAlign == TEXT_ALIGN_CENTER then
-		local tw = surface.GetTextSize(text)
-		posX = posX - tw * 0.5
-	end
-	surface.SetTextColor(color.r, color.g, color.b, alpha)
-	surface.SetTextPos(posX, posY)
-	surface.DrawText(text)
-end
-
-local function DrawWeaponInfoCorners(x, y, w, h, len, r, g, b, a)
-	surface.SetDrawColor(r, g, b, a)
-	surface.DrawRect(x, y, len, 2)
-	surface.DrawRect(x, y, 2, len)
-	surface.DrawRect(x + w - len, y, len, 2)
-	surface.DrawRect(x + w - 2, y, 2, len)
-	surface.DrawRect(x, y + h - 2, len, 2)
-	surface.DrawRect(x, y + h - len, 2, len)
-	surface.DrawRect(x + w - len, y + h - 2, len, 2)
-	surface.DrawRect(x + w - 2, y + h - len, 2, len)
-end
-
-local function WrapWeaponInfoText(text, font, maxW)
-	surface.SetFont(font)
+local function WrapText(text, maxW)
+	surface.SetFont("WepInfo_CRT_Body")
 	local lines = {}
-	local paragraphs = string.Explode("\n", text or "")
-
-	for _, paragraph in ipairs(paragraphs) do
+	for _, paragraph in ipairs(string.Explode("\n", text or "")) do
 		if paragraph == "" then
 			lines[#lines + 1] = ""
 		else
-			local words = string.Explode(" ", paragraph)
 			local current = ""
-			for _, word in ipairs(words) do
+			for _, word in ipairs(string.Explode(" ", paragraph)) do
 				local trial = current == "" and word or (current .. " " .. word)
-				if surface.GetTextSize(trial) > maxW and current ~= "" then
+				if current ~= "" and surface.GetTextSize(trial) > maxW then
 					lines[#lines + 1] = current
 					current = word
 				else
@@ -143,34 +118,7 @@ local function WrapWeaponInfoText(text, font, maxW)
 			end
 		end
 	end
-
 	return lines
-end
-
-local infoCaretW
-local INFO_PAD = 4
-local INFO_TEXT_PAD = 4
-local INFO_BEZEL = 3
-
-local function DrawInfoRow(boxX, boxY, boxW, lineH, title, lines, alpha, activeColor)
-	if not infoCaretW then
-		surface.SetFont("WepInfo_CRT_Body")
-		infoCaretW = surface.GetTextSize(">")
-	end
-	local caretGap = 3
-	local caretX = boxX + INFO_TEXT_PAD
-	local textX = caretX + infoCaretW + caretGap
-	local nameY = boxY + INFO_TEXT_PAD
-	DrawWeaponInfoText(">", "WepInfo_CRT_Body", caretX, nameY, activeColor, TEXT_ALIGN_LEFT, alpha)
-	DrawWeaponInfoText(title, "WepInfo_CRT_Body", textX, nameY, activeColor, TEXT_ALIGN_LEFT, alpha)
-
-	local textY = nameY + lineH
-	for i = 1, #lines do
-		DrawWeaponInfoText(lines[i], "WepInfo_CRT_Body", textX, textY, color_idle, TEXT_ALIGN_LEFT, alpha)
-		textY = textY + lineH
-	end
-
-	return boxY + INFO_TEXT_PAD + lineH * (1 + #lines)
 end
 
 function SWEP:PrintWeaponInfo(x, y, alpha)
@@ -181,72 +129,90 @@ function SWEP:PrintWeaponInfo(x, y, alpha)
 	if manufacturer == "" and information == "" then return end
 
 	alpha = math.Clamp(alpha or 255, 0, 255)
-	local owner = self:GetOwner()
-	local isTraitor = IsValid(owner) and owner.isTraitor
-	local activeR, activeG, activeB = isTraitor and TRAITOR_R or CRT_R, isTraitor and TRAITOR_G or CRT_G, isTraitor and TRAITOR_B or CRT_B
-	local activeColor = isTraitor and color_traitor_soft or color_crt_soft
-	local scrW, scrH = ScrW(), ScrH()
-	local panelW = math.max(220, math.floor(scrW * 0.16))
-	local headerH = math.max(18, math.floor(scrH * 0.022))
-	local lineH = math.max(14, math.floor(scrH * 0.018))
-	if not infoCaretW then
-		surface.SetFont("WepInfo_CRT_Body")
-		infoCaretW = surface.GetTextSize(">")
-	end
-	local textW = panelW - INFO_PAD * 2 - INFO_TEXT_PAD * 2 - infoCaretW - 3
-	local cacheKey = manufacturer .. "\n" .. information .. "\n" .. textW
-
-	if self.InfoCRTCacheKey ~= cacheKey then
-		self.InfoCRTCacheKey = cacheKey
-		self.InfoCRTManufacturer = manufacturer ~= "" and WrapWeaponInfoText(manufacturer, "WepInfo_CRT_Body", textW) or nil
-		self.InfoCRTInformation = information ~= "" and WrapWeaponInfoText(information, "WepInfo_CRT_Body", textW) or nil
+	local ply = LocalPlayer()
+	local ar, ag, ab = CRT_R, CRT_G, CRT_B
+	if IsValid(ply) and ply.isTraitor then
+		ar, ag, ab = TRAITOR_R, TRAITOR_G, TRAITOR_B
 	end
 
-	local sectionCount = 0
+	local sw = ScrW()
+	local bezel = S(3)
+	local pad = S(4)
+	local textPad = S(4)
+	local stroke = math.max(1, S(1))
+	local thick = S(2)
+	local len = S(10)
+	local panelW = S(307)
+	local headerH = S(24)
+	local lineH = S(19)
+	local innerW = panelW - (bezel + pad) * 2
+	local textW = innerW - textPad * 2
+	local mfg = manufacturer ~= "" and WrapText(manufacturer, textW) or nil
+	local info = information ~= "" and WrapText(information, textW) or nil
+
 	local bodyH = 0
-	if self.InfoCRTManufacturer then
-		sectionCount = sectionCount + 1
-		bodyH = bodyH + INFO_TEXT_PAD + lineH * (1 + #self.InfoCRTManufacturer)
-	end
-	if self.InfoCRTInformation then
-		sectionCount = sectionCount + 1
-		bodyH = bodyH + INFO_TEXT_PAD + lineH * (1 + #self.InfoCRTInformation)
-	end
-	if sectionCount > 1 then
-		bodyH = bodyH + 1
-	end
+	if mfg then bodyH = bodyH + textPad + lineH * (1 + #mfg) end
+	if info then bodyH = bodyH + textPad + lineH * #info end
 
-	local colH = INFO_PAD + headerH + INFO_PAD + bodyH + INFO_PAD
-	x = scrW - panelW - math.max(10, math.floor(scrW * 0.012))
-	y = math.floor(scrH * 0.018)
+	local colH = bezel * 2 + pad + headerH + pad + bodyH + pad
+	x = sw - panelW - S(23)
+	y = S(19)
 
-	surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, alpha * 0.8)
-	surface.DrawRect(x - INFO_BEZEL, y - INFO_BEZEL, panelW + INFO_BEZEL * 2, colH + INFO_BEZEL * 2)
-	surface.SetDrawColor(activeR, activeG, activeB, alpha * 0.7)
-	surface.DrawOutlinedRect(x, y, panelW, colH, 1)
-	DrawWeaponInfoCorners(x, y, panelW, colH, 10, activeR, activeG, activeB, alpha * 0.95)
+	surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, alpha * 0.90)
+	surface.DrawRect(x, y, panelW, colH)
 
-	local innerX = x + INFO_PAD
-	local innerW = panelW - INFO_PAD * 2
-	local innerY = y + INFO_PAD
-	local innerH = colH - INFO_PAD * 2
+	local ix, iy, iw, ih = x + bezel, y + bezel, panelW - bezel * 2, colH - bezel * 2
+	surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, alpha * 0.78)
+	surface.DrawOutlinedRect(ix, iy, iw, ih, stroke)
 
-	surface.SetDrawColor(0, 0, 0, alpha * 0.45)
-	surface.DrawRect(innerX, innerY, innerW, innerH)
-	surface.SetDrawColor(activeR, activeG, activeB, alpha * 0.16)
+	surface.SetDrawColor(ar, ag, ab, alpha * 0.9)
+	surface.DrawRect(ix, iy, len, thick)
+	surface.DrawRect(ix, iy, thick, len)
+	surface.DrawRect(ix + iw - len, iy, len, thick)
+	surface.DrawRect(ix + iw - thick, iy, thick, len)
+	surface.DrawRect(ix, iy + ih - thick, len, thick)
+	surface.DrawRect(ix, iy + ih - len, thick, len)
+	surface.DrawRect(ix + iw - len, iy + ih - thick, len, thick)
+	surface.DrawRect(ix + iw - thick, iy + ih - len, thick, len)
+
+	surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, alpha * 0.82)
+	surface.DrawRect(ix + stroke, iy + stroke, iw - stroke * 2, ih - stroke * 2)
+
+	local innerX = x + bezel + pad
+	local innerY = y + bezel + pad
+	surface.SetDrawColor(32, 34, 33, alpha * 0.82)
 	surface.DrawRect(innerX, innerY, innerW, headerH)
-	DrawWeaponInfoText("INTEL-01", "WepInfo_CRT_Header", x + panelW * 0.5, innerY + (headerH - infoHeaderH) * 0.5, activeColor, TEXT_ALIGN_CENTER, alpha)
+	surface.SetDrawColor(ar, ag, ab, alpha * 0.14)
+	surface.DrawRect(innerX, innerY, innerW, headerH)
 
-	local boxX = innerX
-	local boxY = innerY + headerH + INFO_PAD
-	local boxW = innerW
+	surface.SetFont("WepInfo_CRT_Header")
+	local title = "INFORMATION"
+	local tw, th = surface.GetTextSize(title)
+	surface.SetTextColor(color_text.r, color_text.g, color_text.b, alpha)
+	surface.SetTextPos(x + (panelW - tw) * 0.5, innerY + (headerH - th) * 0.5)
+	surface.DrawText(title)
 
-	if self.InfoCRTManufacturer then
-		boxY = DrawInfoRow(boxX, boxY, boxW, lineH, "MANUFACTURER", self.InfoCRTManufacturer, alpha, activeColor)
+	local textX = innerX + textPad
+	local textY = innerY + headerH + pad + textPad
+	surface.SetFont("WepInfo_CRT_Body")
+	surface.SetTextColor(color_text.r, color_text.g, color_text.b, alpha)
+
+	if mfg then
+		surface.SetTextPos(textX, textY)
+		surface.DrawText("MANUFACTURER")
+		textY = textY + lineH
+		for i = 1, #mfg do
+			surface.SetTextPos(textX, textY)
+			surface.DrawText(mfg[i])
+			textY = textY + lineH
+		end
 	end
-
-	if self.InfoCRTInformation then
-		DrawInfoRow(boxX, boxY, boxW, lineH, "INFORMATION", self.InfoCRTInformation, alpha, activeColor)
+	if info then
+		for i = 1, #info do
+			surface.SetTextPos(textX, textY)
+			surface.DrawText(info[i])
+			textY = textY + lineH
+		end
 	end
 end
 --[[---------------------------------------------------------
