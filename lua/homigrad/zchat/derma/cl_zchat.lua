@@ -398,6 +398,7 @@ function PANEL:Paint(w, h)
 	surface.SetAlphaMultiplier(self:GetAlpha() / 255)
 
 	DisableClipping(true)
+		local hintFont = "zChatFontHint"
 		local whisperHint = "Hold left ALT and press ENTER to whisper"
 		local radioHint
 		local activeWeapon = LocalPlayer():GetActiveWeapon()
@@ -406,20 +407,31 @@ function PANEL:Paint(w, h)
 			radioHint = string.format("[%.1f MHz]", math.Round(activeWeapon:GetHudFrequency(), 1))
 		end
 
+		surface.SetFont(hintFont)
+		local _, hintH = surface.GetTextSize("Hg")
 		local hintY = h + S(2)
-		draw.SimpleText(whisperHint, "zChatFontSmall", 5, hintY + 1, color_bezel)
-		draw.SimpleText(whisperHint, "zChatFontSmall", 4, hintY, color_idle_dim)
+		local leftX, rightX = 4, w - 4
+
+		draw.SimpleText(whisperHint, hintFont, leftX + 1, hintY + 1, color_bezel)
+		draw.SimpleText(whisperHint, hintFont, leftX, hintY, color_idle_dim)
 
 		if radioHint then
-			surface.SetFont("zChatFontSmall")
 			local hintWidth = surface.GetTextSize(whisperHint)
-			draw.SimpleText(radioHint, "zChatFontSmall", 5 + hintWidth, hintY + 1, color_bezel)
-			draw.SimpleText(radioHint, "zChatFontSmall", 4 + hintWidth, hintY, color_radio)
+			draw.SimpleText(radioHint, hintFont, leftX + hintWidth + 1, hintY + 1, color_bezel)
+			draw.SimpleText(radioHint, hintFont, leftX + hintWidth, hintY, color_radio)
 		end
 
 		if LocalPlayer().organism and LocalPlayer().organism.otrub then
-			draw.SimpleText("Your messages are currently not visible to anyone.", "zChatFontSmall", ScrW() * 0.3 + 1, hintY + 1, color_bezel, TEXT_ALIGN_RIGHT)
-			draw.SimpleText("Your messages are currently not visible to anyone.", "zChatFontSmall", ScrW() * 0.3, hintY, color_idle_dim, TEXT_ALIGN_RIGHT)
+			local msg = "Your messages are currently not visible to anyone."
+			local whisperW = surface.GetTextSize(whisperHint .. (radioHint or ""))
+			local msgW = surface.GetTextSize(msg)
+			local msgY = hintY
+			if whisperW + msgW + S(16) > w then
+				msgY = hintY + hintH + S(1)
+			end
+
+			draw.SimpleText(msg, hintFont, rightX + 1, msgY + 1, color_bezel, TEXT_ALIGN_RIGHT)
+			draw.SimpleText(msg, hintFont, rightX, msgY, color_idle_dim, TEXT_ALIGN_RIGHT)
 		end
 	DisableClipping(false)
 

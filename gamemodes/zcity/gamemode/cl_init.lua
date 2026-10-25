@@ -288,24 +288,6 @@ local function GetSpectateEye(ent)
 	return ent:GetPos() + Vector(0, 0, 64), ent:GetAngles(), false
 end
 
-hook.Add("HUDPaint","FUCKINGSAMENAMEUSEDINHOOKFUCKME",function()
-    if LocalPlayer():Alive() then return end
-	local spect = LocalPlayer():GetNWEntity("spect")
-	if not IsValid(spect) then return end
-	if viewmode == 3 then return end
-	
-	surface.SetFont("HomigradFont")
-	surface.SetTextColor(255, 255, 255, 255)
-	local txt = "Spectating player: "..spect:Name()
-	local w, h = surface.GetTextSize(txt)
-	surface.SetTextPos(ScrW() / 2 - w / 2, ScrH() / 8 * 7)
-	surface.DrawText(txt)
-	local txt = "In-game name: "..spect:GetPlayerName()
-	local w, h = surface.GetTextSize(txt)
-	surface.SetTextPos(ScrW() / 2 - w / 2, ScrH() / 8 * 7 + h)
-	surface.DrawText(txt)
-end)
-
 hook.Add("HG_CalcView", "zzzzzzzUwU", function(ply, pos, angles, fov)
 	if not lply:Alive() then
 		local preserveRoll = false

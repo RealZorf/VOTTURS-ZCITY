@@ -134,6 +134,14 @@ if CLIENT then
 			antialias = fontAntiAliasing
 		})
 
+		surface.CreateFont("zChatFontHint", {
+			font = font,
+			size = ScreenScale(math.max(4, size - 2)),
+			extended = true,
+			weight = fontW,
+			antialias = fontAntiAliasing
+		})
+
 		surface.CreateFont("ZB_ProotOSChat", {
 			font = "Ari-W9500",
 			size = ScreenScale(size),
