@@ -769,9 +769,7 @@ players : 1 humans, 0 bots (20 max)
 			if not IsValid(ply) then return true end
 
 			local info = hg.playerInfo and hg.playerInfo[ply:SteamID()]
-			if istable(info) and info[1] == true then return true end
-
-			return ply.IsMuted and ply:IsMuted() or false
+			return istable(info) and info[1] == true
 		end
 
 		local function isVoicePlaybackEnabled(ply)

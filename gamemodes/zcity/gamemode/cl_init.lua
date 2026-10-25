@@ -698,18 +698,10 @@ end)
 hg.playerInfo = hg.playerInfo or {}
 
 local function addToPlayerInfo(ply, muted, volume)
-	hg.playerInfo[ply:SteamID()] = {muted and true or false, volume}
-
-	local json = util.TableToJSON(hg.playerInfo)
-	file.Write("zcity_muted.txt", json)
-
-	if file.Exists("zcity_muted.txt", "DATA") then
-		local json = file.Read("zcity_muted.txt", "DATA")
-
-		if json then
-			hg.playerInfo = util.JSONToTable(json)
-		end
-	end
+	if not IsValid(ply) then return end
+	hg.playerInfo = hg.playerInfo or {}
+	hg.playerInfo[ply:SteamID()] = {muted == true, math.Clamp(tonumber(volume) or 1, 0, 1)}
+	file.Write("zcity_muted.txt", util.TableToJSON(hg.playerInfo))
 end
 
 local function applySavedPlayerVoiceInfo(ply, steamID)
@@ -728,7 +720,7 @@ local function applySavedPlayerVoiceInfo(ply, steamID)
 
 	local muted = info[1] == true
 	local volume = math.Clamp(tonumber(info[2]) or 1, 0, 1)
-	ply:SetMuted(muted)
+	if ply.SetMuted then ply:SetMuted(false) end
 
 	if hg.RefreshPlayerVoiceVolume then
 		hg.RefreshPlayerVoiceVolume(ply)
@@ -790,6 +782,7 @@ hg.mutespect = false
 
 local function refreshPlayerVoiceVolume(ply)
 	if not IsValid(ply) then return end
+	if ply.SetMuted then ply:SetMuted(false) end
 
 	if hg.RefreshPlayerVoiceVolume then
 		hg.RefreshPlayerVoiceVolume(ply)
@@ -797,7 +790,7 @@ local function refreshPlayerVoiceVolume(ply)
 	end
 
 	local info = hg.playerInfo and hg.playerInfo[ply:SteamID()]
-	local muted = (istable(info) and info[1] == true) or (ply.IsMuted and ply:IsMuted())
+	local muted = istable(info) and info[1] == true
 	local volume = istable(info) and tonumber(info[2]) or 1
 	local enabled = not muted and not hg.muteall and (not hg.mutespect or ply:Alive())
 	ply:SetVoiceVolumeScale(enabled and math.Clamp(volume or 1, 0, 1) or 0)
@@ -828,10 +821,12 @@ hook.Add("OnScreenSizeChanged", "Scoreboard_CRTFonts", CreateScoreboardFonts)
 
 local CRT_R, CRT_G, CRT_B = 35, 225, 110
 local TRAITOR_R, TRAITOR_G, TRAITOR_B = 225, 35, 35
-local color_idle = Color(172, 180, 174)
-local color_idle_dim = Color(118, 126, 122)
-local color_bezel = Color(8, 9, 9)
-local color_text = Color(220, 220, 220)
+local FRAME_R, FRAME_G, FRAME_B = 86, 94, 90
+local color_idle = Color(168, 172, 170)
+local color_idle_dim = Color(112, 118, 116)
+local color_bezel = Color(12, 13, 13)
+local color_panel = Color(20, 22, 21)
+local color_text = Color(236, 238, 236)
 local color_dead = Color(140, 144, 142)
 local color_text_on = Color(12, 14, 12)
 local color_toggle_off = Color(255, 160, 160)
@@ -849,17 +844,10 @@ local SB_TEXT_PAD = 4
 local SB_GAP = 6
 local SB_BEZEL = 3
 local SB_OUTER = 8
+local SB_ALIGN = SB_OUTER + SB_BEZEL
 
-local function SB_HeaderH()
-	return math.max(18, math.floor(ScrH() * 0.022))
-end
-
-local function SB_RowH()
-	return math.max(18, math.floor(ScrH() * 0.025))
-end
-
-local function SB_PlayerRowH()
-	return math.max(44, math.floor(ScrH() * 0.052))
+local function SB_H(frac, minH)
+	return math.max(minH, math.floor(ScrH() * frac))
 end
 
 local function SB_FontH(font)
@@ -893,20 +881,18 @@ local function SB_StackW(label, sample)
 	return w
 end
 
-local function GetVolumeRGB(frac)
-	frac = math.Clamp(tonumber(frac) or 0, 0, 1)
-	if frac <= 0.5 then
-		local t = frac * 2
-		return 225, 35 + (200 - 35) * t, 35 + (70 - 35) * t
-	end
-	local t = (frac - 0.5) * 2
-	return 220 + (CRT_R - 220) * t, 200 + (CRT_G - 200) * t, 70 + (CRT_B - 70) * t
-end
-
-local matIconSound = Material("icon16/sound.png")
-local matIconMute = Material("icon16/sound_mute.png")
 local matIconTalk = Material("icon16/comment.png")
 local matIconDead = Material("icon16/cross.png")
+local MEDAL_COLORS = {
+	color_gold,
+	Color(186, 196, 206),
+	Color(196, 120, 55)
+}
+local MEDAL_ICONS = {
+	Material("icon16/medal_gold_1.png"),
+	Material("icon16/medal_silver_1.png"),
+	Material("icon16/medal_bronze_1.png")
+}
 
 local STAFF_GROUPS = {
     superadmin = true,
@@ -983,45 +969,48 @@ local function DrawCRTCorners(x, y, w, h, len, r, g, b, a)
 end
 
 local function DrawCRTFrame(x, y, w, h, ar, ag, ab, selected)
-	surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 204)
+	surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 230)
 	surface.DrawRect(x, y, w, h)
 	local ix, iy, iw, ih = x + SB_BEZEL, y + SB_BEZEL, w - SB_BEZEL * 2, h - SB_BEZEL * 2
-	surface.SetDrawColor(ar, ag, ab, selected and 178 or 102)
+	surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, selected and 200 or 150)
 	surface.DrawOutlinedRect(ix, iy, iw, ih, 1)
-	DrawCRTCorners(ix, iy, iw, ih, 10, ar, ag, ab, selected and 242 or 140)
+	DrawCRTCorners(ix, iy, iw, ih, 10, ar or CRT_R, ag or CRT_G, ab or CRT_B, selected and 230 or 150)
 end
 
-local function SB_Inset()
-	return SB_BEZEL + SB_PAD
-end
+local SB_INSET = SB_BEZEL + SB_PAD
 
 local function DrawSilkIcon(mat, x, y, size, r, g, b, a)
-	if not mat then return end
-	surface.SetMaterial(mat)
+	if isnumber(mat) then
+		surface.SetTexture(mat)
+	elseif type(mat) == "IMaterial" then
+		surface.SetMaterial(mat)
+	else
+		return
+	end
 	surface.SetDrawColor(r or 255, g or 255, b or 255, a or 255)
 	surface.DrawTexturedRect(x, y, size, size)
 end
 
 local function SB_DrawText(text, fontName, x, y, color, align)
-	surface.SetFont(fontName)
 	local tw = SB_TextW(fontName, text)
 	if align == TEXT_ALIGN_CENTER then
 		x = x - tw * 0.5
 	elseif align == TEXT_ALIGN_RIGHT then
 		x = x - tw
 	end
+	surface.SetFont(fontName)
 	surface.SetTextColor(color.r, color.g, color.b, color.a or 255)
 	surface.SetTextPos(x, y)
 	surface.DrawText(text)
 	return tw
 end
 
-local function SB_DrawInH(text, fontName, x, h, color, align)
-	return SB_DrawText(text, fontName, x, math.floor((h - SB_FontH(fontName)) * 0.5), color, align)
-end
-
 local function SB_DrawInRect(text, font, x, rectY, rectH, color, align)
 	return SB_DrawText(text, font, x, rectY + math.floor((rectH - SB_FontH(font)) * 0.5), color, align)
+end
+
+local function SB_DrawInH(text, fontName, x, h, color, align)
+	return SB_DrawInRect(text, fontName, x, 0, h, color, align)
 end
 
 local function IsStaffPly(ply)
@@ -1045,7 +1034,7 @@ local function ShouldHideScoreboardPly(ply)
 end
 
 local function SnapshotScoreboardKarma()
-	zb.SBKarma = zb.SBKarma or {}
+	zb.SBKarma = {}
 	for _, ply in player.Iterator() do
 		if IsValid(ply) then
 			zb.SBKarma[ply:SteamID()] = tonumber(ply.GetNetVar and ply:GetNetVar("Karma", 100)) or 100
@@ -1062,106 +1051,103 @@ local function GetScoreboardKarma(ply)
 	if not IsValid(ply) then return 100 end
 	zb.SBKarma = zb.SBKarma or {}
 	local sid = ply:SteamID()
-	if zb.SBKarma[sid] == nil then
-		zb.SBKarma[sid] = tonumber(ply.GetNetVar and ply:GetNetVar("Karma", 100)) or 100
+	local karma = zb.SBKarma[sid]
+	if karma == nil then
+		karma = tonumber(ply.GetNetVar and ply:GetNetVar("Karma", 100)) or 100
+		zb.SBKarma[sid] = karma
 	end
-	return zb.SBKarma[sid]
+	return karma
 end
 
 local function IsVoiceLocked(ply)
-	if hg.muteall then return true end
-	if hg.mutespect and IsValid(ply) and not ply:Alive() then return true end
-	return false
+	return hg.muteall or (hg.mutespect and IsValid(ply) and not ply:Alive())
+end
+
+local function IsPlayerMuted(ply)
+	if not IsValid(ply) then return false end
+	local info = hg.playerInfo and hg.playerInfo[ply:SteamID()]
+	return istable(info) and info[1] == true
 end
 
 local function GetPlayerVolume(ply)
 	if not IsValid(ply) then return 1 end
-	local info = hg.playerInfo[ply:SteamID()]
+	local info = hg.playerInfo and hg.playerInfo[ply:SteamID()]
 	if not istable(info) then
-		addToPlayerInfo(ply, ply.IsMuted and ply:IsMuted() or false, 1)
+		addToPlayerInfo(ply, false, 1)
 		info = hg.playerInfo[ply:SteamID()]
 	end
-	return math.Clamp(tonumber(info[2]) or 1, 0, 1)
+	return math.Clamp(tonumber(info and info[2]) or 1, 0, 1)
 end
 
 local function ApplyPlayerVolume(ply, vol)
 	if not IsValid(ply) then return end
-	vol = math.Clamp(tonumber(vol) or 1, 0, 1)
-	addToPlayerInfo(ply, ply.IsMuted and ply:IsMuted() or false, vol)
+	addToPlayerInfo(ply, IsPlayerMuted(ply), vol)
 	refreshPlayerVoiceVolume(ply)
 end
 
 local function TogglePlayerMute(ply)
 	if not IsValid(ply) or IsVoiceLocked(ply) then return end
-	ply:SetMuted(not ply:IsMuted())
-	addToPlayerInfo(ply, ply:IsMuted(), GetPlayerVolume(ply))
+	addToPlayerInfo(ply, not IsPlayerMuted(ply), GetPlayerVolume(ply))
 	refreshPlayerVoiceVolume(ply)
+end
+
+local function RefreshAllVoice(deadOnly)
+	for _, ply in player.Iterator() do
+		if not deadOnly or not ply:Alive() then
+			refreshPlayerVoiceVolume(ply)
+		end
+	end
 end
 
 local function IsTeamBasedMode()
 	local rnd = CurrentRound()
 	if not rnd then return false end
-	if TEAM_SCORE_INFO[rnd.name] then return true end
-	return rnd.base == "tdm" or rnd.base == "cstrike" or rnd.base == "hl2dm"
+	return TEAM_SCORE_INFO[rnd.name] ~= nil or rnd.base == "tdm" or rnd.base == "cstrike" or rnd.base == "hl2dm"
 end
 
 local function GetTeamDisplay(teamID)
 	local rnd = CurrentRound()
-	local modeName = rnd and rnd.name
-	local info = modeName and TEAM_SCORE_INFO[modeName] and TEAM_SCORE_INFO[modeName][teamID]
+	local info = rnd and TEAM_SCORE_INFO[rnd.name] and TEAM_SCORE_INFO[rnd.name][teamID]
 	if info then return info.name, info.color end
 	local name = team.GetName(teamID)
 	if not name or name == "" or name == "Players" or name == "Players2" or name == "Players3" then
 		name = "TEAM " .. tostring(teamID)
 	end
-	return string.upper(name), team.GetColor(teamID) or Color(CRT_R, CRT_G, CRT_B)
+	return string.upper(name), team.GetColor(teamID) or playAccentCol
 end
 
-local function TeamHasScoreboardPlayers(teamID)
-	for _, ply in player.Iterator() do
-		if ply:Team() ~= teamID then continue end
-		if ShouldHideScoreboardPly(ply) then continue end
-		return true
-	end
-	return false
-end
-
-local function GetActiveTeams()
+local function GetActiveTeams(byTeam)
 	local rnd = CurrentRound()
 	local preset = rnd and TEAM_SCORE_INFO[rnd.name]
 	local teams = {}
 	if preset then
 		for id in pairs(preset) do
-			if TeamHasScoreboardPlayers(id) then
+			if byTeam[id] then
 				teams[#teams + 1] = id
 			end
 		end
 	else
-		local seen = {}
-		for _, ply in player.Iterator() do
-			if ply:Team() == TEAM_SPECTATOR then continue end
-			if ShouldHideScoreboardPly(ply) then continue end
-			local id = ply:Team()
-			if not seen[id] then
-				seen[id] = true
-				teams[#teams + 1] = id
-			end
+		for id in pairs(byTeam) do
+			teams[#teams + 1] = id
 		end
 	end
 	table.sort(teams)
 	return teams
 end
 
-local function LocalPlayerIsSpectating()
-	local lp = LocalPlayer()
-	if not IsValid(lp) then return false end
-	return lp:Team() == TEAM_SPECTATOR or not lp:Alive()
+local function HideScoreboard()
+	if not IsValid(scoreBoardMenu) then return end
+	scoreBoardMenu:SetVisible(false)
+	scoreBoardMenu:SetMouseInputEnabled(false)
+	scoreBoardMenu:SetKeyboardInputEnabled(false)
 end
 
-local function IsScoreboardDeadPly(ply)
-	if not IsValid(ply) or ply:Alive() then return false end
-	if ply:Team() == TEAM_SPECTATOR then return false end
-	return true
+local function PopupScoreboard()
+	scoreBoardMenu:SetVisible(true)
+	scoreBoardMenu:SetAlpha(255)
+	scoreBoardMenu:MakePopup()
+	scoreBoardMenu:SetKeyboardInputEnabled(false)
+	scoreBoardMenu:SetMouseInputEnabled(true)
 end
 
 local function DrawLabeledStat(x, rectY, rectH, label, value, valueCol)
@@ -1174,10 +1160,9 @@ local function GetTDMRoundText()
 	if not IsTeamBasedMode() then return nil end
 	local maxR = GetGlobalInt("ZB_TDMMaxRounds", 0)
 	local cur = GetGlobalInt("ZB_TDMRound", -1)
-	if maxR <= 0 then return nil end
+	if maxR <= 0 or cur < 0 then return nil end
 	if cur == 0 then return "WARM-UP" end
-	if cur < 0 then return nil end
-	return "ROUND " .. cur .. " / " .. maxR
+	return cur .. " / " .. maxR
 end
 
 local function CreateCRTButton(parent, text, onClick, extra)
@@ -1188,6 +1173,7 @@ local function CreateCRTButton(parent, text, onClick, extra)
 	but.Active = false
 	but.Toggle = extra.toggle and true or false
 	but.Accent = extra.accent
+	but.Frame = extra.frame ~= false
 	but.IconMat = extra.icon and Material(extra.icon) or nil
 	but.DoClick = onClick
 	if extra.tooltip then
@@ -1196,18 +1182,18 @@ local function CreateCRTButton(parent, text, onClick, extra)
 	but.Paint = function(self, w, h)
 		local hovered = self:IsHovered()
 		local ac = self.Accent
-		local r, g, b = CRT_R, CRT_G, CRT_B
-		if self.Toggle then
-			if self.Active then
-				r, g, b = CRT_R, CRT_G, CRT_B
-			else
-				r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
-			end
+		local r, g, b = FRAME_R, FRAME_G, FRAME_B
+		if self.Toggle and not self.Active then
+			r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
+		elseif self.Toggle then
+			r, g, b = CRT_R, CRT_G, CRT_B
 		elseif ac then
 			r, g, b = ac.r, ac.g, ac.b
+		elseif hovered then
+			r, g, b = CRT_R, CRT_G, CRT_B
 		end
 
-		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 220)
+		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 230)
 		surface.DrawRect(0, 0, w, h)
 		if self.Toggle then
 			surface.SetDrawColor(r, g, b, self.Active and 180 or (hovered and 70 or 48))
@@ -1216,9 +1202,10 @@ local function CreateCRTButton(parent, text, onClick, extra)
 			surface.SetDrawColor(r, g, b, 28)
 			surface.DrawRect(1, 1, w - 2, h - 2)
 		end
-		surface.SetDrawColor(r, g, b, hovered and 210 or 120)
-		surface.DrawOutlinedRect(0, 0, w, h, 1)
-		DrawCRTCorners(0, 0, w, h, 6, r, g, b, hovered and 230 or 140)
+		if self.Frame then
+			surface.SetDrawColor(r, g, b, hovered and 210 or (ac and 150 or 130))
+			surface.DrawOutlinedRect(0, 0, w, h, 1)
+		end
 
 		local textCol = color_idle
 		if self.Toggle and self.Active then
@@ -1245,12 +1232,20 @@ local function CreateCRTButton(parent, text, onClick, extra)
 end
 
 local function GetVolumeSliderRGB(slider, ply)
-	local locked = IsValid(ply) and (IsVoiceLocked(ply) or ply:IsMuted())
+	local locked = IsValid(ply) and (IsVoiceLocked(ply) or IsPlayerMuted(ply))
 	local frac = slider:GetSlideX()
 	if locked then
 		return TRAITOR_R, TRAITOR_G, TRAITOR_B, frac, true
 	end
-	local r, g, b = GetVolumeRGB(frac)
+	frac = math.Clamp(tonumber(frac) or 0, 0, 1)
+	local r, g, b
+	if frac <= 0.5 then
+		local t = frac * 2
+		r, g, b = 225, 35 + 165 * t, 35 + 35 * t
+	else
+		local t = (frac - 0.5) * 2
+		r, g, b = 220 + (CRT_R - 220) * t, 200 + (CRT_G - 200) * t, 70 + (CRT_B - 70) * t
+	end
 	return r, g, b, frac, false
 end
 
@@ -1302,28 +1297,25 @@ end
 
 local function OpenPlayerSoundSettings(ply)
 	local Menu = DermaMenu()
-
-	if not istable(hg.playerInfo[ply:SteamID()]) then addToPlayerInfo(ply, false, 1) end
+	if not istable(hg.playerInfo[ply:SteamID()]) then
+		addToPlayerInfo(ply, false, 1)
+	end
 
 	local mute = Menu:AddOption("Mute", function(self)
-		if not IsValid(ply) then return end
-		if hg.muteall or hg.mutespect then return end
 		TogglePlayerMute(ply)
-		self:SetChecked(ply:IsMuted())
+		if IsValid(ply) then self:SetChecked(IsPlayerMuted(ply)) end
 	end)
-
 	mute:SetIsCheckable(true)
-	mute:SetChecked(ply:IsMuted())
+	mute:SetChecked(IsPlayerMuted(ply))
+
 	local volumeSlider = vgui.Create("DSlider", Menu)
 	volumeSlider:SetLockY(0.5)
 	volumeSlider:SetTrapInside(true)
 	volumeSlider:SetSlideX(GetPlayerVolume(ply))
-	volumeSlider.OnValueChanged = function(self, x, y)
-		if not IsValid(ply) then return end
-		if hg.muteall or (hg.mutespect and not ply:Alive()) then return end
+	volumeSlider.OnValueChanged = function(self, x)
+		if IsVoiceLocked(ply) then return end
 		ApplyPlayerVolume(ply, x)
 	end
-
 	PaintVolumeSlider(volumeSlider, ply)
 	Menu:AddPanel(volumeSlider)
 	Menu:Open()
@@ -1334,151 +1326,123 @@ local function RunULXCommand(cmd)
 	LocalPlayer():ConCommand(cmd)
 end
 
-local function HasZCityStoreULX()
-	return istable(ZCITY_ULX_STORE)
-		and ZCITY_ULX_STORE.Loaded
-		and istable(ZCITY_ULX_STORE.Commands)
-		and ZCITY_ULX_STORE.Commands.settokens
-		and ZCITY_ULX_STORE.Commands.addtokens
-		and ZCITY_ULX_STORE.Commands.removetokens
-end
-
 local function RequestULXAmount(title, prompt, defaultValue, onConfirm)
 	Derma_StringRequest(title, prompt, tostring(defaultValue or ""), function(value)
 		value = tonumber(value)
 		if not value then return end
 		onConfirm(math.max(0, math.floor(value)))
-	end, function() end)
+	end)
+end
+
+local function AddMenuOption(menu, title, icon, fn)
+	local opt = menu:AddOption(title, fn)
+	if icon then opt:SetIcon(icon) end
+	return opt
+end
+
+local function AddULXSubMenu(menu, title, icon)
+	local sub, opt = menu:AddSubMenu(title)
+	if IsValid(opt) and icon then opt:SetIcon(icon) end
+	return sub
+end
+
+local function AddULXCmd(menu, title, icon, cmd)
+	AddMenuOption(menu, title, icon, function() RunULXCommand(cmd) end)
 end
 
 local function AddStaffULXMenu(menu, ply)
 	if not IsStaffPly(LocalPlayer()) or not IsValid(ply) then return end
 
 	local nick = string.gsub(ply:Nick() or "unknown", "\"", "")
-	local staffMenu, staffOpt = menu:AddSubMenu("Staff / ULX")
-	if IsValid(staffOpt) then
-		staffOpt:SetIcon("icon16/shield.png")
-	end
+	local quoted = '"' .. nick .. '"'
+	local staffMenu = AddULXSubMenu(menu, "Staff tools", "icon16/shield.png")
 
-	local tpMenu, tpOpt = staffMenu:AddSubMenu("Teleport")
-	if IsValid(tpOpt) then
-		tpOpt:SetIcon("icon16/arrow_right.png")
-	end
-	tpMenu:AddOption("Bring", function() RunULXCommand('ulx bring "' .. nick .. '"') end):SetIcon("icon16/arrow_left.png")
-	tpMenu:AddOption("Goto", function() RunULXCommand('ulx goto "' .. nick .. '"') end):SetIcon("icon16/arrow_up.png")
-	tpMenu:AddOption("Return", function() RunULXCommand('ulx return "' .. nick .. '"') end):SetIcon("icon16/arrow_undo.png")
+	local tpMenu = AddULXSubMenu(staffMenu, "Teleport", "icon16/arrow_right.png")
+	AddULXCmd(tpMenu, "Bring here", "icon16/arrow_left.png", "ulx bring " .. quoted)
+	AddULXCmd(tpMenu, "Go to player", "icon16/arrow_up.png", "ulx goto " .. quoted)
+	AddULXCmd(tpMenu, "Return player", "icon16/arrow_undo.png", "ulx return " .. quoted)
 
-	local modMenu, modOpt = staffMenu:AddSubMenu("Moderation")
-	if IsValid(modOpt) then
-		modOpt:SetIcon("icon16/wrench.png")
-	end
-	modMenu:AddOption("Freeze", function() RunULXCommand('ulx freeze "' .. nick .. '"') end):SetIcon("icon16/weather_snow.png")
-	modMenu:AddOption("Unfreeze", function() RunULXCommand('ulx unfreeze "' .. nick .. '"') end):SetIcon("icon16/weather_sun.png")
-	modMenu:AddOption("Jail", function() RunULXCommand('ulx jail "' .. nick .. '"') end):SetIcon("icon16/lock.png")
-	modMenu:AddOption("Unjail", function() RunULXCommand('ulx unjail "' .. nick .. '"') end):SetIcon("icon16/lock_open.png")
-	modMenu:AddOption("Spectate", function() RunULXCommand('ulx spectate "' .. nick .. '"') end):SetIcon("icon16/eye.png")
-	modMenu:AddOption("Slay", function()
-		Derma_Query(
-			"Slay " .. nick .. "?",
-			"Confirm Slay",
-			"Yes", function() RunULXCommand('ulx slay "' .. nick .. '"') end,
-			"No"
-		)
-	end):SetIcon("icon16/bomb.png")
-	modMenu:AddOption("Kick", function()
-		Derma_StringRequest(
-			"Kick Player",
-			"Enter kick reason for " .. nick,
-			"",
-			function(reason)
-				reason = reason ~= "" and reason or "No reason"
-				RunULXCommand('ulx kick "' .. nick .. '" "' .. string.gsub(reason, '"', "'") .. '"')
-			end
-		)
-	end):SetIcon("icon16/door_out.png")
-	modMenu:AddOption("Ban (60m)", function()
-		Derma_StringRequest(
-			"Ban Player",
-			"Enter ban reason for " .. nick,
-			"",
-			function(reason)
-				reason = reason ~= "" and reason or "No reason"
-				RunULXCommand('ulx ban "' .. nick .. '" 60 "' .. string.gsub(reason, '"', "'") .. '"')
-			end
-		)
-	end):SetIcon("icon16/delete.png")
-
-	local zcityMenu, zcityOpt = staffMenu:AddSubMenu("Z-City")
-	if IsValid(zcityOpt) then
-		zcityOpt:SetIcon("icon16/heart.png")
-	end
-	zcityMenu:AddOption("Set Karma", function()
-		RequestULXAmount("Set Karma", "Enter karma value for " .. nick, GetScoreboardKarma(ply), function(value)
-			RunULXCommand('ulx setkarma "' .. nick .. '" ' .. value)
+	local modMenu = AddULXSubMenu(staffMenu, "Moderation", "icon16/wrench.png")
+	AddULXCmd(modMenu, "Freeze", "icon16/weather_snow.png", "ulx freeze " .. quoted)
+	AddULXCmd(modMenu, "Unfreeze", "icon16/weather_sun.png", "ulx unfreeze " .. quoted)
+	AddULXCmd(modMenu, "Jail", "icon16/lock.png", "ulx jail " .. quoted)
+	AddULXCmd(modMenu, "Unjail", "icon16/lock_open.png", "ulx unjail " .. quoted)
+	AddULXCmd(modMenu, "Spectate", "icon16/eye.png", "ulx spectate " .. quoted)
+	AddMenuOption(modMenu, "Slay", "icon16/bomb.png", function()
+		Derma_Query("Kill " .. nick .. " now?", "Slay player", "Yes", function()
+			RunULXCommand("ulx slay " .. quoted)
+		end, "No")
+	end)
+	AddMenuOption(modMenu, "Kick", "icon16/door_out.png", function()
+		Derma_StringRequest("Kick " .. nick, "Why are you kicking them?", "", function(reason)
+			RunULXCommand("ulx kick " .. quoted .. ' "' .. string.gsub(reason ~= "" and reason or "No reason", '"', "'") .. '"')
 		end)
-	end):SetIcon("icon16/heart.png")
-	zcityMenu:AddOption("Add Karma", function()
-		RequestULXAmount("Add Karma", "Enter amount to add for " .. nick, 10, function(value)
-			RunULXCommand('ulx addkarma "' .. nick .. '" ' .. value)
+	end)
+	AddMenuOption(modMenu, "Ban for 1 hour", "icon16/delete.png", function()
+		Derma_StringRequest("Ban " .. nick, "Why are you banning them for 60 minutes?", "", function(reason)
+			RunULXCommand("ulx ban " .. quoted .. ' 60 "' .. string.gsub(reason ~= "" and reason or "No reason", '"', "'") .. '"')
 		end)
-	end):SetIcon("icon16/add.png")
-	zcityMenu:AddOption("Remove Karma", function()
-		RequestULXAmount("Remove Karma", "Enter amount to remove from " .. nick, 10, function(value)
-			RunULXCommand('ulx removekarma "' .. nick .. '" ' .. value)
-		end)
-	end):SetIcon("icon16/delete.png")
-	zcityMenu:AddOption("Set Spectator", function()
-		Derma_Query(
-			"Move " .. nick .. " to spectators?",
-			"Set Spectator",
-			"Yes", function() RunULXCommand('ulx setspectator "' .. nick .. '"') end,
-			"No"
-		)
-	end):SetIcon("icon16/user_go.png")
+	end)
 
-	if HasZCityStoreULX() then
-		local setTokensCommand = tostring(ZCITY_ULX_STORE.Commands.settokens or "zbstoretokens")
-		local addTokensCommand = tostring(ZCITY_ULX_STORE.Commands.addtokens or "zbstoreaddtokens")
-		local removeTokensCommand = tostring(ZCITY_ULX_STORE.Commands.removetokens or "zbstoreremovetokens")
-		zcityMenu:AddOption("Set Tokens", function()
-			RequestULXAmount("Set Tokens", "Enter token total for " .. nick, ply:GetNWInt("ZCStore_Tokens", 0), function(value)
-				RunULXCommand('ulx ' .. setTokensCommand .. ' "' .. nick .. '" ' .. value)
+	local zcityMenu = AddULXSubMenu(staffMenu, "Z-City", "icon16/heart.png")
+	AddMenuOption(zcityMenu, "Set karma", "icon16/heart.png", function()
+		RequestULXAmount("Set karma", "What should " .. nick .. "'s karma be?", GetScoreboardKarma(ply), function(value)
+			RunULXCommand("ulx setkarma " .. quoted .. " " .. value)
+		end)
+	end)
+	AddMenuOption(zcityMenu, "Add karma", "icon16/add.png", function()
+		RequestULXAmount("Add karma", "How much karma should " .. nick .. " gain?", 10, function(value)
+			RunULXCommand("ulx addkarma " .. quoted .. " " .. value)
+		end)
+	end)
+	AddMenuOption(zcityMenu, "Remove karma", "icon16/delete.png", function()
+		RequestULXAmount("Remove karma", "How much karma should " .. nick .. " lose?", 10, function(value)
+			RunULXCommand("ulx removekarma " .. quoted .. " " .. value)
+		end)
+	end)
+	AddMenuOption(zcityMenu, "Move to spectators", "icon16/user_go.png", function()
+		Derma_Query("Move " .. nick .. " to spectators?", "Set spectator", "Yes", function()
+			RunULXCommand("ulx setspectator " .. quoted)
+		end, "No")
+	end)
+
+	local store = ZCITY_ULX_STORE
+	if istable(store) and store.Loaded and istable(store.Commands) and store.Commands.settokens and store.Commands.addtokens and store.Commands.removetokens then
+		AddMenuOption(zcityMenu, "Set tokens", "icon16/coins.png", function()
+			RequestULXAmount("Set tokens", "How many tokens should " .. nick .. " have?", ply:GetNWInt("ZCStore_Tokens", 0), function(value)
+				RunULXCommand("ulx " .. tostring(store.Commands.settokens) .. " " .. quoted .. " " .. value)
 			end)
-		end):SetIcon("icon16/coins.png")
-		zcityMenu:AddOption("Add Tokens", function()
-			RequestULXAmount("Add Tokens", "Enter token amount to add for " .. nick, 10, function(value)
-				RunULXCommand('ulx ' .. addTokensCommand .. ' "' .. nick .. '" ' .. value)
+		end)
+		AddMenuOption(zcityMenu, "Add tokens", "icon16/add.png", function()
+			RequestULXAmount("Add tokens", "How many tokens should " .. nick .. " gain?", 10, function(value)
+				RunULXCommand("ulx " .. tostring(store.Commands.addtokens) .. " " .. quoted .. " " .. value)
 			end)
-		end):SetIcon("icon16/add.png")
-		zcityMenu:AddOption("Remove Tokens", function()
-			RequestULXAmount("Remove Tokens", "Enter token amount to remove from " .. nick, 10, function(value)
-				RunULXCommand('ulx ' .. removeTokensCommand .. ' "' .. nick .. '" ' .. value)
+		end)
+		AddMenuOption(zcityMenu, "Remove tokens", "icon16/delete.png", function()
+			RequestULXAmount("Remove tokens", "How many tokens should " .. nick .. " lose?", 10, function(value)
+				RunULXCommand("ulx " .. tostring(store.Commands.removetokens) .. " " .. quoted .. " " .. value)
 			end)
-		end):SetIcon("icon16/delete.png")
+		end)
 	end
 end
 
 local function AddPlayerContextMenu(ply)
 	local Menu = DermaMenu()
-	local account = Menu:AddOption("Account", function()
+	AddMenuOption(Menu, "View account", "icon16/user.png", function()
 		if zb.Experience and zb.Experience.AccountMenu then
 			zb.Experience.AccountMenu(ply)
 		end
 	end)
-	account:SetIcon("icon16/user.png")
-	local sid = Menu:AddOption("Copy SteamID", function()
+	AddMenuOption(Menu, "Copy SteamID", "icon16/page_copy.png", function()
 		SetClipboardText(ply:SteamID())
 	end)
-	sid:SetIcon("icon16/page_copy.png")
 	if not ply:IsBot() then
-		local sid64 = Menu:AddOption("Copy SteamID64", function()
+		AddMenuOption(Menu, "Copy SteamID64", "icon16/page_white_copy.png", function()
 			SetClipboardText(ply:SteamID64())
 		end)
-		sid64:SetIcon("icon16/page_white_copy.png")
-		local profile = Menu:AddOption("Open Steam Profile", function()
+		AddMenuOption(Menu, "Open Steam profile", "icon16/world.png", function()
 			gui.OpenURL("https://steamcommunity.com/profiles/" .. ply:SteamID64())
 		end)
-		profile:SetIcon("icon16/world.png")
 	end
 	AddStaffULXMenu(Menu, ply)
 	Menu:Open()
@@ -1496,7 +1460,7 @@ local function CreateMuteControls(parent, ply)
 	mute:Dock(BOTTOM)
 	mute:SetTall(muteH)
 	mute:SetText("")
-	mute:SetTooltip("Mute this player")
+	mute:SetTooltip("Mute or unmute this player")
 	mute.DoClick = function()
 		TogglePlayerMute(ply)
 	end
@@ -1506,16 +1470,21 @@ local function CreateMuteControls(parent, ply)
 	mute.Paint = function(self, w, h)
 		if not IsValid(ply) then return end
 		local hovered = self:IsHovered()
-		local muted = ply:IsMuted() or IsVoiceLocked(ply)
+		local muted = IsPlayerMuted(ply) or IsVoiceLocked(ply)
 		local r, g, b = CRT_R, CRT_G, CRT_B
 		if muted then
 			r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B
 		end
-		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 220)
+		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 230)
 		surface.DrawRect(0, 0, w, h)
-		surface.SetDrawColor(r, g, b, muted and 160 or (hovered and 55 or 32))
-		surface.DrawRect(1, 1, w - 2, h - 2)
-		surface.SetDrawColor(r, g, b, hovered and 210 or 120)
+		if muted then
+			surface.SetDrawColor(r, g, b, 160)
+			surface.DrawRect(1, 1, w - 2, h - 2)
+		elseif hovered then
+			surface.SetDrawColor(r, g, b, 40)
+			surface.DrawRect(1, 1, w - 2, h - 2)
+		end
+		surface.SetDrawColor(muted and r or (hovered and CRT_R or FRAME_R), muted and g or (hovered and CRT_G or FRAME_G), muted and b or (hovered and CRT_B or FRAME_B), hovered and 210 or 130)
 		surface.DrawOutlinedRect(0, 0, w, h, 1)
 		local label = "MUTE"
 		if IsVoiceLocked(ply) then
@@ -1533,27 +1502,67 @@ local function CreateMuteControls(parent, ply)
 	slider:SetLockY(0.5)
 	slider:SetTrapInside(true)
 	slider:SetSlideX(GetPlayerVolume(ply))
-	slider:SetTooltip("Drag the dot to set this player's volume")
+	slider:SetTooltip("Drag to change this player's volume")
 	PaintVolumeSlider(slider, ply)
 	slider.OnValueChanged = function(self, x)
 		ApplyPlayerVolume(ply, x)
 	end
-
-	ply.soundButton = mute
 	return wrap
 end
 
-local function CreatePlayerRow(parent, ply, accent, hideKarma)
-	accent = accent or Color(CRT_R, CRT_G, CRT_B)
-	local rowH = SB_PlayerRowH()
+local function IsGunGameScoreboard()
+	local rnd = CurrentRound()
+	return rnd and rnd.name == "gungame"
+end
+
+local function GunGameGreater(a, b)
+	local as = IsValid(a) and a:GetNWInt("GGStage", 0) or 0
+	local bs = IsValid(b) and b:GetNWInt("GGStage", 0) or 0
+	if as ~= bs then return as > bs end
+	local ak = IsValid(a) and a:GetNWInt("GGKills", 0) or 0
+	local bk = IsValid(b) and b:GetNWInt("GGKills", 0) or 0
+	if ak ~= bk then return ak > bk end
+end
+
+local function CreateStatColumn(parent, label, sample, getValue, tooltip)
+	local pnl = vgui.Create("DPanel", parent)
+	pnl:SetPaintBackground(false)
+	pnl:Dock(RIGHT)
+	pnl:DockMargin(0, SB_TEXT_PAD, SB_TEXT_PAD, SB_TEXT_PAD)
+	pnl:SetWide(SB_StackW(label, sample))
+	pnl:SetMouseInputEnabled(false)
+	if tooltip then
+		pnl:SetTooltip(tooltip)
+	end
 	local lineH = SB_FontH("SB_CRT_Item")
+	pnl.Paint = function(self, w, h)
+		local y = math.floor((h - (lineH * 2 + 1)) * 0.5)
+		local cx = math.floor(w * 0.5)
+		SB_DrawText(label, "SB_CRT_Item", cx, y, color_idle_dim, TEXT_ALIGN_CENTER)
+		local value, col = getValue()
+		if value ~= self._value then
+			self._value = value
+			self._text = isstring(value) and value or tostring(value)
+		end
+		SB_DrawText(self._text or "-", "SB_CRT_Item", cx, y + lineH + 1, col or color_text, TEXT_ALIGN_CENTER)
+	end
+	return pnl
+end
+
+local function CreatePlayerRow(parent, ply, accent, hideKarma, gunGame, rank)
+	accent = accent or playAccentCol
+	local rowH = SB_H(0.052, 44)
+	local lineH = SB_FontH("SB_CRT_Item")
+	local medalRank = gunGame and rank or 0
 
 	local but = vgui.Create("DPanel", parent)
 	but:SetTall(rowH)
-	but:Dock(TOP)
-	but:DockMargin(0, 0, 0, 2)
 	but:SetPaintBackground(false)
 	but:SetMouseInputEnabled(true)
+	if parent.AddItem then
+		but:Dock(TOP)
+		but:DockMargin(0, 0, 0, 2)
+	end
 
 	local avatar = vgui.Create("AvatarImage", but)
 	avatar:Dock(LEFT)
@@ -1564,14 +1573,8 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 
 	CreateMuteControls(but, ply)
 
-	local pingPnl = vgui.Create("DPanel", but)
-	pingPnl:SetPaintBackground(false)
-	pingPnl:Dock(RIGHT)
-	pingPnl:SetWide(SB_StackW("MS", "000"))
-	pingPnl:SetMouseInputEnabled(false)
-	pingPnl:SetTooltip("Ping")
-	pingPnl.Paint = function(self, w, h)
-		if not IsValid(ply) then return end
+	CreateStatColumn(but, "MS", "000", function()
+		if not IsValid(ply) then return "-", color_dead end
 		local ping = ply:Ping() or 0
 		local pingCol = color_text
 		if ping >= 150 then
@@ -1579,28 +1582,33 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 		elseif ping >= 80 then
 			pingCol = color_ping_mid
 		end
-		local total = lineH * 2 + 1
-		local y = math.floor((h - total) * 0.5)
-		local cx = math.floor(w * 0.5)
-		SB_DrawText("MS", "SB_CRT_Item", cx, y, color_idle_dim, TEXT_ALIGN_CENTER)
-		SB_DrawText(tostring(ping), "SB_CRT_Item", cx, y + lineH + 1, pingCol, TEXT_ALIGN_CENTER)
-	end
+		return ping, pingCol
+	end, "Ping")
 
-	if not hideKarma then
-		local karmaPnl = vgui.Create("DPanel", but)
-		karmaPnl:SetPaintBackground(false)
-		karmaPnl:Dock(RIGHT)
-		karmaPnl:SetWide(SB_StackW("KARMA", "000"))
-		karmaPnl:SetMouseInputEnabled(false)
-		karmaPnl:SetTooltip("Karma from the start of this round")
-		karmaPnl.Paint = function(self, w, h)
-			if not IsValid(ply) then return end
-			local total = lineH * 2 + 1
-			local y = math.floor((h - total) * 0.5)
-			local cx = math.floor(w * 0.5)
-			SB_DrawText("KARMA", "SB_CRT_Item", cx, y, color_idle_dim, TEXT_ALIGN_CENTER)
-			SB_DrawText(tostring(math.Round(GetScoreboardKarma(ply) or 100)), "SB_CRT_Item", cx, y + lineH + 1, color_text, TEXT_ALIGN_CENTER)
-		end
+	if gunGame then
+		local lastStage, lastTotal, stageText
+		CreateStatColumn(but, "KILLS", "00", function()
+			if not IsValid(ply) then return "0" end
+			return ply:GetNWInt("GGKills", 0)
+		end, "Kills this Gun Game round")
+		CreateStatColumn(but, "STAGE", "00/00", function()
+			if not IsValid(ply) then return "0" end
+			local stage = ply:GetNWInt("GGStage", 0)
+			local total = math.max(1, GetGlobalInt("ZB_GGStages", 1))
+			if stage ~= lastStage or total ~= lastTotal then
+				lastStage, lastTotal = stage, total
+				stageText = stage .. "/" .. total
+			end
+			return stageText
+		end, "Current Gun Game stage")
+		CreateStatColumn(but, "RANK", "00", function()
+			return rank or "-"
+		end, "Place on the Gun Game board")
+	elseif not hideKarma then
+		CreateStatColumn(but, "KARMA", "000", function()
+			if not IsValid(ply) then return "-" end
+			return math.Round(GetScoreboardKarma(ply) or 100)
+		end, "Karma at the start of this round")
 	end
 
 	local nameBtn = vgui.Create("DButton", but)
@@ -1609,7 +1617,7 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 	nameBtn.Paint = function() end
 	nameBtn.DoClick = function()
 		if not IsValid(ply) then return end
-		if ply:IsBot() then chat.AddText(Color(255, 0, 0), "no, you can't") return end
+		if ply:IsBot() then chat.AddText(Color(255, 0, 0), "Bots don't have Steam profiles.") return end
 		gui.OpenURL("https://steamcommunity.com/profiles/" .. ply:SteamID64())
 	end
 	nameBtn.DoRightClick = function()
@@ -1619,90 +1627,87 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma)
 	but.Paint = function(self, w, h)
 		if not IsValid(ply) then return end
 		local hovered = self:IsHovered() or self:IsChildHovered()
-		local localPly = ply == LocalPlayer()
+		local lp = LocalPlayer()
+		local localPly = ply == lp
 		local talking = (ply.IsSpeaking and ply:IsSpeaking()) or ply.IsSpeak
-		local talkVol = 0
-		if talking then
-			talkVol = math.Clamp(math.max(((ply.VoiceVolume and ply:VoiceVolume()) or 0.28) * 5, 0.28), 0, 1)
-		end
+		local talkVol = talking and math.Clamp(math.max(((ply.VoiceVolume and ply:VoiceVolume()) or 0.28) * 5, 0.28), 0, 1) or 0
+		local medalCol = MEDAL_COLORS[medalRank]
 		local ar, ag, ab = accent.r, accent.g, accent.b
-		if localPly or talking then
-			surface.SetDrawColor(ar, ag, ab, localPly and 31 or (20 + talkVol * 40))
+		if medalCol then
+			ar, ag, ab = medalCol.r, medalCol.g, medalCol.b
+		end
+		if medalCol or localPly or talking then
+			surface.SetDrawColor(ar, ag, ab, medalCol and 38 or (localPly and 31 or (20 + talkVol * 40)))
 			surface.DrawRect(0, 0, w, h)
-			if localPly then
+			if medalCol or localPly then
 				surface.SetDrawColor(ar, ag, ab, 216)
 				surface.DrawOutlinedRect(0, 0, w, h, 1)
 			end
 		elseif hovered then
-			surface.SetDrawColor(ar, ag, ab, 18)
+			surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 36)
 			surface.DrawRect(0, 0, w, h)
+			surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 24)
+			surface.DrawRect(0, 0, 2, h)
 		end
 
 		local name = ply:Name() or "Disconnected"
-		local group = "USER"
-		if ply.GetUserGroup then
-			group = ply:GetUserGroup() or "user"
-			if IsStaffPly(ply) and not ply:GetNWBool("ZB_SB_ShowRole", false) then
+		local group = ply.GetUserGroup and (ply:GetUserGroup() or "user") or "user"
+		local showRole = ply:GetNWBool("ZB_SB_ShowRole", false)
+		local hideSelf = localPly and ply:GetNWBool("ZB_SB_HideSelf", false)
+		local staff = IsStaffPly(ply)
+		if self._name ~= name or self._group ~= group or self._showRole ~= showRole or self._hideSelf ~= hideSelf or self._staff ~= staff then
+			self._name, self._group, self._showRole, self._hideSelf, self._staff = name, group, showRole, hideSelf, staff
+			if staff and not showRole then
 				group = "USER"
 			else
 				group = string.upper(string.Replace(tostring(group), "_", " "))
 			end
+			self._sub = hideSelf and ("[HIDDEN] [" .. group .. "]") or ("[" .. group .. "]")
 		end
-		local tags = {}
-		if localPly and ply:GetNWBool("ZB_SB_HideSelf", false) then
-			tags[#tags + 1] = "[HIDDEN]"
-		end
-		if group then
-			tags[#tags + 1] = "[" .. group .. "]"
-		end
-		local sub = table.concat(tags, " ")
-		local hasSub = sub ~= ""
-		local total = hasSub and (lineH * 2 + 1) or lineH
-		local y = math.floor((h - total) * 0.5)
+		local y = math.floor((h - (lineH * 2 + 1)) * 0.5)
+		local plyDead = not ply:Alive() and ply:Team() ~= TEAM_SPECTATOR
+		local showDead = plyDead and IsValid(lp) and (lp:Team() == TEAM_SPECTATOR or not lp:Alive())
 		local nameCol = color_idle
-		if talking then
-			nameCol = color_text
-		elseif not ply:Alive() and ply:Team() ~= TEAM_SPECTATOR then
-			nameCol = color_dead
-		elseif hovered or localPly then
-			nameCol = color_text
-		end
-		local showDead = LocalPlayerIsSpectating() and IsScoreboardDeadPly(ply)
 		if showDead then
+			nameCol = color_dead
+		elseif medalCol then
+			nameCol = medalCol
+		elseif talking or hovered or localPly then
+			nameCol = color_text
+		elseif plyDead then
 			nameCol = color_dead
 		end
 		local textX = rowH + SB_TEXT_PAD
 		local nameX = textX
+		local iconSize = 16
+		local iconY = y + math.floor((lineH - iconSize) * 0.5)
 		if showDead then
-			local iconSize = 16
-			local iconY = y + math.floor((lineH - iconSize) * 0.5)
 			DrawSilkIcon(matIconDead, textX, iconY, iconSize, 180, 180, 180, 230)
 			nameX = textX + iconSize + 4
 		end
 		local nameW = SB_DrawText(name, "SB_CRT_Item", nameX, y, nameCol, TEXT_ALIGN_LEFT)
+		local iconX = nameX + nameW + 5
+		local medalIcon = MEDAL_ICONS[medalRank]
+		if medalIcon then
+			DrawSilkIcon(medalIcon, iconX, iconY, iconSize, 255, 255, 255, 255)
+			iconX = iconX + iconSize + 4
+		end
 
 		if talking then
-			local iconSize = 16
-			local iconX = nameX + nameW + 5
-			local iconY = y + math.floor((lineH - iconSize) * 0.5)
-
 			DrawSilkIcon(matIconTalk, iconX, iconY, iconSize, 255, 255, 255, 180 + talkVol * 75)
-
 			surface.SetDrawColor(ar, ag, ab, 80 + talkVol * 160)
 			surface.DrawRect(0, h - 2, w * talkVol, 2)
 		end
 
-		if hasSub then
-			SB_DrawText(sub, "SB_CRT_Item", textX, y + lineH + 1, color_idle_dim, TEXT_ALIGN_LEFT)
-		end
+		SB_DrawText(self._sub, "SB_CRT_Item", textX, y + lineH + 1, color_idle_dim, TEXT_ALIGN_LEFT)
 	end
 
-	parent:AddItem(but)
+	if parent.AddItem then parent:AddItem(but) end
 	return but
 end
 
 local function CreateListPanel(parent, title, accent)
-	accent = accent or Color(CRT_R, CRT_G, CRT_B)
+	accent = accent or playAccentCol
 	local wrap = vgui.Create("DPanel", parent)
 	wrap:SetPaintBackground(false)
 	wrap.Title = title
@@ -1710,22 +1715,24 @@ local function CreateListPanel(parent, title, accent)
 	wrap.Accent = accent
 	wrap.Paint = function(self, w, h)
 		DrawCRTFrame(0, 0, w, h, self.Accent.r, self.Accent.g, self.Accent.b, false)
-		local inset = SB_Inset()
-		surface.SetDrawColor(0, 0, 0, 115)
+		local inset = SB_INSET
+		surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 185)
 		surface.DrawRect(inset, inset, w - inset * 2, h - inset * 2)
 	end
 
 	local header = vgui.Create("DPanel", wrap)
 	header:Dock(TOP)
-	header:SetTall(SB_HeaderH())
-	local inset = SB_Inset()
+	header:SetTall(SB_H(0.022, 18))
+	local inset = SB_INSET
 	header:DockMargin(inset, inset, inset, 0)
 	header:SetPaintBackground(false)
 	header.Paint = function(self, w, h)
-		surface.SetDrawColor(wrap.Accent.r, wrap.Accent.g, wrap.Accent.b, 41)
+		surface.SetDrawColor(32, 34, 33, 220)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(wrap.Accent.r, wrap.Accent.g, wrap.Accent.b, 36)
 		surface.DrawRect(0, 0, w, h)
 		SB_DrawInH(wrap.Title, "SB_CRT_Header", SB_TEXT_PAD, h, color_text, TEXT_ALIGN_LEFT)
-		SB_DrawInH(tostring(wrap.Count), "SB_CRT_Header", w - SB_TEXT_PAD, h, color_idle, TEXT_ALIGN_RIGHT)
+		SB_DrawInH(tostring(wrap.Count), "SB_CRT_Header", w - SB_TEXT_PAD, h, color_text, TEXT_ALIGN_RIGHT)
 	end
 
 	local scroll = vgui.Create("DScrollPanel", wrap)
@@ -1742,7 +1749,8 @@ local function CreateListPanel(parent, title, accent)
 	vbar.btnUp.Paint = function() end
 	vbar.btnDown.Paint = function() end
 	vbar.btnGrip.Paint = function(self, w, h)
-		surface.SetDrawColor(accent.r, accent.g, accent.b, 140)
+		local hovered = self:IsHovered()
+		surface.SetDrawColor(hovered and CRT_R or FRAME_R, hovered and CRT_G or FRAME_G, hovered and CRT_B or FRAME_B, hovered and 200 or 130)
 		surface.DrawRect(0, 0, w, h)
 	end
 
@@ -1750,15 +1758,13 @@ local function CreateListPanel(parent, title, accent)
 	return wrap
 end
 
-hook.Add("Player Getup", "nomorespect", function(ply)
-	if not hg.mutespect then return end
-	refreshPlayerVoiceVolume(ply)
-end)
-
-hook.Add("Player_Death", "fixSpectatorVoiceMute", function(ply)
-	if not hg.mutespect then return end
-	refreshPlayerVoiceVolume(ply)
-end)
+local function RefreshMuteSpectVoice(ply)
+	if hg.mutespect then
+		refreshPlayerVoiceVolume(ply)
+	end
+end
+hook.Add("Player Getup", "nomorespect", RefreshMuteSpectVoice)
+hook.Add("Player_Death", "fixSpectatorVoiceMute", RefreshMuteSpectVoice)
 
 hook.Add("Player_Death", "fixSpectatorVoiceEffect", function(ply)
 	if eightbit and eightbit.EnableEffect and ply.UserID then
@@ -1766,16 +1772,35 @@ hook.Add("Player_Death", "fixSpectatorVoiceEffect", function(ply)
 	end
 end)
 
+local sbOrderScratch = {}
+
 local function GetScoreboardSig()
-	local sig = player.GetCount()
+	local gunGame = IsGunGameScoreboard()
+	local sig = player.GetCount() + (gunGame and GetGlobalInt("ZB_GGStages", 0) * 101 or 0)
+	local lp = LocalPlayer()
+	if IsValid(lp) then
+		sig = sig + lp:Team() * 1009
+	end
+	local n = 0
 	for _, ply in player.Iterator() do
+		n = n + 1
+		sbOrderScratch[n] = ply
 		sig = (sig * 33 + ply:UserID() + ply:Team() * 17 + (ply:Alive() and 0 or 11)) % 2147483647
 		if ply:GetNWBool("ZB_SB_HideSelf", false) then sig = sig + 3 end
 		if ply:GetNWBool("ZB_SB_ShowRole", false) then sig = sig + 7 end
 	end
-	local lp = LocalPlayer()
-	if IsValid(lp) then
-		sig = sig + lp:Team() * 1009
+	for i = n + 1, #sbOrderScratch do
+		sbOrderScratch[i] = nil
+	end
+	if gunGame and n > 1 then
+		table.sort(sbOrderScratch, function(a, b)
+			local gt = GunGameGreater(a, b)
+			if gt ~= nil then return gt end
+			return a:UserID() < b:UserID()
+		end)
+		for i = 1, n do
+			sig = (sig * 131 + sbOrderScratch[i]:UserID()) % 2147483647
+		end
 	end
 	return sig
 end
@@ -1783,11 +1808,7 @@ end
 function GM:ScoreboardShow()
 	if IsValid(scoreBoardMenu) then
 		if scoreBoardMenu.BuiltW == ScrW() and scoreBoardMenu.BuiltH == ScrH() then
-			scoreBoardMenu:SetVisible(true)
-			scoreBoardMenu:SetAlpha(255)
-			scoreBoardMenu:MakePopup()
-			scoreBoardMenu:SetKeyboardInputEnabled(false)
-			scoreBoardMenu:SetMouseInputEnabled(true)
+			PopupScoreboard()
 			if scoreBoardMenu.RefreshLists then
 				scoreBoardMenu.RefreshLists()
 			end
@@ -1796,7 +1817,6 @@ function GM:ScoreboardShow()
 		scoreBoardMenu:Remove()
 		scoreBoardMenu = nil
 	end
-	Dynamic = 0
 	scoreBoardMenu = vgui.Create("ZFrame")
 
 	local sizeX, sizeY = math.min(ScrW() * 0.82, ScreenScale(520)), math.min(ScrH() * 0.84, ScreenScaleH(420))
@@ -1817,8 +1837,8 @@ function GM:ScoreboardShow()
 			scoreBoardMenu[key]:SetVisible(false)
 		end
 	end
-	scoreBoardMenu:SetColorBR(Color(CRT_R, CRT_G, CRT_B, 180))
-	scoreBoardMenu:SetColorBG(Color(8, 9, 9, 230))
+	scoreBoardMenu:SetColorBR(Color(FRAME_R, FRAME_G, FRAME_B, 180))
+	scoreBoardMenu:SetColorBG(Color(14, 15, 15, 236))
 	if scoreBoardMenu.SetBlurStrengh then
 		scoreBoardMenu:SetBlurStrengh(0)
 	end
@@ -1829,8 +1849,8 @@ function GM:ScoreboardShow()
 	scoreBoardMenu.BuiltW = ScrW()
 	scoreBoardMenu.BuiltH = ScrH()
 
-	local headerH = SB_HeaderH()
-	local rowH = SB_RowH()
+	local headerH = SB_H(0.022, 18)
+	local rowH = SB_H(0.025, 18)
 	local header = vgui.Create("DPanel", scoreBoardMenu)
 	header:Dock(TOP)
 	header:SetTall(SB_BEZEL * 2 + SB_PAD * 3 + headerH + rowH)
@@ -1838,12 +1858,14 @@ function GM:ScoreboardShow()
 	header:SetPaintBackground(false)
 	header.Paint = function(self, w, h)
 		DrawCRTFrame(0, 0, w, h, CRT_R, CRT_G, CRT_B, true)
-		local inset = SB_Inset()
+		local inset = SB_INSET
 		local innerW = w - inset * 2
 		local titleY = inset
-		surface.SetDrawColor(0, 0, 0, 115)
+		surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 185)
 		surface.DrawRect(inset, inset, innerW, h - inset * 2)
-		surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 41)
+		surface.SetDrawColor(32, 34, 33, 220)
+		surface.DrawRect(inset, titleY, innerW, headerH)
+		surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 36)
 		surface.DrawRect(inset, titleY, innerW, headerH)
 		SB_DrawInRect(GetHostName() or "ZCity", "SB_CRT_Header", math.floor(w * 0.5), titleY, headerH, color_text, TEXT_ALIGN_CENTER)
 
@@ -1861,22 +1883,17 @@ function GM:ScoreboardShow()
 		if tdmRound then
 			x = DrawLabeledStat(x, statsY, rowH, "ROUND", tdmRound)
 		end
-		local state = "WAITING"
-		if (zb.ROUND_STATE or 0) == 1 then
-			state = "LIVE"
-		elseif (zb.ROUND_STATE or 0) == 3 then
-			state = "ENDING"
-		end
-		local stateCol = color_idle
-		if state == "LIVE" then
-			stateCol = color_text
-		elseif state == "ENDING" then
-			stateCol = color_ping_mid
+		local roundState = zb.ROUND_STATE or 0
+		local state, stateCol = "WAITING", color_idle
+		if roundState == 1 then
+			state, stateCol = "LIVE", playAccentCol
+		elseif roundState == 3 then
+			state, stateCol = "ENDING", color_ping_mid
 		end
 		x = DrawLabeledStat(x, statsY, rowH, "STATE", state, stateCol)
-		if (zb.ROUND_STATE or 0) ~= 0 then
-			local startTime = zb.ROUND_START or CurTime()
-			x = DrawLabeledStat(x, statsY, rowH, "TIME LEFT", string.FormattedTime(math.max(startTime + (zb.ROUND_TIME or 400) - CurTime(), 0), "%02i:%02i"))
+		if roundState ~= 0 then
+			local left = math.max((zb.ROUND_START or CurTime()) + (zb.ROUND_TIME or 400) - CurTime(), 0)
+			x = DrawLabeledStat(x, statsY, rowH, "TIME LEFT", string.FormattedTime(left, "%02i:%02i"))
 		end
 		local ft = engine.ServerFrameTime()
 		DrawLabeledStat(x, statsY, rowH, "TICKRATE", (ft and ft > 0) and tostring(math.Round(1 / ft)) or "-")
@@ -1885,63 +1902,64 @@ function GM:ScoreboardShow()
 	local toolbar = vgui.Create("DPanel", scoreBoardMenu)
 	toolbar:Dock(TOP)
 	toolbar:SetTall(rowH)
-	toolbar:DockMargin(SB_OUTER, SB_GAP, SB_OUTER, 0)
+	toolbar:DockMargin(SB_ALIGN, SB_GAP, SB_ALIGN, 0)
 	toolbar:SetPaintBackground(false)
 	toolbar.Paint = function(self, w, h)
-		SB_DrawInH("Right-click a player for more options.", "SB_CRT_Item", SB_TEXT_PAD, h, color_idle_dim, TEXT_ALIGN_LEFT)
+		SB_DrawInRect("Right-click a player for profile, Steam ID, and more.", "SB_CRT_Item", 0, 0, h, color_idle_dim, TEXT_ALIGN_LEFT)
 	end
 
 	local tools = vgui.Create("DPanel", toolbar)
 	tools:Dock(RIGHT)
+	tools:DockMargin(0, 0, 0, 0)
 	tools:SetPaintBackground(false)
 
-	local toolWide = 0
+	local toolWide, toolBtnW = 0, 0
+	local toolButtons = {}
 	local function AddToolButton(label, click, isActive, tooltip)
 		local but = CreateCRTButton(tools, label, click, {toggle = true, tooltip = tooltip})
 		local wide = SB_TextW("SB_CRT_Item", label) + SB_TEXT_PAD * 4
 		but:Dock(RIGHT)
 		but:DockMargin(SB_GAP, 0, 0, 0)
-		but:SetWide(wide)
 		but.Think = function(self)
 			if isActive then self.Active = isActive() end
 		end
-		toolWide = toolWide + wide + SB_GAP
+		toolButtons[#toolButtons + 1] = but
+		toolBtnW = math.max(toolBtnW, wide)
 		return but
 	end
 
 	AddToolButton("MUTE ALL", function()
 		hg.muteall = not hg.muteall
-		for _, ply in player.Iterator() do
-			refreshPlayerVoiceVolume(ply)
-		end
+		RefreshAllVoice()
 	end, function() return hg.muteall end, "Mute every player")
 
 	local muteSpecBut = AddToolButton("MUTE SPEC", function()
 		hg.mutespect = not hg.mutespect
-		for _, ply in player.Iterator() do
-			if not ply:Alive() then
-				refreshPlayerVoiceVolume(ply)
-			end
-		end
-	end, function() return hg.mutespect end, "Mute dead and spectator voice")
-	local muteSpecSlot = muteSpecBut:GetWide() + SB_GAP
-
+		RefreshAllVoice(true)
+	end, function() return hg.mutespect end, "Mute dead players and spectators")
 	if IsStaffPly(LocalPlayer()) then
-		AddToolButton("HIDE SELF", function()
+		local function SendStaffOpts(hideSelf, showRole)
 			net.Start("ZB_SB_StaffOpt")
-			net.WriteBool(not LocalPlayer():GetNWBool("ZB_SB_HideSelf", false))
-			net.WriteBool(LocalPlayer():GetNWBool("ZB_SB_ShowRole", false))
+			net.WriteBool(hideSelf)
+			net.WriteBool(showRole)
 			net.SendToServer()
-		end, function() return LocalPlayer():GetNWBool("ZB_SB_HideSelf", false) end, "Hide yourself from everyone else's scoreboard")
+		end
+		AddToolButton("HIDE SELF", function()
+			local lp = LocalPlayer()
+			SendStaffOpts(not lp:GetNWBool("ZB_SB_HideSelf", false), lp:GetNWBool("ZB_SB_ShowRole", false))
+		end, function() return LocalPlayer():GetNWBool("ZB_SB_HideSelf", false) end, "Hide your name from other players' scoreboards")
 
 		AddToolButton("SHOW ROLE", function()
-			net.Start("ZB_SB_StaffOpt")
-			net.WriteBool(LocalPlayer():GetNWBool("ZB_SB_HideSelf", false))
-			net.WriteBool(not LocalPlayer():GetNWBool("ZB_SB_ShowRole", false))
-			net.SendToServer()
-		end, function() return LocalPlayer():GetNWBool("ZB_SB_ShowRole", false) end, "Show your real staff group to everyone")
+			local lp = LocalPlayer()
+			SendStaffOpts(lp:GetNWBool("ZB_SB_HideSelf", false), not lp:GetNWBool("ZB_SB_ShowRole", false))
+		end, function() return LocalPlayer():GetNWBool("ZB_SB_ShowRole", false) end, "Show your staff rank on the scoreboard")
 	end
 
+	for i = 1, #toolButtons do
+		toolButtons[i]:SetWide(toolBtnW)
+	end
+	toolWide = #toolButtons * (toolBtnW + SB_GAP)
+	local muteSpecSlot = toolBtnW + SB_GAP
 	tools:SetWide(math.max(0, toolWide - SB_GAP))
 	local function ApplyMuteSpecVisibility()
 		local lp = LocalPlayer()
@@ -1956,16 +1974,17 @@ function GM:ScoreboardShow()
 	local footer = vgui.Create("DPanel", scoreBoardMenu)
 	footer:Dock(BOTTOM)
 	footer:SetTall(rowH)
-	footer:DockMargin(SB_OUTER, SB_GAP, SB_OUTER, SB_OUTER)
+	footer:DockMargin(SB_ALIGN, SB_GAP, SB_ALIGN, SB_OUTER)
 	footer:SetPaintBackground(false)
+	footer.Paint = function() end
 
 	local linkButtons = {
-		{label = "SUPPORT US", accent = color_gold, icon = "icon16/heart.png", tooltip = "Support VOTTUR'S ZCITY on Ko-fi", url = "https://ko-fi.com/votturzcity"},
-		{label = "DISCORD", accent = Color(CRT_R, CRT_G, CRT_B), icon = "icon16/comments.png", tooltip = "Join the Discord", url = "https://discord.gg/votturzcity"},
-		{label = "GUIDE", accent = color_pink, icon = "icon16/book.png", tooltip = "Open Z-City Guide", url = "https://docs.google.com/document/d/1oVOleCQSrbfWddLKOgjAKD-EKpbS1dxCfNdCSUwNfn4"},
-		{label = "RULES", accent = color_rules, icon = "icon16/page_white_text.png", tooltip = "Server rules", cmd = {"ulx", "motd"}},
+		{label = "SUPPORT US", accent = color_gold, icon = "icon16/heart.png", tooltip = "Support Vottur's Z-City on Ko-fi", url = "https://ko-fi.com/votturzcity"},
+		{label = "DISCORD", accent = playAccentCol, icon = "icon16/comments.png", tooltip = "Join the Discord", url = "https://discord.gg/votturzcity"},
+		{label = "GUIDE", accent = color_pink, icon = "icon16/book.png", tooltip = "Open the Z-City guide", url = "https://docs.google.com/document/d/1oVOleCQSrbfWddLKOgjAKD-EKpbS1dxCfNdCSUwNfn4"},
+		{label = "RULES", accent = color_rules, icon = "icon16/page_white_text.png", tooltip = "Read the server rules", cmd = {"ulx", "motd"}},
 		{label = "STORE", accent = color_store, icon = "icon16/cart.png", tooltip = "Open the in-game store", cmd = {"say", "!store"}},
-		{label = "WORKSHOP", accent = Color(180, 180, 180), icon = "icon16/world.png", tooltip = "Open the Workshop", url = "https://steamcommunity.com/sharedfiles/filedetails/?id=3715931702"},
+		{label = "WORKSHOP", accent = Color(180, 180, 180), icon = "icon16/world.png", tooltip = "Open the Steam Workshop collection", url = "https://steamcommunity.com/sharedfiles/filedetails/?id=3715931702"},
 	}
 
 	local footerBtns = {}
@@ -1977,16 +1996,21 @@ function GM:ScoreboardShow()
 				gui.OpenURL(info.url)
 			end
 		end, {accent = info.accent, icon = info.icon, tooltip = info.tooltip})
-		but:Dock(LEFT)
 		footerBtns[#footerBtns + 1] = but
 	end
 	footer.PerformLayout = function(self, w, h)
 		local n = #footerBtns
 		if n <= 0 then return end
-		local wide = math.floor((w - SB_GAP * (n - 1)) / n)
+		local gaps = SB_GAP * (n - 1)
+		local inner = math.max(0, w - gaps)
+		local wide = math.floor(inner / n)
+		local extra = inner - wide * n
+		local x = 0
 		for i, but in ipairs(footerBtns) do
-			but:SetWide(wide)
-			but:DockMargin(0, 0, i < n and SB_GAP or 0, 0)
+			local bw = wide + (i <= extra and 1 or 0)
+			but:SetPos(x, 0)
+			but:SetSize(bw, h)
+			x = x + bw + SB_GAP
 		end
 	end
 
@@ -1995,109 +2019,158 @@ function GM:ScoreboardShow()
 	content:DockMargin(SB_OUTER, SB_GAP, SB_OUTER, 0)
 	content:SetPaintBackground(false)
 
-	local function FillList(listPanel, players, accent, hideKarma)
-		if not IsValid(listPanel) then return end
-		listPanel.Scroll:Clear()
-		listPanel.Count = 0
-		for _, ply in ipairs(players) do
-			CreatePlayerRow(listPanel.Scroll, ply, accent, hideKarma)
-			listPanel.Count = listPanel.Count + 1
+	local function SortPlayers(list, gunGame)
+		local names = {}
+		for i = 1, #list do
+			local ply = list[i]
+			names[ply] = string.lower(IsValid(ply) and ply:Name() or "")
 		end
-	end
-
-	local function CollectPlayers(teamFilter)
-		local players = {}
-		for _, ply in player.Iterator() do
-			if ShouldHideScoreboardPly(ply) then continue end
-			if teamFilter == "spec" then
-				if ply:Team() ~= TEAM_SPECTATOR then continue end
-			elseif teamFilter == "playing" then
-				if ply:Team() == TEAM_SPECTATOR then continue end
-			else
-				if ply:Team() ~= teamFilter then continue end
+		table.sort(list, function(a, b)
+			if gunGame then
+				local gt = GunGameGreater(a, b)
+				if gt ~= nil then return gt end
 			end
-			players[#players + 1] = ply
-		end
-		table.sort(players, function(a, b)
-			local an = string.lower(IsValid(a) and a:Name() or "")
-			local bn = string.lower(IsValid(b) and b:Name() or "")
+			local an, bn = names[a], names[b]
 			if an ~= bn then return an < bn end
 			return (IsValid(a) and a:UserID() or 0) < (IsValid(b) and b:UserID() or 0)
 		end)
-		return players
+	end
+
+	local function FillList(listPanel, players, accent, hideKarma, gunGame)
+		if not IsValid(listPanel) then return end
+		listPanel.Scroll:Clear()
+		listPanel.Count = #players
+		for index, ply in ipairs(players) do
+			CreatePlayerRow(listPanel.Scroll, ply, accent, hideKarma, gunGame, gunGame and index or nil)
+		end
+	end
+
+	local function CollectPlayers()
+		local playing, spec, byTeam = {}, {}, {}
+		for _, ply in player.Iterator() do
+			if ShouldHideScoreboardPly(ply) then continue end
+			if ply:Team() == TEAM_SPECTATOR then
+				spec[#spec + 1] = ply
+			else
+				playing[#playing + 1] = ply
+				local id = ply:Team()
+				byTeam[id] = byTeam[id] or {}
+				byTeam[id][#byTeam[id] + 1] = ply
+			end
+		end
+		local gunGame = IsGunGameScoreboard()
+		SortPlayers(spec, false)
+		SortPlayers(playing, gunGame)
+		for _, list in pairs(byTeam) do
+			SortPlayers(list, gunGame)
+		end
+		return playing, spec, byTeam, gunGame
 	end
 
 	local function RebuildLists()
 		if not IsValid(scoreBoardMenu) then return end
 		content:Clear()
 
-		local specAccent = specAccentCol
-		local teamBased = IsTeamBasedMode()
-		local specPlayers = CollectPlayers("spec")
-
+		local playing, specPlayers, byTeam, gunGame = CollectPlayers()
 		local specWrap = vgui.Create("DPanel", content)
 		specWrap:SetPaintBackground(false)
 
-		local specList = CreateListPanel(specWrap, "SPECTATORS", specAccent)
+		local specList = CreateListPanel(specWrap, "SPECTATORS", specAccentCol)
 		specList:Dock(FILL)
 
 		local joinRow = vgui.Create("DPanel", specList)
 		joinRow:Dock(BOTTOM)
-		joinRow:SetTall(SB_RowH())
-		joinRow:DockMargin(SB_Inset(), 0, SB_Inset(), SB_Inset())
+		joinRow:SetTall(rowH)
+		joinRow:DockMargin(SB_INSET, 0, SB_INSET, SB_INSET)
 		joinRow:SetPaintBackground(false)
 
 		local isSpec = LocalPlayer():Team() == TEAM_SPECTATOR
-		local joinLabel = isSpec and "JOIN PLAYERS" or "JOIN SPECTATORS"
-		local joinAccent = isSpec and playAccentCol or specAccent
-		local joinBut = CreateCRTButton(joinRow, joinLabel, function()
+		local joinBut = CreateCRTButton(joinRow, isSpec and "JOIN PLAYERS" or "JOIN SPECTATORS", function()
 			net.Start("ZB_SpecMode")
 			net.WriteBool(LocalPlayer():Team() ~= TEAM_SPECTATOR)
 			net.SendToServer()
-			if IsValid(scoreBoardMenu) then
-				scoreBoardMenu:SetVisible(false)
-				scoreBoardMenu:SetMouseInputEnabled(false)
-				scoreBoardMenu:SetKeyboardInputEnabled(false)
-			end
-		end, {accent = joinAccent})
+			HideScoreboard()
+		end, {accent = isSpec and playAccentCol or specAccentCol})
 		joinBut:Dock(FILL)
 
-		FillList(specList, specPlayers, specAccent, true)
-
-		if teamBased then
-			local teams = GetActiveTeams()
-			if #teams > 0 then
-				specWrap:Dock(BOTTOM)
-				specWrap:SetTall(math.max(ScreenScaleH(92), sizeY * 0.22))
-				specWrap:DockMargin(0, SB_GAP, 0, 0)
-
-				local teamHost = vgui.Create("DPanel", content)
-				teamHost:Dock(FILL)
-				teamHost:SetPaintBackground(false)
-
-				for i, teamID in ipairs(teams) do
-					local tName, tCol = GetTeamDisplay(teamID)
-					local list = CreateListPanel(teamHost, tName, tCol)
-					if i < #teams then
-						list:Dock(LEFT)
-						list:SetWide((sizeX - SB_OUTER * 2) / #teams - SB_GAP)
-						list:DockMargin(0, 0, SB_GAP, 0)
-					else
-						list:Dock(FILL)
-					end
-					FillList(list, CollectPlayers(teamID), tCol)
+		local teamBased = IsTeamBasedMode()
+		local teams = teamBased and GetActiveTeams(byTeam) or {}
+		local specColN = math.max(1, #teams)
+		if specColN > 1 then
+			specList.Count = #specPlayers
+			local plyH = SB_H(0.052, 44)
+			for i = 1, #specPlayers, specColN do
+				local row = vgui.Create("DPanel", specList.Scroll)
+				row:SetPaintBackground(false)
+				row:SetTall(plyH + 2)
+				row:Dock(TOP)
+				specList.Scroll:AddItem(row)
+				local cells = {}
+				for c = 0, specColN - 1 do
+					local ply = specPlayers[i + c]
+					if not ply then break end
+					cells[#cells + 1] = CreatePlayerRow(row, ply, specAccentCol, true)
 				end
-			else
-				specWrap:Dock(FILL)
+				row.PerformLayout = function(self, w, h)
+					local n = specColN
+					local gaps = SB_GAP * (n - 1)
+					local inner = math.max(0, w - gaps)
+					local wide = math.floor(inner / n)
+					local extra = inner - wide * n
+					local x = 0
+					for ci, cell in ipairs(cells) do
+						local lw = wide + (ci <= extra and 1 or 0)
+						cell:SetPos(x, 0)
+						cell:SetSize(lw, plyH)
+						x = x + lw + SB_GAP
+					end
+				end
 			end
 		else
+			FillList(specList, specPlayers, specAccentCol, true)
+		end
+
+		if #teams > 0 then
+			specWrap:Dock(BOTTOM)
+			specWrap:SetTall(math.max(ScreenScaleH(92), sizeY * 0.22))
+			specWrap:DockMargin(0, SB_GAP, 0, 0)
+
+			local teamHost = vgui.Create("DPanel", content)
+			teamHost:Dock(FILL)
+			teamHost:SetPaintBackground(false)
+
+			local teamLists = {}
+			for _, teamID in ipairs(teams) do
+				local tName, tCol = GetTeamDisplay(teamID)
+				local list = CreateListPanel(teamHost, tName, tCol)
+				teamLists[#teamLists + 1] = list
+				FillList(list, byTeam[teamID] or {}, tCol)
+			end
+			teamHost.PerformLayout = function(self, w, h)
+				local n = #teamLists
+				if n <= 0 then return end
+				local gaps = SB_GAP * (n - 1)
+				local inner = math.max(0, w - gaps)
+				local wide = math.floor(inner / n)
+				local extra = inner - wide * n
+				local x = 0
+				for i, list in ipairs(teamLists) do
+					local lw = wide + (i <= extra and 1 or 0)
+					list:SetPos(x, 0)
+					list:SetSize(lw, h)
+					x = x + lw + SB_GAP
+				end
+			end
+		elseif teamBased then
+			specWrap:Dock(FILL)
+		else
 			specWrap:Dock(RIGHT)
-			specWrap:SetWide(math.floor(sizeX * 0.3))
+			specWrap:SetWide(math.floor((sizeX - SB_OUTER * 2 - SB_GAP) * 0.3))
 			specWrap:DockMargin(SB_GAP, 0, 0, 0)
 
 			local playList = CreateListPanel(content, "PLAYERS", playAccentCol)
 			playList:Dock(FILL)
-			FillList(playList, CollectPlayers("playing"), playAccentCol)
+			FillList(playList, playing, playAccentCol, gunGame, gunGame)
 		end
 	end
 
@@ -2123,11 +2196,7 @@ function GM:ScoreboardShow()
 end
 
 function GM:ScoreboardHide()
-	if IsValid(scoreBoardMenu) then
-		scoreBoardMenu:SetVisible(false)
-		scoreBoardMenu:SetMouseInputEnabled(false)
-		scoreBoardMenu:SetKeyboardInputEnabled(false)
-	end
+	HideScoreboard()
 end
 
 hook.Add("PlayerStartVoice", "showVoicePanels", function(ply)
