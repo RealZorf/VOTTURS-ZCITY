@@ -87,7 +87,7 @@ local function GiveSling(ply)
 	ply:SetNetVar("Inventory", inv)
 end
 
-local function GiveLoadout(ply)
+local function GiveLoadout(ply, meleeClass, smokeClass, extraClass)
 	GiveSling(ply)
 
 	ply:SetSuppressPickupNotices(true)
@@ -106,13 +106,12 @@ local function GiveLoadout(ply)
 		radio.Frequency = ply:Team() == TEAM_ROADMEN and 91.2 or 105.4
 	end
 
-	ply:Give(smokeWeapons[math.random(#smokeWeapons)])
+	ply:Give(smokeClass)
 
-	if math.random() < 0.35 then
-		ply:Give(extras[math.random(#extras)])
+	if extraClass then
+		ply:Give(extraClass)
 	end
 
-	local meleeClass = meleeWeapons[math.random(#meleeWeapons)]
 	local wep = ply:Give(meleeClass)
 	if IsValid(wep) then
 		ply:SelectWeapon(wep:GetClass())
@@ -131,6 +130,7 @@ end
 
 function MODE:GiveEquipment()
 	timer.Simple(0.1, function()
+		local teams = {[TEAM_HOOLIGANS] = {}, [TEAM_ROADMEN] = {}}
 		for _, ply in player.Iterator() do
 			if ply:Team() == TEAM_SPECTATOR or not ply:Alive() then continue end
 
@@ -144,7 +144,19 @@ function MODE:GiveEquipment()
 				ply:SetNetVar("CurPluv", "pluvmajima")
 			end
 
-			GiveLoadout(ply)
+			local roster = teams[ply:Team()]
+			roster[#roster + 1] = ply
+		end
+
+		local slots = math.max(#teams[TEAM_HOOLIGANS], #teams[TEAM_ROADMEN])
+		for i = 1, slots do
+			local meleeClass = meleeWeapons[math.random(#meleeWeapons)]
+			local smokeClass = smokeWeapons[math.random(#smokeWeapons)]
+			local extraClass = math.random() < 0.35 and extras[math.random(#extras)] or nil
+			local hooligan = teams[TEAM_HOOLIGANS][i]
+			local roadman = teams[TEAM_ROADMEN][i]
+			if IsValid(hooligan) then GiveLoadout(hooligan, meleeClass, smokeClass, extraClass) end
+			if IsValid(roadman) then GiveLoadout(roadman, meleeClass, smokeClass, extraClass) end
 		end
 	end)
 end
