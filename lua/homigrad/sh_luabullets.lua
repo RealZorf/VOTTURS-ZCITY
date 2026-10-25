@@ -280,7 +280,7 @@ FIRE_BULLETS_DONT_HIT_UNDERWATER = 0x2 -- If the shot hits its target underwater
 FIRE_BULLETS_ALLOW_WATER_SURFACE_IMPACTS = 0x4 -- If the shot hits water surface, still call DoImpactEffect
 -- The engine alerts NPCs by pushing a sound onto a static sound manager
 -- However, this cannot be accessed from the Lua state
---FIRE_BULLETS_TEMPORARY_DANGER_SOUND = 0x8 // Danger sounds added from this impact can be stomped immediately if another is queued
+--FIRE_BULLETS_TEMPORARY_DANGER_SOUND = 0x8 -- Danger sounds added from this impact can be stomped immediately if another is queued
 
 local ai_debug_shoot_positions = GetConVar("ai_debug_shoot_positions")
 local phys_pushscale = GetConVar("phys_pushscale")
@@ -500,36 +500,6 @@ local armsbones = {
 	["ValveBiped.Bip01_R_Hand"] = true,
 }
 
-local ORGANISM_SKIP_MAX = 16
-
-local function addEntityToBulletFilter(Filter, ent)
-	if not IsValid(ent) then return Filter end
-
-	if isentity(Filter) then
-		if Filter == ent then return Filter end
-
-		return {Filter, ent}
-	end
-
-	if istable(Filter) then
-		Filter[#Filter + 1] = ent
-
-		return Filter
-	end
-
-	return {ent}
-end
-
-local function getOrganismSkipTraceStart(tr, vNewSrc, vEnd, vShotDir)
-	local traceLen = vNewSrc:Distance(vEnd)
-
-	if tr.StartSolid and traceLen > 0 then
-		return tr.StartPos + vShotDir * (tr.FractionLeftSolid * traceLen + 1)
-	end
-
-	return tr.HitPos + vShotDir * 1
-end
-
 function ENTITY:FireLuaBullets(tInfo)
     if (hook.Run("EntityFireBullets", self, tInfo) == false) then
 		return
@@ -746,36 +716,22 @@ function ENTITY:FireLuaBullets(tInfo)
 					filter = Filter
 				})
 			
-			local organismSkipAttempts = 0
-			local lastOrganismSkipKey
-
-			while (IsValid(tr.Entity) and tr.Entity.organism) do
+			local tries = 50
+			while (tries > 0 and IsValid(tr.Entity) and tr.Entity.organism) do
 				local ent = tr.Entity
+				tries = tries - 1
+
+				--table.insert(Filter, ent)
+
 				local bonename = ent:GetBoneName(ent:TranslatePhysBoneToBone(tr.PhysicsBone))
 				local hitgroup = hg.bonetohitgroup[bonename]--( ent:IsPlayer() and tr.HitGroup or hg.bonetohitgroup[bonename])
 				
 				if !(armsbones[bonename] and hg.RagdollOwner(tr.Entity) == pInflictor:GetOwner()) and !IsValid(tr.Entity.OldRagdoll) and (tr.PhysicsBone != 0 or !tr.StartSolid) and (!hg.amputeetable[bonename] or !ent.organism[hg.amputeetable[bonename].."amputated"]) then break end
 
-				organismSkipAttempts = organismSkipAttempts + 1
-
-				if organismSkipAttempts > ORGANISM_SKIP_MAX then break end
-
-				local skipKey = ent:EntIndex() .. ":" .. tostring(tr.PhysicsBone)
-
-				if lastOrganismSkipKey == skipKey then break end
-
-				lastOrganismSkipKey = skipKey
-
-				if IsValid(ent.OldRagdoll) then
-					Filter = addEntityToBulletFilter(Filter, ent)
-				end
-
-				local traceStart = getOrganismSkipTraceStart(tr, vNewSrc, vEnd, vShotDir)
-
 				tr = bHullTrace and iShot % 2 == 0 and
 					-- Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
 					util.TraceHull({
-						start = traceStart,
+						start = tr.HitPos + vShotDir * 1,
 						endpos = vEnd,
 						mins = vFireBulletMin,
 						maxs = vFireBulletMax,
@@ -784,7 +740,7 @@ function ENTITY:FireLuaBullets(tInfo)
 					})
 				or
 					util.TraceLine({
-						start = traceStart,
+						start = tr.HitPos + vShotDir * 1,
 						endpos = vEnd,
 						mask = iMask,
 						filter = Filter
@@ -1336,5 +1292,6 @@ function PLAYER:FireCSSBullets(tInfo)
 	
 	if (bIsPlayer) then
 		self:LagCompensation(false)
+		self.bullet = nil
 	end
 end
