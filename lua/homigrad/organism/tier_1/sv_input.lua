@@ -69,6 +69,20 @@ local SLASH_HEAD_SEVER_DAMAGE_THRESHOLD = 70
 local SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD = 90
 local SLASH_HEAD_SEVER_MIN_HITS = 2
 local SLASH_HEAD_SEVER_WINDOW = 4
+local function meleeDismembermentRoll(inf)
+	local chance
+	if IsValid(inf) then
+		chance = inf.DismembermentChance
+		if chance == nil and isstring(inf.wep) then
+			local stored = weapons.GetStored(inf.wep)
+			chance = stored and stored.DismembermentChance
+		end
+	end
+	chance = math.Clamp(tonumber(chance) or 0, 0, 1)
+	if chance <= 0 then return false end
+	if chance >= 1 then return true end
+	return math.Rand(0, 1) <= chance
+end
 local FIREARM_HEAD_GIB_THRESHOLD = 250
 local SLASH_TORSO_SEVER_DAMAGE_THRESHOLD = 60
 local SLASH_TORSO_SEVER_SINGLE_HIT_THRESHOLD = 95
@@ -1244,6 +1258,11 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		org.HGHeadSeverUntil = now + SLASH_HEAD_SEVER_WINDOW
 		headSeverReady = severDamage >= SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD
 			or org.HGHeadSeverHits >= SLASH_HEAD_SEVER_MIN_HITS and org.HGHeadSeverDamage >= SLASH_HEAD_SEVER_DAMAGE_THRESHOLD
+		if headSeverReady and not meleeDismembermentRoll(inf) then
+			headSeverReady = false
+			org.HGHeadSeverDamage = 0
+			org.HGHeadSeverHits = 0
+		end
 
 		if istable(org.HGRecentAmputationDamage) then
 			org.HGRecentAmputationDamage.headSeverReady = headSeverReady
@@ -1279,6 +1298,11 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			org.HGTorsoSeverUntil = now + SLASH_TORSO_SEVER_WINDOW
 			torsoSeverReady = severDamage >= SLASH_TORSO_SEVER_SINGLE_HIT_THRESHOLD
 				or org.HGTorsoSeverHits >= SLASH_TORSO_SEVER_MIN_HITS and org.HGTorsoSeverDamage >= SLASH_TORSO_SEVER_DAMAGE_THRESHOLD
+			if torsoSeverReady and not meleeDismembermentRoll(inf) then
+				torsoSeverReady = false
+				org.HGTorsoSeverDamage = 0
+				org.HGTorsoSeverHits = 0
+			end
 		elseif torsoShotgunHit then
 			local now = CurTime()
 			local shotgunAttacker = dmgInfo:GetAttacker()
@@ -1364,7 +1388,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 						end
 					end
 				else
-					if !org[hitgrouptolimb[hitgroup].."amputated"] then
+					if !org[hitgrouptolimb[hitgroup].."amputated"] and meleeDismembermentRoll(inf) then
 						hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker, amputationContext)
 					end
 				end

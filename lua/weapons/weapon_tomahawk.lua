@@ -1,6 +1,7 @@
 ﻿if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Tomahawk"
+SWEP.DismembermentChance = 1
 SWEP.Instructions = "A single-handed striking tool designed to be used as a melee weapon by military personnel or as a hunting tool. Can break down doors.\n\nLMB to attack.\nRMB to block.\nRMB + LMB to throw."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
@@ -10,6 +11,7 @@ SWEP.HoldType = "melee"
 
 SWEP.Weight = 0
 SWEP.weight = 1.5
+SWEP.DismembermentChance = 1
 
 SWEP.WorldModel = "models/pwb/weapons/w_tomahawk_thrown.mdl"
 SWEP.WorldModelReal = "models/weapons/tfa_nmrih/v_me_hatchet.mdl"

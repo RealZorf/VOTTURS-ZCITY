@@ -26,6 +26,7 @@ SWEP.WorldModelExchange = "models/weapons/tfa_nmrih/w_me_hatchet.mdl"
 SWEP.DontChangeDropped = true
 SWEP.ViewModel = ""
 
+SWEP.DismembermentChance = 1
 
 SWEP.HoldPos = Vector(-12,0,0)
 SWEP.HoldAng = Angle(0,0,0)

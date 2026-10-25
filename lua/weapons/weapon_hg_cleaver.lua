@@ -16,6 +16,8 @@ SWEP.bloodID = 3
 SWEP.HoldType = "slam"
 SWEP.weight = 1.0
 
+SWEP.DismembermentChance = 1
+
 SWEP.HoldPos = Vector(-11, 0, 0)
 SWEP.HoldAng = Angle(0, 0, 0)
 

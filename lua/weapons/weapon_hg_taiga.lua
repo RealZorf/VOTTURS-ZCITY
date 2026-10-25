@@ -26,6 +26,7 @@ SWEP.SuicidePunchAng = Angle(-5, -10, 10)
 SWEP.NoHolster = true
 
 SWEP.HoldType = "slam"
+SWEP.DismembermentChance = 1
 
 SWEP.DamageType = DMG_SLASH
 

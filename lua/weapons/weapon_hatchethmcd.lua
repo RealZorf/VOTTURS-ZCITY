@@ -8,6 +8,8 @@ SWEP.AdminOnly = false
 SWEP.Damage = 25
 SWEP.HoldType = "melee"
 
+SWEP.DismembermentChance = 1
+
 SWEP.Weight = 0
 SWEP.weight = 1
 

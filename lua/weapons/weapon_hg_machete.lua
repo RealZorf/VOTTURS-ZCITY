@@ -26,6 +26,7 @@ SWEP.NoHolster = true
 SWEP.HoldType = "melee"
 
 SWEP.DamageType = DMG_SLASH
+SWEP.DismembermentChance = 1
 
 SWEP.HoldPos = Vector(-15,1,-4)
 SWEP.HoldAng = Angle(-2,0,-4)

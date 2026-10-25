@@ -13,7 +13,7 @@ SWEP.ViewModel = ""
 
 SWEP.CanSuicide = false
 
-
+SWEP.DismembermentChance = 1
 SWEP.bloodID = 3
 
 SWEP.NoHolster = true

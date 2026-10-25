@@ -26,7 +26,7 @@ if CLIENT then
 	SWEP.BounceWeaponIcon = false
 end
 
-SWEP.DamageType = DMG_CLUB
+SWEP.DamageType = DMG_SLASH
 SWEP.DamagePrimary = 27
 SWEP.NeckBreakChance = 0.04
 SWEP.DamageSecondary = 12

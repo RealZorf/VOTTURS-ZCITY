@@ -24,6 +24,8 @@ SWEP.NoHolster = true
 
 SWEP.weight = 1
 
+SWEP.DismembermentChance = 1
+
 SWEP.HoldType = "slam"
 
 SWEP.DamageType = DMG_SLASH

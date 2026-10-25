@@ -63,6 +63,7 @@ SWEP.DamagePrimary = 15
 SWEP.DamageSecondary = 8
 
 SWEP.ArteryChance = 4
+SWEP.DismembermentChance = 0
 SWEP.SwingSoundPitch = nil
 
 SWEP.PenetrationPrimary = 8
@@ -2389,6 +2390,7 @@ function SWEP:Initialize()
         self.BreakBoneMul = 0.5
         self.ShockMultiplier = 0.5
         self.PainMultiplier = 2
+        self.DismembermentChance = 0
 
         self.CanSuicide = true
 

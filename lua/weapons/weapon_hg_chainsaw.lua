@@ -22,6 +22,8 @@ SWEP.HoldAng = Angle(0, 0, 0)
 
 SWEP.DamageType = DMG_SLASH
 
+SWEP.DismembermentChance = 1
+
 SWEP.AttackTime = 0.4
 SWEP.AnimTime1 = 1.9
 SWEP.WaitTime1 = 1.3

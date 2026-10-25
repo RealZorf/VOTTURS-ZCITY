@@ -12,6 +12,8 @@ SWEP.WorldModelExchange = "models/weapons/tfa_kf2/w_crovel.mdl"
 SWEP.ViewModel = ""
 SWEP.weight = 3.15
 
+SWEP.DismembermentChance = 1
+
 SWEP.SuicidePos = Vector(9, 12, 18)
 SWEP.SuicideAng = Angle(60, -30, 0)
 SWEP.SuicideCutVec = Vector(1, 5, 1)

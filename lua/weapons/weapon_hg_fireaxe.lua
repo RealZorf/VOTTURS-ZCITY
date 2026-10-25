@@ -25,6 +25,8 @@ SWEP.SuicideHoldType = "slam"
 SWEP.Weight = 0
 SWEP.weight = 3
 
+SWEP.DismembermentChance = 1
+
 SWEP.HoldType = "pistol"
 
 SWEP.HoldPos = Vector(-9,0,0)

@@ -12,6 +12,8 @@ SWEP.WorldModelReal = "models/weapons/tfa_nmrih/v_me_bat_metal.mdl"
 SWEP.WorldModelExchange = "models/props/cs_militia/axe.mdl"
 SWEP.ViewModel = ""
 
+SWEP.DismembermentChance = 1
+
 SWEP.SuicidePos = Vector(0, -1, -26)
 SWEP.SuicideAng = Angle(-70, 50, -30)
 SWEP.SuicideCutVec = Vector(-2, 4, -3)
