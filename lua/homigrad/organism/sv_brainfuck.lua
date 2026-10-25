@@ -16,7 +16,7 @@ local FENCING_DURATION = 2
 local FENCING_FADE = 0.45
 local FENCING_RECENT_DAMAGE = 30
 local FENCING_HEAVY_DURATION = 0.18
-local FENCING_HEAVY_FORCE = 50
+local FENCING_HEAVY_FORCE = 18
 local FENCING_DEATH_CHANCE = 1
 local SHAKE_REFRESH_MIN = 0.035
 local SHAKE_REFRESH_MAX = 0.095
@@ -60,9 +60,14 @@ local armBones = {[2] = true, [3] = true, [4] = true, [5] = true, [6] = true, [7
 local spineBones = {[1] = 0.18}
 
 local function hasNoHead(owner, rag, org)
-	return org.noHead or org.headamputated
-		or IsValid(owner) and (owner.noHead or owner.headamputated)
-		or IsValid(rag) and (rag.noHead or rag.headamputated)
+	if not org then return true end
+	if org.noHead or org.headamputated or org.torsoamputated then return true end
+	if org.llegamputated or org.rlegamputated or org.larmamputated or org.rarmamputated then return true end
+	if IsValid(owner) and (owner.noHead or owner.headamputated or owner.HGDecapitated or owner.HGTorsoSeparated) then return true end
+	if not IsValid(rag) then return false end
+	return rag.noHead or rag.headamputated or rag.headexploded
+		or rag.IsSeveredPart or rag:GetNWBool("IsSeveredPart", false)
+		or rag:GetNWBool("HGDecapitated", false)
 end
 
 local function getRagdoll(owner)
@@ -90,14 +95,14 @@ end
 
 local function startFencing(org, duration, strength)
 	if not org then return end
+	if org.fencingPlayed then return end
+	if hasNoHead(org.owner, getRagdoll(org.owner), org) then return end
 
 	local time = CurTime()
-	if not org.fencingEnd or time >= org.fencingEnd then
-		org.fencingHeavyEnd = time + FENCING_HEAVY_DURATION
-	end
-
+	org.fencingPlayed = true
+	org.fencingHeavyEnd = time + FENCING_HEAVY_DURATION
 	org.fencingStart = time
-	org.fencingEnd = time + (duration or FENCING_DURATION)
+	org.fencingEnd = time + FENCING_DURATION * math_rand(0.5, 1.5)
 	org.fencingStrength = math_clamp(strength or 0.75, 0.55, 1)
 end
 
@@ -160,24 +165,23 @@ local function processFencing(rag, org, scale, seizure)
 	local model = string.lower(rag:GetModel() or "")
 	local offsets = string.find(model, "female", 1, true) and fencingOffsets.female or fencingOffsets.male
 	local referenceAng = reference:GetAngles()
-	local force = (seizure and 900 or 450) + (seizure and 1100 or 750) * scale
-	local damping = (seizure and 28 or 18) + (seizure and 55 or 42) * scale
+	local force = (seizure and 700 or 380) + (seizure and 800 or 420) * scale
+	local damping = (seizure and 24 or 16) + (seizure and 44 or 32) * scale
 
 	for physBone, baseAngle in pairs(offsets) do
+		local spineMultiplier = spineBones[physBone]
+		if not armBones[physBone] and not spineMultiplier then continue end
+
 		local realPhysBone = hg.realPhysNum and hg.realPhysNum(rag, physBone) or physBone
 		local phys = rag:GetPhysicsObjectNum(realPhysBone or physBone)
 		if not IsValid(phys) then continue end
 
 		local boneForce = force
 		local boneDamping = damping
-		local spineMultiplier = spineBones[physBone]
 
 		if spineMultiplier then
 			boneForce = boneForce * spineMultiplier
 			boneDamping = boneDamping * 0.35
-		elseif not armBones[physBone] then
-			boneForce = boneForce * 0.65
-			boneDamping = boneDamping * 0.65
 		end
 
 		local shakeP, shakeY, shakeR = getShake(rag, physBone, scale, seizure)
@@ -216,6 +220,7 @@ hook.Add("HomigradDamage", "BrainfuckFencing", function(victim, dmgInfo, hitgrou
 	if not org then return end
 
 	org.fencingBrainDamage = CurTime()
+	startFencing(org, nil, 0.75 + getBrainSeverity(org) * 0.25)
 end)
 
 hook.Add("HG_OnOtrub", "BrainfuckFencing", function(ply)
@@ -239,12 +244,9 @@ hook.Add("RagdollDeath", "BrainfuckStart", function(ply, rag)
 		or (org.skull or 0) > 0.05
 		or org.dmgstack and org.dmgstack[HITGROUP_HEAD]
 
-	if not headDamage or math_random(100) > FENCING_DEATH_CHANCE then
-		clearFencing(org, rag)
-		return
-	end
+	if not headDamage then return end
 
-	startFencing(org, FENCING_DURATION, 0.75 + getBrainSeverity(org) * 0.25)
+	startFencing(org, nil, 0.75 + getBrainSeverity(org) * 0.25)
 end)
 
 hook.Add("Org Think", "BrainfuckThink", function(owner, passedOrg)
@@ -254,12 +256,9 @@ hook.Add("Org Think", "BrainfuckThink", function(owner, passedOrg)
 	if not org then return end
 
 	local rag = getRagdoll(owner)
-	if org.seizureActive and CurTime() < (org.seizureEnd or 0) then
-		if hasNoHead(owner, rag, org) or not IsValid(rag) then return end
-		processFencing(rag, org, 1, true)
-		return
+	if org.seizureActive and not org.fencingPlayed then
+		startFencing(org, nil, 0.75 + getBrainSeverity(org) * 0.25)
 	end
-
 	if not org.fencingEnd then return end
 
 	if hasNoHead(owner, rag, org) or CurTime() >= org.fencingEnd then
@@ -280,4 +279,5 @@ hook.Add("Org Clear", "BrainfuckClear", function(org)
 	if not org then return end
 	clearFencing(org, IsValid(org.owner) and getRagdoll(org.owner) or nil)
 	org.fencingBrainDamage = nil
+	org.fencingPlayed = nil
 end)
