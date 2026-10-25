@@ -246,12 +246,12 @@ function WS.WeaponSelectorDraw(ply)
 		local innerY = topY + bezel + pad
 		local innerW = sizeX - (bezel + pad) * 2
 
-		surface.SetDrawColor(64, 70, 68, a * 0.62)
-		surface.DrawRect(innerX, innerY, innerW, headerH)
 		if selectedCol then
-			surface.SetDrawColor(ar, ag, ab, a * 0.14)
-			surface.DrawRect(innerX, innerY, innerW, headerH)
+    		surface.SetDrawColor(ar, ag, ab, a * 0.12)
+		else
+    		surface.SetDrawColor(64, 70, 68, a * 0.62)
 		end
+		surface.DrawRect(innerX, innerY, innerW, headerH)
 		DrawText(tostring(i + 1), "WS_CRT_Slot", x + sizeX * 0.5, innerY + (headerH - slotNumH) * 0.5, color_text, a, TEXT_ALIGN_CENTER)
 
 		local cursorY = innerY + headerH + pad
