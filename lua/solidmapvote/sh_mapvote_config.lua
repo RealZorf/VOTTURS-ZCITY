@@ -1677,6 +1677,20 @@ SolidMapVote["Config"]["Specific Maps"] = {
         height = 268
     },
     {
+        filename = "gm_gorge",
+        displayname = "Gorge",
+        image = "https://images.steamusercontent.com/ugc/14270006491605443406/F3FECF91A29F1CAA02AD64E66F4B62844317FF5F/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+        {
+        filename = "zc_greenbelt",
+        displayname = "Postal 2 Greenbelt",
+        image = "https://images.steamusercontent.com/ugc/2262559980386442038/CE22AF60EB32D75D51F1C4E021C36D8C19ABA4C0/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+        width = 268,
+        height = 268
+    },
+        {
         filename = "example",
         displayname = "yes",
         image = "",
