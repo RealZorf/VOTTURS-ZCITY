@@ -136,6 +136,7 @@ function hg.AddSpaceCloseFooter(panel, closeCallback, options)
         surface.DrawRect(0, 0, w, h)
         surface.SetDrawColor(accent.r, accent.g, accent.b, 185)
         surface.DrawOutlinedRect(0, 0, w, h, 1)
+        surface.SetDrawColor(textColor.r, textColor.g, textColor.b, 255)
         surface.DrawOutlinedRect(keyX, keyY, keySize, keySize, 1)
         surface.DrawRect(keyX + math.floor(keySize * 0.25), keyY + math.floor(keySize * 0.67), math.ceil(keySize * 0.5), 1)
 
