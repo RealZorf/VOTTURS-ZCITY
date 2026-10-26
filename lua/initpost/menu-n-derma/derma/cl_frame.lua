@@ -7,6 +7,10 @@ hg.VGUI.SecondaryColor = Color(155,0,0,240)
 hg.VGUI.BackgroundColor = Color(25,25,35,220)]]
 local color_blacky = Color(6, 14, 10, 220)
 local color_reddy = Color(35, 225, 110, 240)
+local color_bezel = Color(12, 13, 13)
+local color_text = Color(236, 238, 236)
+
+local HideSpaceCloseHint = CreateClientConVar("zb_hide_space_close_hint", "0", true, false, "Hide the SPACE to close hint after it has been used once.", 0, 1)
 
 local spaceCloseFontHeight
 local spaceCloseSerial = 0
@@ -14,14 +18,14 @@ local spaceClosePressConsumed = false
 local spaceCloseFooters = setmetatable({}, {__mode = "k"})
 
 local function rebuildSpaceCloseFont()
-    local height = math.Clamp(math.floor(ScrH() / 72 + 0.5), 13, 18)
+    local height = math.Clamp(math.floor(ScrH() / 64 + 0.5), 15, 20)
     if spaceCloseFontHeight == height then return end
 
     spaceCloseFontHeight = height
     surface.CreateFont("ZC_SpaceCloseHint", {
-        font = "Roboto",
+        font = "Bahnschrift",
         size = height,
-        weight = 700,
+        weight = 600,
         antialias = true,
         extended = true
     })
@@ -78,7 +82,8 @@ function hg.AddSpaceCloseFooter(panel, closeCallback, options)
     footer.SpaceWasDown = input.IsKeyDown(KEY_SPACE)
     footer:SetMouseInputEnabled(false)
     footer:SetKeyboardInputEnabled(true)
-    footer:SetSize(0, 0)
+    footer:SetDrawOnTop(true)
+    footer:SetSize(1, 1)
 
     footer.CloseTarget = function(self)
         local target = self.TargetPanel
@@ -86,6 +91,7 @@ function hg.AddSpaceCloseFooter(panel, closeCallback, options)
 
         self.SpaceWasDown = true
         spaceClosePressConsumed = true
+        HideSpaceCloseHint:SetBool(true)
 
         if closeCallback then
             closeCallback(target)
@@ -117,30 +123,15 @@ function hg.AddSpaceCloseFooter(panel, closeCallback, options)
     end
 
     footer.Paint = function(self, w, h)
+        if not self.ShouldShow then return end
+
         local target = self.TargetPanel
         if not IsValid(target) or target.Closing then return end
 
-        local accent = options.accent or target.ColorBR or color_reddy
-        local textColor = options.textColor or Color(225, 245, 232)
-        local keySize = math.floor(h * 0.62)
-        local keyY = math.floor((h - keySize) * 0.5)
-        local label = options.label or "Press SPACEBAR to close"
-
-        surface.SetFont("ZC_SpaceCloseHint")
-        local textWidth = surface.GetTextSize(label)
-        local gap = math.max(7, math.floor(h * 0.22))
-        local totalWidth = keySize + gap + textWidth
-        local keyX = math.floor((w - totalWidth) * 0.5)
-
-        surface.SetDrawColor(2, 14, 8, options.backgroundAlpha or 225)
-        surface.DrawRect(0, 0, w, h)
-        surface.SetDrawColor(accent.r, accent.g, accent.b, 185)
-        surface.DrawOutlinedRect(0, 0, w, h, 1)
-        surface.SetDrawColor(textColor.r, textColor.g, textColor.b, 255)
-        surface.DrawOutlinedRect(keyX, keyY, keySize, keySize, 1)
-        surface.DrawRect(keyX + math.floor(keySize * 0.25), keyY + math.floor(keySize * 0.67), math.ceil(keySize * 0.5), 1)
-
-        draw.SimpleText(label, "ZC_SpaceCloseHint", keyX + keySize + gap, h * 0.5, textColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        local label = options.label or "SPACE to close"
+        local textColor = options.textColor or color_text
+        draw.SimpleText(label, "ZC_SpaceCloseHint", w * 0.5 + 1, h * 0.5 + 1, color_bezel, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(label, "ZC_SpaceCloseHint", w * 0.5, h * 0.5, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 
     footer.Think = function(self)
@@ -152,24 +143,31 @@ function hg.AddSpaceCloseFooter(panel, closeCallback, options)
 
         rebuildSpaceCloseFont()
 
-        local footerHeight = options.height or math.Clamp(math.floor(ScrH() * 0.036), 30, 40)
-        local footerWidth = math.min(target:GetWide(), options.width or math.max(280, math.floor(ScrW() * 0.22)))
+        local label = options.label or "SPACE to close"
+        surface.SetFont("ZC_SpaceCloseHint")
+        local textW, textH = surface.GetTextSize(label)
+        local footerHeight = options.height or (textH + 4)
+        local footerWidth = options.width or (textW + 8)
+        local gap = options.gap or 2
         local targetX, targetY = target:LocalToScreen(0, 0)
         local x = targetX + (target:GetWide() - footerWidth) * 0.5
-        local y = targetY + target:GetTall() + (options.gap or 6)
+        local y = targetY + target:GetTall() + gap
 
-        if y + footerHeight > ScrH() - 6 then
-            y = targetY + target:GetTall() - footerHeight - (options.inset or 8)
+        if y + footerHeight > ScrH() - 4 then
+            y = math.max(4, targetY - footerHeight - gap)
         end
 
         local isTopmost = getTopmostSpaceCloseFooter() == self
+        local show = not HideSpaceCloseHint:GetBool() and target:IsVisible() and target:GetWide() > 0 and target:GetTall() > 0 and not target.Closing and isTopmost
 
+        self.ShouldShow = show
         self:SetPos(math.floor(x), math.floor(y))
         self:SetSize(footerWidth, footerHeight)
-        self:SetVisible(target:IsVisible() and not target.Closing and isTopmost)
-        if isTopmost and not self.WasTopmost then
+        self:SetVisible(true)
+        self:SetDrawOnTop(true)
+        if isTopmost then
             self:MoveToFront()
-            if not isTextEntryFocused(target) then
+            if show and not self.WasTopmost and not isTextEntryFocused(target) then
                 self:RequestFocus()
             end
         end
