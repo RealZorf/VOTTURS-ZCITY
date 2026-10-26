@@ -310,6 +310,7 @@ if CLIENT then
             ["pathowogen"] = true,
             ["riot"] = true,
             ["tdmmelee"] = true,
+            ["gungame"] = true,
             ["sandbox"] = true,
             ["scugarena"] = true,
             ["superfighters"] = true,
