@@ -1187,38 +1187,38 @@ players : 1 humans, 0 bots (20 max)
 			end
 
 			local org = ent.organism
-			if not org then return end
-
-			if ply:IsPlayer() and ply:Alive() and not org.otrub then
-				ent.Blink = ent.Blink or 0
-				ent.Blink = ent.Blink + 0.25
-				ent.LastBlinking = ent.Blinking or 0
-				if ent.Blink > 940 then
-					ent.Blinking = cachedLerp(FrameTime() * 65,ent.Blinking or 0,1)
-					if ent.Blink > 951 then
-						ent.Blink = 0
+			if org then
+				if ply:IsPlayer() and ply:Alive() and not org.otrub then
+					ent.Blink = ent.Blink or 0
+					ent.Blink = ent.Blink + 0.25
+					ent.LastBlinking = ent.Blinking or 0
+					if ent.Blink > 940 then
+						ent.Blinking = cachedLerp(FrameTime() * 65,ent.Blinking or 0,1)
+						if ent.Blink > 951 then
+							ent.Blink = 0
+						end
+					else
+						ent.Blinking = cachedLerp(FrameTime() * 65,ent.Blinking or 0,0)
 					end
-				else
-					ent.Blinking = cachedLerp(FrameTime() * 65,ent.Blinking or 0,0)
+				elseif (ent.Blinking or 0) < 0.95 then
+					ent.Blinking = cachedLerp(FrameTime() * 5,ent.Blinking or 0,1)
 				end
-			elseif (ent.Blinking or 0) < 0.95 then
-				ent.Blinking = cachedLerp(FrameTime() * 5,ent.Blinking or 0,1)
-			end
 
-			if ply.suiciding then
-				ent.Blinking = 1
-			end
-			
-			if ent:GetFlexIDByName("blink") then
-				ent:SetFlexWeight(ent:GetFlexIDByName("blink"), ent.Blinking or 0)
-			end
+				if ply.suiciding then
+					ent.Blinking = 1
+				end
 
-			if ent:GetFlexIDByName("wrinkler") then
-				ent:SetFlexWeight(ent:GetFlexIDByName("wrinkler"), ent.Blinking or 0)
-			end
+				if ent:GetFlexIDByName("blink") then
+					ent:SetFlexWeight(ent:GetFlexIDByName("blink"), ent.Blinking or 0)
+				end
 
-			if ent:GetFlexIDByName("half_closed") then
-				ent:SetFlexWeight(ent:GetFlexIDByName("half_closed"), ent.Blinking or 0)
+				if ent:GetFlexIDByName("wrinkler") then
+					ent:SetFlexWeight(ent:GetFlexIDByName("wrinkler"), ent.Blinking or 0)
+				end
+
+				if ent:GetFlexIDByName("half_closed") then
+					ent:SetFlexWeight(ent:GetFlexIDByName("half_closed"), ent.Blinking or 0)
+				end
 			end
 		end
 
