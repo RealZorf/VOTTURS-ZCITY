@@ -139,6 +139,9 @@ local ang1 = Angle()
 local ang2 = Angle()
 
 hook.Add("HUDShouldDraw", "hg.HUDShouldDraw", function(id)
+	local ply = LocalPlayer()
+	if IsValid(ply) and not ply:Alive() then return end
+
 	if (fakeTimer and fakeTimer - 2 > CurTime()) then
 		return false
 	end

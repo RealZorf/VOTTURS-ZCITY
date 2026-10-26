@@ -386,7 +386,7 @@ CalcView = function(ply, origin, angles, fov, znear, zfar)
 		clearLocalFollow()
 	end
 	
-	if not lply:Alive() then
+	if not lply:Alive() and not isLocalSpectatorFreecam() and not IsValid(lply:GetNWEntity("spect", NULL)) then
 		fakeTimer = fakeTimer or CurTime() + 30
 	end
 	
