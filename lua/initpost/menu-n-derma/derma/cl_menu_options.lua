@@ -19,8 +19,6 @@ end
 local hg_firstperson_death = CreateClientConVar("hg_firstperson_death", "0", true, false, "Toggle first-person death camera view", 0, 1)
 local hg_font = CreateClientConVar("hg_font", "Bahnschrift", true, false, "change every text font to selected because ui customization is cool")
 local hg_attachment_draw_distance = CreateClientConVar("hg_attachment_draw_distance", 0, true, nil, "distance to draw attachments", 0, 4096)
-local hg_wos_animmenus = CreateClientConVar("hg_wos_animmenus", "0", true, false, "Enable wOS TF2 animations/animation wheel (H/F3)", 0, 1)
-
 xbars = 17
 ybars = 30
 
@@ -65,51 +63,7 @@ hg.settings:AddOpt("Gameplay", "hg_old_notificate", "Old notification style", ni
 hg.settings:AddOpt("Gameplay", "hg_deathfadeout", "Fade screen on death", nil, nil, nil, "Fade the screen to black when you die")
 hg.settings:AddOpt("Gameplay", "hg_gary", "Gary mode", nil, nil, nil, "Replace player models with Gary")
 hg.settings:AddOpt("Gameplay", "hg_cheats", "Client cheats", nil, nil, nil, "Allow client cheat commands where the server permits them")
-hg.settings:AddOpt("Gameplay", "hg_wos_animmenus", "wOS animation wheel (H/F3)", nil, nil, nil, "Animation wheel/TF2")
-
-timer.Simple(0, function()
-	hook.Add("PlayerBindPress", "wOS.TFTaunts.TFTauntMenu", function() end)
-	hook.Add("HUDPaint", "wOS.TF2Taunts.ShowMenu", function() end)
-
-	local hooks = hook.GetTable()
-	local think = hooks.Think and hooks.Think.WOS_AnimWheel_KeyHandler
-	if think then
-		hook.Add("Think", "WOS_AnimWheel_KeyHandler", function(...)
-			if not hg_wos_animmenus:GetBool() then
-				if WOS_AnimWheel and WOS_AnimWheel.IsOpen then
-					WOS_AnimWheel.IsOpen = false
-					gui.EnableScreenClicker(false)
-				end
-				return
-			end
-			return think(...)
-		end)
-	end
-
-	local mouse = hooks.GUIMousePressed and hooks.GUIMousePressed.WOS_AnimWheel_MouseHandler
-	if mouse then
-		hook.Add("GUIMousePressed", "WOS_AnimWheel_MouseHandler", function(...)
-			if not hg_wos_animmenus:GetBool() then return end
-			return mouse(...)
-		end)
-	end
-
-	local stop = hooks.PlayerBindPress and hooks.PlayerBindPress.WOS_AnimWheel_StopOnMovement
-	if stop then
-		hook.Add("PlayerBindPress", "WOS_AnimWheel_StopOnMovement", function(...)
-			if not hg_wos_animmenus:GetBool() then return end
-			return stop(...)
-		end)
-	end
-
-	local draw = hooks.HUDPaint and hooks.HUDPaint.WOS_AnimWheel_Draw
-	if draw then
-		hook.Add("HUDPaint", "WOS_AnimWheel_Draw", function(...)
-			if not hg_wos_animmenus:GetBool() then return end
-			return draw(...)
-		end)
-	end
-end)
+hg.settings:AddOpt("Gameplay", "hg_wos_animmenus", "wOS animations (radial / F3)", nil, nil, nil, "Adds Animations to the radial menu. gm_showspare1 (F3) chooses which ones appear")
 
 hg.settings:AddOpt("View", "hg_fov", "Walking field of view", nil, nil, nil, "Your normal camera FOV while not aiming")
 hg.settings:AddOpt("View", "hg_nofovzoom", "Aiming FOV zoom", nil, nil, nil, "Zoom the camera in when aiming down sights")
