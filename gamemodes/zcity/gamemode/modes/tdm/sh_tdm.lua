@@ -118,14 +118,14 @@ AddItemToBUY( "AA-12", "Weapon", "weapon_aa12", 3300, "Shotguns", {} )
 
 -- RIFLES
 AddItemToBUY( "AK-74", "Weapon", "weapon_ak74", 3000, "Rifles", {"supressor1","holo6","holo12","optic4"}, nil, 0 )
-AddItemToBUY( "AK-200", "Weapon", "weapon_ak200", 3000, "Rifles", {"supressor1","holo4","holo1","optic5"}, nil, 1 )
+AddItemToBUY( "AK-200", "Weapon", "weapon_ak200", 3000, "Rifles", {"supressor1","holo4","holo1","optic5","laser2"}, nil, 1 )
 AddItemToBUY( "AKM", "Weapon", "weapon_akm", 3200, "Rifles", {"supressor1","holo6","holo12","optic4"}, nil, 0 )
 AddItemToBUY( "AK-203", "Weapon", "weapon_ak203", 3200, "Rifles", {"supressor1","holo4","holo1","optic5"}, nil, 1 )
 AddItemToBUY( "SG552", "Weapon", "weapon_sg552", 3400, "Rifles", {"supressor2","holo5","holo12","optic5"}, nil, 0 )
 AddItemToBUY( "M16A4", "Weapon", "weapon_m16a4", 3400, "Rifles", {"supressor2","holo4","holo1","optic5"}, nil, 1 )
 AddItemToBUY( "AS-VAL", "Weapon", "weapon_asval", 3500, "Rifles", {"optic4"} )
-AddItemToBUY( "LR300", "Weapon", "weapon_lr300", 3600, "Rifles", {"supressor2","holo5","holo12","optic5"}, nil, 0 )
-AddItemToBUY( "CQB-11", "Weapon", "weapon_mk1", 3600, "Rifles", {"supressor2","holo4","holo1","optic5"}, nil, 1 )
+AddItemToBUY( "LR300", "Weapon", "weapon_lr300", 3600, "Rifles", {"supressor2","holo5","holo12","optic5","laser2"}, nil, 0 )
+AddItemToBUY( "CQB-11", "Weapon", "weapon_mk1", 3600, "Rifles", {"supressor2","holo4","holo1","optic5","laser2"}, nil, 1 )
 AddItemToBUY( "FN FAL", "Weapon", "weapon_fnfalpara", 4000, "Rifles", {"holo5","holo13"}, nil, 0 )
 AddItemToBUY( "G3A3", "Weapon", "weapon_g3a3", 4000, "Rifles", {"holo4","holo1"}, nil, 1 )
 
