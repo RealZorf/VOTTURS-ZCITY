@@ -145,7 +145,7 @@ hook.Add("HUDPaint","drawWeaponHUD",function()
 	end
 end)
 
-local hg_fov = ConVarExists("hg_fov") and GetConVar("hg_fov") or CreateClientConVar("hg_fov", "70", true, false, "changes fov to value", 75, 100)
+local hg_fov = ConVarExists("hg_fov") and GetConVar("hg_fov") or CreateClientConVar("hg_fov", "75", true, false, "changes fov to value", 75, 100)
 local fov = hg_fov:GetFloat()
 local fov_mode_lerp = 0
 
