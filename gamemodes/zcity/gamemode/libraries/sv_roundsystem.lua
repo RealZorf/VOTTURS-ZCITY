@@ -260,8 +260,6 @@ end
 
 zb.forcemode = zb.forcemode or "random"
 
-local forcemode = zb.forcemode
-
 function zb.GetModes()
 	local newtbl = {}
 	for name,tbl in pairs(zb.modes) do
@@ -460,7 +458,6 @@ function zb.GetRoundName(name)
 end
 
 zb.RoundList = zb.RoundList or {}
-zb.QueuedModes = zb.QueuedModes or {}
 if zb.RoundListIsAutomatic == nil then zb.RoundListIsAutomatic = true end
 zb.SanitizeOncePerMapRoundList()
 
@@ -473,15 +470,8 @@ function zb.CheckChances()
 	local nextrnd = zb.nextround or zb.RoundList[1]
 	print("Next round is: "..zb.GetRoundName(nextrnd).." ("..nextrnd..")")
 
-	if #zb.QueuedModes > 0 then
-		print("Queued game modes:")
-		for i=1, #zb.QueuedModes do
-			print("  "..i..": "..zb.GetRoundName(zb.QueuedModes[i]).." ("..zb.QueuedModes[i]..")")
-		end
-	else
-		for i=1,#zb.RoundList do
-			print("Round "..(i+1).." will be "..zb.GetRoundName(zb.RoundList[i]).." ("..zb.RoundList[i]..")")
-		end
+	for i = 1, #zb.RoundList do
+		print("Round " .. (i + 1) .. " will be " .. zb.GetRoundName(zb.RoundList[i]) .. " (" .. zb.RoundList[i] .. ")")
 	end
 end
 
@@ -608,16 +598,26 @@ end
 
 function zb.SendRoundListToClient(ply)
 	zb.SanitizeOncePerMapRoundList()
+	local force = forcemodeconvar:GetString()
+	if force == "" then force = zb.forcemode or "random" end
+	zb.forcemode = force
 	net.Start("ZB_SendRoundList")
 		net.WriteTable(zb.RoundList)
 		net.WriteString(zb.nextround or "")
+		net.WriteString(force)
 	net.Send(ply)
+end
+
+function zb.SyncForceModeToAdmins()
+	for _, admin in ipairs(zb.GetAllAdmins()) do
+		zb.SendRoundListToClient(admin)
+	end
 end
 
 
 hook.Add("PlayerInitialSpawn", "ZB_SendModesOnSpawn", function(ply)
 	if ply:IsAdmin() then
-		timer.Simple(10, function()
+		timer.Simple(2, function()
 			if IsValid(ply) then
 				zb.SendModesInfoToClient(ply)
 				zb.SendRoundListToClient(ply)
@@ -638,7 +638,7 @@ net.Receive("ZB_UpdateRoundList", function(len, ply)
 	if not IsValid(ply) or not ply:IsAdmin() then return end
 
 	local newList = net.ReadTable()
-	local forceUpdate = net.ReadBool()
+	net.ReadBool()
 
 	zb.SetRoundList(newList)
 
@@ -657,7 +657,7 @@ function zb:RoundStart()
 	zb.ROUND_STATE = 1
 	zb.START_TIME = nil
 
-	local mode, round = CurrentRound()
+	local mode = CurrentRound()
 
 	VFIRE_DISABLED = (mode.name == "coop")
 
@@ -669,28 +669,22 @@ function zb:RoundStart()
 		net.WriteInt(zb.ROUND_STATE, 4)
 	net.Broadcast()
 
-	if forcemodeconvar:GetString() != "" then
-		forcemode = forcemodeconvar:GetString()
-	end
+	zb.forcemode = forcemodeconvar:GetString()
+	if zb.forcemode == "" then zb.forcemode = "random" end
 
 	zb.AddCurrentModePlayed()
 
 	CurrentRound():RoundStart()
-
-	local nextMode
 
 	if #zb.RoundList == 0 then
 		zb.RerollChances()
 	end
 	zb.SanitizeOncePerMapRoundList()
 
-	nextMode = table.remove(zb.RoundList, 1)
+	local nextMode = table.remove(zb.RoundList, 1)
+	print("Next game mode is " .. tostring(nextMode))
 
-	local currentMode = mode.Type or round
-
-	print("Next game mode is " .. nextMode)
-
-	NextRound(forcemode ~= "random" and forcemode or (nextMode or "hmcd"))
+	NextRound(zb.forcemode ~= "random" and zb.forcemode or (nextMode or "hmcd"))
 
 	if CurrentRound().RoundStartPost then
 		CurrentRound():RoundStartPost()
@@ -708,125 +702,46 @@ end
 concommand.Add("zb_checkchances",function(ply) if ply:IsAdmin() then zb.CheckChances() end end)
 concommand.Add("zb_rerollchances",function(ply) if ply:IsAdmin() then zb.RerollChances() zb.CheckChances() end end)
 
-function zb.NotifyQueueEmptied()
-	net.Start("QueueEmptiedNotification")
-	net.Send(zb.GetAllAdmins())
-end
+util.AddNetworkString("AdminSetGameMode")
+util.AddNetworkString("AdminEndRound")
 
-hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
-	if ply:IsAdmin() then
-		timer.Simple(12, function()
-			if not IsValid(ply) then return end
-
-			local modesToSend = {}
-			for key, mode in pairs(zb.modes) do
-				table.insert(modesToSend, {key = key, name = mode.PrintName or mode.name})
-			end
-
-			net.Start("SendAvailableModes")
-				net.WriteTable(modesToSend)
-			net.Send(ply)
-		end)
-	end
-end)
-
-net.Receive("AdminSetGameMode", function(len, ply)
-	if not ply:IsAdmin() then return end
+net.Receive("AdminSetGameMode", function(_, ply)
+	if not IsValid(ply) or not ply:IsAdmin() then return end
 
 	local command = net.ReadString()
 	local modeKey = net.ReadString()
-	local addToQueue = net.ReadBool() or false
+	net.ReadBool()
 
 	if command == "setmode" then
 		NextRound(modeKey)
 		ply:ChatPrint("Game mode set to: " .. modeKey)
-
-		if addToQueue then
-			table.insert(zb.QueuedModes, modeKey)
-			zb.NotifyQueueModified(ply, "added " .. modeKey .. " to")
-
-			zb.SyncQueueToAdmins()
-		end
 	elseif command == "setforcemode" then
-		forcemode = modeKey
-		NextRound(forcemode)
-		ply:ChatPrint("Force mode set to: " .. modeKey)
-
-		if addToQueue then
-			table.insert(zb.QueuedModes, modeKey)
-			zb.NotifyQueueModified(ply, "added " .. modeKey .. " to")
-
-			zb.SyncQueueToAdmins()
+		forcemodeconvar:SetString(modeKey)
+		zb.forcemode = modeKey
+		if modeKey == "random" then
+			ply:ChatPrint("Force mode disabled")
+		else
+			NextRound(modeKey)
+			ply:ChatPrint("Force mode set to: " .. modeKey)
 		end
+		zb.SyncForceModeToAdmins()
 	end
 end)
 
-net.Receive("AdminEndRound", function(len, ply)
-	if not ply:IsAdmin() then return end
-
+net.Receive("AdminEndRound", function(_, ply)
+	if not IsValid(ply) or not ply:IsAdmin() then return end
 	ply:ChatPrint("Round ended!")
 	zb:EndRound()
 end)
 
-function zb.SyncQueueToAdmins()
-	timer.Simple(0.1, function()
-		net.Start("SendGameQueue")
-		net.WriteTable(zb.QueuedModes)
-		net.Send(zb.GetAllAdmins())
-	end)
-end
-
-net.Receive("AdminSetGameQueue", function(len, ply)
-	if not ply:IsAdmin() then return end
-
-	local modeQueue = net.ReadTable()
-	zb.QueuedModes = modeQueue
-
-	if #modeQueue == 0 then
-		ply:ChatPrint("Game mode queue has been cleared")
-		zb.NotifyQueueModified(ply, "cleared")
-
-
-		timer.Simple(0.2, function()
-			net.Start("QueueEmptiedNotification")
-			net.Send(zb.GetAllAdmins())
-		end)
-	else
-		ply:ChatPrint("Game mode queue set with " .. #modeQueue .. " modes")
-		zb.NotifyQueueModified(ply, "updated")
-	end
-
-	zb.SyncQueueToAdmins()
-end)
-
-function zb.NotifyQueueModified(ply, action)
-	local admins = zb.GetAllAdmins()
-
-	local recipients = {}
-	for _, admin in ipairs(admins) do
-		if admin ~= ply then
-			table.insert(recipients, admin)
-		end
-	end
-
-
-	if #recipients > 0 then
-		net.Start("QueueModifiedNotification")
-		net.WriteString(IsValid(ply) and ply:Nick() or "Server")
-		net.WriteString(action)
-		net.Send(recipients)
-	end
-end
-
 function zb:Unfreeze()
-	for i, ply in player.Iterator() do
+	for _, ply in player.Iterator() do
 		if ply:Alive() then ply:Freeze(false) end
 	end
 end
 
-
 function zb:Freeze()
-	for i, ply in player.Iterator() do
+	for _, ply in player.Iterator() do
 		if ply:Alive() then ply:Freeze(true) end
 	end
 end
@@ -835,7 +750,7 @@ function zb.GetAllAdmins()
 	local admins = {}
 	for _, ply in player.Iterator() do
 		if ply:IsAdmin() then
-			table.insert(admins, ply)
+			admins[#admins + 1] = ply
 		end
 	end
 	return admins
@@ -844,7 +759,7 @@ end
 COMMANDS.setmode = {
 	function(ply, args)
 		if not ply:IsAdmin() then ply:ChatPrint("You don't have access") return end
-		if not args[1] or (not zb:GetMode(args[1]) and args[1]~="random") then return end
+		if not args[1] or (not zb:GetMode(args[1]) and args[1] ~= "random") then return end
 		ply:ChatPrint(args[1])
 		NextRound(args[1])
 	end,
@@ -854,117 +769,23 @@ COMMANDS.setmode = {
 COMMANDS.setforcemode = {
 	function(ply, args)
 		if not ply:IsAdmin() then ply:ChatPrint("You don't have access") return end
-		if not args[1] or (not zb:GetMode(args[1]) and args[1]~="random") then return end
+		if not args[1] or (not zb:GetMode(args[1]) and args[1] ~= "random") then return end
+		forcemodeconvar:SetString(args[1])
+		zb.forcemode = args[1]
 		ply:ChatPrint(args[1])
-		forcemode = args[1]
 		if args[1] ~= "random" then
 			NextRound(args[1])
 		end
+		zb.SyncForceModeToAdmins()
 	end, 0
 }
 
 COMMANDS.endround = {
-	function(ply, args)
+	function(ply)
 		if not ply:IsAdmin() then
 			ply:ChatPrint("You don't have access")
 			return
 		end
-	 	zb:EndRound()
+		zb:EndRound()
 	end, 0
 }
-
-if SERVER then
-	util.AddNetworkString("SendAvailableModes")
-	util.AddNetworkString("AdminSetGameMode")
-	util.AddNetworkString("AdminEndRound")
-	util.AddNetworkString("AdminSetGameQueue")
-	util.AddNetworkString("RequestGameQueue")
-	util.AddNetworkString("SendGameQueue")
-	util.AddNetworkString("QueueEmptiedNotification")
-	util.AddNetworkString("QueueModifiedNotification")
-
-	hook.Add("PlayerInitialSpawn", "SendGameModesToClient", function(ply)
-		if ply:IsAdmin() then
-			timer.Simple(12, function()
-				if not IsValid(ply) then return end
-
-				local modesToSend = {}
-				for key, mode in pairs(zb.modes) do
-					table.insert(modesToSend, {key = key, name = mode.PrintName or mode.name})
-				end
-
-				net.Start("SendAvailableModes")
-					net.WriteTable(modesToSend)
-				net.Send(ply)
-			end)
-		end
-	end)
-
-	net.Receive("AdminSetGameMode", function(len, ply)
-		if not ply:IsAdmin() then return end
-
-		local command = net.ReadString()
-		local modeKey = net.ReadString()
-		local addToQueue = net.ReadBool() or false
-
-		if !(ply:IsSuperAdmin() or ply:IsAdmin()) and not zb.modes[modeKey]:CanLaunch() then
-			ply:ChatPrint("This mode can't launch (No points or Is blocked): " .. modeKey)
-			return
-		end
-
-		if command == "setmode" then
-			NextRound(modeKey)
-			ply:ChatPrint("Game mode set to: " .. modeKey)
-
-			if addToQueue then
-				table.insert(zb.QueuedModes, modeKey)
-				zb.NotifyQueueModified(ply, "added " .. modeKey .. " to")
-
-				zb.SyncQueueToAdmins()
-			end
-		elseif command == "setforcemode" then
-			forcemode = modeKey
-			NextRound(forcemode)
-			ply:ChatPrint("Force mode set to: " .. modeKey)
-
-			if addToQueue then
-				table.insert(zb.QueuedModes, modeKey)
-				zb.NotifyQueueModified(ply, "added " .. modeKey .. " to")
-
-				zb.SyncQueueToAdmins()
-			end
-		end
-	end)
-
-	function zb.SyncQueueToAdmins()
-		timer.Simple(0.1, function()
-			net.Start("SendGameQueue")
-			net.WriteTable(zb.QueuedModes)
-			net.Send(zb.GetAllAdmins())
-		end)
-	end
-
-	net.Receive("AdminSetGameQueue", function(len, ply)
-		if not ply:IsAdmin() then return end
-
-		local modeQueue = net.ReadTable()
-		zb.QueuedModes = modeQueue
-
-		if #modeQueue == 0 then
-			ply:ChatPrint("Game mode queue has been cleared")
-			zb.NotifyQueueModified(ply, "cleared")
-
-
-			timer.Simple(0.2, function()
-				net.Start("QueueEmptiedNotification")
-				net.Send(zb.GetAllAdmins())
-			end)
-		else
-			ply:ChatPrint("Game mode queue set with " .. #modeQueue .. " modes")
-			zb.NotifyQueueModified(ply, "updated")
-		end
-
-		zb.SyncQueueToAdmins()
-	end)
-
-end
