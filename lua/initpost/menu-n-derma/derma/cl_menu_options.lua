@@ -2,60 +2,20 @@ hg.settings = hg.settings or {}
 hg.settings.tbl = {}
 hg.settings.categoryOrder = {}
 
-function hg.settings:AddOpt( strCategory, strConVar, strTitle, bDecimals, bString, category, strHelp )
-    if not self.tbl[strCategory] then
-        self.tbl[strCategory] = {}
-        self.categoryOrder[#self.categoryOrder + 1] = strCategory
-    end
+function hg.settings:AddOpt(category, cvar, title, decimals, isString, kind, help)
+	if not self.tbl[category] then
+		self.tbl[category] = {}
+		self.categoryOrder[#self.categoryOrder + 1] = category
+	end
 
-    for _, data in ipairs(self.tbl[strCategory]) do
-        if data[2] == strConVar then
-            return
-        end
-    end
-
-    self.tbl[strCategory][#self.tbl[strCategory] + 1] = { strCategory, strConVar, strTitle, bDecimals or false, bString or false, category, strHelp }
+	self.tbl[category][#self.tbl[category] + 1] = {
+		cvar = cvar,
+		title = title,
+		decimals = decimals and 2 or 0,
+		kind = isString and "string" or kind,
+		help = help
+	}
 end
-local hg_firstperson_death = CreateClientConVar("hg_firstperson_death", "0", true, false, "Toggle first-person death camera view", 0, 1)
-local hg_font = CreateClientConVar("hg_font", "Bahnschrift", true, false, "change every text font to selected because ui customization is cool")
-local hg_attachment_draw_distance = CreateClientConVar("hg_attachment_draw_distance", 0, true, nil, "distance to draw attachments", 0, 4096)
-xbars = 17
-ybars = 30
-
-gradient_l = Material("vgui/gradient-l")
-
-local blur = Material("pp/blurscreen")
-local blur2 = Material("effects/shaders/zb_blur" )
-local sw, sh = ScrW(), ScrH()
-
-local font = function() -- hg_coolvetica:GetBool() and "Coolvetica" or "Bahnschrift"
-    local usefont = "Bahnschrift"
-
-    if hg_font:GetString() != "" then
-        usefont = hg_font:GetString()
-    end
-
-    return usefont
-end
-
-surface.CreateFont("ZCity_setiings_tiny", {
-	font = font(),
-	size = ScreenScale(7),
-	weight = 100
-})
-
-surface.CreateFont("ZCity_setiings_fine", {
-	font = font(),
-	size = ScreenScale(10),
-	weight = 100
-})
-
-surface.CreateFont("ZCity_setiings_category", {
-	font = font(),
-	size = ScreenScale(15),
-	weight = 100
-})
-
 
 hg.settings:AddOpt("Gameplay", "hg_showthoughts", "Character thoughts", nil, nil, nil, "Show pain and status thoughts from your character")
 hg.settings:AddOpt("Gameplay", "hg_hints", "Object hints", nil, nil, nil, "Show interaction hints when you look at usable objects")
@@ -135,255 +95,316 @@ hg.settings:AddOpt("Debug", "hg_show_hitbox", "Show hitboxes", nil, nil, nil, "D
 hg.settings:AddOpt("Debug", "hg_show_hitposmuzzle", "Show muzzle point", nil, nil, nil, "Draw where the gun is aiming. Admins or sv_cheats 1")
 hg.settings:AddOpt("Debug", "hg_setzoompos", "Edit aim zoom", nil, nil, nil, "Superadmin only. Hold RMB to move iron-sight zoom and print values")
 
+local CRT_R, CRT_G, CRT_B = 35, 225, 110
+local TRAITOR_R, TRAITOR_G, TRAITOR_B = 225, 35, 35
+local FRAME_R, FRAME_G, FRAME_B = 86, 94, 90
+local color_idle_dim = Color(112, 118, 116)
+local color_bezel = Color(12, 13, 13)
+local color_panel = Color(20, 22, 21)
+local color_text = Color(236, 238, 236)
+local color_danger = Color(TRAITOR_R, TRAITOR_G, TRAITOR_B)
+local BEZEL = 3
+local INSET = BEZEL + 4
+local SND_CLICK = "shitty/tap_depress.wav"
+local SND_HOVER = "shitty/tap-resonant.wav"
 
-function hg.CreateCategory(ctgName, ParentPanel, yPos)
-    local pppanel = vgui.Create('DPanel', ParentPanel)
-    pppanel:SetSize(ParentPanel:GetWide() / 1.05, ParentPanel:GetTall() * 0.07)
-    pppanel:SetPos(ParentPanel:GetWide() / 2 -pppanel:GetWide() / 2, yPos)
-    --pppanel:SetText(ctgName)
-    pppanel.Paint = function(self,w,h)
-        surface.SetDrawColor(60,60,60,145)
-        surface.DrawRect(0, 0, w, h)
-		surface.SetDrawColor(42, 42, 42, 184)
-		surface.DrawRect(0, h-5, w, 5)
-    
-        draw.SimpleText(ctgName, 'ZCity_setiings_category', w / 2, h / 2, color3, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    end
-    
-    return pppanel
+local function S(n)
+	return math.max(1, math.Round(n * ScrH() / 1080))
 end
 
-function hg.GetConVarType(convar)
-    local stringv = convar:GetString()
-    local floatVal = convar:GetFloat()
-    local intVal = convar:GetInt()
-    local boolVal = convar:GetBool()
+local function CreateFonts()
+	surface.CreateFont("ZC_MM_Header", {font = "Bahnschrift", size = math.max(18, S(22)), weight = 700, antialias = true, extended = true})
+	surface.CreateFont("ZC_MM_Tiny", {font = "Bahnschrift", size = math.max(12, S(15)), weight = 500, antialias = true, extended = true})
+end
+CreateFonts()
+hook.Add("OnScreenSizeChanged", "ZC_Settings_Fonts", CreateFonts)
 
-    if (stringv == '0' and not boolVal) or (stringv == '1' and boolVal) then
-        return 'bool'
-    end
-
-    if tonumber(stringv) and math.floor(stringv) == floatVal then
-        if intVal == floatVal then
-            return "int"
-        end
-    end
-
-    return "string"
+local function ClickSound(path)
+	local ply = LocalPlayer()
+	if IsValid(ply) then ply:EmitSound(path, 75, 100, 0.09) else surface.PlaySound(path) end
 end
 
-local function SetConVarValue(convar, value)
-    if not convar then
-        return
-    end
-
-    local name = convar.GetName and convar:GetName()
-    if not name or name == "" then
-        return
-    end
-
-    if isbool(value) then
-        RunConsoleCommand(name, value and "1" or "0")
-        return
-    end
-
-    RunConsoleCommand(name, tostring(value))
+local function IsModified(cvar)
+	local cur, def = cvar:GetString(), cvar:GetDefault()
+	if not def then return false end
+	local ncur, ndef = tonumber(cur), tonumber(def)
+	if ncur and ndef then
+		local min, max = cvar:GetMin(), cvar:GetMax()
+		if min ~= max then ndef = math.Clamp(ndef, min, max) end
+		return ncur ~= ndef
+	end
+	return cur ~= def
 end
 
-local clr_1 = Color(255,255,255,104)
-local clr_2 = Color(122,122,122,104)
-local clr_3 = Color(28,28,28)
-local clr_4 = Color(0, 0, 0, 30)
-local clr_5 = Color(30, 29, 29, 30)
-local clr_6 = Color(255, 255, 255, 100)
-local clr_7 = Color(255, 255, 255, 200)
-local clr_8 = Color(35, 225, 110)
-local clr_entry_bg = Color(255, 255, 255, 245)
-local clr_entry_border = Color(35, 225, 110, 255)
-local clr_entry_text = Color(12, 18, 28, 255)
-function hg.CreateButton(buttonData, convarName, ParentPanel, yPos)
-    local convar = GetConVar(convarName)
+local function PaintEntry(self, w, h)
+	surface.SetDrawColor(color_bezel)
+	surface.DrawRect(0, 0, w, h)
+	surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, self:IsEditing() and 200 or 120)
+	surface.DrawOutlinedRect(0, 0, w, h, 1)
 
-    if not convar then 
-        return 
-    end
-    local pppanel = vgui.Create('DPanel', ParentPanel)
-    pppanel:SetSize(ParentPanel:GetWide()/1.05, ParentPanel:GetTall()/15)
-    pppanel:SetPos(ParentPanel:GetWide()/2-pppanel:GetWide()/2, yPos)
-    
-    surface.SetFont('ZCity_setiings_fine')
-    local width2, height2 = surface.GetTextSize(buttonData[3])
-    
-    convarType = buttonData[6] or hg.GetConVarType(convar)
-    pppanel.Paint = function(self,w,h)
-        surface.SetDrawColor(43, 43, 43,145)
-        surface.DrawRect(0, 0, w, h)
-		surface.SetDrawColor(47, 47, 47,145)
-		surface.DrawRect(0, h-3, w, 3)
-        
-        draw.SimpleText(buttonData[3], 'ZCity_setiings_fine', 30, h / 2 -height2/2.5, clr_1, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-        draw.SimpleText(buttonData[7] or convar:GetHelpText(), 'ZCity_setiings_tiny', 30, h / 2+height2/2, clr_2, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-    end
+	local text = self:GetText()
+	draw.SimpleText(text, "ZC_MM_Tiny", w * 0.5, h * 0.5, color_text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
-    if convarType == 'bool' then
-        local toggle = vgui.Create('DButton', pppanel)
-        toggle:SetSize(pppanel:GetWide() / 18, pppanel:GetTall() / 2)
-
-        
-        toggle:SetPos(pppanel:GetWide() - toggle:GetWide()*1.4 - pppanel:GetWide() / 20, pppanel:GetTall() / 2 - toggle:GetTall() / 2)
-        toggle:SetText('')
-        
-        local animProgress = convar:GetBool() and 1 or 0
-        local targetProgress = animProgress
-        
-        function toggle:Paint(w, h)
-            if animProgress ~= targetProgress then
-                animProgress = Lerp(FrameTime() * 8, animProgress, targetProgress)
-            end
-            
-            local bgColor = Color(
-                Lerp(animProgress, 180, 80),  
-                Lerp(animProgress, 30, 120),  
-                Lerp(animProgress, 30, 50)   
-            )
-            
-            local shadowColor = Color(0, 0, 0, Lerp(animProgress, 150, 40))
-            surface.SetDrawColor(clr_3)
-            draw.RoundedBox(0, 0, 0, w, h, clr_3)
-            
-            surface.SetDrawColor(clr_5)
-            draw.RoundedBox(0, 2, 2, w - 4, h - 4, clr_4)
-            
-            local slsize = h - 12
-            local slPos = Lerp(animProgress, 6, w - slsize - 6)
-            surface.SetDrawColor(bgColor)
-            draw.RoundedBox(0, slPos, 6, slsize, slsize, bgColor)
-            surface.SetDrawColor(shadowColor)
-            surface.DrawRect(slPos, slsize+4, slsize, 3)
-    
-            surface.SetDrawColor(clr_6)
-        end
-        
-        function toggle:DoClick()
-            if convar then
-                local newValue = not convar:GetBool()
-                SetConVarValue(convar, newValue)
-
-                surface.PlaySound('glide/headlights_on.wav')
-                targetProgress = newValue and 1 or 0
-            end
-        end
-        
-    elseif convarType == 'int' then
-        local slider = vgui.Create('DNumSlider', pppanel)
-        slider:SetSize(280, 30)
-        slider:SetPos(pppanel:GetWide() - 300, pppanel:GetTall() / 2 - 15)
-        slider:SetText('')
-        
-        local min = convar:GetMin() or 0
-        local max = convar:GetMax() or 100
-        local decimals = buttonData[4] and 2 or 0
-        
-        slider:SetMin(min)
-        slider:SetMax(max)
-        slider:SetDecimals(decimals)
-        slider:SetValue(decimals > 0 and convar:GetFloat() or convar:GetInt())
-        
-        function slider:OnValueChanged(val)
-            if convar then
-                SetConVarValue(convar, decimals > 0 and math.Round(val, decimals) or math.Round(val))
-            end
-        end
-        
-        local valueLabel = vgui.Create('DLabel', pppanel)
-        valueLabel:SetPos(pppanel:GetWide() - 350, pppanel:GetTall() / 2 - 8)
-        valueLabel:SetSize(50, 20)
-        valueLabel:SetText(decimals > 0 and tostring(convar:GetFloat()) or tostring(convar:GetInt()))
-        valueLabel:SetTextColor(clr_7)
-        valueLabel:SetFont('ZCity_setiings_tiny')
-        
-        slider.Think = function()
-            if convar then
-                valueLabel:SetText(decimals > 0 and tostring(math.Round(convar:GetFloat(), decimals)) or tostring(convar:GetInt()))
-            end
-        end
-        
-    elseif convarType == 'string' then
-        local textEntry = vgui.Create('DTextEntry', pppanel)
-        textEntry:SetSize(pppanel:GetWide()/8, pppanel:GetTall()/2)
-        textEntry:SetPos(pppanel:GetWide()-pppanel:GetWide()/8-20, pppanel:GetTall()/2-textEntry:GetTall()/2)
-        textEntry:SetText(convar:GetString())
-        textEntry:SetUpdateOnType(true) 
-        textEntry:SetFont('ZCity_Tiny')
-        
-    
-        textEntry.Paint = function(self, w, h)
-            surface.SetDrawColor(clr_entry_bg)
-            surface.DrawRect(0, 0, w, h)
-            surface.SetDrawColor(clr_entry_border)
-            surface.DrawOutlinedRect(0, 0, w, h)
-            
-            self:DrawTextEntryText(clr_entry_text, clr_8, clr_entry_text)
-        end
-        
-        function textEntry:OnValueChange(val)
-            if convar then
-                SetConVarValue(convar, val)
-            end
-        end
-    end
-    
-    return pppanel
+	if self:IsEditing() and (CurTime() * 2) % 2 < 1 then
+		surface.SetFont("ZC_MM_Tiny")
+		local full = surface.GetTextSize(text)
+		local caret = surface.GetTextSize(string.sub(text, 1, self:GetCaretPos()))
+		surface.SetDrawColor(color_text)
+		surface.DrawRect(math.floor(w * 0.5 - full * 0.5 + caret), math.floor(h * 0.5 - 7), 1, 14)
+	end
 end
 
-function hg.DrawSettings(ParentPanel)
-    ParentPanel:SetAlpha(0)
-    ParentPanel.Paint = function(self,w,h)
+local function AddSettingRow(parent, opt)
+	local cvar = GetConVar(opt.cvar)
+	if not cvar then return end
 
-        surface.SetDrawColor(28,28,28,255)
-        surface.DrawRect(0, 0, w, h)
+	local kind = opt.kind
+	if kind == "int" then
+		kind = "num"
+	elseif kind ~= "bool" and kind ~= "string" then
+		local str = cvar:GetString()
+		kind = (str == "0" or str == "1") and "bool" or (tonumber(str) and "num" or "string")
+	end
 
-        surface.SetDrawColor(107, 107, 107,20)
+	local rowH, btnH, toggleH = S(64), S(36), S(24)
+	local side = math.floor((rowH - btnH) * 0.5)
+	local row = vgui.Create("DPanel", parent)
+	row:Dock(TOP)
+	row:SetTall(rowH)
+	row:DockMargin(0, 0, 0, S(8))
+	row:SetPaintBackground(false)
+	row.Paint = function(self, w, h)
+		surface.SetDrawColor(32, 34, 33, self:IsHovered() and 210 or 160)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 70)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		draw.SimpleText(opt.title, "ZC_MM_Header", S(16), h * 0.5 - S(8), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		draw.SimpleText(opt.help or cvar:GetHelpText() or "", "ZC_MM_Tiny", S(16), h * 0.5 + S(12), color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+	end
 
-        for i = 1, (ybars + 1) do
-            surface.DrawRect((sw / ybars) * i - (CurTime() * 30 % (sw / ybars)), 0, ScreenScale(1), sh)
-        end
+	if kind == "bool" then
+		local toggle = vgui.Create("DButton", row)
+		toggle:SetText("")
+		toggle:SetWide(S(52))
+		toggle:Dock(RIGHT)
+		toggle:DockMargin(S(6), math.floor((rowH - toggleH) * 0.5), S(10), math.floor((rowH - toggleH) * 0.5))
+		toggle.Paint = function(self, w, h)
+			local on = cvar:GetBool()
+			local hover = self:IsHovered()
+			surface.SetDrawColor(color_bezel)
+			surface.DrawRect(0, 0, w, h)
+			surface.SetDrawColor(on and CRT_R or (hover and TRAITOR_R or FRAME_R), on and CRT_G or (hover and TRAITOR_G or FRAME_G), on and CRT_B or (hover and TRAITOR_B or FRAME_B), 180)
+			surface.DrawOutlinedRect(0, 0, w, h, 1)
+			local knob = h - S(8)
+			surface.DrawRect(on and (w - knob - S(4)) or S(4), S(4), knob, knob)
+		end
+		toggle.OnCursorEntered = function() ClickSound(SND_HOVER) end
+		toggle.DoClick = function()
+			ClickSound(SND_CLICK)
+			RunConsoleCommand(cvar:GetName(), cvar:GetBool() and "0" or "1")
+		end
+	elseif kind == "num" then
+		local min, max = cvar:GetMin() or 0, cvar:GetMax() or 100
+		if min == max then max = min + 1 end
+		local span, decimals = max - min, opt.decimals
+		local wrap = vgui.Create("DPanel", row)
+		wrap:Dock(RIGHT)
+		wrap:SetWide(S(268))
+		wrap:DockMargin(S(12), side, S(16), side)
+		wrap:SetPaintBackground(false)
 
-        for i = 1, (xbars + 1) do
-            surface.DrawRect(0, (sh / xbars) * (i - 1) + (CurTime() * 30 % (sh / xbars)), sw, ScreenScale(1))
-        end
+		local entry = vgui.Create("DTextEntry", wrap)
+		entry:Dock(LEFT)
+		entry:SetWide(S(72))
+		entry:DockMargin(0, 0, S(8), 0)
+		entry:SetFont("ZC_MM_Tiny")
+		entry:SetText(tostring(decimals > 0 and math.Round(cvar:GetFloat(), decimals) or cvar:GetInt()))
+		entry.Paint = PaintEntry
 
-        local border_size = ScreenScale(2)
+		local slider = vgui.Create("DSlider", wrap)
+		slider:Dock(FILL)
+		slider:SetLockY(0.5)
+		slider:SetTrapInside(true)
+		slider:SetSlideX(math.Clamp((cvar:GetFloat() - min) / span, 0, 1))
+		local knob = math.max(8, S(10))
+		slider.Knob:SetSize(knob, knob)
+		slider.Knob:SetCursor("hand")
+		slider.Knob.Paint = function(self, w, h)
+			local active = self:IsHovered() or self:IsDown() or slider.Dragging
+			surface.SetDrawColor(CRT_R, CRT_G, CRT_B, active and 255 or 230)
+			surface.DrawRect(0, 0, w, h)
+			surface.SetDrawColor(12, 14, 12, 220)
+			surface.DrawOutlinedRect(0, 0, w, h, 1)
+		end
+		slider.Paint = function(self, w, h)
+			local frac = math.Clamp(self:GetSlideX(), 0, 1)
+			local y = math.floor((h - 3) * 0.5)
+			surface.SetDrawColor(0, 0, 0, 210)
+			surface.DrawRect(0, y, w, 3)
+			surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 90)
+			surface.DrawRect(0, y, w, 3)
+			surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 230)
+			surface.DrawRect(0, y, w * frac, 3)
+		end
 
-        surface.SetDrawColor(0, 0, 0)
-        surface.SetMaterial(gradient_l)
-        surface.DrawTexturedRect(0, 0, border_size, sh)
-		surface.SetMaterial(blur)
-        surface.SetDrawColor(28,28,28,208)
-        surface.DrawRect(0, 0, w, h)
-    end
-    hg.DrawBlur(ParentPanel, 5)
-    ParentPanel:AlphaTo(255,0.15,0)
-    local pppanel3 = vgui.Create('DScrollPanel', ParentPanel)
-    pppanel3:SetSize(ParentPanel:GetWide(), ParentPanel:GetTall())
-    pppanel3:SetPos(0,0)
-    --pppanel3:SetAlpha(0)
-    pppanel3.Paint = function()end
-    --🥴 <- best emoticon
+		local function Apply(v)
+			if not v then
+				entry:SetText(tostring(decimals > 0 and math.Round(cvar:GetFloat(), decimals) or cvar:GetInt()))
+				return
+			end
+			v = decimals > 0 and math.Round(math.Clamp(v, min, max), decimals) or math.Round(math.Clamp(v, min, max))
+			RunConsoleCommand(cvar:GetName(), tostring(v))
+			slider.ignore = true
+			slider:SetSlideX(math.Clamp((v - min) / span, 0, 1))
+			slider.ignore = false
+			if not entry:HasFocus() then entry:SetText(tostring(v)) end
+		end
+		slider.OnValueChanged = function(_, x)
+			if not slider.ignore then Apply(min + math.Clamp(x, 0, 1) * span) end
+		end
+		entry.OnEnter = function(self) Apply(tonumber(self:GetText())) end
+		entry.OnLoseFocus = function(self) Apply(tonumber(self:GetText())) end
+		wrap.Think = function()
+			if entry:HasFocus() or slider.Dragging then return end
+			local v = decimals > 0 and math.Round(cvar:GetFloat(), decimals) or cvar:GetInt()
+			local text = tostring(v)
+			if entry:GetText() ~= text then entry:SetText(text) end
+			local x = math.Clamp((cvar:GetFloat() - min) / span, 0, 1)
+			if math.abs(slider:GetSlideX() - x) > 0.001 then
+				slider.ignore = true
+				slider:SetSlideX(x)
+				slider.ignore = false
+			end
+		end
+	else
+		local entry = vgui.Create("DTextEntry", row)
+		entry:Dock(RIGHT)
+		entry:SetWide(S(180))
+		entry:DockMargin(S(12), side, S(16), side)
+		entry:SetFont("ZC_MM_Tiny")
+		entry:SetText(cvar:GetString())
+		entry:SetUpdateOnType(true)
+		entry.Paint = PaintEntry
+		entry.OnValueChange = function(_, val)
+			RunConsoleCommand(cvar:GetName(), val)
+		end
+		entry.Think = function(self)
+			if self:HasFocus() then return end
+			local val = cvar:GetString()
+			if self:GetText() ~= val then self:SetText(val) end
+		end
+	end
 
-    local yOffset = pppanel3:GetTall()/100
-
-    for _, categoryName in ipairs(hg.settings.categoryOrder) do
-        local categoryTable = hg.settings.tbl[categoryName]
-        local category = hg.CreateCategory(categoryName, pppanel3, yOffset)
-        yOffset = yOffset + category:GetTall() + 12
-        for _, settingData in ipairs(categoryTable) do
-            local vbv = hg.CreateButton(settingData, settingData[2], pppanel3, yOffset)
-            if not vbv then continue end
-            yOffset = yOffset + (vbv:GetTall()) + 12
-        end
-    end
-    local pppanel23 = vgui.Create('DPanel', pppanel3)
-    pppanel23:SetSize(0, 0)
-    pppanel23:SetPos(0,yOffset+12)
+	local reset = vgui.Create("DButton", row)
+	reset:SetText("")
+	reset:SetWide(0)
+	reset:Dock(RIGHT)
+	reset:DockMargin(0, side, 0, side)
+	reset.Paint = function(self, w, h)
+		if w < 2 then return end
+		local hover = self:IsHovered()
+		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 230)
+		surface.DrawRect(0, 0, w, h)
+		if hover then
+			surface.SetDrawColor(TRAITOR_R, TRAITOR_G, TRAITOR_B, 28)
+			surface.DrawRect(1, 1, w - 2, h - 2)
+		end
+		surface.SetDrawColor(TRAITOR_R, TRAITOR_G, TRAITOR_B, hover and 210 or 150)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		draw.SimpleText("RESET", "ZC_MM_Tiny", w * 0.5, h * 0.5, hover and color_text or color_danger, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
+	reset.OnCursorEntered = function(self)
+		if self:GetWide() > 2 then ClickSound(SND_HOVER) end
+	end
+	reset.DoClick = function()
+		local def = cvar:GetDefault()
+		if not def then return end
+		ClickSound(SND_CLICK)
+		RunConsoleCommand(cvar:GetName(), def)
+	end
+	reset.Think = function(self)
+		local dirty = IsModified(cvar)
+		local w = dirty and S(72) or 0
+		if self:GetWide() == w then return end
+		self:SetWide(w)
+		self:DockMargin(dirty and S(6) or 0, side, dirty and S(6) or 0, side)
+		row:InvalidateLayout()
+	end
 end
+
+function hg.DrawSettings(parent)
+	if not IsValid(parent) then return end
+
+	parent.Paint = function(_, w, h)
+		surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 230)
+		surface.DrawRect(0, 0, w, h)
+		local ix, iy, iw, ih = BEZEL, BEZEL, w - BEZEL * 2, h - BEZEL * 2
+		surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 200)
+		surface.DrawOutlinedRect(ix, iy, iw, ih, 1)
+		surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 230)
+		surface.DrawRect(ix, iy, 10, 2)
+		surface.DrawRect(ix, iy, 2, 10)
+		surface.DrawRect(ix + iw - 10, iy, 10, 2)
+		surface.DrawRect(ix + iw - 2, iy, 2, 10)
+		surface.DrawRect(ix, iy + ih - 2, 10, 2)
+		surface.DrawRect(ix, iy + ih - 10, 2, 10)
+		surface.DrawRect(ix + iw - 10, iy + ih - 2, 10, 2)
+		surface.DrawRect(ix + iw - 2, iy + ih - 10, 2, 10)
+		local px, py, pw, ph = ix + 1, iy + 1, iw - 2, ih - 2
+		surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 210)
+		surface.DrawRect(px, py, pw, ph)
+		local step = S(72)
+		local ox = (CurTime() * 18) % step
+		surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 8)
+		for gx = 0, math.ceil(pw / step) do
+			surface.DrawRect(px + gx * step - ox, py, 2, ph)
+		end
+		for gy = 0, math.ceil(ph / step) do
+			surface.DrawRect(px, py + gy * step - ox + step, pw, 2)
+		end
+	end
+
+	local header = vgui.Create("DPanel", parent)
+	header:Dock(TOP)
+	header:SetTall(S(36))
+	header:DockMargin(INSET, INSET, INSET, 0)
+	header:SetPaintBackground(false)
+	header.Paint = function(_, w, h)
+		surface.SetDrawColor(32, 34, 33, 210)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 36)
+		surface.DrawRect(0, 0, w, h)
+		draw.SimpleText("SETTINGS", "ZC_MM_Header", S(12), h * 0.5, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+	end
+
+	local scroll = vgui.Create("DScrollPanel", parent)
+	scroll:Dock(FILL)
+	scroll:DockMargin(INSET, 0, INSET, INSET)
+	local bar = scroll:GetVBar()
+	bar:SetWide(S(8))
+	bar:SetHideButtons(true)
+	bar.Paint = function(_, w, h)
+		surface.SetDrawColor(0, 0, 0, 70)
+		surface.DrawRect(1, 0, w - 2, h)
+	end
+	bar.btnGrip.Paint = function(self, w, h)
+		surface.SetDrawColor(self:IsHovered() and CRT_R or FRAME_R, self:IsHovered() and CRT_G or FRAME_G, self:IsHovered() and CRT_B or FRAME_B, self:IsHovered() and 180 or 130)
+		surface.DrawRect(1, 0, w - 2, h)
+	end
+
+	for i, category in ipairs(hg.settings.categoryOrder) do
+		local heading = vgui.Create("DPanel", scroll)
+		heading:Dock(TOP)
+		heading:SetTall(S(32))
+		heading:DockMargin(0, i == 1 and S(10) or 0, 0, 0)
+		heading:SetPaintBackground(false)
+		heading.Paint = function()
+			draw.SimpleText(string.upper(category), "ZC_MM_Header", S(12), S(4), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+		end
+		for _, opt in ipairs(hg.settings.tbl[category]) do
+			AddSettingRow(scroll, opt)
+		end
+	end
+end
+
+
