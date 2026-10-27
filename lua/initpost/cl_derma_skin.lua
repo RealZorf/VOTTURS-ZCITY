@@ -157,8 +157,8 @@ SKIN.Colours.Window.TitleActive = Color(35, 225, 110, 255)
 SKIN.Colours.Window.TitleInactive = color_white
 
 SKIN.Colours.Button.Normal = color_white
-SKIN.Colours.Button.Hover = Color(35, 225, 110, 255)
-SKIN.Colours.Button.Down = Color(35, 255, 110, 45)
+SKIN.Colours.Button.Hover = color_white
+SKIN.Colours.Button.Down = color_white
 SKIN.Colours.Button.Disabled = Color(0, 0, 0, 100)
 
 SKIN.Colours.Label.Default = color_white
@@ -570,8 +570,13 @@ function SKIN:PaintMenu(panel, width, height)
 end
 
 function SKIN:PaintMenuOption(panel, width, height)
-	if (panel.m_bBackground and (panel.Hovered or panel.Highlight)) then
-		self:DrawImportantBackground(0, 0, width, height, hg.VGUI.MainColor)
+	if not panel.m_bBackground then return end
+
+	-- Hovered/Highlight stick on submenu rows (Staff tools, Teleport, etc.)
+	-- and never reset, so the option stays accent-green after the mouse leaves.
+	if panel:IsHovered() then
+		surface.SetDrawColor(255, 255, 255, 18)
+		surface.DrawRect(0, 0, width, height)
 	end
 end
 

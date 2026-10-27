@@ -573,8 +573,11 @@ function SKIN:PaintMenu(panel, width, height)
 end
 
 function SKIN:PaintMenuOption(panel, width, height)
-	if (panel.m_bBackground and (panel.Hovered or panel.Highlight)) then
-		self:DrawImportantBackground(0, 0, width, height, HOKMAH_VGUI.MainColor)
+	if not panel.m_bBackground then return end
+
+	if panel:IsHovered() then
+		surface.SetDrawColor(255, 255, 255, 18)
+		surface.DrawRect(0, 0, width, height)
 	end
 end
 
