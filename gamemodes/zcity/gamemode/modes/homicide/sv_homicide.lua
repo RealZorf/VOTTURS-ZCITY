@@ -132,7 +132,7 @@ MODE.LootTable = {
 		{3,"ent_armor_helmet3"},
 		{2,"ent_armor_vest2"},
 	}},
-	{2.8, {
+	{8, {
 		{6,"*ammo*"},
 		{8,"weapon_hg_bow"},
 		{6,"weapon_hg_crossbow"},
@@ -154,7 +154,7 @@ MODE.LootTable = {
 		{0.8,"weapon_osapb"},
 		{0.6,"weapon_zoraki"},
 	}},
-	{1.1, {
+	{5, {
 		{8,"*ammo*"},
 		{3,"weapon_doublebarrel_short"},
 		{2.5,"weapon_izh18"},
@@ -192,7 +192,7 @@ MODE.LootTable = {
 		{0.1,"weapon_deagle"},
 		{0.08,"weapon_pm63rak"},
 	}},
-	{0.65, {
+	{1, {
 		{8,"*ammo*"},
 		{2.5,"weapon_doublebarrel"},
 		{2,"weapon_remington870"},
