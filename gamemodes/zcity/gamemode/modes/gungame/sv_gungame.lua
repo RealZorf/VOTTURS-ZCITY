@@ -53,6 +53,8 @@ local function ResetProgress()
 	MODE.startGiven = false
 	MODE.roundLadder = nil
 	MODE.roundFinalWeapon = nil
+	MODE.roundVariationName = nil
+	MODE.roundVariationDesc = nil
 	MODE.allowed = nil
 	timer.Remove(GRACE_TIMER)
 	SetGlobalInt("ZB_GGStages", 0)
@@ -79,6 +81,25 @@ local function InitPlayer(ply)
 	}
 	ply:SetNWInt("GGStage", 1)
 	ply:SetNWInt("GGKills", 0)
+end
+
+local function SendRoundIntro(ply)
+	local ladder = MODE.roundLadder
+	if not ladder or #ladder < 1 then return end
+	net.Start("gungame_start")
+		net.WriteUInt(MODE.ROUND_TIME or 600, 16)
+		net.WriteString(MODE.roundVariationName or "Gun Game")
+		net.WriteString(MODE.roundVariationDesc or "")
+		net.WriteUInt(#ladder, 8)
+		for _, class in ipairs(ladder) do
+			net.WriteString(class)
+		end
+	if ply then net.Send(ply) else net.Broadcast() end
+	if (MODE.graceEnd or 0) > CurTime() then
+		net.Start("gungame_grace")
+			net.WriteFloat(MODE.graceEnd)
+		if ply then net.Send(ply) else net.Broadcast() end
+	end
 end
 
 local function SyncHUD(ply)
@@ -299,6 +320,8 @@ function MODE:Intermission()
 	self.roundLadder = ladder
 	self.roundFinalWeapon = melee
 	self.roundStagesTotal = #ladder
+	self.roundVariationName = variation.name or "Gun Game"
+	self.roundVariationDesc = variation.description or ""
 	self.allowed = { [melee] = true, weapon_hands_sh = true }
 	for _, class in ipairs(ladder) do self.allowed[class] = true end
 	SetGlobalInt("ZB_GGStages", #ladder)
@@ -313,15 +336,7 @@ function MODE:Intermission()
 		LockFake(ply, lockUntil)
 	end
 
-	net.Start("gungame_start")
-		net.WriteUInt(self.ROUND_TIME, 16)
-		net.WriteString(variation.name or "Gun Game")
-		net.WriteString(variation.description or "")
-		net.WriteUInt(#ladder, 8)
-		for _, class in ipairs(ladder) do
-			net.WriteString(class)
-		end
-	net.Broadcast()
+	SendRoundIntro()
 end
 
 function MODE:RoundStart()
@@ -406,7 +421,7 @@ end
 local function DebrisNearAnyone(ent)
 	local pos = ent:WorldSpaceCenter()
 	for _, ply in player.Iterator() do
-		if not IsValid(ply) then continue end
+		if not IsValid(ply) or ply:Team() == TEAM_SPECTATOR then continue end
 		if ply:GetPos():DistToSqr(pos) <= CORPSE_CLEANUP_RANGE_SQR then return true end
 	end
 	return false
@@ -448,7 +463,10 @@ function MODE:ShouldRoundEnd()
 end
 
 function MODE:CanSpawn(ply)
-	return false
+	if not ActiveRound(self.generation) or self.winner then return false end
+	if not IsValid(ply) or ply:Team() == TEAM_SPECTATOR then return false end
+	if self.respawnDue[ply] then return false end
+	return true
 end
 
 function MODE:ZB_JoinSpectators(ply)
@@ -601,6 +619,7 @@ function MODE:PlayerSpawn(ply)
 		InitPlayer(ply)
 		progress = self.PlayerProgress[ply]
 		zb.GiveRole(ply, "Contender", ROLE_COLOR)
+		SendRoundIntro(ply)
 	end
 	if not progress then return end
 
@@ -704,7 +723,15 @@ end)
 
 hook.Add("PlayerChangedTeam", "gungame_cancel_spectator_respawn", function(ply, _, newTeam)
 	if not CurrentRound() or CurrentRound().name ~= "gungame" then return end
-	if newTeam == TEAM_SPECTATOR then CancelRespawn(ply) end
+	if newTeam == TEAM_SPECTATOR then
+		CancelRespawn(ply)
+		return
+	end
+	if not ActiveRound(MODE.generation) or MODE.winner or ply:Alive() or MODE.respawnDue[ply] then return end
+	timer.Simple(0, function()
+		if not ActiveRound(MODE.generation) or not IsValid(ply) or ply:Alive() or IsSpectator(ply) then return end
+		ply:Spawn()
+	end)
 end)
 
 hook.Add("PlayerDroppedWeapon", "gungame_remove_dropped", function(owner, weapon)
