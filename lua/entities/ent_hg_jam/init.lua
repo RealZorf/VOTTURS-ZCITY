@@ -2,14 +2,18 @@ AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
 
+local mins, maxs = Vector(-3, -3, -2), Vector(3, 3, 2)
+
 function ENT:Initialize()
 	self:SetModel(self.WorldModel)
-	self:PhysicsInit(SOLID_VPHYSICS)
+	self:SetModelScale(self.ModelScale or 0.4)
+	self:PhysicsInitBox(mins, maxs)
+	self:SetCollisionBounds(mins, maxs)
 	self:SetMoveType(MOVETYPE_VPHYSICS)
 	self:SetSolid(SOLID_VPHYSICS)
 	self:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 	self:SetUseType(SIMPLE_USE)
-	self:SetModelScale(self.ModelScale or 0.4)
+
 	local phys = self:GetPhysicsObject()
 	if IsValid(phys) then
 		phys:Wake()
@@ -18,7 +22,21 @@ function ENT:Initialize()
 	end
 end
 
+function ENT:CanPickUp(ply)
+	if not self.Blocking then return true end
+	if not IsValid(ply) then return false end
+	if self.BlockNormal and (ply:EyePos() - self:GetPos()):Dot(self.BlockNormal) < 0 then return false end
+
+	return true
+end
+
+hook.Add("AllowPlayerPickup", "ent_hg_jam", function(ply, ent)
+	if IsValid(ent) and ent:GetClass() == "ent_hg_jam" and not ent:CanPickUp(ply) then return false end
+end)
+
 function ENT:Use(ply)
+	if not self:CanPickUp(ply) then return end
+
 	self:UnBlock()
 	ply:Give("weapon_hg_jam")
 	ply:SelectWeapon("weapon_hg_jam")
@@ -35,7 +53,7 @@ end
 
 function ENT:Think()
 	if self.Blocking then
-		for key, door in pairs(self.Doors) do
+		for _, door in pairs(self.Doors) do
 			if not IsValid(door) then
 				self:UnBlock()
 				break
@@ -50,39 +68,52 @@ function ENT:Think()
 		end
 	end
 
-	self:NextThink(CurTime() + .1)
+	self:NextThink(CurTime() + 0.1)
 	return true
 end
 
 function ENT:UnBlock()
-	if self.Blocking then
-		self.Blocking = false
-		for key, door in pairs(self.Doors) do
-			if IsValid(door) and not self.DoorLocked then door:Fire("unlock", "", 0) end
-		end
+	if not self.Blocking then return end
 
-		self.Doors = {}
-		self:EmitSound("Wood_Plank.ImpactSoft")
-		self:EmitSound("Flesh.ImpactSoft")
-		constraint.RemoveAll(self)
+	self.Blocking = false
+	self.BlockNormal = nil
+
+	for _, door in pairs(self.Doors) do
+		if IsValid(door) and not self.DoorLocked then
+			door:Fire("unlock", "", 0)
+		end
 	end
+
+	self.Doors = {}
+	self:EmitSound("Wood_Plank.ImpactSoft")
+	self:EmitSound("Flesh.ImpactSoft")
+	constraint.RemoveAll(self)
+
+	local phys = self:GetPhysicsObject()
+	if IsValid(phys) then phys:EnableMotion(true) end
 end
 
-function ENT:Block(doors)
-	if not self.Blocking then
-		self.Blocking = true
-		self.Doors = doors
-		self.Constraint = constraint.Weld(self.Doors[1], self, 0, 0, 3000, true, false)
-		self.Constraint.PickupAble = true
-		self:EmitSound("Wood_Plank.ImpactSoft")
-		self:EmitSound("Flesh.ImpactSoft")
-		self:EmitSound("Wood_Plank.ImpactSoft")
-		self:Think()
+function ENT:Block(doors, bone, normal)
+	if self.Blocking then return end
+
+	self.Blocking = true
+	self.Doors = doors
+	self.BlockNormal = normal
+	self.Constraint = constraint.Weld(self, doors[1], 0, bone or 0, 3000, true, false)
+
+	for _, door in pairs(doors) do
+		if IsValid(door) then door:Fire("lock", "", 0) end
 	end
+
+	local phys = self:GetPhysicsObject()
+	if IsValid(phys) then phys:EnableMotion(false) end
+
+	self:EmitSound("Wood_Plank.ImpactSoft")
+	self:EmitSound("Flesh.ImpactSoft")
 end
 
 function ENT:PhysicsCollide(data, physobj)
-	if data.DeltaTime > .1 then
+	if data.DeltaTime > 0.1 then
 		self:EmitSound("Wood_Plank.ImpactSoft")
 		self:EmitSound("Flesh.ImpactSoft")
 	end
