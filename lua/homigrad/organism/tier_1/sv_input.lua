@@ -245,10 +245,14 @@ function hg.organism.AmputateLimb(org, limb, attacker, damageContext)
 		org.owner:EmitSound(soundName, 58, soundPitch, 0.75)
 	end
 
-	local severedLimb = hg.SpawnSeveredLimb and hg.SpawnSeveredLimb(ent, limb, damageContext)
-	if not IsValid(severedLimb) then
-		local force = istable(damageContext) and damageContext.force or vector_origin
-		SpawnMeatGore(ent, select(1, ent:GetBonePosition(entBone)), 4, force)
+	local dmgType = istable(damageContext) and tonumber(damageContext.damageType) or 0
+	local spawnLimb = bit.band(dmgType, DMG_CLUB + DMG_CRUSH) == 0
+		and (bit.band(dmgType, DMG_BLAST) == 0 or math.random() < 0.5)
+	if spawnLimb then
+		local severedLimb = hg.SpawnSeveredLimb and hg.SpawnSeveredLimb(ent, limb, damageContext)
+		if not IsValid(severedLimb) then
+			SpawnMeatGore(ent, select(1, ent:GetBonePosition(entBone)), 4, istable(damageContext) and damageContext.force or vector_origin)
+		end
 	end
 
 	hook.Run("OnAmputateLimb", org, ent, limb, attacker)
@@ -1372,25 +1376,17 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			if !org.dmgstack[hitgroup] then return end
 			if !org.dmgstack[hitgroup][1] then return end
 			local should = org.dmgstack[hitgroup][1] >= hitgroup_max
+			local limb = hitgrouptolimb[hitgroup]
 
-			local limbs = {
-				"lleg",
-				"rleg",
-				"larm",
-				"rarm",
-			}
-
-			if should and hitgrouptolimb[hitgroup] then
+			if should and limb then
 				if blast then
-					for i, limb in ipairs(limbs) do
-						if !org[limb.."amputated"] and math.random(5) < 200 / lend then
-							hg.organism.AmputateLimb(org, limb, amputationAttacker, amputationContext)
+					for name in pairs(limbs) do
+						if not org[name .. "amputated"] and math.random(5) < 200 / lend then
+							hg.organism.AmputateLimb(org, name, amputationAttacker, amputationContext)
 						end
 					end
-				else
-					if !org[hitgrouptolimb[hitgroup].."amputated"] and meleeDismembermentRoll(inf) then
-						hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker, amputationContext)
-					end
+				elseif not org[limb .. "amputated"] and meleeDismembermentRoll(inf) then
+					hg.organism.AmputateLimb(org, limb, amputationAttacker, amputationContext)
 				end
 			end
 
