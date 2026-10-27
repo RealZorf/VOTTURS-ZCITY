@@ -30,7 +30,6 @@ MODE.generation = MODE.generation or 0
 MODE.respawnDue = {}
 MODE.granting = {}
 MODE.incapSince = {}
-MODE.forceWeapon = {}
 MODE.corpses = {}
 
 local function ActiveRound(generation)
@@ -48,7 +47,6 @@ local function ResetProgress()
 	MODE.respawnDue = {}
 	MODE.granting = {}
 	MODE.incapSince = {}
-	MODE.forceWeapon = {}
 	MODE.corpses = {}
 	MODE.graceEnd = 0
 	MODE.nextCorpseThink = 0
@@ -100,20 +98,44 @@ local function SyncHUD(ply)
 	net.Send(ply)
 end
 
+local function GrantClasses(ply, class)
+	local handsClass = hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hands_sh"
+	local allowed = { [handsClass] = true }
+	if class then allowed[class] = true end
+	if weapons.GetStored("weapon_bandage_sh") then allowed["weapon_bandage_sh"] = true end
+	if weapons.GetStored("weapon_tourniquet") then allowed["weapon_tourniquet"] = true end
+	return handsClass, allowed
+end
+
+local function RemoveOwnedWeapons(ply)
+	local owned = ply:GetWeapons()
+	for i = 1, #owned do
+		local weapon = owned[i]
+		if IsValid(weapon) then weapon:Remove() end
+	end
+end
+
+local function RemoveUnownedWeapon(weapon)
+	timer.Simple(0, function()
+		if IsValid(weapon) and not IsValid(weapon:GetOwner()) then weapon:Remove() end
+	end)
+end
+
 local function GiveProgressWeapon(ply, class)
 	if not IsValid(ply) or not ply:Alive() or not class or not weapons.GetStored(class) then return false end
 
-	MODE.granting[ply] = true
-	ply:StripWeapons()
+	local handsClass, allowed = GrantClasses(ply, class)
+	MODE.granting[ply] = allowed
+	ply.force_pickup = true
+	RemoveOwnedWeapons(ply)
 	ply:StripAmmo()
 
-	local handsClass = hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hands_sh"
 	local hands = ply:Give(handsClass)
-	if weapons.GetStored("weapon_bandage_sh") then
+	if allowed["weapon_bandage_sh"] then
 		local bandage = ply:Give("weapon_bandage_sh")
 		if IsValid(bandage) then bandage.NoDrop = true end
 	end
-	if weapons.GetStored("weapon_tourniquet") then
+	if allowed["weapon_tourniquet"] then
 		local tourni = ply:Give("weapon_tourniquet")
 		if IsValid(tourni) then tourni.NoDrop = true end
 	end
@@ -139,8 +161,10 @@ local function GiveProgressWeapon(ply, class)
 	local inv = ply:GetNetVar("Inventory")
 	if istable(inv) then
 		inv.Weapons = inv.Weapons or {}
-		inv.Weapons["hg_sling"] = true
-		ply:SetNetVar("Inventory", inv)
+		if not inv.Weapons["hg_sling"] then
+			inv.Weapons["hg_sling"] = true
+			ply:SetNetVar("Inventory", inv)
+		end
 	end
 	if ply.organism then ply.organism.recoilmul = 0.55 end
 
@@ -149,7 +173,6 @@ local function GiveProgressWeapon(ply, class)
 		if IsValid(weapon) then
 			ply:SetActiveWeapon(weapon)
 			ply:SelectWeapon(class)
-			MODE.forceWeapon[ply] = {wep = weapon, untilTime = CurTime() + 1.25}
 		elseif IsValid(hands) then
 			ply:SetActiveWeapon(hands)
 			ply:SelectWeapon(handsClass)
@@ -158,6 +181,7 @@ local function GiveProgressWeapon(ply, class)
 	ForceEquip()
 	timer.Simple(0, ForceEquip)
 	timer.Simple(0.1, ForceEquip)
+	ply.force_pickup = nil
 	MODE.granting[ply] = nil
 	return IsValid(weapon)
 end
@@ -311,7 +335,6 @@ function MODE:RoundStart()
 		ply:Freeze(false)
 		LockFake(ply, self.graceEnd)
 		if ply:Team() ~= TEAM_SPECTATOR then
-			ApplyAppearance(ply)
 			zb.GiveRole(ply, "Contender", ROLE_COLOR)
 		end
 	end
@@ -338,7 +361,7 @@ end
 function MODE:GiveEquipment()
 	for _, ply in player.Iterator() do
 		if not ply:Alive() or ply:Team() == TEAM_SPECTATOR then continue end
-		ply:StripWeapons()
+		RemoveOwnedWeapons(ply)
 		local handsClass = hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hands_sh"
 		ply:Give(handsClass)
 		ply:SelectWeapon(handsClass)
@@ -369,21 +392,22 @@ local function IsPlayerDebris(ent)
 	return false
 end
 
+local CORPSE_CLEANUP_DELAY = 5
+local CORPSE_CLEANUP_RANGE_SQR = (5 * 39.37) ^ 2
+
 local function TrackDebris(ent)
 	if not IsPlayerDebris(ent) or MODE.corpses[ent] then return end
-	MODE.corpses[ent] = { unseenSince = CurTime() }
+	MODE.corpses[ent] = { createdAt = CurTime() }
 	ent:CallOnRemove("gungame_debris", function(removed)
 		if MODE.corpses then MODE.corpses[removed] = nil end
 	end)
 end
 
-local function DebrisSeenByAnyone(ent)
+local function DebrisNearAnyone(ent)
 	local pos = ent:WorldSpaceCenter()
 	for _, ply in player.Iterator() do
 		if not IsValid(ply) then continue end
-		if not ply:TestPVS(ent) then continue end
-		local diff = pos - ply:EyePos()
-		if diff:IsZero() or ply:EyeAngles():Forward():Dot(diff) > 0 then return true end
+		if ply:GetPos():DistToSqr(pos) <= CORPSE_CLEANUP_RANGE_SQR then return true end
 	end
 	return false
 end
@@ -397,15 +421,10 @@ local function ThinkCorpses(now)
 			MODE.corpses[ent] = nil
 			continue
 		end
-		if DebrisSeenByAnyone(ent) then
-			data.unseenSince = nil
-		else
-			data.unseenSince = data.unseenSince or now
-			if now - data.unseenSince >= 5 then
-				MODE.corpses[ent] = nil
-				ent:Remove()
-			end
-		end
+		if now - (data.createdAt or now) < CORPSE_CLEANUP_DELAY then continue end
+		if DebrisNearAnyone(ent) then continue end
+		MODE.corpses[ent] = nil
+		ent:Remove()
 	end
 end
 
@@ -557,9 +576,11 @@ end
 function MODE:PlayerCanPickupWeapon(ply, weapon)
 	if not IsValid(ply) or not IsValid(weapon) then return false end
 	local class = weapon:GetClass()
-	if class == "weapon_bandage_sh" or class == "weapon_tourniquet" then return self.granting[ply] == true end
+	local granting = self.granting[ply]
+	if istable(granting) then return granting[class] == true end
+	if granting then return true end
 	local handsClass = hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hands_sh"
-	return class == handsClass or self.granting[ply] or weapon:GetOwner() == ply
+	return class == handsClass or weapon:GetOwner() == ply
 end
 
 function MODE:PlayerCanDropWeapon()
@@ -591,7 +612,6 @@ function MODE:PlayerSpawn(ply)
 		if MODE:IsStartLocked() then LockFake(ply) end
 		if isRespawn then
 			ply:SetupTeam(0)
-			ApplyAppearance(ply)
 			zb.GiveRole(ply, "Contender", ROLE_COLOR)
 		end
 		if MODE.startGiven then GiveProgressWeapon(ply, CurrentClass(progress)) end
@@ -604,7 +624,7 @@ function MODE:PlayerDeath(victim, inflictor, attacker)
 	if not IsValid(victim) or not victim:IsPlayer() or IsSpectator(victim) then return end
 	self.incapSince[victim] = nil
 	RewardKill(victim, attacker)
-	victim:StripWeapons()
+	RemoveOwnedWeapons(victim)
 	victim:StripAmmo()
 
 	local progress = self.PlayerProgress[victim]
@@ -642,21 +662,6 @@ function MODE:PlayerDeath(victim, inflictor, attacker)
 		victim:Spawn()
 	end)
 end
-
-hook.Add("StartCommand", "gungame_force_weapon", function(ply, command)
-	if not CurrentRound() or CurrentRound().name ~= "gungame" then return end
-	local forced = MODE.forceWeapon[ply]
-	if not forced then return end
-	if CurTime() > (forced.untilTime or 0) or not IsValid(forced.wep) then
-		MODE.forceWeapon[ply] = nil
-		return
-	end
-	if ply:GetActiveWeapon() ~= forced.wep then
-		command:SelectWeapon(forced.wep)
-	else
-		MODE.forceWeapon[ply] = nil
-	end
-end)
 
 hook.Add("HomigradDamage", "gungame_track_damage", function(victim, damageInfo, hitgroup, entity, harm)
 	if not CurrentRound() or CurrentRound().name ~= "gungame" or (harm or 0) <= 0 then return end
@@ -704,10 +709,7 @@ end)
 
 hook.Add("PlayerDroppedWeapon", "gungame_remove_dropped", function(owner, weapon)
 	if not CurrentRound() or CurrentRound().name ~= "gungame" then return end
-	if IsValid(owner) and MODE.granting[owner] then return end
-	timer.Simple(0, function()
-		if IsValid(weapon) and not IsValid(weapon:GetOwner()) then weapon:Remove() end
-	end)
+	RemoveUnownedWeapon(weapon)
 end)
 
 hook.Add("PlayerDisconnected", "gungame_cleanup_player", function(ply)
@@ -718,5 +720,4 @@ hook.Add("PlayerDisconnected", "gungame_cleanup_player", function(ply)
 	MODE.respawnDue[ply] = nil
 	MODE.granting[ply] = nil
 	MODE.incapSince[ply] = nil
-	MODE.forceWeapon[ply] = nil
 end)
