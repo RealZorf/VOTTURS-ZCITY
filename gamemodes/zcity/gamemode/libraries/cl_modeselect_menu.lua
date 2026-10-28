@@ -28,7 +28,7 @@ local allowedModes = {
 	overstimulated = true, assassinsgreed = true, coop = true, criresp = true,
 	tdm = true, cstrike = true, ww2 = true, defense = true, dm = true, event = true,
 	fear = true, gwars = true, hmcd = true, hl2dm = true, hl3 = true, pathowogen = true,
-	riot = true, tdmmelee = true, gungame = true, sandbox = true, scugarena = true,
+	riot = true, tdmmelee = true, sandbox = true, scugarena = true,
 	superfighters = true, zombiesurvival = true,
 }
 

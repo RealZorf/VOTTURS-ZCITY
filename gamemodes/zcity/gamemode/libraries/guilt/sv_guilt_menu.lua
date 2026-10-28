@@ -38,8 +38,7 @@ local REPO_MODE_NAMES = {
     tdm = true,
     tdm_cstrike = true,
     cstrike = true,
-    tdmmelee = true,
-    gungame = true
+    tdmmelee = true
 }
 
 local NON_PUNISHABLE_MODE_NAMES = {

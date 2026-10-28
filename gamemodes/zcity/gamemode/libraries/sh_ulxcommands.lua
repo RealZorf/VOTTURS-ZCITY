@@ -85,7 +85,7 @@ function ulx.votemode(calling_ply, ...)
 end
 
 local votemode = ulx.command(CATEGORY_NAME, "ulx votemode", ulx.votemode, "!votemode")
-votemode:addParam{type = ULib.cmds.StringArg, completes = {"tdm", "gwars", "riot", "criresp", "defense", "hl2dm", "hl3", "assassinsgreed", "dm", "cstrike", "ww2", "lastmanstanding", "sandbox", "tdmmelee", "gungame" }, hint = "mode", ULib.cmds.restrictToCompletes, ULib.cmds.takeRestOfLine, repeat_min = 1, repeat_max = 10}
+votemode:addParam{type = ULib.cmds.StringArg, completes = {"tdm", "gwars", "riot", "criresp", "defense", "hl2dm", "hl3", "assassinsgreed", "dm", "cstrike", "ww2", "lastmanstanding", "sandbox", "tdmmelee" }, hint = "mode", ULib.cmds.restrictToCompletes, ULib.cmds.takeRestOfLine, repeat_min = 1, repeat_max = 10}
 votemode:defaultAccess(ULib.ACCESS_ADMIN)
 votemode:help("Starts a public mode vote.")
 
