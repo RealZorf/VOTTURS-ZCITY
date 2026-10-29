@@ -196,6 +196,10 @@ local ents_Create = ents.Create
 function hg.organism.AmputateLimb(org, limb, attacker, damageContext)
 	if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then return end
 	if org[limb.."amputated"] == nil or org[limb.."amputated"] then return end
+	if istable(damageContext) then
+		local damageType = tonumber(damageContext.damageType) or 0
+		if bit.band(damageType, DMG_CLUB + DMG_CRUSH) ~= 0 and bit.band(damageType, DMG_SLASH + DMG_BLAST + DMG_BULLET + DMG_BUCKSHOT + DMG_SNIPER) == 0 then return end
+	end
 	local recentContext = org.HGRecentAmputationDamage
 	if not istable(damageContext) and istable(recentContext) and (recentContext.time or 0) + 0.25 >= CurTime() then
 		damageContext = recentContext
@@ -653,6 +657,7 @@ end
 
 function hg.ExplodeHead(ent)
 	if !IsValid(ent) then return end
+	if ent.headexploded or ent.IsSeveredPart or ent:GetNWBool("IsSeveredPart", false) then return end
 
 	local ply = ent:IsRagdoll() and hg.RagdollOwner(ent) or ent
 	if CurrentRound and CurrentRound() and CurrentRound().DisableDismemberment then
@@ -691,6 +696,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
     -- Reject infected friendly fire before organ injuries, regardless of hook iteration order.
     local mode = CurrentRound and CurrentRound()
     if mode and mode.BlockZombieFriendlyDamage and mode:BlockZombieFriendlyDamage(ent, dmgInfo) then return true end
+	if not IsValid(ent) or ent.IsSeveredPart or ent.IsSeveredLimb then return end
 	if dmgInfo:IsDamageType(DMG_DISSOLVE) then return end
 
 	local attacker = dmgInfo:GetAttacker()
@@ -836,16 +842,13 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		shockMul = 0.1
 	end
 
-	if !dmgInfo:IsDamageType(DMG_BURN) then
+	if !dmgInfo:IsDamageType(DMG_BURN) and IsValid(org.owner) and org.owner.Alive and org.owner:Alive() then
 		timer.Create("send_info_org"..org.owner:EntIndex(),0.01,1,function()
-			if !IsValid(org.owner) then return end
+			if !IsValid(org.owner) or not org.owner:Alive() then return end
 
 			org.owner.fullsend = true
 			hg.send_bareinfo(org)
-
-			if IsValid(org.owner) and org.owner.Alive and org.owner:Alive() then
-				hg.send_organism(org, org.owner)
-			end
+			hg.send_organism(org, org.owner)
 		end)
 	end
 
@@ -863,8 +866,12 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		dmgInfo:GetInflictor().poisoned2 = nil
 	end
 	
-	local organs = hg.organism.GetHitBoxOrgans(ent:GetModel(), ent)
-	local boxs, pos, sphere = hg.organism.ShootMatrix(ent, organs)
+	local ownerDead = IsValid(ply) and ply:IsPlayer() and not ply:Alive()
+	local organs, boxs, pos, sphere
+	if not ownerDead then
+		organs = hg.organism.GetHitBoxOrgans(ent:GetModel(), ent)
+		boxs, pos, sphere = hg.organism.ShootMatrix(ent, organs)
+	end
 	local dmgPos = dmgInfo:GetDamagePosition()
 	local tr = util.QuickTrace(dmgPos, dir:GetNormalized() * 100)
 	if tr.Hit and tr.Entity == ent then
@@ -895,14 +902,13 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	}
 
 	local lastPos, hitBoxs, inputHole, outputHole, outputDir, distance, tracePoses = nil,{},{},{},{},nil,nil
-	if dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT+DMG_SLASH+DMG_CLUB+DMG_GENERIC) then
-		lastPos, hitBoxs, inputHole, outputHole, outputDir, distance, tracePoses = hg.organism.Trace(dmgPos, dir, size, maxpen, boxs, pos, sphere, organs, dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT), Trace_Bullet, ent.organism, organs, dmg / 25, dmgInfo, dir)
-	elseif dmgInfo:IsDamageType(DMG_BLAST) then
-		local organs = hg.organism.GetHitBoxOrgans(ent:GetModel(), ent)
-		local boxs, pos, sphere = hg.organism.ShootMatrix(ent, organs)
-		
-		hg.organism.BlastTrace(dmgInfo:GetDamagePosition(), (ent:GetPos() - dmgInfo:GetDamagePosition()):Length() / 200, dmg * 2, boxs, organs, Trace_Blast, ent.organism, organs, dmg / 300, dmgInfo)
-		hg.organism.AddWoundManual(ent,dmg,vector_origin,angle_zero,math.random(0,ent:GetBoneCount()),CurTime())
+	if not ownerDead then
+		if dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT+DMG_SLASH+DMG_CLUB+DMG_GENERIC) then
+			lastPos, hitBoxs, inputHole, outputHole, outputDir, distance, tracePoses = hg.organism.Trace(dmgPos, dir, size, maxpen, boxs, pos, sphere, organs, dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT), Trace_Bullet, ent.organism, organs, dmg / 25, dmgInfo, dir)
+		elseif dmgInfo:IsDamageType(DMG_BLAST) then
+			hg.organism.BlastTrace(dmgInfo:GetDamagePosition(), (ent:GetPos() - dmgInfo:GetDamagePosition()):Length() / 200, dmg * 2, boxs, organs, Trace_Blast, ent.organism, organs, dmg / 300, dmgInfo)
+			hg.organism.AddWoundManual(ent,dmg,vector_origin,angle_zero,math.random(0,ent:GetBoneCount()),CurTime())
+		end
 	end
 
 	if attacker:IsPlayer() and not (zb and zb.IsKarmaExemptDamage and zb.IsKarmaExemptDamage(dmgInfo)) then
@@ -1071,12 +1077,15 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 
 	--print(dmg_before, 2)
-	local dmgBlood, dmgHurt, instaPain, immobilization = hg.organism.DamageTypeAffliction(dmg_before / 12, dmgInfo, ent, org)
+	local dmgBlood, dmgHurt, instaPain, immobilization = 0, 0, 0, 0
+	if not ownerDead then
+		dmgBlood, dmgHurt, instaPain, immobilization = hg.organism.DamageTypeAffliction(dmg_before / 12, dmgInfo, ent, org)
+	end
 	
 	local hitbody = #inputHole > 0 or not dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT)
 	
 	--if hitbody then
-	if not org.superfighter then
+	if not ownerDead and not org.superfighter then
 		dmgBlood = dmgBlood * 1.5
 		local bleed_add = dmgBlood * bleedMul-- / (RagdollDamageBoneMul[hitgroup] or 1)
 		--org.bleed = org.bleed + bleed_add
@@ -1140,7 +1149,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			--org.stomach = math.min(org.stomach + math.Rand(0.0005,0.0008),1) 
 			--org.trachea = math.min(org.trachea + smallRand, 1)
 		end
-	else
+	elseif not ownerDead then
 		local sfd = org.fakePlayer and ent or ply
 		if not IsValid(sfd) then return true end
 		if sfd:Health() < 0 then
@@ -1152,11 +1161,11 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 	--end
 	
-	if not org.otrub and org.adrenalineAdd >= 0 then-- and dmgInfo:IsDamageType(DMG_BULLET + DMG_BLAST + DMG_BUCKSHOT + DMG_SLASH + DMG_CLUB + DMG_BURN) then
+	if not ownerDead and not org.otrub and org.adrenalineAdd >= 0 then-- and dmgInfo:IsDamageType(DMG_BULLET + DMG_BLAST + DMG_BUCKSHOT + DMG_SLASH + DMG_CLUB + DMG_BURN) then
 		org.owner:AddNaturalAdrenaline(instaPain * 0.75 * (dmgInfo:IsDamageType(DMG_BLAST) and 4 or 1) * (dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT) and 4 or 1))
 	end
 	
-	if dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT + DMG_BLAST + DMG_SLASH) or (dmgInfo:IsDamageType(DMG_GENERIC + DMG_VEHICLE + DMG_FALL + DMG_CLUB)) then
+	if not ownerDead and (dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT + DMG_BLAST + DMG_SLASH) or (dmgInfo:IsDamageType(DMG_GENERIC + DMG_VEHICLE + DMG_FALL + DMG_CLUB))) then
 		local hook_info = {
 			bleed = dmgBlood,
 			input_hole = inputHole,
@@ -1172,7 +1181,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		end
 	end
 	
-	if ply or org.fakePlayer then
+	if not ownerDead and (ply or org.fakePlayer) then
 		applySlashThroatCut(org.fakePlayer and ent or ply, dmgInfo, bonetohitgroup[bonename], attacker.harm)
 		hook_Run("HomigradDamage", org.fakePlayer and ent or ply, dmgInfo, bonetohitgroup[bonename], ent, attacker.harm, hitBoxs, inputHole)
 	end
@@ -1182,7 +1191,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	if dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT + DMG_BLAST + DMG_SLASH + DMG_CLUB + DMG_GENERIC) then
 		local force = dirCool * len
 		--print("HIT")
-		if ply then
+		if ply and ply:Alive() then
 			--if ply.lastFake then ply.lastFake = ply.lastFake - len end
 			ply.HitBones = ply.HitBones or {}
 
@@ -1206,7 +1215,8 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		end
 		
 		if ent:IsRagdoll() then
-			ent:GetPhysicsObjectNum(bone or 0):ApplyForceCenter(force * 1)
+			local phys = ent:GetPhysicsObjectNum(bone or 0)
+			if IsValid(phys) then phys:ApplyForceCenter(ownerDead and force * 0.35 or force) end
 		end
 	end
 
@@ -1221,10 +1231,10 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 
 	local lend = math.max(0.1, (ent:GetPos() - dmgInfo:GetDamagePosition()):Length())
+	local firearmDamage = bit.band(dmgtype, DMG_BULLET + DMG_BUCKSHOT + DMG_SNIPER) > 0
+	local blastDamage = bit.band(dmgtype, DMG_BLAST) > 0
 	local damageStack = dmg_before / (dmgInfo:IsDamageType(DMG_BULLET) and RagdollDamageBoneMul[hitgroup] or 1)
-	--print(damageStack, 3)
-	damageStack = damageStack * (dmgInfo:IsDamageType(DMG_BLAST) and 200 / lend or 1) * (!dmgInfo:IsDamageType(DMG_CLUB+DMG_SLASH+DMG_BULLET+DMG_BLAST+DMG_SNIPER) and 0 or 1) * (ent:IsNPC() and 3 or 1)
-	--damageStack = damageStack * (bullet and bullet.AmmoType and hg.ammotypeshuy[bullet.AmmoType] and hg.ammotypeshuy[bullet.AmmoType].BulletSettings and hg.ammotypeshuy[bullet.AmmoType].BulletSettings.Mass or 1) / 8
+	damageStack = damageStack * (blastDamage and 200 / lend or 1) * (dmgInfo:IsDamageType(DMG_SLASH+DMG_BULLET+DMG_BLAST+DMG_SNIPER) and 1 or 0) * (ent:IsNPC() and 3 or 1)
 	
 	org.dmgstack = org.dmgstack or {}
 	org.dmgstack[hitgroup] = org.dmgstack[hitgroup] or {}
@@ -1234,8 +1244,6 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	org.dmgstack[hitgroup][3] = (org.dmgstack[hitgroup][3] or 0) + damageStack / 500
 
 	local mat = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(bone))
-	local firearmDamage = bit.band(dmgtype, DMG_BULLET + DMG_BUCKSHOT + DMG_SNIPER) > 0
-	local blastDamage = bit.band(dmgtype, DMG_BLAST) > 0
 	local ammoName = istable(bullet) and bullet.AmmoType or IsValid(inf) and istable(inf.Primary) and inf.Primary.Ammo
 	local ammoDefinition = ammoName and hg.ammotypeshuy and hg.ammotypeshuy[ammoName]
 	local ammoSettings = istable(ammoDefinition) and ammoDefinition.BulletSettings
@@ -1324,13 +1332,13 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			torsoSeverReady = isvector(explosionCenter)
 				and explosionCenter:DistToSqr(waistPosition) <= blastRadius * blastRadius
 				and postArmorBlastDamage >= BLAST_TORSO_SEVER_DAMAGE_THRESHOLD
+				and math.random() < 0.5
 		end
 	end
 
 	local hitgroup_max = slashLimbHit and SLASH_LIMB_SEVER_THRESHOLD
 		or firearmDamage and hitgroup == HITGROUP_HEAD and FIREARM_HEAD_GIB_THRESHOLD
 		or 100
-	local blast = dmgInfo:IsDamageType(DMG_BLAST)
 	local amputationAttacker = dmgInfo:GetAttacker()
 	local amputationContext = {
 		damage = dmg_before,
@@ -1381,16 +1389,14 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			}
 
 			if should and hitgrouptolimb[hitgroup] then
-				if blast then
+				if blastDamage then
 					for i, limb in ipairs(limbs) do
-						if !org[limb.."amputated"] and math.random(5) < 200 / lend then
+						if !org[limb.."amputated"] and math.random() < 0.5 then
 							hg.organism.AmputateLimb(org, limb, amputationAttacker, amputationContext)
 						end
 					end
-				else
-					if !org[hitgrouptolimb[hitgroup].."amputated"] and meleeDismembermentRoll(inf) then
-						hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker, amputationContext)
-					end
+				elseif !org[hitgrouptolimb[hitgroup].."amputated"] and meleeDismembermentRoll(inf) then
+					hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker, amputationContext)
 				end
 			end
 
@@ -1455,8 +1461,10 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			org.dmgstack[hitgroup][1] = nil
 			org.dmgstack[hitgroup][2] = nil
 
-			org.owner.fullsend = true
-			hg.send_bareinfo(org)
+			if IsValid(org.owner) and org.owner.Alive and org.owner:Alive() then
+				org.owner.fullsend = true
+				hg.send_bareinfo(org)
+			end
 		end)
 	end)
 
@@ -1722,14 +1730,11 @@ hg.GetTraceDamage = GetTraceDamage
 --local Organism = hg.organism
 local abs = math.abs
 takeRagdollDamage = function(ent, dmgInfo)
-	if not ent:IsRagdoll() then return end
+	if not ent:IsRagdoll() or ent.IsSeveredPart then return end
 	local ply = hg.RagdollOwner(ent)
-	if not IsValid(ply) then return end
+	if not IsValid(ply) or not ply:Alive() then return end
 	if ply.organism and ply.organism.godmode then return end
 	local traceResult = GetTraceDamage(ent, dmgInfo:GetDamagePosition(), dmgInfo:GetDamageForce())
-	--I don't give a fuck
-
-	if not IsValid(ply) or not ply:Alive() then return end
 
 	if traceResult.Hit then
 		local bone = traceResult.PhysicsBone

@@ -82,12 +82,6 @@ local function legs(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 	local oldDmg = org[key]
 	local dmg = dmg * 4
 
-	if dmgInfo:IsDamageType(DMG_CRUSH) and dmg > 4 and !org[key.."amputated"] then
-		hg.organism.AmputateLimb(org, key, dmgInfo:GetAttacker())
-
-		return 0
-	end
-
 	if org[key] == 1 then return 0 end
 
 	local result, vecrand = damageBone(org, 0.3, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
@@ -148,12 +142,6 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		dmg = dmg * (tonumber(org.owner.ClimbArmDamageMul) or 0.35)
 	end
 	
-	if dmgInfo:IsDamageType(DMG_CRUSH) and dmg > 4 and !org[key.."amputated"] then
-		hg.organism.AmputateLimb(org, key, dmgInfo:GetAttacker())
-
-		return 0
-	end
-
 	if org[key] == 1 then return 0 end
 
 	local result, vecrand = damageBone(org, 0.3, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)

@@ -802,6 +802,9 @@ function entityMeta:GetPlayerColor()
 end
 
 function entityMeta:GetPlayerName()
+	if self:GetNWBool("IsSeveredLimb", false) and self:GetNWString("SeveredLimb", "") ~= "head" then
+		return ""
+	end
 	return self:GetNWString("PlayerName","")
 end
 

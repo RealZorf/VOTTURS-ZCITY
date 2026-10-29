@@ -95,8 +95,6 @@ if SERVER then
 		end
 		if IsValid(owner) and owner:IsPlayer() and isfunction(ApplyAppearanceRagdoll) then
 			ApplyAppearanceRagdoll(piece, owner)
-		elseif source.GetNWString then
-			piece:SetNWString("PlayerName", source:GetNWString("PlayerName", ""))
 		end
 	end
 
@@ -155,72 +153,51 @@ if SERVER then
 		end)
 	end
 
-	local function getCachedPhysics(ent, cacheKey, physNumbers)
-		local cached = ent[cacheKey]
-		if cached then return cached end
-		cached = {}
-		for index = 1, #(physNumbers or {}) do
-			local phys = ent:GetPhysicsObjectNum(physNumbers[index])
-			if IsValid(phys) then cached[#cached + 1] = phys end
-		end
-		ent[cacheKey] = cached
-		return cached
-	end
-
-	local function syncHiddenPhysics(rootPhys, hiddenPhysics)
-		if not IsValid(rootPhys) then return end
-		local position = rootPhys:GetPos()
-		local angles = rootPhys:GetAngles()
-		for index = 1, #hiddenPhysics do
-			local phys = hiddenPhysics[index]
-			if not IsValid(phys) then continue end
-			phys:SetPos(position)
-			phys:SetAngles(angles)
+	local function parkHiddenPhys(rootPhys, hidden)
+		if not IsValid(rootPhys) or not hidden then return end
+		local position, angles = rootPhys:GetPos(), rootPhys:GetAngles()
+		for index = 1, #hidden do
+			local phys = hidden[index]
+			if IsValid(phys) then
+				phys:SetPos(position)
+				phys:SetAngles(angles)
+			end
 		end
 	end
 
-	local function syncHiddenTorsoPhysics(ragdoll)
-		local rootPhys = ragdoll.HGTorsoUpperRootPhysics
-		if not IsValid(rootPhys) then
-			rootPhys = ragdoll:GetPhysicsObjectNum(ragdoll.HGTorsoUpperRootPhys or -1)
-			ragdoll.HGTorsoUpperRootPhysics = rootPhys
+	local function hiddenPhysList(ent, nums)
+		local hidden = ent.HGHiddenPhysObjs
+		if hidden then return hidden end
+		hidden = {}
+		for index = 1, #(nums or {}) do
+			local phys = ent:GetPhysicsObjectNum(nums[index])
+			if IsValid(phys) then hidden[#hidden + 1] = phys end
 		end
-		local hiddenPhysics = getCachedPhysics(ragdoll, "HGTorsoHiddenPhysics", ragdoll.HGTorsoHiddenPhys)
-		syncHiddenPhysics(rootPhys, hiddenPhysics)
-	end
-
-	local function syncDetachedPhysics(piece)
-		local rootPhys = piece.HGSeverRootPhysics
-		if not IsValid(rootPhys) then
-			rootPhys = piece:GetPhysicsObjectNum(piece.HGSeverRootPhys or -1)
-			piece.HGSeverRootPhysics = rootPhys
-		end
-		if not IsValid(rootPhys) then return end
-		local hiddenPhysics = getCachedPhysics(piece, "HGSeverHiddenPhysics", piece.HGSeverHiddenPhys)
-		syncHiddenPhysics(rootPhys, hiddenPhysics)
+		ent.HGHiddenPhysObjs = hidden
+		return hidden
 	end
 
 	hook.Add("Think", "HGSeveredLimbPhysics", function()
 		local now = CurTime()
-		if nextDetachedPhysicsSync <= now then
-			nextDetachedPhysicsSync = now + 0.05
-			for index = #trackedLimbs, 1, -1 do
-				local piece = trackedLimbs[index]
-				if not IsValid(piece) then
-					table.remove(trackedLimbs, index)
-					continue
-				end
+		if nextDetachedPhysicsSync > now then return end
+		nextDetachedPhysicsSync = now + 0.12
 
-				local rootPhys = piece.HGSeverRootPhysics
-				if not IsValid(rootPhys) then
-					rootPhys = piece:GetPhysicsObjectNum(piece.HGSeverRootPhys or -1)
-					piece.HGSeverRootPhysics = rootPhys
-				end
-				if not IsValid(rootPhys) then continue end
-				local asleep = rootPhys:IsAsleep()
-				if not asleep or not piece.HGSeverRootWasAsleep then syncDetachedPhysics(piece) end
-				piece.HGSeverRootWasAsleep = asleep
+		for index = #trackedLimbs, 1, -1 do
+			local piece = trackedLimbs[index]
+			if not IsValid(piece) then
+				table.remove(trackedLimbs, index)
+				continue
 			end
+			local rootPhys = piece.HGSeverRootPhysics
+			if not IsValid(rootPhys) then
+				rootPhys = piece:GetPhysicsObjectNum(piece.HGSeverRootPhys or -1)
+				piece.HGSeverRootPhysics = rootPhys
+			end
+			if not IsValid(rootPhys) then continue end
+			local asleep = rootPhys:IsAsleep()
+			if asleep and piece.HGSeverRootWasAsleep then continue end
+			parkHiddenPhys(rootPhys, hiddenPhysList(piece, piece.HGSeverHiddenPhys))
+			piece.HGSeverRootWasAsleep = asleep
 		end
 
 		for ragdoll in pairs(activeTorsoRagdolls) do
@@ -228,7 +205,14 @@ if SERVER then
 				activeTorsoRagdolls[ragdoll] = nil
 				continue
 			end
-			syncHiddenTorsoPhysics(ragdoll)
+			local rootPhys = ragdoll.HGTorsoUpperRootPhysics
+			if not IsValid(rootPhys) then
+				rootPhys = ragdoll:GetPhysicsObjectNum(ragdoll.HGTorsoUpperRootPhys or -1)
+				ragdoll.HGTorsoUpperRootPhysics = rootPhys
+			end
+			if not IsValid(rootPhys) or (rootPhys:IsAsleep() and ragdoll.HGTorsoRootWasAsleep) then continue end
+			parkHiddenPhys(rootPhys, hiddenPhysList(ragdoll, ragdoll.HGTorsoHiddenPhys))
+			ragdoll.HGTorsoRootWasAsleep = rootPhys:IsAsleep()
 		end
 	end)
 
@@ -305,19 +289,21 @@ if SERVER then
 			phys:EnableCollisions(false)
 			phys:EnableGravity(false)
 			phys:EnableMotion(false)
-			phys:SetMass(0.01)
+			phys:SetMass(1)
+			phys:Sleep()
+			if phys.SetContents then phys:SetContents(0) end
 		end
 
 		ragdoll.HGTorsoUpperRootPhys = rootPhysNum
 		ragdoll.HGTorsoUpperRootPhysics = rootPhys
 		ragdoll.HGTorsoHiddenPhys = hiddenPhys
 		ragdoll.HGTorsoHiddenPhysLookup = hiddenLookup
-		ragdoll.HGTorsoHiddenPhysics = nil
+		ragdoll.HGHiddenPhysObjs = nil
 		ragdoll.HGTorsoControlScale = math.Clamp(activeMass / math.max(totalMass, 1), 0.25, 1)
 		ragdoll.HGTorsoPhysicsConfigured = true
 		ragdoll:SetNWInt("HGTorsoUpperRootPhys", rootPhysNum)
 		activeTorsoRagdolls[ragdoll] = true
-		syncHiddenTorsoPhysics(ragdoll)
+		parkHiddenPhys(rootPhys, hiddenPhysList(ragdoll, hiddenPhys))
 		return true
 	end
 
@@ -402,16 +388,21 @@ if SERVER then
 		piece:Spawn()
 		piece:Activate()
 		piece:AddEFlags(EFL_DONTBLOCKLOS)
+		if EFL_NO_DAMAGE_FORCES then piece:AddEFlags(EFL_NO_DAMAGE_FORCES) end
 		piece.IsSeveredLimb = true
 		piece.HGSeveredLimb = true
 		piece.IsSeveredPart = true
 		piece.severedLimb = limb
-		piece.organism = nil
-		piece.ply = nil
 		copyAppearance(source, piece, owner)
 		piece.organism = nil
 		piece.ply = nil
-		if limb == "lower_torso" then piece:SetNWString("PlayerName", "Severed lower body") end
+		if limb == "head" then
+			local name = IsValid(owner) and owner:GetNWString("PlayerName", "") or ""
+			if name == "" and source.GetNWString then name = source:GetNWString("PlayerName", "") end
+			piece:SetNWString("PlayerName", name)
+		else
+			piece:SetNWString("PlayerName", "")
+		end
 
 		local rootBone = piece:LookupBone(rootName)
 		if not rootBone then piece:Remove() return end
@@ -468,17 +459,20 @@ if SERVER then
 		end
 
 		piece:RemoveInternalConstraint(rootPhysNum)
+		local rootPos, rootAng = rootPhys:GetPos(), rootPhys:GetAngles()
 		for index = 1, #hiddenPhys do
 			local physNum = hiddenPhys[index]
 			local phys = piece:GetPhysicsObjectNum(physNum)
 			if not IsValid(phys) then continue end
 			piece:RemoveInternalConstraint(physNum)
-			phys:SetPos(rootPhys:GetPos())
-			phys:SetAngles(rootPhys:GetAngles())
+			phys:SetPos(rootPos)
+			phys:SetAngles(rootAng)
 			phys:EnableCollisions(false)
 			phys:EnableMotion(false)
 			phys:EnableGravity(false)
-			phys:SetMass(0.01)
+			phys:SetMass(1)
+			phys:Sleep()
+			if phys.SetContents then phys:SetContents(0) end
 		end
 
 		for physNum in pairs(keepPhys) do
@@ -488,12 +482,13 @@ if SERVER then
 			phys:EnableGravity(true)
 			phys:EnableCollisions(true)
 			phys:SetMass(physNum == rootPhysNum and 6 or 2)
+			if FVPHYSICS_NO_SELF_COLLISIONS then phys:AddGameFlag(FVPHYSICS_NO_SELF_COLLISIONS) end
 		end
 
 		piece.HGSeverRootPhys = rootPhysNum
 		piece.HGSeverRootPhysics = rootPhys
 		piece.HGSeverHiddenPhys = hiddenPhys
-		piece.HGSeverHiddenPhysics = nil
+		piece.HGHiddenPhysObjs = nil
 		piece:SetNWInt("SeveredRootPhys", rootPhysNum)
 		local context = istable(damageContext) and damageContext or {}
 		local force = copyVector(context.force)
@@ -752,6 +747,10 @@ if SERVER then
 		hg.organism.Decapitate(org, responsible, context)
 	end
 
+	hook.Add("EntityTakeDamage", "HGSeveredLimbIgnoreDamage", function(ent)
+		if ent.IsSeveredPart or ent.IsSeveredLimb then return true end
+	end)
+
 	hook.Add("PlayerDeath", "HGSeveredLimbFatalSlash", function(victim, inflictor, attacker)
 		decapitateFatalSlash(victim, attacker)
 	end)
@@ -764,7 +763,7 @@ if SERVER then
 	hook.Add("Think", "HGExternalDecapitationBridge", function()
 		local now = CurTime()
 		if nextExternalDecapitationCheck > now then return end
-		nextExternalDecapitationCheck = now + 0.1
+		nextExternalDecapitationCheck = now + 0.35
 
 		for _, owner in ipairs(player.GetAll()) do
 			if owner.HGDecapitated then continue end
