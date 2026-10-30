@@ -11,7 +11,7 @@ local hook_Run = hook.Run
 local input_list = hg.organism.input_list
 local function Trace_Bullet(box, hit, ricochet, org, organs, dmg, dmgInfo, dir)
 	dmg = dmgInfo:GetDamage() / 25
-	local organ = box[6] and organs[box[6]][box[7]]
+	local organ = box[6] and organs[box[6]] and organs[box[6]][box[7]]
 	if not organ then return 0 end
 	local name = organ[1]
 	if not name then return 0 end
@@ -36,7 +36,7 @@ end
 
 local function Trace_Blast(box, amt, org, organs, dmg, dmgInfo)
 	dmg = dmgInfo:GetDamage() / 25
-	local organ = box[6] and organs[box[6]][box[7]]
+	local organ = box[6] and organs[box[6]] and organs[box[6]][box[7]]
 	if not organ then return 0 end
 	local name = organ[1]
 	if not name then return 0 end
@@ -69,19 +69,15 @@ local SLASH_HEAD_SEVER_DAMAGE_THRESHOLD = 70
 local SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD = 90
 local SLASH_HEAD_SEVER_MIN_HITS = 2
 local SLASH_HEAD_SEVER_WINDOW = 4
-local function meleeDismembermentRoll(inf)
-	local chance
-	if IsValid(inf) then
-		chance = inf.DismembermentChance
-		if chance == nil and isstring(inf.wep) then
-			local stored = weapons.GetStored(inf.wep)
-			chance = stored and stored.DismembermentChance
-		end
+local function meleeCanDismember(inf)
+	if not IsValid(inf) then return false end
+	local chance = inf.DismembermentChance
+	if chance == nil and isstring(inf.wep) then
+		local stored = weapons.GetStored(inf.wep)
+		chance = stored and stored.DismembermentChance
 	end
-	chance = math.Clamp(tonumber(chance) or 0, 0, 1)
-	if chance <= 0 then return false end
-	if chance >= 1 then return true end
-	return math.Rand(0, 1) <= chance
+	chance = tonumber(chance) or 0
+	return chance >= 1 or (chance > 0 and math.Rand(0, 1) <= chance)
 end
 local FIREARM_HEAD_GIB_THRESHOLD = 250
 local SLASH_TORSO_SEVER_DAMAGE_THRESHOLD = 60
@@ -902,7 +898,7 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	}
 
 	local lastPos, hitBoxs, inputHole, outputHole, outputDir, distance, tracePoses = nil,{},{},{},{},nil,nil
-	if not ownerDead then
+	if not ownerDead and boxs then
 		if dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT+DMG_SLASH+DMG_CLUB+DMG_GENERIC) then
 			lastPos, hitBoxs, inputHole, outputHole, outputDir, distance, tracePoses = hg.organism.Trace(dmgPos, dir, size, maxpen, boxs, pos, sphere, organs, dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT), Trace_Bullet, ent.organism, organs, dmg / 25, dmgInfo, dir)
 		elseif dmgInfo:IsDamageType(DMG_BLAST) then
@@ -1264,13 +1260,9 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		org.HGHeadSeverDamage = (org.HGHeadSeverDamage or 0) + severDamage
 		org.HGHeadSeverHits = (org.HGHeadSeverHits or 0) + 1
 		org.HGHeadSeverUntil = now + SLASH_HEAD_SEVER_WINDOW
-		headSeverReady = severDamage >= SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD
-			or org.HGHeadSeverHits >= SLASH_HEAD_SEVER_MIN_HITS and org.HGHeadSeverDamage >= SLASH_HEAD_SEVER_DAMAGE_THRESHOLD
-		if headSeverReady and not meleeDismembermentRoll(inf) then
-			headSeverReady = false
-			org.HGHeadSeverDamage = 0
-			org.HGHeadSeverHits = 0
-		end
+		headSeverReady = (severDamage >= SLASH_HEAD_SEVER_SINGLE_HIT_THRESHOLD
+			or org.HGHeadSeverHits >= SLASH_HEAD_SEVER_MIN_HITS and org.HGHeadSeverDamage >= SLASH_HEAD_SEVER_DAMAGE_THRESHOLD)
+			and meleeCanDismember(inf)
 
 		if istable(org.HGRecentAmputationDamage) then
 			org.HGRecentAmputationDamage.headSeverReady = headSeverReady
@@ -1304,13 +1296,9 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 			org.HGTorsoSeverDamage = (org.HGTorsoSeverDamage or 0) + severDamage
 			org.HGTorsoSeverHits = (org.HGTorsoSeverHits or 0) + 1
 			org.HGTorsoSeverUntil = now + SLASH_TORSO_SEVER_WINDOW
-			torsoSeverReady = severDamage >= SLASH_TORSO_SEVER_SINGLE_HIT_THRESHOLD
-				or org.HGTorsoSeverHits >= SLASH_TORSO_SEVER_MIN_HITS and org.HGTorsoSeverDamage >= SLASH_TORSO_SEVER_DAMAGE_THRESHOLD
-			if torsoSeverReady and not meleeDismembermentRoll(inf) then
-				torsoSeverReady = false
-				org.HGTorsoSeverDamage = 0
-				org.HGTorsoSeverHits = 0
-			end
+			torsoSeverReady = (severDamage >= SLASH_TORSO_SEVER_SINGLE_HIT_THRESHOLD
+				or org.HGTorsoSeverHits >= SLASH_TORSO_SEVER_MIN_HITS and org.HGTorsoSeverDamage >= SLASH_TORSO_SEVER_DAMAGE_THRESHOLD)
+				and meleeCanDismember(inf)
 		elseif torsoShotgunHit then
 			local now = CurTime()
 			local shotgunAttacker = dmgInfo:GetAttacker()
@@ -1353,50 +1341,42 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		torsoPosition = isvector(waistPosition) and Vector(waistPosition.x, waistPosition.y, waistPosition.z) or nil,
 		postArmorBlastDamage = postArmorBlastDamage
 	}
-	local torsoSeparatedNow = torsoSeverReady and hg.organism.SeparateTorso and hg.organism.SeparateTorso(org, amputationAttacker, amputationContext) or false
-	if torsoSeparatedNow then
-		org.HGTorsoSeverDamage = nil
-		org.HGTorsoSeverHits = nil
-		org.HGTorsoSeverUntil = nil
-		org.HGShotgunTorsoSeverDamage = nil
-		org.HGShotgunTorsoSeverHits = nil
-		org.HGShotgunTorsoSeverUntil = nil
-		org.HGShotgunTorsoAttacker = nil
+	local instant = torsoSeverReady or headSeverReady or org.dmgstack[hitgroup][1] >= hitgroup_max
+	if torsoSeverReady then
 		dmgInfo:SetDamage(math.min(dmgInfo:GetDamage(), 1))
 	end
-	local instant = torsoSeparatedNow or headSeverReady or org.dmgstack[hitgroup][1] >= hitgroup_max
-	--print(damageStack, org.dmgstack[hitgroup][1], org.dmgstack[hitgroup][3])
 
-	timer.Create("dmgstack"..org.entindex, !instant and 1 or 0, 1, function()
-		--if !IsValid(ply) then return end
-		
+	timer.Create("dmgstack"..org.entindex, instant and 0 or 1, 1, function()
 		local rag = IsValid(ply) and (IsValid(ply:GetNWEntity("RagdollDeath", ply.FakeRagdoll)) and ply:GetNWEntity("RagdollDeath", ply.FakeRagdoll)) or ent:IsRagdoll() and ent or ent:IsNPC() and ent
 		local org = rag and rag.organism or ent.organism
 
 		timer.Simple(0.01, function()
-			if torsoSeparatedNow then return end
-			if !org then return end
-			if !org.dmgstack then return end
-			if !org.dmgstack[hitgroup] then return end
-			if !org.dmgstack[hitgroup][1] then return end
+			if not org then return end
+
+			if torsoSeverReady and hg.organism.SeparateTorso and hg.organism.SeparateTorso(org, amputationAttacker, amputationContext) then
+				org.HGTorsoSeverDamage = nil
+				org.HGTorsoSeverHits = nil
+				org.HGTorsoSeverUntil = nil
+				org.HGShotgunTorsoSeverDamage = nil
+				org.HGShotgunTorsoSeverHits = nil
+				org.HGShotgunTorsoSeverUntil = nil
+				org.HGShotgunTorsoAttacker = nil
+				return
+			end
+
+			if not org.dmgstack or not org.dmgstack[hitgroup] or not org.dmgstack[hitgroup][1] then return end
 			local should = org.dmgstack[hitgroup][1] >= hitgroup_max
+			local limbName = hitgrouptolimb[hitgroup]
 
-			local limbs = {
-				"lleg",
-				"rleg",
-				"larm",
-				"rarm",
-			}
-
-			if should and hitgrouptolimb[hitgroup] then
+			if should and limbName then
 				if blastDamage then
-					for i, limb in ipairs(limbs) do
-						if !org[limb.."amputated"] and math.random() < 0.5 then
+					for _, limb in ipairs({"lleg", "rleg", "larm", "rarm"}) do
+						if not org[limb .. "amputated"] and math.random() < 0.5 then
 							hg.organism.AmputateLimb(org, limb, amputationAttacker, amputationContext)
 						end
 					end
-				elseif !org[hitgrouptolimb[hitgroup].."amputated"] and meleeDismembermentRoll(inf) then
-					hg.organism.AmputateLimb(org, hitgrouptolimb[hitgroup], amputationAttacker, amputationContext)
+				elseif not org[limbName .. "amputated"] and (not slashLimbHit or meleeCanDismember(inf)) then
+					hg.organism.AmputateLimb(org, limbName, amputationAttacker, amputationContext)
 				end
 			end
 

@@ -716,37 +716,54 @@ function ENTITY:FireLuaBullets(tInfo)
 					filter = Filter
 				})
 			
-			local tries = 50
-			while (tries > 0 and IsValid(tr.Entity) and tr.Entity.organism) do
+			local lastSkipEnt, lastSkipBone
+			for _ = 1, 16 do
 				local ent = tr.Entity
-				tries = tries - 1
+				if not IsValid(ent) or not istable(ent.organism) then break end
 
-				--table.insert(Filter, ent)
+				local physBone = tr.PhysicsBone
+				local bone = ent:TranslatePhysBoneToBone(physBone)
+				local bonename = (isnumber(bone) and bone >= 0) and ent:GetBoneName(bone) or ""
+				local limb = hg.amputeetable[bonename]
+				local skip = (armsbones[bonename] and hg.RagdollOwner(ent) == pInflictor:GetOwner())
+					or IsValid(ent.OldRagdoll)
+					or (physBone == 0 and tr.StartSolid)
+					or (limb and ent.organism[limb .. "amputated"])
+				if not skip then break end
+				if lastSkipEnt == ent and lastSkipBone == physBone then break end
+				lastSkipEnt, lastSkipBone = ent, physBone
 
-				local bonename = ent:GetBoneName(ent:TranslatePhysBoneToBone(tr.PhysicsBone))
-				local hitgroup = hg.bonetohitgroup[bonename]--( ent:IsPlayer() and tr.HitGroup or hg.bonetohitgroup[bonename])
-				
-				if !(armsbones[bonename] and hg.RagdollOwner(tr.Entity) == pInflictor:GetOwner()) and !IsValid(tr.Entity.OldRagdoll) and (tr.PhysicsBone != 0 or !tr.StartSolid) and (!hg.amputeetable[bonename] or !ent.organism[hg.amputeetable[bonename].."amputated"]) then break end
+				if IsValid(ent.OldRagdoll) then
+					if isentity(Filter) then
+						Filter = (Filter == ent) and Filter or {Filter, ent}
+					elseif istable(Filter) then
+						Filter[#Filter + 1] = ent
+					else
+						Filter = {ent}
+					end
+				end
 
-				tr = bHullTrace and iShot % 2 == 0 and
-					-- Half of the shotgun pellets are hulls that make it easier to hit targets with the shotgun.
-					util.TraceHull({
-						start = tr.HitPos + vShotDir * 1,
-						endpos = vEnd,
-						mins = vFireBulletMin,
-						maxs = vFireBulletMax,
-						mask = iMask,
-						filter = Filter
-					})
-				or
-					util.TraceLine({
-						start = tr.HitPos + vShotDir * 1,
-						endpos = vEnd,
-						mask = iMask,
-						filter = Filter
-					})
-				--print(tr.FractionLeftSolid)
-				--print(tr.Entity, tr.HitGroup, hitgroup, tr.PhysicsBone, tr.StartSolid)
+				local start = tr.HitPos + vShotDir
+				if tr.StartSolid then
+					local len = vNewSrc:Distance(vEnd)
+					if len > 0 then
+						start = tr.StartPos + vShotDir * (tr.FractionLeftSolid * len + 1)
+					end
+				end
+
+				tr = bHullTrace and iShot % 2 == 0 and util.TraceHull({
+					start = start,
+					endpos = vEnd,
+					mins = vFireBulletMin,
+					maxs = vFireBulletMax,
+					mask = iMask,
+					filter = Filter
+				}) or util.TraceLine({
+					start = start,
+					endpos = vEnd,
+					mask = iMask,
+					filter = Filter
+				})
 			end
 
 			local data = {}
@@ -759,6 +776,9 @@ function ENTITY:FireLuaBullets(tInfo)
 			data.TracerName = tInfo.TracerName
 			
 			if (hook.Run("PostEntityFireBullets", self, data) == false) then
+				if (bIsPlayer and !tInfo.DisableLagComp) then
+					owner:LagCompensation(false)
+				end
 				return
 			end
 				
