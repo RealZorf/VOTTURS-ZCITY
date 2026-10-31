@@ -537,6 +537,22 @@ local function RestoreRolloverFakeState( driver, ragdoll )
     return true
 end
 
+local function KeepInjuredOccupantDown( ply )
+    if not IsValid( ply ) or not ply:Alive() or ply:InVehicle() then return end
+    if ply.switchingseat or ply.WheelchairRolloverEjecting then return end
+    if hook.Run( "Should Fake Up", ply ) == nil then return end
+
+    local ragdoll = ply.FakeRagdoll
+    if IsValid( ragdoll ) then
+        RestoreRolloverFakeState( ply, ragdoll )
+        return
+    end
+
+    if hg and hg.Fake then
+        hg.Fake( ply )
+    end
+end
+
 local function RecoverFailedRolloverEjection( driver )
     if not IsValid( driver ) or not driver:Alive() or driver:InVehicle() then return end
     if IsValid( driver.FakeRagdoll ) then return end
@@ -1028,6 +1044,15 @@ GetWheelchairFromEntity = function( ent )
         return parent
     end
 end
+
+hook.Add( "PlayerLeaveVehicle", "GlideWheelchair.KeepInjuryOnExit", function( ply, seat )
+    if not IsValid( GetWheelchairFromEntity( seat ) ) then return end
+
+    KeepInjuredOccupantDown( ply )
+    timer.Simple( 0, function()
+        KeepInjuredOccupantDown( ply )
+    end )
+end )
 
 hook.Add( "CanExitVehicle", "GlideWheelchair.DuctTapeRestraint", function( ply, seat )
     local wheelchair = GetWheelchairFromEntity( seat )

@@ -1389,6 +1389,7 @@ hook.Add("PlayerLeaveVehicle","allowweapons",function(ply,veh)
 		timer.Simple(0, function()
 			if not IsValid(ply) or not ply:Alive() or ply:InVehicle() then return end
 			if not IsValid(ply.FakeRagdoll) then return end
+			if not switchingSeat and hook_Run("Should Fake Up", ply) ~= nil then return end
 
 			hg.FakeUp(ply, true, true, exitPos, exitVelocity, isvector(exitPos))
 		end)
