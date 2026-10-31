@@ -1,31 +1,28 @@
 ZCITY_GUILT = ZCITY_GUILT or {}
 ZCITY_GUILT.Menu = ZCITY_GUILT.Menu or {}
 
-hook.Add("OnNetVarSet", "Guilt",function(index, key, var)
+hook.Add("OnNetVarSet", "Guilt", function(index, key, var)
     if key == "Karma" then
         Entity(index).Karma = var
     end
 end)
 
-concommand.Add("hg_getkarma",function(ply)
+concommand.Add("hg_getkarma", function(ply)
     if not ply:IsAdmin() then return end
-
     net.Start("get_karma")
     net.SendToServer()
 end)
 
-net.Receive("get_karma",function()
+net.Receive("get_karma", function()
     local tbl = net.ReadTable()
     local printTbl = "\nPlayers karma: \n"
-
-    for id,karma in pairs(tbl) do
-        printTbl = printTbl.."\t"..(Player(id):Name().."'s karma is "..math.Round(karma,2)).."\n"
+    for id, karma in pairs(tbl) do
+        printTbl = printTbl .. "\t" .. (Player(id):Name() .. "'s karma is " .. math.Round(karma, 2)) .. "\n"
     end
-
-    LocalPlayer():PrintMessage(HUD_PRINTCONSOLE,printTbl)
+    LocalPlayer():PrintMessage(HUD_PRINTCONSOLE, printTbl)
 end)
 
-concommand.Add("hg_guilt_menu",function()
+concommand.Add("hg_guilt_menu", function()
     RunConsoleCommand("zcity_guilt_menu")
 end)
 
@@ -33,240 +30,186 @@ local function CFG()
     return ZCITY_GUILT.Config or ZCITY_GUILT.DefaultConfig or {}
 end
 
-local function mergeConfig(defaults, incoming)
-    local merged = table.Copy(defaults or {})
-
-    if not istable(incoming) then
-        return merged
-    end
-
-    for k, v in pairs(incoming) do
-        if k == "Presets" then
-            merged.Presets = istable(v) and table.Copy(v) or table.Copy((defaults or {}).Presets or {})
-        elseif istable(v) and istable(merged[k]) then
-            merged[k] = table.Copy(v)
-        else
-            merged[k] = v
-        end
-    end
-
-    if not istable(merged.Presets) then
-        merged.Presets = table.Copy((defaults or {}).Presets or {})
-    end
-
-    return merged
-end
-
-local GuiltFrame
-local leftScroll
-local rightScroll
-local selectedData
+local GuiltFrame, leftScroll, rightScroll, selectedData, pressedOpen
 local cachedRows = {}
-local pressedOpen
 
-local BASE_W, BASE_H = 1920, 1080
-local _lastScrW, _lastScrH = 0, 0
+local CRT_R, CRT_G, CRT_B = 35, 225, 110
+local TRAITOR_R, TRAITOR_G, TRAITOR_B = 225, 35, 35
+local FRAME_R, FRAME_G, FRAME_B = 86, 94, 90
+local color_bezel = Color(12, 13, 13)
+local color_panel = Color(20, 22, 21)
+local color_text = Color(236, 238, 236)
+local color_idle_dim = Color(112, 118, 116)
+local color_danger = Color(TRAITOR_R, TRAITOR_G, TRAITOR_B)
+local color_info = Color(35, 140, 225)
+local color_disabled = Color(100, 104, 102)
+local BEZEL = 3
+local INSET = BEZEL + 4
+local SND_CLICK = "shitty/tap_depress.wav"
+local SND_HOVER = "shitty/tap-resonant.wav"
 
-local FONT_TITLE = "PATGUILT_Title"
 local FONT_HEADER = "PATGUILT_Header"
 local FONT_MED = "PATGUILT_Med"
 local FONT_SMALL = "PATGUILT_Small"
 local FONT_TINY = "PATGUILT_Tiny"
 
-local COL_WHITE
-local COL_TEXT
-local COL_MUTED
-local COL_RED
-local COL_RED_SOFT
-local COL_BG
-local COL_BG2
-local COL_BG3
-local COL_GREEN
-local COL_BLUE
-local COL_DISABLED
-
-local function asColor(entry, fallback)
-    local base = fallback or Color(255, 255, 255, 255)
-    local value = istable(entry) and entry or {}
-
-    return Color(
-        math.Clamp(tonumber(value.r) or base.r or 255, 0, 255),
-        math.Clamp(tonumber(value.g) or base.g or 255, 0, 255),
-        math.Clamp(tonumber(value.b) or base.b or 255, 0, 255),
-        math.Clamp(tonumber(value.a) or base.a or 255, 0, 255)
-    )
+local function S(n)
+    return math.max(1, math.Round(n * ScrH() / 1080))
 end
 
-local function ensureThemeTable(theme)
-    theme = istable(theme) and theme or {}
-    local defaults = ZCITY_GUILT.ThemeDefaults or {}
-
-    for key, base in pairs(defaults) do
-        theme[key] = istable(theme[key]) and theme[key] or table.Copy(base)
-    end
-
-    return theme
+local function CreateGuiltFonts()
+    surface.CreateFont(FONT_HEADER, {font = "Bahnschrift", size = math.max(16, S(20)), weight = 700, antialias = true, extended = true})
+    surface.CreateFont(FONT_MED, {font = "Bahnschrift", size = math.max(14, S(18)), weight = 600, antialias = true, extended = true})
+    surface.CreateFont(FONT_SMALL, {font = "Bahnschrift", size = math.max(13, S(16)), weight = 600, antialias = true, extended = true})
+    surface.CreateFont(FONT_TINY, {font = "Bahnschrift", size = math.max(12, S(14)), weight = 500, antialias = true, extended = true})
 end
 
-local function applyThemeColors(config)
-    local theme = ensureThemeTable((config and config.Theme) or (CFG() and CFG().Theme) or {})
-
-    COL_BG = asColor(theme.panelBg, Color(8, 8, 8, 220))
-    COL_BG2 = asColor(theme.panelInner, Color(18, 18, 18, 235))
-    COL_BG3 = asColor(theme.panelAlt, Color(28, 28, 28, 220))
-    COL_RED = asColor(theme.accent, Color(190, 20, 20, 220))
-    COL_RED_SOFT = asColor(theme.accentSoft, Color(255, 45, 45, 120))
-    COL_WHITE = asColor(theme.textMain, Color(245, 245, 245, 255))
-    COL_TEXT = asColor(theme.textSub, Color(220, 220, 220, 255))
-    COL_MUTED = asColor(theme.muted, Color(160, 160, 160, 255))
-    COL_GREEN = asColor(theme.success, Color(70, 170, 95, 255))
-    COL_BLUE = asColor(theme.info, Color(80, 140, 220, 255))
-    COL_DISABLED = asColor(theme.disabled, Color(100, 100, 100, 120))
-end
-
-local function UIScale()
-    return math.min(ScrW() / BASE_W, ScrH() / BASE_H)
-end
-
-local function ui(v)
-    return math.max(1, math.floor(v * UIScale()))
-end
-
-local function rebuildFonts(force)
-    if not force and _lastScrW == ScrW() and _lastScrH == ScrH() then return end
-    _lastScrW, _lastScrH = ScrW(), ScrH()
-
-    surface.CreateFont(FONT_TITLE, {
-        font = "Tahoma",
-        size = ui(28),
-        weight = 900,
-        extended = true
-    })
-
-    surface.CreateFont(FONT_HEADER, {
-        font = "Tahoma",
-        size = ui(20),
-        weight = 800,
-        extended = true
-    })
-
-    surface.CreateFont(FONT_MED, {
-        font = "Tahoma",
-        size = ui(18),
-        weight = 700,
-        extended = true
-    })
-
-    surface.CreateFont(FONT_SMALL, {
-        font = "Tahoma",
-        size = ui(14),
-        weight = 600,
-        extended = true
-    })
-
-    surface.CreateFont(FONT_TINY, {
-        font = "Tahoma",
-        size = ui(12),
-        weight = 500,
-        extended = true
-    })
-end
-
-rebuildFonts(true)
-applyThemeColors(CFG())
-
+CreateGuiltFonts()
 hook.Add("OnScreenSizeChanged", "ZCITY_GUILT_RebuildFonts", function()
-    rebuildFonts(true)
-
-    if IsValid(GuiltFrame) then
-        local rows = table.Copy(cachedRows or {})
-        GuiltFrame:Remove()
-        GuiltFrame = nil
-        timer.Simple(0, function()
-            if #rows > 0 then
-                local stillOpen = IsValid(LocalPlayer()) and LocalPlayer():GetNWInt("ZCITY_GUILT_PENDING_COUNT", 0) > 0
-                if stillOpen then
-                    openMenu(rows)
-                end
-            end
-        end)
-    end
+    CreateGuiltFonts()
+    if not IsValid(GuiltFrame) then return end
+    local rows = table.Copy(cachedRows)
+    GuiltFrame:Remove()
+    GuiltFrame = nil
+    timer.Simple(0, function()
+        if #rows > 0 and IsValid(LocalPlayer()) and LocalPlayer():GetNWInt("ZCITY_GUILT_PENDING_COUNT", 0) > 0 then
+            openMenu(rows)
+        end
+    end)
 end)
 
-local function drawOutlinedRect(x, y, w, h, col, thick)
-    surface.SetDrawColor(col)
-    surface.DrawOutlinedRect(x, y, w, h, thick or 1)
-end
-
-local function blurPanel(panel, a)
-    if hg and hg.DrawBlur then
-        hg.DrawBlur(panel, 5, 1, a or 120)
+local function ClickSound(path)
+    local ply = LocalPlayer()
+    if IsValid(ply) then
+        ply:EmitSound(path, 75, 100, 0.09)
     else
-        surface.SetDrawColor(0, 0, 0, a or 120)
-        surface.DrawRect(0, 0, panel:GetWide(), panel:GetTall())
+        surface.PlaySound(path)
     end
 end
 
-local function clearScrollChildren(scroll)
-    if not IsValid(scroll) then return end
+local function DrawCRTCorners(x, y, w, h, len, a)
+    surface.SetDrawColor(CRT_R, CRT_G, CRT_B, a)
+    surface.DrawRect(x, y, len, 2)
+    surface.DrawRect(x, y, 2, len)
+    surface.DrawRect(x + w - len, y, len, 2)
+    surface.DrawRect(x + w - 2, y, 2, len)
+    surface.DrawRect(x, y + h - 2, len, 2)
+    surface.DrawRect(x, y + h - len, 2, len)
+    surface.DrawRect(x + w - len, y + h - 2, len, 2)
+    surface.DrawRect(x + w - 2, y + h - len, 2, len)
+end
 
-    local canvas = scroll.GetCanvas and scroll:GetCanvas() or nil
-    if IsValid(canvas) then
-        for _, child in ipairs(canvas:GetChildren()) do
-            if IsValid(child) then
-                child:Remove()
-            end
-        end
-    else
-        for _, child in ipairs(scroll:GetChildren()) do
-            if IsValid(child) then
-                child:Remove()
-            end
-        end
+local function DrawCRTFrame(x, y, w, h, selected)
+    surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 230)
+    surface.DrawRect(x, y, w, h)
+    local ix, iy, iw, ih = x + BEZEL, y + BEZEL, w - BEZEL * 2, h - BEZEL * 2
+    surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, selected and 200 or 150)
+    surface.DrawOutlinedRect(ix, iy, iw, ih, 1)
+    DrawCRTCorners(ix, iy, iw, ih, 10, selected and 230 or 150)
+    surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 210)
+    surface.DrawRect(ix + 1, iy + 1, iw - 2, ih - 2)
+end
+
+local function DrawHeaderStrip(x, y, w, h, title)
+    surface.SetDrawColor(32, 34, 33, 210)
+    surface.DrawRect(x, y, w, h)
+    surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 36)
+    surface.DrawRect(x, y, w, h)
+    draw.SimpleText(title, FONT_HEADER, x + S(12), y + h * 0.5, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+end
+
+local function DrawRow(w, h, hovered, selected)
+    surface.SetDrawColor(32, 34, 33, hovered and 210 or 160)
+    surface.DrawRect(0, 0, w, h)
+    surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, selected and 160 or 70)
+    surface.DrawOutlinedRect(0, 0, w, h, 1)
+    if selected then
+        surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 216)
+        surface.DrawRect(0, 0, 2, h)
     end
 end
 
-local function makeScrollBarPretty(panel)
+local function PaintCRTButton(self, w, h, label, danger)
+    local hover = self:IsHovered()
+    local r, g, b = danger and TRAITOR_R or CRT_R, danger and TRAITOR_G or CRT_G, danger and TRAITOR_B or CRT_B
+    surface.SetDrawColor(color_bezel)
+    surface.DrawRect(0, 0, w, h)
+    if hover then
+        surface.SetDrawColor(r, g, b, 28)
+        surface.DrawRect(1, 1, w - 2, h - 2)
+    end
+    surface.SetDrawColor(r, g, b, hover and 210 or 150)
+    surface.DrawOutlinedRect(0, 0, w, h, 1)
+    draw.SimpleText(label, FONT_TINY, w * 0.5, h * 0.5, hover and color_text or (danger and color_danger or color_text), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+end
+
+local function PaintEntry(self, w, h)
+    surface.SetDrawColor(color_bezel)
+    surface.DrawRect(0, 0, w, h)
+    surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, self:IsEditing() and 200 or 120)
+    surface.DrawOutlinedRect(0, 0, w, h, 1)
+    local text = self:GetText()
+    draw.SimpleText(text, FONT_TINY, w * 0.5, h * 0.5, color_text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    if self:IsEditing() and (CurTime() * 2) % 2 < 1 then
+        surface.SetFont(FONT_TINY)
+        local full = surface.GetTextSize(text)
+        local caret = surface.GetTextSize(string.sub(text, 1, self:GetCaretPos()))
+        surface.SetDrawColor(color_text)
+        surface.DrawRect(math.floor(w * 0.5 - full * 0.5 + caret), math.floor(h * 0.5 - 7), 1, 14)
+    end
+end
+
+local function StyleScroll(panel)
     if not IsValid(panel) or not panel.GetVBar then return end
-
+    if panel.GetCanvas then
+        local canvas = panel:GetCanvas()
+        if IsValid(canvas) then canvas:DockPadding(0, 0, 0, 0) end
+    end
     local bar = panel:GetVBar()
-
-    function bar:Paint() end
-    function bar.btnUp:Paint(w, h)
-        surface.SetDrawColor(0, 0, 0, 150)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, 1)
+    bar:SetWide(S(8))
+    bar:SetHideButtons(true)
+    bar.Paint = function(_, w, h)
+        surface.SetDrawColor(0, 0, 0, 70)
+        surface.DrawRect(1, 0, w - 2, h)
     end
-    function bar.btnDown:Paint(w, h)
-        surface.SetDrawColor(0, 0, 0, 150)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, 1)
+    bar.btnGrip.Paint = function(self, w, h)
+        local hover = self:IsHovered()
+        surface.SetDrawColor(hover and CRT_R or FRAME_R, hover and CRT_G or FRAME_G, hover and CRT_B or FRAME_B, hover and 180 or 130)
+        surface.DrawRect(1, 0, w - 2, h)
     end
-    function bar.btnGrip:Paint(w, h)
-        surface.SetDrawColor(COL_BG3)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED, 1)
-    end
-
-    bar:SetWide(ui(10))
 end
 
-local function getPresetColor(preset)
-    if ZCITY_GUILT.GetPresetColor then
-        return ZCITY_GUILT.GetPresetColor(preset)
+local function setupFrame(frame)
+    if frame.SetTitle then frame:SetTitle("") end
+    if frame.ShowCloseButton then frame:ShowCloseButton(false) end
+    if IsValid(frame.lblTitle) then
+        frame.lblTitle:SetVisible(false)
+        frame.lblTitle:SetText("")
+        frame.lblTitle:SetTall(0)
     end
-
-    local c = preset and preset.color or nil
-    if istable(c) then
-        return Color(tonumber(c.r) or 255, tonumber(c.g) or 255, tonumber(c.b) or 255)
+    for _, key in ipairs({"btnClose", "btnMaxim", "btnMinim"}) do
+        if IsValid(frame[key]) then
+            frame[key]:SetVisible(false)
+            frame[key]:SetSize(0, 0)
+        end
     end
-
-    return Color(255, 120, 120)
+    frame:DockPadding(0, 0, 0, 0)
+    frame.First = function(self) self:SetAlpha(255) end
+    frame:SetAlpha(255)
+    if frame.SetBlurStrengh then frame:SetBlurStrengh(0) end
+    local old = frame.PerformLayout
+    frame.PerformLayout = function(self, w, h)
+        self:DockPadding(0, 0, 0, 0)
+        if old then old(self, w, h) end
+        self:DockPadding(0, 0, 0, 0)
+    end
+    timer.Simple(0, function()
+        if IsValid(frame) then frame:DockPadding(0, 0, 0, 0) end
+    end)
 end
 
 local function sendAction(row, action)
     if not row or tostring(row.steamid64 or "") == "" then return end
-
     net.Start("zcity_guilt_action")
     net.WriteUInt(math.Clamp(math.floor(tonumber(row.caseid) or 0), 0, 4294967295), 32)
     net.WriteString(tostring(row.steamid64 or ""))
@@ -275,50 +218,42 @@ local function sendAction(row, action)
     net.SendToServer()
 end
 
-local function getDisplayedCaseState(row)
-    return row and row.decided and "Resolved" or "Pending"
-end
-
 local function getSourceLabel(source)
     source = tostring(source or "damage")
+    if source == "fentanyl" then return "fentanyl" end
+    if source == "jumpkick" then return "a jump kick" end
+    if source == "kick" then return "a kick" end
+    if source == "gunfire" then return "gunfire" end
+    if source == "melee_threat" then return "a melee weapon" end
+    if source == "blocked_melee" then return "a blocked melee swing" end
+    return "an attack"
+end
 
-    if source == "fentanyl" then
-        return "Fentanyl injection"
-    elseif source == "jumpkick" then
-        return "Jump kick"
-    elseif source == "kick" then
-        return "Kick"
-    end
-
-    return "Damage"
+local function lockText(reason)
+    reason = tostring(reason or "")
+    if reason == "" then return "Punish is locked." end
+    if reason == "Victim was a traitor." then return "You were a traitor, so this is not punishable." end
+    if reason == "Attacker was a traitor." then return "They were a traitor, so this is not punishable." end
+    if reason == "Victim was already marked guilty." then return "You were already marked guilty." end
+    if reason == "Attacker was berserk." then return "They were berserk." end
+    if reason:find("Protected self-defense", 1, true) then return "Punish is locked: they were defending themselves." end
+    return reason
 end
 
 local function getCharacterName(ent)
     if not IsValid(ent) then return "Unknown" end
-
     if ent.GetNWString then
         local nwName = ent:GetNWString("PlayerName", "")
-        if nwName ~= "" then
-            return nwName
-        end
+        if nwName ~= "" then return nwName end
     end
-
     if istable(ent.CurAppearance) and tostring(ent.CurAppearance.AName or "") ~= "" then
         return tostring(ent.CurAppearance.AName)
     end
-
     if ent.GetPlayerName then
         local playerName = ent:GetPlayerName()
-        if tostring(playerName or "") ~= "" then
-            return tostring(playerName)
-        end
+        if tostring(playerName or "") ~= "" then return tostring(playerName) end
     end
-
     return ent:Nick() or "Unknown"
-end
-
-local function replacementSafe(text)
-    return tostring(text or ""):gsub("%%", "%%%%")
 end
 
 local function getCaseName(row)
@@ -326,443 +261,362 @@ local function getCaseName(row)
     return tostring(row.name or "Disconnected player") .. " (offline)"
 end
 
-local function formatCaseText(text, row)
+local function wrapLines(text, font, maxW)
     text = tostring(text or "")
-
-    local victimName = getCharacterName(LocalPlayer())
-    local attackerName = row and getCaseName(row) or "attacker"
-
-    text = text:gsub("%f[%a]Victim%f[%A]", replacementSafe(victimName))
-    text = text:gsub("%f[%a]victim%f[%A]", replacementSafe(victimName))
-    text = text:gsub("%f[%a]Attacker%f[%A]", replacementSafe(attackerName))
-    text = text:gsub("%f[%a]attacker%f[%A]", replacementSafe(attackerName))
-
-    return text
+    surface.SetFont(font)
+    local words = string.Explode(" ", text)
+    local lines, cur = {}, ""
+    for i = 1, #words do
+        local try = cur == "" and words[i] or (cur .. " " .. words[i])
+        if cur ~= "" and surface.GetTextSize(try) > maxW then
+            lines[#lines + 1] = cur
+            cur = words[i]
+        else
+            cur = try
+        end
+    end
+    if cur ~= "" then lines[#lines + 1] = cur end
+    return lines
 end
 
-local function getDefenseLabel(row)
-    if not row then return "No review data" end
-
-    if row.actionAllowed == false then
-        local reason = tostring(row.actionLockReason or "")
-        return formatCaseText(reason ~= "" and reason or "Native guilt locked punishment", row)
-    end
-
-    local mul = tonumber(row.selfDefenseMul) or 1
-    local score = tonumber(row.threatScore) or 0
+local function isDefenseLocked(row)
+    if not row then return false end
+    if row.actionAllowed == false then return true end
+    local c = CFG()
     local incoming = tonumber(row.incomingHarm) or 0
     local harm = tonumber(row.harm) or 0
-
-    if mul <= 0.2 or (incoming >= harm * 0.75 and score >= 0.35) then
-        return "Likely proportional self-defense"
-    elseif score >= 0.55 then
-        return formatCaseText("Victim showed strong threat signs", row)
-    elseif score >= 0.25 then
-        return formatCaseText("Victim showed some threat signs", row)
-    end
-
-    return "No strong self-defense signs"
+    local score = tonumber(row.threatScore) or 0
+    return (tonumber(row.selfDefenseMul) or 1) <= (c.PunishLockKarmaScale or 0.2)
+        or (incoming >= harm * (c.PunishLockIncomingVsHarm or 0.8) and score >= (c.PunishLockMinThreatScore or 0.35))
 end
 
-local function compactText(text, maxChars)
-    text = tostring(text or "")
-    maxChars = maxChars or 72
-
-    if #text <= maxChars then
-        return text
+local function describeThreat(row)
+    local them = getCaseName(row)
+    local harm = math.Round(tonumber(row.harm) or 0, 1)
+    local incoming = math.Round(tonumber(row.incomingHarm) or 0, 1)
+    local ratio = tonumber(row.responseRatio) or 0
+    local facts = {
+        them .. " hurt you with " .. getSourceLabel(row.damageSource) .. ".",
+        "Harm they dealt you: " .. harm,
+    }
+    if incoming > 0 then
+        facts[#facts + 1] = "Harm you dealt them first: " .. incoming
+        facts[#facts + 1] = ratio <= 1.1 and "They hit back about as hard as you had hit them."
+            or ("They hit you " .. math.Round(ratio, 1) .. " times harder than you had hit them.")
+    else
+        facts[#facts + 1] = "You had not hurt them first."
     end
 
-    return string.sub(text, 1, math.max(maxChars - 3, 1)) .. "..."
-end
-
-local function getPendingRowsCount()
-    local total = 0
-    for _, row in ipairs(cachedRows or {}) do
-        if row.decided ~= true then
-            total = total + 1
+    local seen = {}
+    for _, reason in ipairs(istable(row.threatReasons) and row.threatReasons or {}) do
+        local low = string.lower(tostring(reason or ""))
+        local extra
+        if low:find("amputat", 1, true) or low:find("limb", 1, true) then
+            extra = "You took a limb off them before they hit you."
+        elseif low:find("fired a bullet", 1, true) or (low:find("gunfire", 1, true) and low:find("initiated", 1, true)) then
+            extra = "They shot at you first."
+        elseif low:find("struck first with", 1, true) or low:find("lethal melee", 1, true) then
+            extra = "They swung a lethal melee weapon at you first."
+        elseif low:find("blocked", 1, true) then
+            extra = "You blocked their melee swing."
+        end
+        if extra and not seen[extra] then
+            seen[extra] = true
+            facts[#facts + 1] = extra
         end
     end
-    return total
-end
 
-local function styleHeaderButton(button, label)
-    button:SetText("")
-    button.Paint = function(self, w, h)
-        surface.SetDrawColor(0, 0, 0, 180)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, self:IsHovered() and COL_RED or COL_RED_SOFT, ui(2))
-        draw.SimpleText(label, FONT_SMALL, w * 0.5, h * 0.5, COL_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    local verdict
+    if row.actionAllowed == false then
+        verdict = lockText(row.actionLockReason)
+    elseif isDefenseLocked(row) then
+        verdict = "This looks like self-defense. Punish is locked."
+    elseif incoming <= 0 then
+        verdict = "They started it."
+    elseif ratio > 2 then
+        verdict = "They went much further than they needed to."
+    else
+        verdict = "This was a fight. Decide if they went too far."
     end
+    return verdict, facts
 end
 
-local function createActionButton(parent, text, colorBg, enabled, callback, subtitle)
+local function createActionButton(parent, title, colorBg, enabled, callback, subtitle, extra)
     local btn = parent:Add("DButton")
     btn:Dock(TOP)
-    btn:DockMargin(ui(12), 0, ui(12), ui(8))
-    btn:SetTall(subtitle and ui(52) or ui(40))
+    btn:DockMargin(S(12), 0, S(12), S(8))
+    btn:SetTall((subtitle and subtitle ~= "") and S(52) or S(40))
     btn:SetText("")
     btn:SetEnabled(enabled ~= false)
-
-    local hover = 0
-
-    function btn:Paint(w, h)
-        hover = Lerp(FrameTime() * 10, hover, self:IsHovered() and self:IsEnabled() and 1 or 0)
-
-        surface.SetDrawColor(COL_BG2)
+    btn.Paint = function(self, w, h)
+        local on = self:IsEnabled()
+        local hover = self:IsHovered() and on
+        local col = on and colorBg or color_disabled
+        surface.SetDrawColor(32, 34, 33, hover and 210 or 160)
         surface.DrawRect(0, 0, w, h)
-
-        local col = self:IsEnabled() and colorBg or COL_DISABLED
-        local r = math.Clamp(col.r + hover * 20, 0, 255)
-        local g = math.Clamp(col.g + hover * 20, 0, 255)
-        local b = math.Clamp(col.b + hover * 20, 0, 255)
-        local a = self:IsEnabled() and 220 or 120
-
-        drawOutlinedRect(0, 0, w, h, Color(r, g, b, a), ui(2))
-
-        if subtitle and subtitle ~= "" then
-            draw.SimpleText(text, FONT_SMALL, ui(12), ui(7), self:IsEnabled() and COL_WHITE or Color(170, 170, 170), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-            draw.SimpleText(subtitle, FONT_TINY, ui(12), h - ui(10), self:IsEnabled() and COL_MUTED or Color(140, 140, 140), TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
-        else
-            draw.SimpleText(text, FONT_SMALL, ui(12), h * 0.5, self:IsEnabled() and COL_WHITE or Color(170, 170, 170), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        surface.SetDrawColor(col.r, col.g, col.b, on and (hover and 210 or 150) or 90)
+        surface.DrawOutlinedRect(0, 0, w, h, 1)
+        if hover then
+            surface.SetDrawColor(col.r, col.g, col.b, 216)
+            surface.DrawRect(0, 0, 2, h)
+        end
+        local labelCol = on and color_text or color_idle_dim
+        local hasSub = subtitle and subtitle ~= ""
+        draw.SimpleText(title, FONT_SMALL, S(12), hasSub and S(8) or h * 0.5, labelCol, TEXT_ALIGN_LEFT, hasSub and TEXT_ALIGN_TOP or TEXT_ALIGN_CENTER)
+        if extra and extra ~= "" then
+            draw.SimpleText(extra, FONT_SMALL, w - S(12), hasSub and S(8) or h * 0.5, labelCol, TEXT_ALIGN_RIGHT, hasSub and TEXT_ALIGN_TOP or TEXT_ALIGN_CENTER)
+        end
+        if hasSub then
+            draw.SimpleText(subtitle, FONT_TINY, S(12), h - S(10), on and color_idle_dim or color_disabled, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
         end
     end
-
-    function btn:DoClick()
+    btn.OnCursorEntered = function() if enabled ~= false then ClickSound(SND_HOVER) end end
+    btn.DoClick = function(self)
         if not self:IsEnabled() then return end
+        ClickSound(SND_CLICK)
         if callback then callback() end
     end
-
-    return btn
 end
 
 local function rebuildRightPanel()
     if not IsValid(rightScroll) then return end
-    clearScrollChildren(rightScroll)
+    rightScroll:Clear()
 
     local header = rightScroll:Add("DPanel")
     header:Dock(TOP)
-    header:DockMargin(ui(12), ui(12), ui(12), ui(10))
-    header:SetTall(ui(124))
+    header:DockMargin(S(12), S(12), S(12), S(10))
+    header:SetTall(S(118))
+    header:SetPaintBackground(false)
 
-    local nativePenaltyHelp = header:Add("DLabel")
-    nativePenaltyHelp:SetText("")
-    nativePenaltyHelp:SetFont(FONT_TINY)
-    nativePenaltyHelp:SetMouseInputEnabled(true)
-    nativePenaltyHelp:SetCursor("hand")
-    nativePenaltyHelp:SetTooltip("Calculated native guilt penalty from this amount of harm. This is the karma loss the player would have gotten from the native karma system. Punish accordingly.")
-    nativePenaltyHelp:SetVisible(false)
-    nativePenaltyHelp:SizeToContents()
+    local nativeHelp = header:Add("DLabel")
+    nativeHelp:SetText("")
+    nativeHelp:SetFont(FONT_TINY)
+    nativeHelp:SetMouseInputEnabled(true)
+    nativeHelp:SetCursor("hand")
+    nativeHelp:SetTooltip("Karma this player already lost from the built-in karma system for this harm. Extra punish buttons take more on top of that.")
+    nativeHelp:SetVisible(false)
 
-    function nativePenaltyHelp:Paint(w, h)
-        local hovered = self:IsHovered()
-        local border = hovered and COL_RED or COL_RED_SOFT
-        local fill = hovered and Color(COL_BG3.r, COL_BG3.g, COL_BG3.b, 245) or Color(COL_BG2.r, COL_BG2.g, COL_BG2.b, 235)
-
-        draw.RoundedBox(ui(6), 0, 0, w, h, fill)
-        drawOutlinedRect(0, 0, w, h, border, 1)
-
-        draw.SimpleText("?", FONT_TINY, w * 0.5, h * 0.5 - ui(1), hovered and COL_WHITE or COL_MUTED, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    end
-
-    function header:PerformLayout(w, h)
-        local penaltyText = selectedData and ("Calculated native guilt penalty: " .. math.Round(selectedData.karma or 0, 1)) or "Calculated native guilt penalty: 0"
+    header.PerformLayout = function()
+        local penaltyText = selectedData and ("Karma they already lost: " .. math.Round(selectedData.karma or 0, 1)) or "Karma they already lost: 0"
         surface.SetFont(FONT_SMALL)
-        local textW = surface.GetTextSize(penaltyText)
-        nativePenaltyHelp:SetSize(ui(14), ui(14))
-        nativePenaltyHelp:SetPos(ui(14) + textW + ui(4), ui(66))
+        nativeHelp:SetSize(S(16), S(16))
+        nativeHelp:SetPos(S(14) + surface.GetTextSize(penaltyText) + S(6), S(64))
     end
-
-    function header:Paint(w, h)
-        surface.SetDrawColor(COL_BG2)
+    nativeHelp.Paint = function(self, w, h)
+        local hover = self:IsHovered()
+        surface.SetDrawColor(color_bezel)
         surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, ui(2))
-
+        surface.SetDrawColor(hover and CRT_R or FRAME_R, hover and CRT_G or FRAME_G, hover and CRT_B or FRAME_B, hover and 210 or 140)
+        surface.DrawOutlinedRect(0, 0, w, h, 1)
+        draw.SimpleText("?", FONT_TINY, w * 0.5, h * 0.5, hover and color_text or color_idle_dim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    end
+    header.Paint = function(_, w, h)
+        DrawRow(w, h, false, false)
         if not selectedData then
-            nativePenaltyHelp:SetVisible(false)
-            draw.SimpleText("Select a player", FONT_HEADER, ui(14), ui(12), COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-            draw.SimpleText("Choose someone from the left panel to review their case.", FONT_SMALL, ui(14), ui(46), COL_MUTED, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-            draw.SimpleText("You can forgive, punish, or report from here.", FONT_TINY, ui(14), h - ui(14), COL_MUTED, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+            nativeHelp:SetVisible(false)
+            draw.SimpleText("Select a player", FONT_HEADER, S(14), S(12), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+            draw.SimpleText("Choose someone from the left panel to review their case.", FONT_SMALL, S(14), S(42), color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+            draw.SimpleText("You can forgive, punish, or report from here.", FONT_TINY, S(14), h - S(14), color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
             return
         end
-
-        local name = getCaseName(selectedData)
-        local state = getDisplayedCaseState(selectedData)
-        local harm = math.Round(selectedData.harm or 0, 1)
-        local karma = math.Round(selectedData.karma or 0, 1)
-        nativePenaltyHelp:SetVisible(true)
-
-        draw.SimpleText(name, FONT_HEADER, ui(14), ui(12), COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText("Recorded harm: " .. harm, FONT_SMALL, ui(14), ui(42), COL_TEXT, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText("Calculated native guilt penalty: " .. karma, FONT_SMALL, ui(14), ui(64), COL_TEXT, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText("Case state: " .. state, FONT_SMALL, ui(14), ui(88), selectedData.decided and COL_MUTED or COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        nativeHelp:SetVisible(true)
+        draw.SimpleText(getCaseName(selectedData), FONT_HEADER, S(14), S(10), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Harm they dealt you: " .. math.Round(selectedData.harm or 0, 1), FONT_SMALL, S(14), S(38), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Karma they already lost: " .. math.Round(selectedData.karma or 0, 1), FONT_SMALL, S(14), S(60), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Case state: " .. (selectedData.decided and "Resolved" or "Pending"), FONT_SMALL, S(14), S(84), selectedData.decided and color_idle_dim or color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
     end
 
-    if not selectedData then
-        return
-    end
+    if not selectedData then return end
 
     if selectedData.decided then
         local resolved = rightScroll:Add("DPanel")
         resolved:Dock(TOP)
-        resolved:DockMargin(ui(12), 0, ui(12), 0)
-        resolved:SetTall(ui(44))
-
-        function resolved:Paint(w, h)
-            surface.SetDrawColor(COL_BG3)
-            surface.DrawRect(0, 0, w, h)
-            drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, 1)
-            draw.SimpleText("Decision already made for this player.", FONT_SMALL, ui(12), h * 0.5, Color(255, 180, 180), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        resolved:DockMargin(S(12), 0, S(12), 0)
+        resolved:SetTall(S(40))
+        resolved:SetPaintBackground(false)
+        resolved.Paint = function(_, w, h)
+            DrawRow(w, h, false, false)
+            draw.SimpleText("Decision already made for this player.", FONT_SMALL, S(12), h * 0.5, color_danger, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
         end
-
         return
     end
 
     local harm = tonumber(selectedData.harm) or 0
-
+    local verdict, facts = describeThreat(selectedData)
     local review = rightScroll:Add("DPanel")
     review:Dock(TOP)
-    review:DockMargin(ui(12), 0, ui(12), ui(10))
-    review:SetTall(ui(116))
-
-    function review:Paint(w, h)
-        surface.SetDrawColor(COL_BG2)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, 1)
-
-        local threatPct = math.Round((tonumber(selectedData.threatScore) or 0) * 100)
-        local mulPct = math.Round((tonumber(selectedData.selfDefenseMul) or 1) * 100)
-        local incoming = math.Round(tonumber(selectedData.incomingHarm) or 0, 1)
-        local source = getSourceLabel(selectedData.damageSource)
-
-        draw.SimpleText("Threat Review", FONT_SMALL, ui(12), ui(8), COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText(getDefenseLabel(selectedData), FONT_TINY, w - ui(12), ui(10), COL_MUTED, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
-        draw.SimpleText(compactText("Source: " .. source .. "   Incoming harm: " .. incoming .. "   Threat: " .. threatPct .. "%   Karma scale: " .. mulPct .. "%", 92), FONT_TINY, ui(12), ui(34), COL_TEXT, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
-        local reasons = istable(selectedData.threatReasons) and selectedData.threatReasons or {}
-        for i = 1, math.min(#reasons, 3) do
-            draw.SimpleText("- " .. compactText(formatCaseText(reasons[i], selectedData), 82), FONT_TINY, ui(12), ui(52 + (i - 1) * 18), COL_MUTED, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+    review:DockMargin(S(12), 0, S(12), S(10))
+    review:SetTall(S(120))
+    review:SetPaintBackground(false)
+    review.Paint = function(self, w, h)
+        DrawRow(w, h, false, false)
+        local x, y = S(12), S(8)
+        local maxW = math.max(40, w - S(24))
+        draw.SimpleText("WHAT HAPPENED", FONT_TINY, x, y, Color(CRT_R, CRT_G, CRT_B), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        y = y + S(18)
+        local lines = wrapLines(verdict, FONT_SMALL, maxW)
+        for i = 1, #lines do
+            draw.SimpleText(lines[i], FONT_SMALL, x, y, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+            y = y + S(18)
         end
+        y = y + S(4)
+        for i = 1, #facts do
+            local wrapped = wrapLines(facts[i], FONT_TINY, maxW)
+            for j = 1, #wrapped do
+                draw.SimpleText(wrapped[j], FONT_TINY, x, y, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+                y = y + S(16)
+            end
+        end
+        local needed = y + S(10)
+        if math.abs(self:GetTall() - needed) > 2 then self:SetTall(needed) end
     end
 
+    local c = CFG()
     if selectedData.respectEligible then
-        createActionButton(
-            rightScroll,
-            "Give Respect (+3 Karma)",
-            COL_GREEN,
-            true,
-            function()
-                sendAction(selectedData, "respect")
-            end,
-            "Reward " .. getCaseName(selectedData) .. " for a successful traitor kill."
-        )
-    elseif CFG().AllowForgive then
-        createActionButton(
-            rightScroll,
-            "Forgive",
-            COL_GREEN,
-            true,
-            function()
-                sendAction(selectedData, "forgive")
-            end,
-            "Resolve the case without removing karma."
-        )
+        createActionButton(rightScroll, "Give Respect", Color(CRT_R, CRT_G, CRT_B), true, function()
+            sendAction(selectedData, "respect")
+        end, "They killed you as a traitor.", "+" .. c.RespectKarmaReward .. " karma")
+    elseif c.EnableForgive then
+        createActionButton(rightScroll, "Forgive", Color(CRT_R, CRT_G, CRT_B), true, function()
+            sendAction(selectedData, "forgive")
+        end, "No extra karma taken.")
     end
 
-    if CFG().AllowPunish and not selectedData.respectEligible then
-        for _, preset in ipairs(CFG().Presets or {}) do
+    if c.EnablePunish and not selectedData.respectEligible then
+        local defenseLocked = isDefenseLocked(selectedData)
+        for _, preset in ipairs(c.Presets or {}) do
             local minharm = tonumber(preset.minharm) or 0
             local punishAmount = ZCITY_GUILT.GetPunishAmount(preset, selectedData)
-            local incoming = tonumber(selectedData.incomingHarm) or 0
-            local threatScore = tonumber(selectedData.threatScore) or 0
-            local defenseMul = tonumber(selectedData.selfDefenseMul) or 1
-            local actionLocked = selectedData.actionAllowed == false
-            local defenseLocked = actionLocked or defenseMul <= 0.2 or (incoming >= harm * 0.75 and threatScore >= 0.35)
             local unlocked = harm >= minharm and punishAmount > 0 and not defenseLocked
             local subtitle
-
-            if actionLocked then
-                local reason = tostring(selectedData.actionLockReason or "")
-                subtitle = compactText(formatCaseText(reason ~= "" and reason or "Locked by native guilt rules.", selectedData), 72)
+            if selectedData.actionAllowed == false then
+                subtitle = lockText(selectedData.actionLockReason)
             elseif defenseLocked then
-                subtitle = "Locked: likely proportional self-defense."
-            elseif unlocked then
-                subtitle = "Up to " .. math.Round(punishAmount, 1) .. " karma; limited by recorded harm and the round cap."
-            else
-                subtitle = "Requires " .. minharm .. " harm."
+                subtitle = "Looks like self-defense"
+            elseif not unlocked then
+                subtitle = "Needs " .. minharm .. " harm"
             end
-
+            local shown = math.Round((unlocked and punishAmount or tonumber(preset.amount) or 0), 1)
             createActionButton(
                 rightScroll,
-                tostring(preset.name or "Punish"):gsub("%s*%(%-%d+%.?%d*%s+[Kk]arma%)%s*$", "")
-                    .. " (-" .. math.Round(punishAmount, 1) .. " Karma)",
-                getPresetColor(preset),
+                tostring(preset.name or "Punish"):gsub("%s*%(.*%)%s*$", ""),
+                ZCITY_GUILT.GetPresetColor(preset),
                 unlocked,
-                function()
-                    sendAction(selectedData, preset.id)
-                end,
-                subtitle
+                function() sendAction(selectedData, preset.id) end,
+                subtitle,
+                "-" .. shown .. " karma"
             )
         end
     end
 
-    if CFG().AllowReport and not selectedData.respectEligible then
-        createActionButton(
-            rightScroll,
-            "Report to Staff",
-            COL_BLUE,
-            true,
-            function()
-                sendAction(selectedData, "report")
-            end,
-            "Send " .. getCaseName(selectedData) .. "'s case to admins."
-        )
+    if c.EnableReport and not selectedData.respectEligible then
+        createActionButton(rightScroll, "Report to Staff", color_info, true, function()
+            sendAction(selectedData, "report")
+        end, "Send this case to online admins.")
     end
-
-    local spacer = rightScroll:Add("DPanel")
-    spacer:Dock(TOP)
-    spacer:SetTall(ui(18))
-    spacer.Paint = function() end
-end
-
-local function createEligibleRow(parent, row)
-    local card = parent:Add("DButton")
-    card:SetTall(ui(76))
-    card:Dock(TOP)
-    card:DockMargin(ui(12), 0, ui(12), ui(8))
-    card:SetText("")
-
-    local avatar = vgui.Create("AvatarImage", card)
-    avatar:SetSize(ui(54), ui(54))
-    avatar:SetPos(ui(12), ui(11))
-    if IsValid(row.ent) and not row.ent:IsBot() then
-        avatar:SetPlayer(row.ent, 64)
-    end
-
-    function card:Paint(w, h)
-        surface.SetDrawColor(COL_BG2)
-        surface.DrawRect(0, 0, w, h)
-        surface.SetDrawColor(COL_BG3)
-        surface.DrawRect(0, h * 0.56, w, h * 0.44)
-
-        local accent = selectedData == row and COL_RED or COL_RED_SOFT
-        surface.SetDrawColor(accent)
-        surface.DrawRect(0, 0, ui(6), h)
-        drawOutlinedRect(0, 0, w, h, accent, ui(2))
-
-        local nameClr = row.decided and Color(180, 180, 180) or COL_WHITE
-        local subClr = row.decided and Color(140, 140, 140) or COL_TEXT
-        local harm = math.Round(row.harm or 0, 1)
-
-        draw.SimpleText(getCaseName(row), FONT_MED, ui(78), ui(12), nameClr, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText("Harm: " .. harm, FONT_SMALL, ui(78), ui(38), subClr, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText(getDisplayedCaseState(row), FONT_TINY, w - ui(12), ui(14), row.decided and COL_MUTED or COL_WHITE, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
-    end
-
-    function card:DoClick()
-        selectedData = row
-        rebuildRightPanel()
-    end
-
-    return card
 end
 
 local function rebuildLeftPanel()
     if not IsValid(leftScroll) then return end
-    clearScrollChildren(leftScroll)
-
+    leftScroll:Clear()
     table.sort(cachedRows, function(a, b)
         local ah, bh = tonumber(a and a.harm) or 0, tonumber(b and b.harm) or 0
-        if ah == bh then
-            local ak, bk = tonumber(a and a.karma) or 0, tonumber(b and b.karma) or 0
-            if ak == bk then
-                local an = getCaseName(a)
-                local bn = getCaseName(b)
-                return string.lower(an) < string.lower(bn)
-            end
-            return ak > bk
-        end
-        return ah > bh
+        if ah ~= bh then return ah > bh end
+        local ak, bk = tonumber(a and a.karma) or 0, tonumber(b and b.karma) or 0
+        if ak ~= bk then return ak > bk end
+        return string.lower(getCaseName(a)) < string.lower(getCaseName(b))
     end)
-
-    for _, row in ipairs(cachedRows or {}) do
-        if tostring(row.steamid64 or "") ~= "" then
-            createEligibleRow(leftScroll, row)
+    for _, row in ipairs(cachedRows) do
+        if tostring(row.steamid64 or "") == "" then continue end
+        local card = leftScroll:Add("DButton")
+        card:SetTall(S(72))
+        card:Dock(TOP)
+        card:DockMargin(S(12), 0, S(12), S(8))
+        card:SetText("")
+        local avatar = vgui.Create("AvatarImage", card)
+        avatar:SetSize(S(48), S(48))
+        avatar:SetPos(S(12), S(12))
+        if IsValid(row.ent) and not row.ent:IsBot() then
+            avatar:SetPlayer(row.ent, 64)
+        end
+        card.Paint = function(self, w, h)
+            DrawRow(w, h, self:IsHovered(), selectedData == row)
+            local nameClr = row.decided and color_idle_dim or color_text
+            draw.SimpleText(getCaseName(row), FONT_MED, S(72), S(12), nameClr, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+            draw.SimpleText("Harm: " .. math.Round(row.harm or 0, 1), FONT_SMALL, S(72), S(38), row.decided and color_disabled or color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+            draw.SimpleText(row.decided and "Resolved" or "Pending", FONT_TINY, w - S(12), S(14), row.decided and color_idle_dim or color_text, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP)
+        end
+        card.OnCursorEntered = function() ClickSound(SND_HOVER) end
+        card.DoClick = function()
+            ClickSound(SND_CLICK)
+            selectedData = row
+            rebuildRightPanel()
         end
     end
 end
 
 function openMenu(rows)
-    rebuildFonts()
-
+    CreateGuiltFonts()
     cachedRows = {}
     for _, row in ipairs(rows or {}) do
         if tostring(row.steamid64 or "") ~= "" then
             cachedRows[#cachedRows + 1] = row
         end
     end
-
     selectedData = cachedRows[1]
-
     if IsValid(GuiltFrame) then
         GuiltFrame:Remove()
         GuiltFrame = nil
     end
-
-    if #cachedRows <= 0 then
-        return
-    end
+    if #cachedRows <= 0 then return end
 
     local frameClass = vgui.GetControlTable("ZFrame") and "ZFrame" or "DFrame"
     GuiltFrame = vgui.Create(frameClass)
-
-    local sizeX = math.min(ui(1180), ScrW() * 0.84)
-    local sizeY = math.min(ui(760), ScrH() * 0.84)
-
+    local sizeX = math.min(S(1180), ScrW() * 0.84)
+    local sizeY = math.min(S(760), ScrH() * 0.84)
     GuiltFrame:SetSize(sizeX, sizeY)
     GuiltFrame:Center()
     GuiltFrame:MakePopup()
     GuiltFrame:SetKeyboardInputEnabled(false)
-
-    if GuiltFrame.ShowCloseButton then
-        GuiltFrame:ShowCloseButton(false)
-    end
-    if GuiltFrame.SetTitle then
-        GuiltFrame:SetTitle("")
-    end
-
+    setupFrame(GuiltFrame)
     GuiltFrame.Paint = function(self, w, h)
-        blurPanel(self, 100)
-        surface.SetDrawColor(COL_BG)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED, ui(2))
+        if hg and hg.DrawBlur then hg.DrawBlur(self, 5, 1, 120) end
+        DrawCRTFrame(0, 0, w, h, true)
     end
 
     local titleBar = GuiltFrame:Add("DPanel")
     titleBar:Dock(TOP)
-    titleBar:SetTall(ui(82))
-    titleBar.Paint = function(self, w, h)
-        surface.SetDrawColor(COL_BG2)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, 1)
-
-        draw.SimpleText("Forgiveness / Punishment", FONT_TITLE, ui(14), ui(10), COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+    titleBar:SetTall(S(48))
+    titleBar:DockMargin(INSET, INSET, INSET, 0)
+    titleBar:SetPaintBackground(false)
+    titleBar.Paint = function(_, w, h)
+        local pending = 0
+        for _, row in ipairs(cachedRows) do
+            if row.decided ~= true then pending = pending + 1 end
+        end
+        DrawHeaderStrip(0, 0, w, h, "FORGIVENESS / PUNISHMENT")
+        surface.SetFont(FONT_HEADER)
+        local tw = surface.GetTextSize("FORGIVENESS / PUNISHMENT")
         draw.SimpleText(
-            tostring(getPendingRowsCount()) .. " pending case" .. (getPendingRowsCount() == 1 and "" or "s"),
+            pending .. (pending == 1 and " pending case" or " pending cases"),
             FONT_SMALL,
-            ui(16),
-            ui(42),
-            COL_MUTED,
+            S(20) + tw,
+            h * 0.5,
+            Color(CRT_R, CRT_G, CRT_B),
             TEXT_ALIGN_LEFT,
-            TEXT_ALIGN_TOP
+            TEXT_ALIGN_CENTER
         )
     end
 
     local closeButton = titleBar:Add("DButton")
     closeButton:Dock(RIGHT)
-    closeButton:DockMargin(0, ui(12), ui(12), ui(12))
-    closeButton:SetWide(ui(40))
-    styleHeaderButton(closeButton, "X")
+    closeButton:DockMargin(0, S(12), S(10), S(12))
+    closeButton:SetWide(S(40))
+    closeButton:SetText("")
+    closeButton.Paint = function(self, w, h) PaintCRTButton(self, w, h, "X", true) end
+    closeButton.OnCursorEntered = function() ClickSound(SND_HOVER) end
     closeButton.DoClick = function()
+        ClickSound(SND_CLICK)
         if IsValid(GuiltFrame) then
             GuiltFrame:Remove()
             GuiltFrame = nil
@@ -771,58 +625,48 @@ function openMenu(rows)
 
     local body = GuiltFrame:Add("DPanel")
     body:Dock(FILL)
-    body:DockMargin(ui(12), ui(12), ui(12), ui(12))
-    body.Paint = nil
+    body:DockMargin(INSET, S(8), INSET, INSET)
+    body:SetPaintBackground(false)
 
-    local sidebarGap = ui(10)
     local leftW = math.floor(sizeX * 0.46)
-
     local leftPanel = body:Add("DPanel")
     leftPanel:Dock(LEFT)
     leftPanel:SetWide(leftW)
-    leftPanel.Paint = function(self, w, h)
-        surface.SetDrawColor(0, 0, 0, 155)
+    leftPanel:SetPaintBackground(false)
+    leftPanel.Paint = function(_, w, h)
+        surface.SetDrawColor(12, 13, 13, 160)
         surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, ui(2))
-        draw.SimpleText("ELIGIBLE PLAYERS", FONT_HEADER, ui(16), ui(10), COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText("Pick a row to review the case.", FONT_TINY, ui(16), ui(36), COL_MUTED, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 90)
+        surface.DrawOutlinedRect(0, 0, w, h, 1)
+        draw.SimpleText("ELIGIBLE PLAYERS", FONT_HEADER, S(12), S(10), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Pick a row to review the case.", FONT_TINY, S(12), S(32), color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
     end
-
     leftScroll = leftPanel:Add("DScrollPanel")
-    leftScroll:SetPos(0, ui(58))
-    leftScroll:SetSize(leftW, body:GetTall() - ui(58))
     leftScroll.Paint = function() end
-    makeScrollBarPretty(leftScroll)
-
+    StyleScroll(leftScroll)
     leftPanel.PerformLayout = function(self, w, h)
-        if IsValid(leftScroll) then
-            leftScroll:SetPos(0, ui(58))
-            leftScroll:SetSize(w, h - ui(58))
-        end
+        leftScroll:SetPos(0, S(52))
+        leftScroll:SetSize(w, h - S(52))
     end
 
     local rightPanel = body:Add("DPanel")
     rightPanel:Dock(FILL)
-    rightPanel:DockMargin(sidebarGap, 0, 0, 0)
-    rightPanel.Paint = function(self, w, h)
-        surface.SetDrawColor(0, 0, 0, 155)
+    rightPanel:DockMargin(S(10), 0, 0, 0)
+    rightPanel:SetPaintBackground(false)
+    rightPanel.Paint = function(_, w, h)
+        surface.SetDrawColor(12, 13, 13, 160)
         surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, COL_RED_SOFT, ui(2))
-        draw.SimpleText("ACTIONS", FONT_HEADER, ui(16), ui(10), COL_WHITE, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-        draw.SimpleText("Server rules still validate every action.", FONT_TINY, ui(16), ui(36), COL_MUTED, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 90)
+        surface.DrawOutlinedRect(0, 0, w, h, 1)
+        draw.SimpleText("ACTIONS", FONT_HEADER, S(12), S(10), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Server rules still validate every action.", FONT_TINY, S(12), S(32), color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
     end
-
     rightScroll = rightPanel:Add("DScrollPanel")
-    rightScroll:SetPos(0, ui(58))
-    rightScroll:SetSize(rightPanel:GetWide(), body:GetTall() - ui(58))
     rightScroll.Paint = function() end
-    makeScrollBarPretty(rightScroll)
-
+    StyleScroll(rightScroll)
     rightPanel.PerformLayout = function(self, w, h)
-        if IsValid(rightScroll) then
-            rightScroll:SetPos(0, ui(58))
-            rightScroll:SetSize(w, h - ui(58))
-        end
+        rightScroll:SetPos(0, S(52))
+        rightScroll:SetSize(w, h - S(52))
     end
 
     rebuildLeftPanel()
@@ -830,8 +674,6 @@ function openMenu(rows)
 end
 
 hook.Add("HUDPaint", "ZCITY_GUILT_Prompt", function()
-    rebuildFonts()
-
     local lp = LocalPlayer()
     if not IsValid(lp) then return end
     if lp:GetNWInt("ZCITY_GUILT_PENDING_COUNT", 0) <= 0 then return end
@@ -839,23 +681,15 @@ hook.Add("HUDPaint", "ZCITY_GUILT_Prompt", function()
     if gui.IsGameUIVisible() then return end
     if IsValid(vgui.GetKeyboardFocus()) then return end
 
-    local text = CFG().PromptText or "Press F to open the guilt menu."
+    local text = CFG().MenuPromptText or "Press F to open the guilt menu."
     surface.SetFont(FONT_MED)
     local tw, th = surface.GetTextSize(text)
+    local boxW, boxH = tw + S(28), th + S(16)
+    local x, y = ScrW() * 0.5 - boxW * 0.5, math.floor(ScrH() * 0.9 - boxH * 0.5)
+    DrawCRTFrame(x, y, boxW, boxH, true)
+    draw.SimpleText(text, FONT_MED, x + boxW * 0.5, y + boxH * 0.5, color_text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
-    local padX = ui(14)
-    local padY = ui(8)
-    local boxW = tw + padX * 2
-    local boxH = th + padY * 2
-    local x = ScrW() * 0.5 - boxW * 0.5
-    local y = ScrH() - boxH - ui(18)
-
-    surface.SetDrawColor(0, 0, 0, 175)
-    surface.DrawRect(x, y, boxW, boxH)
-    drawOutlinedRect(x, y, boxW, boxH, COL_RED_SOFT, ui(2))
-    draw.SimpleText(text, FONT_MED, x + boxW * 0.5, y + boxH * 0.5, COL_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-    if input.IsKeyDown(CFG().PromptKey) then
+    if input.IsKeyDown(CFG().MenuOpenKey) then
         if not pressedOpen then
             RunConsoleCommand("zcity_guilt_menu")
             pressedOpen = true
@@ -868,11 +702,7 @@ end)
 hook.Add("Think", "ZCITY_GUILT_CloseResolvedMenu", function()
     local lp = LocalPlayer()
     if not IsValid(lp) then return end
-
-    if lp:GetNWInt("ZCITY_GUILT_PENDING_COUNT", 0) > 0 then
-        return
-    end
-
+    if lp:GetNWInt("ZCITY_GUILT_PENDING_COUNT", 0) > 0 then return end
     if IsValid(GuiltFrame) then
         GuiltFrame:Remove()
         GuiltFrame = nil
@@ -883,7 +713,6 @@ net.Receive("zcity_guilt_open", function()
     local count = net.ReadUInt(8)
     local rows = {}
     local wireRows = {}
-
     for index = 1, count do
         local caseid = net.ReadUInt(32)
         local steamid64 = net.ReadString()
@@ -901,11 +730,9 @@ net.Receive("zcity_guilt_open", function()
         local respectEligible = net.ReadBool()
         local reasonCount = net.ReadUInt(4)
         local threatReasons = {}
-
         for _ = 1, reasonCount do
             threatReasons[#threatReasons + 1] = net.ReadString()
         end
-
         if steamid64 ~= "" and steamid64 ~= "0" then
             rows[#rows + 1] = {
                 ent = ent,
@@ -927,8 +754,6 @@ net.Receive("zcity_guilt_open", function()
             wireRows[index] = rows[#rows]
         end
     end
-
-    -- Names are an optional extension; older server messages still work.
     local _, bitsLeft = net.BytesLeft()
     if (bitsLeft or 0) >= 40 and net.ReadUInt(32) == 0x5A43474E then
         local nameCount = net.ReadUInt(8)
@@ -937,7 +762,6 @@ net.Receive("zcity_guilt_open", function()
             if wireRows[i] then wireRows[i].name = name end
         end
     end
-
     openMenu(rows)
 end)
 
@@ -949,572 +773,376 @@ net.Receive("zcity_guilt_feedback", function()
 end)
 
 net.Receive("zcity_guilt_config", function()
-    local incoming = net.ReadTable()
-    ZCITY_GUILT.Config = mergeConfig(ZCITY_GUILT.DefaultConfig or {}, incoming)
-
-    applyThemeColors(ZCITY_GUILT.Config)
-
+    ZCITY_GUILT.Config = ZCITY_GUILT.SanitizeConfig(net.ReadTable())
     if IsValid(GuiltFrame) then
         rebuildLeftPanel()
         rebuildRightPanel()
     end
 end)
 
-local function styleAdminEntry(entry)
-    entry:SetFont(FONT_SMALL)
-    entry:SetTextColor(COL_WHITE)
-    entry:SetHighlightColor(COL_RED)
-    entry.Paint = function(self, w, h)
-        surface.SetDrawColor(COL_BG3)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, self:HasFocus() and COL_RED or COL_RED_SOFT, 1)
-        self:DrawTextEntryText(COL_WHITE, COL_RED, COL_WHITE)
-    end
+local function fieldDirty(work, field)
+    local cur, def = work[field.key], field.default
+    if field.type == "bool" then return (cur and true or false) ~= (def and true or false) end
+    if field.type == "string" then return tostring(cur or "") ~= tostring(def or "") end
+    return tonumber(cur) ~= tonumber(def)
 end
 
-local function styleAdminButton(button, label)
-    button:SetText("")
-    button.Paint = function(self, w, h)
-        surface.SetDrawColor(0, 0, 0, 180)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, self:IsHovered() and COL_RED or COL_RED_SOFT, ui(2))
-        draw.SimpleText(label, FONT_SMALL, w * 0.5, h * 0.5, COL_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+local function presetsDirty(work)
+    local a, b = work.Presets or {}, (ZCITY_GUILT.DefaultConfig and ZCITY_GUILT.DefaultConfig.Presets) or {}
+    if #a ~= #b then return true end
+    for i = 1, #a do
+        local p, d = a[i], b[i]
+        if tostring(p.id) ~= tostring(d.id) or tostring(p.name) ~= tostring(d.name) then return true end
+        if tonumber(p.amount) ~= tonumber(d.amount) or tonumber(p.minharm) ~= tonumber(d.minharm) then return true end
+        local pc, dc = p.color or {}, d.color or {}
+        if tonumber(pc.r) ~= tonumber(dc.r) or tonumber(pc.g) ~= tonumber(dc.g) or tonumber(pc.b) ~= tonumber(dc.b) then return true end
+    end
+    return false
+end
+
+local function AddHeaderButton(parent, label, wide, danger, click)
+    local btn = parent:Add("DButton")
+    btn:Dock(RIGHT)
+    btn:DockMargin(0, S(10), S(8), S(10))
+    btn:SetWide(wide)
+    btn:SetText("")
+    btn.Paint = function(self, w, h) PaintCRTButton(self, w, h, label, danger) end
+    btn.OnCursorEntered = function() ClickSound(SND_HOVER) end
+    btn.DoClick = function()
+        ClickSound(SND_CLICK)
+        click()
+    end
+    return btn
+end
+
+local function AddSettingRow(parent, work, field)
+    local kind = field.type
+    if kind == "int" or kind == "number" then kind = "num" end
+    local rowH, btnH, toggleH = S(64), S(36), S(24)
+    local side = math.floor((rowH - btnH) * 0.5)
+    local row = parent:Add("DPanel")
+    row:Dock(TOP)
+    row:SetTall(rowH)
+    row:DockMargin(0, 0, 0, S(8))
+    row:SetPaintBackground(false)
+    row.Paint = function(self, w, h)
+        DrawRow(w, h, self:IsHovered(), false)
+        draw.SimpleText(field.label, FONT_HEADER, S(16), h * 0.5 - S(8), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+        draw.SimpleText(field.desc or "", FONT_TINY, S(16), h * 0.5 + S(12), color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+    end
+
+    if kind == "bool" then
+        local toggle = vgui.Create("DButton", row)
+        toggle:SetText("")
+        toggle:SetWide(S(52))
+        toggle:Dock(RIGHT)
+        toggle:DockMargin(S(6), math.floor((rowH - toggleH) * 0.5), S(10), math.floor((rowH - toggleH) * 0.5))
+        toggle.Paint = function(self, w, h)
+            local on = work[field.key] and true or false
+            local hover = self:IsHovered()
+            surface.SetDrawColor(color_bezel)
+            surface.DrawRect(0, 0, w, h)
+            surface.SetDrawColor(on and CRT_R or (hover and TRAITOR_R or FRAME_R), on and CRT_G or (hover and TRAITOR_G or FRAME_G), on and CRT_B or (hover and TRAITOR_B or FRAME_B), 180)
+            surface.DrawOutlinedRect(0, 0, w, h, 1)
+            local knob = h - S(8)
+            surface.DrawRect(on and (w - knob - S(4)) or S(4), S(4), knob, knob)
+        end
+        toggle.OnCursorEntered = function() ClickSound(SND_HOVER) end
+        toggle.DoClick = function()
+            ClickSound(SND_CLICK)
+            work[field.key] = not work[field.key]
+        end
+    elseif kind == "num" then
+        local min, max = field.min or 0, field.max or 100
+        if min == max then max = min + 1 end
+        local span = max - min
+        local decimals = field.type == "int" and 0 or 2
+        local wrap = vgui.Create("DPanel", row)
+        wrap:Dock(RIGHT)
+        wrap:SetWide(S(268))
+        wrap:DockMargin(S(12), side, S(16), side)
+        wrap:SetPaintBackground(false)
+
+        local entry = vgui.Create("DTextEntry", wrap)
+        entry:Dock(LEFT)
+        entry:SetWide(S(72))
+        entry:DockMargin(0, 0, S(8), 0)
+        entry:SetFont(FONT_TINY)
+        entry:SetText(tostring(decimals > 0 and math.Round(tonumber(work[field.key]) or 0, decimals) or math.floor(tonumber(work[field.key]) or 0)))
+        entry.Paint = PaintEntry
+
+        local slider = vgui.Create("DSlider", wrap)
+        slider:Dock(FILL)
+        slider:SetLockY(0.5)
+        slider:SetTrapInside(true)
+        slider:SetSlideX(math.Clamp(((tonumber(work[field.key]) or min) - min) / span, 0, 1))
+        local knob = math.max(8, S(10))
+        slider.Knob:SetSize(knob, knob)
+        slider.Knob:SetCursor("hand")
+        slider.Knob.Paint = function(self, w, h)
+            local active = self:IsHovered() or self:IsDown() or slider.Dragging
+            surface.SetDrawColor(CRT_R, CRT_G, CRT_B, active and 255 or 230)
+            surface.DrawRect(0, 0, w, h)
+            surface.SetDrawColor(12, 14, 12, 220)
+            surface.DrawOutlinedRect(0, 0, w, h, 1)
+        end
+        slider.Paint = function(self, w, h)
+            local frac = math.Clamp(self:GetSlideX(), 0, 1)
+            local y = math.floor((h - 3) * 0.5)
+            surface.SetDrawColor(0, 0, 0, 210)
+            surface.DrawRect(0, y, w, 3)
+            surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 90)
+            surface.DrawRect(0, y, w, 3)
+            surface.SetDrawColor(CRT_R, CRT_G, CRT_B, 230)
+            surface.DrawRect(0, y, w * frac, 3)
+        end
+
+        local function Apply(v)
+            if not v then
+                v = tonumber(work[field.key]) or field.default
+            end
+            v = decimals > 0 and math.Round(math.Clamp(v, min, max), decimals) or math.Round(math.Clamp(v, min, max))
+            work[field.key] = v
+            slider.ignore = true
+            slider:SetSlideX(math.Clamp((v - min) / span, 0, 1))
+            slider.ignore = false
+            if not entry:HasFocus() then entry:SetText(tostring(v)) end
+        end
+        slider.OnValueChanged = function(_, x)
+            if not slider.ignore then Apply(min + math.Clamp(x, 0, 1) * span) end
+        end
+        entry.OnEnter = function(self) Apply(tonumber(self:GetText())) end
+        entry.OnLoseFocus = function(self) Apply(tonumber(self:GetText())) end
+        wrap.Think = function()
+            if entry:HasFocus() or slider.Dragging then return end
+            local v = decimals > 0 and math.Round(tonumber(work[field.key]) or 0, decimals) or math.floor(tonumber(work[field.key]) or 0)
+            local text = tostring(v)
+            if entry:GetText() ~= text then entry:SetText(text) end
+            local x = math.Clamp(((tonumber(work[field.key]) or min) - min) / span, 0, 1)
+            if math.abs(slider:GetSlideX() - x) > 0.001 then
+                slider.ignore = true
+                slider:SetSlideX(x)
+                slider.ignore = false
+            end
+        end
+    else
+        local entry = vgui.Create("DTextEntry", row)
+        entry:Dock(RIGHT)
+        entry:SetWide(S(220))
+        entry:DockMargin(S(12), side, S(16), side)
+        entry:SetFont(FONT_TINY)
+        entry:SetText(tostring(work[field.key] or ""))
+        entry:SetUpdateOnType(true)
+        entry.Paint = PaintEntry
+        entry.OnValueChange = function(_, val) work[field.key] = val end
+        entry.Think = function(self)
+            if self:HasFocus() then return end
+            local val = tostring(work[field.key] or "")
+            if self:GetText() ~= val then self:SetText(val) end
+        end
+    end
+
+    local reset = vgui.Create("DButton", row)
+    reset:SetText("")
+    reset:SetWide(0)
+    reset:Dock(RIGHT)
+    reset:DockMargin(0, side, 0, side)
+    reset.Paint = function(self, w, h)
+        if w < 2 then return end
+        PaintCRTButton(self, w, h, "RESET", true)
+    end
+    reset.OnCursorEntered = function(self)
+        if self:GetWide() > 2 then ClickSound(SND_HOVER) end
+    end
+    reset.DoClick = function()
+        ClickSound(SND_CLICK)
+        work[field.key] = field.default
+    end
+    reset.Think = function(self)
+        local dirty = fieldDirty(work, field)
+        local w = dirty and S(72) or 0
+        if self:GetWide() == w then return end
+        self:SetWide(w)
+        self:DockMargin(dirty and S(6) or 0, side, dirty and S(6) or 0, side)
+        row:InvalidateLayout()
     end
 end
 
 local function openGuiltAdminMenu(cfg)
     if not IsValid(LocalPlayer()) or not LocalPlayer():IsAdmin() then return end
+    CreateGuiltFonts()
 
-    rebuildFonts()
-
-    local work = table.Copy(cfg or {})
-    work.Presets = istable(work.Presets) and work.Presets or {}
-    work.Theme = ensureThemeTable(work.Theme)
-
-    local function themeColor(key, fallback)
-        return asColor(work.Theme[key], fallback)
-    end
-
-    local function applyWorkingTheme()
-        applyThemeColors({
-            Theme = work.Theme
-        })
-
-        if IsValid(GuiltFrame) then
-            GuiltFrame:InvalidateLayout(true)
-        end
-    end
-
-    local function restoreLiveTheme()
-        applyThemeColors(CFG())
-        if IsValid(GuiltFrame) then
-            GuiltFrame:InvalidateLayout(true)
-        end
-    end
-
-    applyWorkingTheme()
-
+    local work = ZCITY_GUILT.SanitizeConfig(cfg)
     local frameClass = vgui.GetControlTable("ZFrame") and "ZFrame" or "DFrame"
     local frame = vgui.Create(frameClass)
-
-    frame:SetSize(math.min(ui(1080), ScrW() * 0.86), math.min(ui(920), ScrH() * 0.9))
+    frame:SetSize(math.min(S(1080), ScrW() * 0.86), math.min(S(900), ScrH() * 0.9))
     frame:Center()
     frame:MakePopup()
-
-    if frame.SetTitle then frame:SetTitle("") end
-    if frame.ShowCloseButton then frame:ShowCloseButton(false) end
-
+    setupFrame(frame)
     frame.Paint = function(self, w, h)
-        blurPanel(self, 100)
-        surface.SetDrawColor(themeColor("panelBg", Color(8, 8, 8, 220)))
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, themeColor("accent", Color(190, 20, 20, 220)), ui(2))
+        if hg and hg.DrawBlur then hg.DrawBlur(self, 5, 1, 120) end
+        DrawCRTFrame(0, 0, w, h, true)
     end
 
     local titleBar = frame:Add("DPanel")
     titleBar:Dock(TOP)
-    titleBar:SetTall(ui(58))
-    titleBar.Paint = function(self, w, h)
-        surface.SetDrawColor(themeColor("panelInner", Color(18, 18, 18, 235)))
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-        draw.SimpleText("Guilt Overhaul Admin", FONT_TITLE, ui(14), ui(6), themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+    titleBar:SetTall(S(48))
+    titleBar:DockMargin(INSET, INSET, INSET, 0)
+    titleBar:SetPaintBackground(false)
+    titleBar.Paint = function(_, w, h)
+        DrawHeaderStrip(0, 0, w, h, "GUILT ADMIN")
     end
 
-    local closeButton = titleBar:Add("DButton")
-    closeButton:Dock(RIGHT)
-    closeButton:DockMargin(0, ui(10), ui(10), ui(10))
-    closeButton:SetWide(ui(40))
-    closeButton:SetText("")
-    closeButton.Paint = function(self, w, h)
-        surface.SetDrawColor(0, 0, 0, 180)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, self:IsHovered() and themeColor("accent", Color(190, 20, 20, 220)) or themeColor("accentSoft", Color(255, 45, 45, 120)), ui(2))
-        draw.SimpleText("X", FONT_SMALL, w * 0.5, h * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    end
-    closeButton.DoClick = function()
-        restoreLiveTheme()
-        frame:Remove()
-    end
-
-    local saveButton = titleBar:Add("DButton")
-    saveButton:Dock(RIGHT)
-    saveButton:DockMargin(0, ui(10), ui(10), ui(10))
-    saveButton:SetWide(ui(130))
-    saveButton:SetText("")
-    saveButton.Paint = function(self, w, h)
-        surface.SetDrawColor(0, 0, 0, 180)
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, self:IsHovered() and themeColor("accent", Color(190, 20, 20, 220)) or themeColor("accentSoft", Color(255, 45, 45, 120)), ui(2))
-        draw.SimpleText("Save", FONT_SMALL, w * 0.5, h * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    end
-    saveButton.DoClick = function()
+    AddHeaderButton(titleBar, "X", S(40), true, function() frame:Remove() end)
+    AddHeaderButton(titleBar, "SAVE", S(88), false, function()
         net.Start("zcity_guilt_admin_save")
         net.WriteTable(work)
         net.SendToServer()
         frame:Remove()
-    end
+    end)
 
-    local sheet = frame:Add("DPropertySheet")
-    sheet:Dock(FILL)
-    sheet:DockMargin(ui(12), ui(12), ui(12), ui(12))
+    local scroll = frame:Add("DScrollPanel")
+    scroll:Dock(FILL)
+    scroll:DockMargin(INSET, S(8), INSET, INSET)
+    StyleScroll(scroll)
 
-    local generalScroll = vgui.Create("DScrollPanel", sheet)
-    generalScroll:Dock(FILL)
-    makeScrollBarPretty(generalScroll)
-    sheet:AddSheet("General", generalScroll, "icon16/cog.png")
-
-    local themePanel = vgui.Create("DPanel", sheet)
-    themePanel:Dock(FILL)
-    themePanel.Paint = nil
-    sheet:AddSheet("Theme", themePanel, "icon16/color_wheel.png")
-
-    local function addBlock(parent, h)
-        local pnl = parent:Add("DPanel")
-        pnl:Dock(TOP)
-        pnl:DockMargin(0, 0, 0, ui(8))
-        pnl:SetTall(h)
-        pnl.Paint = function(self, w, hh)
-            surface.SetDrawColor(themeColor("panelInner", Color(18, 18, 18, 235)))
-            surface.DrawRect(0, 0, w, hh)
-            drawOutlinedRect(0, 0, w, hh, themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-        end
-        return pnl
-    end
-
-    local function styleEntry(entry)
-        entry:SetFont(FONT_SMALL)
-        entry:SetTextColor(themeColor("textMain", Color(245, 245, 245, 255)))
-        entry:SetHighlightColor(themeColor("accent", Color(190, 20, 20, 220)))
-        entry.Paint = function(self, w, h)
-            surface.SetDrawColor(themeColor("panelAlt", Color(28, 28, 28, 220)))
-            surface.DrawRect(0, 0, w, h)
-            drawOutlinedRect(0, 0, w, h, self:HasFocus() and themeColor("accent", Color(190, 20, 20, 220)) or themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-            self:DrawTextEntryText(
-                themeColor("textMain", Color(245, 245, 245, 255)),
-                themeColor("accent", Color(190, 20, 20, 220)),
-                themeColor("textMain", Color(245, 245, 245, 255))
-            )
-        end
-    end
-
-    local function addCheck(parent, labelText, key)
-        local pnl = addBlock(parent, ui(38))
-
-        local lbl = pnl:Add("DLabel")
-        lbl:Dock(FILL)
-        lbl:DockMargin(ui(10), 0, ui(10), 0)
-        lbl:SetFont(FONT_SMALL)
-        lbl:SetText(labelText)
-        lbl:SetTextColor(themeColor("textMain", Color(245, 245, 245, 255)))
-        lbl:SetContentAlignment(4)
-
-        local checkbox = pnl:Add("DCheckBox")
-        checkbox:Dock(RIGHT)
-        checkbox:DockMargin(0, ui(8), ui(10), ui(8))
-        checkbox:SetWide(ui(22))
-        checkbox:SetChecked(work[key] and true or false)
-        checkbox.Paint = function(self, w, h)
-            surface.SetDrawColor(themeColor("panelAlt", Color(28, 28, 28, 220)))
-            surface.DrawRect(0, 0, w, h)
-            drawOutlinedRect(0, 0, w, h, self:GetChecked() and themeColor("accent", Color(190, 20, 20, 220)) or themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-            if self:GetChecked() then
-                surface.SetDrawColor(themeColor("accent", Color(190, 20, 20, 220)))
-                surface.DrawRect(ui(4), ui(4), w - ui(8), h - ui(8))
+    local function fillSettings()
+        scroll:Clear()
+        local lastGroup
+        for i, field in ipairs(ZCITY_GUILT.Settings or {}) do
+            if field.group ~= lastGroup then
+                lastGroup = field.group
+                local heading = scroll:Add("DPanel")
+                heading:Dock(TOP)
+                heading:SetTall(S(32))
+                heading:DockMargin(0, i == 1 and S(4) or 0, 0, 0)
+                heading:SetPaintBackground(false)
+                heading.Paint = function()
+                    draw.SimpleText(string.upper(field.group), FONT_HEADER, S(12), S(4), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+                end
             end
+            AddSettingRow(scroll, work, field)
         end
-        checkbox.OnChange = function(_, val)
-            work[key] = val and true or false
+
+        local heading = scroll:Add("DPanel")
+        heading:Dock(TOP)
+        heading:SetTall(S(32))
+        heading:SetPaintBackground(false)
+        heading.Paint = function()
+            draw.SimpleText("PUNISH PRESETS", FONT_HEADER, S(12), S(4), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
         end
-    end
 
-    local function addEntry(parent, labelText, key)
-        local pnl = addBlock(parent, ui(60))
-
-        local lbl = pnl:Add("DLabel")
-        lbl:Dock(TOP)
-        lbl:DockMargin(ui(10), ui(6), ui(10), ui(4))
-        lbl:SetTall(ui(14))
-        lbl:SetFont(FONT_TINY)
-        lbl:SetText(labelText)
-        lbl:SetTextColor(themeColor("textMain", Color(245, 245, 245, 255)))
-        lbl:SetContentAlignment(4)
-
-        local entry = pnl:Add("DTextEntry")
-        entry:Dock(FILL)
-        entry:DockMargin(ui(10), 0, ui(10), ui(8))
-        entry:SetText(tostring(work[key] or ""))
-        entry:SetUpdateOnType(true)
-        styleEntry(entry)
-        entry.OnValueChange = function(self, val)
-            work[key] = val
+        local resetPresets = heading:Add("DButton")
+        resetPresets:Dock(RIGHT)
+        resetPresets:SetWide(0)
+        resetPresets:DockMargin(0, S(2), S(8), S(2))
+        resetPresets:SetText("")
+        resetPresets.Paint = function(self, w, h)
+            if w < 2 then return end
+            PaintCRTButton(self, w, h, "RESET", true)
         end
-    end
-
-    local generalHeader = addBlock(generalScroll, ui(34))
-    generalHeader.Paint = nil
-    local generalLabel = generalHeader:Add("DLabel")
-    generalLabel:Dock(FILL)
-    generalLabel:SetFont(FONT_HEADER)
-    generalLabel:SetText("General")
-    generalLabel:SetTextColor(themeColor("textMain", Color(245, 245, 245, 255)))
-    generalLabel:SetContentAlignment(4)
-
-    addCheck(generalScroll, "Allow forgive", "AllowForgive")
-    addCheck(generalScroll, "Allow punish", "AllowPunish")
-    addCheck(generalScroll, "Allow report", "AllowReport")
-    addCheck(generalScroll, "Log admin actions", "LogAdminActions")
-
-    addEntry(generalScroll, "Prompt text", "PromptText")
-    addEntry(generalScroll, "Min harm", "MinHarm")
-    addEntry(generalScroll, "Harm expiry", "HarmExpiry")
-    addEntry(generalScroll, "Case expiry", "CaseExpiry")
-    addEntry(generalScroll, "Auto-expire min harm", "AutoExpireMinHarm")
-    addEntry(generalScroll, "Auto-expire amount", "AutoExpireAmount")
-    addEntry(generalScroll, "Auto-expire round cap", "AutoExpireRoundCap")
-    addEntry(generalScroll, "Self-defense window", "SelfDefenseWindow")
-    addEntry(generalScroll, "Self-defense min incoming harm", "SelfDefenseMinIncomingHarm")
-    addEntry(generalScroll, "Self-defense attacker count", "SelfDefenseAttackerCount")
-    addEntry(generalScroll, "Manual punish round cap", "ManualPunishRoundCap")
-    addEntry(generalScroll, "Staff report prefix", "StaffReportPrefix")
-
-    local presetsHeader = addBlock(generalScroll, ui(34))
-    presetsHeader.Paint = nil
-    local presetsLabel = presetsHeader:Add("DLabel")
-    presetsLabel:Dock(FILL)
-    presetsLabel:SetFont(FONT_HEADER)
-    presetsLabel:SetText("Punish Presets")
-    presetsLabel:SetTextColor(themeColor("textMain", Color(245, 245, 245, 255)))
-    presetsLabel:SetContentAlignment(4)
-
-    local function rebuildPresetEditors()
-        for _, child in ipairs(generalScroll:GetCanvas():GetChildren()) do
-            if child.ZPresetEditor then
-                child:Remove()
-            end
+        resetPresets.OnCursorEntered = function(self)
+            if self:GetWide() > 2 then ClickSound(SND_HOVER) end
+        end
+        resetPresets.DoClick = function()
+            ClickSound(SND_CLICK)
+            work.Presets = table.Copy((ZCITY_GUILT.DefaultConfig and ZCITY_GUILT.DefaultConfig.Presets) or {})
+            fillSettings()
+        end
+        resetPresets.Think = function(self)
+            local dirty = presetsDirty(work)
+            local w = dirty and S(72) or 0
+            if self:GetWide() ~= w then self:SetWide(w) end
         end
 
         for i, preset in ipairs(work.Presets) do
-            local pnl = addBlock(generalScroll, ui(138))
-            pnl.ZPresetEditor = true
+            local row = scroll:Add("DPanel")
+            row:Dock(TOP)
+            row:SetTall(S(96))
+            row:DockMargin(0, 0, 0, S(8))
+            row:SetPaintBackground(false)
+            row.Paint = function(self, w, h)
+                DrawRow(w, h, self:IsHovered(), false)
+                draw.SimpleText("Preset #" .. i, FONT_HEADER, S(16), S(10), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+            end
 
-            local title = pnl:Add("DLabel")
-            title:SetPos(ui(10), ui(8))
-            title:SetSize(ui(200), ui(20))
-            title:SetFont(FONT_SMALL)
-            title:SetText("Preset #" .. i)
-            title:SetTextColor(themeColor("textMain", Color(245, 245, 245, 255)))
-
-            local function makeField(x, y, w, labelText, value, onChange)
-                local lbl = pnl:Add("DLabel")
-                lbl:SetPos(x, y)
-                lbl:SetSize(w, ui(14))
-                lbl:SetFont(FONT_TINY)
-                lbl:SetText(labelText)
-                lbl:SetTextColor(themeColor("muted", Color(160, 160, 160, 255)))
-
-                local entry = pnl:Add("DTextEntry")
-                entry:SetPos(x, y + ui(16))
-                entry:SetSize(w, ui(24))
+            local function addField(dock, wide, label, value, onChange, numeric)
+                local wrap = vgui.Create("DPanel", row)
+                wrap:Dock(dock)
+                wrap:SetWide(wide)
+                wrap:DockMargin(S(8), S(36), S(8), S(10))
+                wrap:SetPaintBackground(false)
+                wrap.Paint = function(_, w, h)
+                    draw.SimpleText(label, FONT_TINY, 0, 0, color_idle_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+                end
+                local entry = vgui.Create("DTextEntry", wrap)
+                entry:Dock(BOTTOM)
+                entry:SetTall(S(28))
+                entry:SetFont(FONT_TINY)
                 entry:SetText(tostring(value or ""))
                 entry:SetUpdateOnType(true)
-                styleEntry(entry)
-                entry.OnValueChange = function(self, val)
-                    onChange(val)
+                entry.Paint = PaintEntry
+                entry.OnValueChange = function(_, val)
+                    if numeric then
+                        onChange(tonumber(val) or 0)
+                    else
+                        onChange(val)
+                    end
                 end
             end
 
-            makeField(ui(10), ui(34), ui(150), "ID", preset.id, function(v) preset.id = v end)
-            makeField(ui(170), ui(34), ui(260), "Name", preset.name, function(v) preset.name = v end)
-            makeField(ui(440), ui(34), ui(90), "Amount", preset.amount, function(v) preset.amount = tonumber(v) or 0 end)
-            makeField(ui(540), ui(34), ui(90), "Min Harm", preset.minharm, function(v) preset.minharm = tonumber(v) or 0 end)
-
-            preset.color = preset.color or { r = 255, g = 255, b = 255 }
-            makeField(ui(10), ui(80), ui(70), "R", preset.color.r, function(v) preset.color.r = tonumber(v) or 255 end)
-            makeField(ui(90), ui(80), ui(70), "G", preset.color.g, function(v) preset.color.g = tonumber(v) or 255 end)
-            makeField(ui(170), ui(80), ui(70), "B", preset.color.b, function(v) preset.color.b = tonumber(v) or 255 end)
-
-            local remove = pnl:Add("DButton")
+            local remove = vgui.Create("DButton", row)
+            remove:Dock(RIGHT)
+            remove:SetWide(S(88))
+            remove:DockMargin(S(8), S(36), S(12), S(10))
             remove:SetText("")
-            remove.Paint = function(self, w, h)
-                surface.SetDrawColor(0, 0, 0, 180)
-                surface.DrawRect(0, 0, w, h)
-                drawOutlinedRect(0, 0, w, h, themeColor("accent", Color(190, 20, 20, 220)), ui(2))
-                draw.SimpleText("Remove", FONT_TINY, w * 0.5, h * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-            end
+            remove.Paint = function(self, w, h) PaintCRTButton(self, w, h, "REMOVE", true) end
+            remove.OnCursorEntered = function() ClickSound(SND_HOVER) end
             remove.DoClick = function()
+                ClickSound(SND_CLICK)
                 table.remove(work.Presets, i)
-                rebuildPresetEditors()
+                fillSettings()
             end
 
-            pnl.PerformLayout = function(self, w, h)
-                remove:SetPos(w - ui(110), ui(48))
-                remove:SetSize(ui(96), ui(30))
-            end
+            addField(LEFT, S(140), "Internal ID", preset.id, function(v) preset.id = v end)
+            addField(LEFT, S(220), "Button name", preset.name, function(v) preset.name = v end)
+            addField(LEFT, S(90), "Karma removed", preset.amount, function(v) preset.amount = v end, true)
+            addField(LEFT, S(90), "Min harm", preset.minharm, function(v) preset.minharm = v end, true)
+            preset.color = preset.color or {r = 255, g = 255, b = 255}
+            addField(LEFT, S(54), "R", preset.color.r, function(v) preset.color.r = v end, true)
+            addField(LEFT, S(54), "G", preset.color.g, function(v) preset.color.g = v end, true)
+            addField(LEFT, S(54), "B", preset.color.b, function(v) preset.color.b = v end, true)
         end
 
-        local addPreset = addBlock(generalScroll, ui(42))
-        addPreset.ZPresetEditor = true
-
-        local addBtn = addPreset:Add("DButton")
+        local addRow = scroll:Add("DPanel")
+        addRow:Dock(TOP)
+        addRow:SetTall(S(44))
+        addRow:DockMargin(0, 0, 0, S(12))
+        addRow:SetPaintBackground(false)
+        local addBtn = addRow:Add("DButton")
         addBtn:Dock(FILL)
-        addBtn:DockMargin(ui(10), ui(6), ui(10), ui(6))
         addBtn:SetText("")
-        addBtn.Paint = function(self, w, h)
-            surface.SetDrawColor(0, 0, 0, 180)
-            surface.DrawRect(0, 0, w, h)
-            drawOutlinedRect(0, 0, w, h, self:IsHovered() and themeColor("accent", Color(190, 20, 20, 220)) or themeColor("accentSoft", Color(255, 45, 45, 120)), ui(2))
-            draw.SimpleText("Add Preset", FONT_SMALL, w * 0.5, h * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-        end
+        addBtn.Paint = function(self, w, h) PaintCRTButton(self, w, h, "ADD PRESET", false) end
+        addBtn.OnCursorEntered = function() ClickSound(SND_HOVER) end
         addBtn.DoClick = function()
+            ClickSound(SND_CLICK)
             work.Presets[#work.Presets + 1] = {
                 id = "preset_" .. (#work.Presets + 1),
                 name = "New Preset",
                 amount = 5,
                 minharm = 5,
-                color = { r = 255, g = 255, b = 255 }
+                color = {r = 255, g = 255, b = 255}
             }
-            rebuildPresetEditors()
+            fillSettings()
         end
     end
 
-    rebuildPresetEditors()
+    AddHeaderButton(titleBar, "RESET ALL", S(110), true, function()
+        work = ZCITY_GUILT.SanitizeConfig({})
+        fillSettings()
+    end)
 
-local themeList = themePanel:Add("DScrollPanel")
-themeList:Dock(LEFT)
-themeList:SetWide(ui(260))
-themeList:DockMargin(0, 0, ui(12), 0)
-makeScrollBarPretty(themeList)
-
-local themeRight = themePanel:Add("DPanel")
-themeRight:Dock(FILL)
-themeRight.Paint = nil
-
-local previewWrap = themeRight:Add("DPanel")
-previewWrap:Dock(TOP)
-previewWrap:SetTall(ui(210))
-previewWrap:DockMargin(0, 0, 0, ui(10))
-previewWrap.Paint = nil
-
-local menuPreview = previewWrap:Add("DPanel")
-menuPreview:Dock(TOP)
-menuPreview:SetTall(ui(210))
-menuPreview.Paint = function(_, w, h)
-    surface.SetDrawColor(themeColor("panelBg", Color(8, 8, 8, 220)))
-    surface.DrawRect(0, 0, w, h)
-    drawOutlinedRect(0, 0, w, h, themeColor("accent", Color(190, 20, 20, 220)), 2)
-
-    surface.SetDrawColor(themeColor("panelInner", Color(18, 18, 18, 235)))
-    surface.DrawRect(ui(10), ui(10), w - ui(20), ui(42))
-    drawOutlinedRect(ui(10), ui(10), w - ui(20), ui(42), themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-    draw.SimpleText("Forgiveness / Punishment", FONT_SMALL, ui(20), ui(20), themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
-    local leftX, leftY = ui(10), ui(62)
-    local leftW, leftH = math.floor((w - ui(30)) * 0.46), h - ui(72)
-    surface.SetDrawColor(themeColor("panelInner", Color(18, 18, 18, 235)))
-    surface.DrawRect(leftX, leftY, leftW, leftH)
-    drawOutlinedRect(leftX, leftY, leftW, leftH, themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-    draw.SimpleText("ELIGIBLE PLAYERS", FONT_TINY, leftX + ui(10), leftY + ui(10), themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
-    surface.SetDrawColor(themeColor("panelAlt", Color(28, 28, 28, 220)))
-    surface.DrawRect(leftX + ui(10), leftY + ui(34), leftW - ui(20), ui(52))
-    drawOutlinedRect(leftX + ui(10), leftY + ui(34), leftW - ui(20), ui(52), themeColor("accent", Color(190, 20, 20, 220)), 1)
-    draw.SimpleText("Example Player", FONT_TINY, leftX + ui(20), leftY + ui(42), themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-    draw.SimpleText("Harm: 18.5", FONT_TINY, leftX + ui(20), leftY + ui(58), themeColor("textSub", Color(220, 220, 220, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
-    local rightX = leftX + leftW + ui(10)
-    local rightW = w - rightX - ui(10)
-    surface.SetDrawColor(themeColor("panelInner", Color(18, 18, 18, 235)))
-    surface.DrawRect(rightX, leftY, rightW, leftH)
-    drawOutlinedRect(rightX, leftY, rightW, leftH, themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-    draw.SimpleText("ACTIONS", FONT_TINY, rightX + ui(10), leftY + ui(10), themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
-    local btnY = leftY + ui(34)
-    local btnW = rightW - ui(20)
-    local btnH = ui(28)
-
-    surface.SetDrawColor(themeColor("success", Color(70, 170, 95, 255)))
-    surface.DrawRect(rightX + ui(10), btnY, btnW, btnH)
-    draw.SimpleText("Forgive", FONT_TINY, rightX + ui(18), btnY + btnH * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-
-    surface.SetDrawColor(themeColor("accent", Color(190, 20, 20, 220)))
-    surface.DrawRect(rightX + ui(10), btnY + ui(36), btnW, btnH)
-    draw.SimpleText("Minor Punish", FONT_TINY, rightX + ui(18), btnY + ui(36) + btnH * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-
-    surface.SetDrawColor(themeColor("info", Color(80, 140, 220, 255)))
-    surface.DrawRect(rightX + ui(10), btnY + ui(72), btnW, btnH)
-    draw.SimpleText("Report to Staff", FONT_TINY, rightX + ui(18), btnY + ui(72) + btnH * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-
-    surface.SetDrawColor(themeColor("disabled", Color(100, 100, 100, 120)))
-    surface.DrawRect(rightX + ui(10), btnY + ui(108), btnW, btnH)
-    draw.SimpleText("Locked Punish", FONT_TINY, rightX + ui(18), btnY + ui(108) + btnH * 0.5, themeColor("textMain", Color(245, 245, 245, 255)), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-end
-
-local themeMixer = themeRight:Add("DColorMixer")
-themeMixer:Dock(FILL)
-themeMixer:SetPalette(true)
-themeMixer:SetAlphaBar(true)
-themeMixer:SetWangs(true)
-
-local selectedThemeKey = ((ZCITY_GUILT.ThemeGroups or {})[1] and (ZCITY_GUILT.ThemeGroups[1].keys or {})[1]) or "panelBg"
-local selectedThemeButtons = {}
-
-local function syncThemeMixer()
-    themeMixer:SetColor(themeColor(selectedThemeKey, Color(255, 255, 255, 255)))
-end
-
-local function refreshThemeButtons()
-    for _, button in pairs(selectedThemeButtons) do
-        if IsValid(button) then
-            button:InvalidateLayout(true)
-        end
-    end
-    menuPreview:InvalidateLayout(true)
-end
-
-local themeHelpWrap = themeList:Add("DPanel")
-themeHelpWrap:Dock(TOP)
-themeHelpWrap:DockMargin(0, ui(6), 0, ui(10))
-themeHelpWrap:SetTall(ui(46))
-themeHelpWrap.Paint = nil
-
-local themeHelp = themeHelpWrap:Add("DLabel")
-themeHelp:Dock(FILL)
-themeHelp:DockMargin(ui(4), 0, ui(4), 0)
-themeHelp:SetWrap(true)
-themeHelp:SetAutoStretchVertical(true)
-themeHelp:SetFont(FONT_TINY)
-themeHelp:SetTextColor(themeColor("muted", Color(160, 160, 160, 255)))
-themeHelp:SetText("Theme colors are grouped by UI surface. Click a button to edit it in the mixer.")
-
-for _, group in ipairs(ZCITY_GUILT.ThemeGroups or {}) do
-    local columns = 2
-    local gap = ui(6)
-    local buttonH = ui(30)
-    local rows = math.max(1, math.ceil(#(group.keys or {}) / columns))
-    local panelH = ui(28) + ui(8) + (rows * buttonH) + ((rows - 1) * gap) + ui(20)
-
-    local groupPanel = themeList:Add("DPanel")
-    groupPanel:Dock(TOP)
-    groupPanel:DockMargin(0, 0, 0, ui(10))
-    groupPanel:SetTall(panelH)
-    groupPanel.Paint = function(_, w, h)
-        surface.SetDrawColor(themeColor("panelInner", Color(18, 18, 18, 235)))
-        surface.DrawRect(0, 0, w, h)
-        drawOutlinedRect(0, 0, w, h, themeColor("accentSoft", Color(255, 45, 45, 120)), 1)
-    end
-
-    local groupHeader = groupPanel:Add("DLabel")
-    groupHeader:Dock(TOP)
-    groupHeader:SetTall(ui(28))
-    groupHeader:DockMargin(ui(10), ui(4), ui(10), 0)
-    groupHeader:SetFont(FONT_SMALL)
-    groupHeader:SetText(group.title or "Group")
-    groupHeader:SetTextColor(themeColor("textMain", Color(245, 245, 245, 255)))
-    groupHeader:SetContentAlignment(4)
-
-    local grid = groupPanel:Add("DPanel")
-    grid:Dock(FILL)
-    grid:DockMargin(ui(10), ui(8), ui(10), ui(10))
-    grid.Paint = nil
-
-    local function layoutGrid()
-        local width = grid:GetWide()
-        if width <= 0 then return end
-
-        local buttonW = math.floor((width - gap) / columns)
-
-        for index, key in ipairs(group.keys or {}) do
-            local button = selectedThemeButtons[key]
-            if not IsValid(button) then continue end
-
-            local col = (index - 1) % columns
-            local row = math.floor((index - 1) / columns)
-
-            button:SetPos(col * (buttonW + gap), row * (buttonH + gap))
-            button:SetSize(buttonW, buttonH)
-        end
-    end
-
-    grid.PerformLayout = layoutGrid
-
-    for _, key in ipairs(group.keys or {}) do
-        local button = grid:Add("DButton")
-        selectedThemeButtons[key] = button
-        button:SetText("")
-        button.Paint = function(self, w, h)
-            local clr = themeColor(key, Color(255, 255, 255, 255))
-            local selected = self.themeKey == selectedThemeKey
-
-            surface.SetDrawColor(25, 25, 25, 220)
-            surface.DrawRect(0, 0, w, h)
-            drawOutlinedRect(
-                0,
-                0,
-                w,
-                h,
-                selected and themeColor("accent", Color(190, 20, 20, 220)) or themeColor("accentSoft", Color(255, 45, 45, 120)),
-                1
-            )
-
-            surface.SetDrawColor(clr)
-            surface.DrawRect(ui(8), ui(8), ui(18), h - ui(16))
-
-            draw.SimpleText(
-                (ZCITY_GUILT.ThemeLabels and ZCITY_GUILT.ThemeLabels[key]) or key,
-                FONT_TINY,
-                ui(34),
-                h * 0.5,
-                themeColor("textMain", Color(245, 245, 245, 255)),
-                TEXT_ALIGN_LEFT,
-                TEXT_ALIGN_CENTER
-            )
-        end
-        button.themeKey = key
-        button.DoClick = function()
-            selectedThemeKey = key
-            syncThemeMixer()
-            refreshThemeButtons()
-        end
-    end
-end
-
-themeMixer.ValueChanged = function(_, value)
-    if not selectedThemeKey then return end
-
-    work.Theme[selectedThemeKey] = {
-        r = math.floor(value.r or 255),
-        g = math.floor(value.g or 255),
-        b = math.floor(value.b or 255),
-        a = math.floor(value.a or 255)
-    }
-
-    applyWorkingTheme()
-    refreshThemeButtons()
-end
-
-syncThemeMixer()
-refreshThemeButtons()
+    fillSettings()
 end
 
 concommand.Add("zcity_guilt_admin_menu", function()
@@ -1523,8 +1151,7 @@ concommand.Add("zcity_guilt_admin_menu", function()
 end)
 
 net.Receive("zcity_guilt_admin_open", function()
-    local cfg = net.ReadTable()
-    openGuiltAdminMenu(cfg)
+    openGuiltAdminMenu(net.ReadTable())
 end)
 
 net.Receive("zcity_guilt_admin_openmenu", function()

@@ -57,28 +57,6 @@ local function roundNameInSet(modeName, roundName, set)
         or (zb and modeNameInSet(zb.CROUND, set))
 end
 
-local function mergeConfig(defaults, stored)
-    local out = table.Copy(defaults)
-
-    if not istable(stored) then
-        return out
-    end
-
-    for k, v in pairs(stored) do
-        if istable(v) and istable(out[k]) then
-            out[k] = table.Copy(v)
-        else
-            out[k] = v
-        end
-    end
-
-    if not istable(out.Presets) then
-        out.Presets = table.Copy(defaults.Presets or {})
-    end
-
-    return out
-end
-
 local function getAutoExpireRoundLoss(ply)
     local steamid64 = ""
 
@@ -144,23 +122,6 @@ local function resetManualPunishRoundLoss(ply)
     ZCITY_GUILT.ManualPunishRoundLoss[steamid64] = 0
 end
 
-local function getEffectiveConfig()
-    local cfg = ZCITY_GUILT.Config or ZCITY_GUILT.DefaultConfig or {}
-    cfg.PromptKey = tonumber(cfg.PromptKey) or KEY_F
-    cfg.PromptText = tostring(cfg.PromptText or "Press F to open the guilt menu.")
-    cfg.MinHarm = math.max(0, tonumber(cfg.MinHarm) or 1)
-    cfg.HarmExpiry = math.max(1, tonumber(cfg.HarmExpiry) or 180)
-    cfg.CaseExpiry = math.max(5, tonumber(cfg.CaseExpiry) or 45)
-    cfg.AutoExpireMinHarm = math.max(0, tonumber(cfg.AutoExpireMinHarm) or 15)
-    cfg.AutoExpireAmount = math.Clamp(math.floor(tonumber(cfg.AutoExpireAmount) or 2), 0, 120)
-    cfg.AutoExpireRoundCap = math.Clamp(math.floor(tonumber(cfg.AutoExpireRoundCap) or 5), 0, 120)
-    cfg.SelfDefenseWindow = math.max(0, tonumber(cfg.SelfDefenseWindow) or 12)
-    cfg.SelfDefenseMinIncomingHarm = math.max(0, tonumber(cfg.SelfDefenseMinIncomingHarm) or 5)
-    cfg.SelfDefenseAttackerCount = math.max(1, math.floor(tonumber(cfg.SelfDefenseAttackerCount) or 2))
-    cfg.ManualPunishRoundCap = math.Clamp(math.floor(tonumber(cfg.ManualPunishRoundCap) or 15), 0, 120)
-    return cfg
-end
-
 local function saveConfig()
     file.CreateDir("zcity_guilt")
     file.Write(CONFIG_PATH, util.TableToJSON(ZCITY_GUILT.Config, true))
@@ -206,19 +167,18 @@ end
 
 local function loadConfig()
     if not file.Exists(CONFIG_PATH, "DATA") then
-        ZCITY_GUILT.Config = table.Copy(ZCITY_GUILT.DefaultConfig)
+        ZCITY_GUILT.Config = ZCITY_GUILT.SanitizeConfig()
         saveConfig()
         return
     end
 
     local raw = file.Read(CONFIG_PATH, "DATA")
-    local parsed = util.JSONToTable(raw or "") or {}
-    ZCITY_GUILT.Config = mergeConfig(ZCITY_GUILT.DefaultConfig, parsed)
+    ZCITY_GUILT.Config = ZCITY_GUILT.SanitizeConfig(util.JSONToTable(raw or "") or {})
 end
 
 loadConfig()
 loadDeferredPunish()
-local CFG = getEffectiveConfig()
+local CFG = ZCITY_GUILT.Config
 
 local function canEditGuiltConfig(ply)
     return IsValid(ply) and ply:IsPlayer() and ply:IsAdmin()
@@ -253,62 +213,8 @@ net.Receive("zcity_guilt_admin_save", function(_, ply)
     local newCfg = net.ReadTable()
     if not istable(newCfg) then return end
 
-    newCfg.PromptKey = tonumber(newCfg.PromptKey) or KEY_F
-    newCfg.PromptText = tostring(newCfg.PromptText or "Press F to open the guilt menu.")
-    newCfg.MinHarm = math.max(0, tonumber(newCfg.MinHarm) or 1)
-    newCfg.HarmExpiry = math.max(1, tonumber(newCfg.HarmExpiry) or 180)
-    newCfg.CaseExpiry = math.max(5, tonumber(newCfg.CaseExpiry) or 45)
-    newCfg.AutoExpireMinHarm = math.max(0, tonumber(newCfg.AutoExpireMinHarm) or 15)
-    newCfg.AutoExpireAmount = math.Clamp(math.floor(tonumber(newCfg.AutoExpireAmount) or 2), 0, 120)
-    newCfg.AutoExpireRoundCap = math.Clamp(math.floor(tonumber(newCfg.AutoExpireRoundCap) or 5), 0, 120)
-    newCfg.SelfDefenseWindow = math.max(0, tonumber(newCfg.SelfDefenseWindow) or 12)
-    newCfg.SelfDefenseMinIncomingHarm = math.max(0, tonumber(newCfg.SelfDefenseMinIncomingHarm) or 5)
-    newCfg.SelfDefenseAttackerCount = math.max(1, math.floor(tonumber(newCfg.SelfDefenseAttackerCount) or 2))
-    newCfg.ManualPunishRoundCap = math.Clamp(math.floor(tonumber(newCfg.ManualPunishRoundCap) or 15), 0, 120)
-    newCfg.AllowForgive = newCfg.AllowForgive == true
-    newCfg.AllowPunish = newCfg.AllowPunish == true
-    newCfg.AllowReport = newCfg.AllowReport == true
-    newCfg.LogAdminActions = newCfg.LogAdminActions == true
-    newCfg.StaffReportPrefix = tostring(newCfg.StaffReportPrefix or "[GUILT REPORT] ")
-    newCfg.Theme = istable(newCfg.Theme) and newCfg.Theme or {}
-
-    for key, defaults in pairs(ZCITY_GUILT.ThemeDefaults or {}) do
-        local clr = istable(newCfg.Theme[key]) and newCfg.Theme[key] or {}
-
-        newCfg.Theme[key] = {
-            r = math.Clamp(math.floor(tonumber(clr.r) or defaults.r or 255), 0, 255),
-            g = math.Clamp(math.floor(tonumber(clr.g) or defaults.g or 255), 0, 255),
-            b = math.Clamp(math.floor(tonumber(clr.b) or defaults.b or 255), 0, 255),
-            a = math.Clamp(math.floor(tonumber(clr.a) or defaults.a or 255), 0, 255)
-        }
-    end
-
-    newCfg.Presets = istable(newCfg.Presets) and newCfg.Presets or {}
-
-    for i = #newCfg.Presets, 1, -1 do
-        local p = newCfg.Presets[i]
-        if not istable(p) then
-            table.remove(newCfg.Presets, i)
-        else
-            p.id = tostring(p.id or ("preset_" .. i))
-            p.name = tostring(p.name or ("Preset " .. i))
-            p.amount = math.Clamp(math.floor(tonumber(p.amount) or 0), 0, 120)
-            p.minharm = math.max(0, tonumber(p.minharm) or 0)
-
-            if not istable(p.color) then
-                p.color = { r = 255, g = 255, b = 255 }
-            end
-
-            p.color = {
-                r = math.Clamp(math.floor(tonumber(p.color.r) or 255), 0, 255),
-                g = math.Clamp(math.floor(tonumber(p.color.g) or 255), 0, 255),
-                b = math.Clamp(math.floor(tonumber(p.color.b) or 255), 0, 255)
-            }
-        end
-    end
-
-    ZCITY_GUILT.Config = mergeConfig(ZCITY_GUILT.DefaultConfig, newCfg)
-    CFG = getEffectiveConfig()
+    ZCITY_GUILT.Config = ZCITY_GUILT.SanitizeConfig(newCfg)
+    CFG = ZCITY_GUILT.Config
     saveConfig()
     sendConfig()
 
@@ -555,9 +461,9 @@ local function isSelfDefenseLockout(victim, target)
     if not data or not istable(data.recentIncoming) then return false end
 
     local now = CurTime()
-    local window = math.max(0, tonumber(CFG.SelfDefenseWindow) or 12)
-    local minIncomingHarm = math.max(0, tonumber(CFG.SelfDefenseMinIncomingHarm) or 5)
-    local neededAttackers = math.max(1, math.floor(tonumber(CFG.SelfDefenseAttackerCount) or 2))
+    local window = CFG.SelfDefenseSeconds
+    local minIncomingHarm = CFG.MultiAttackerMinHarm
+    local neededAttackers = CFG.MultiAttackerCount
 
     local qualifyingAttackers = 0
     local victimWasOneOfThem = false
@@ -605,12 +511,12 @@ local function isProportionalSelfDefense(row, harm)
     local threatScore = math.Clamp(tonumber(row.threatScore) or 0, 0, 1)
 
     if responseRatio <= 0 and incomingHarm > 0 then
-        responseRatio = harm / math.max(incomingHarm, 0.01)
+        responseRatio = harm / math.max(incomingHarm, CFG.ThreatMinIncomingHarm)
     end
 
-    if responseRatio <= 0 or responseRatio > 1.25 then return false end
+    if responseRatio <= 0 or responseRatio > CFG.PunishLockMaxResponseRatio then return false end
 
-    return selfDefenseMul <= 0.2 or (incomingHarm >= harm * 0.8 and threatScore >= 0.35)
+    return selfDefenseMul <= CFG.PunishLockKarmaScale or (incomingHarm >= harm * CFG.PunishLockIncomingVsHarm and threatScore >= CFG.PunishLockMinThreatScore)
 end
 
 local function getCurrentKarma(ply)
@@ -622,10 +528,10 @@ local function getCurrentKarma(ply)
     end
 
     if ply.guilt_GetValue then
-        return tonumber(ply:guilt_GetValue()) or 100
+        return tonumber(ply:guilt_GetValue()) or CFG.DefaultKarma
     end
 
-    return tonumber(ply.GetNetVar and ply:GetNetVar("Karma", 100)) or 100
+    return tonumber(ply.GetNetVar and ply:GetNetVar("Karma", CFG.DefaultKarma)) or CFG.DefaultKarma
 end
 
 local function setCurrentKarma(ply, amount)
@@ -830,10 +736,6 @@ local function getInteractionBlockReason(victim, attacker, allowInactiveRound, e
     end
 end
 
-local function shouldAllowGuiltInteraction(victim, attacker, allowInactiveRound, evidence)
-    return getInteractionBlockReason(victim, attacker, allowInactiveRound, evidence) == nil
-end
-
 local function shouldSkipTransparencyCase(victim, attacker, evidence)
     if istable(evidence) and evidence.hasRuleEvidence == true then return evidence.skipTransparency == true end
     if not IsValid(victim) or not IsValid(attacker) then return true end
@@ -905,7 +807,7 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
         return
     end
 
-    if not CFG.AllowPunish then
+    if not CFG.EnablePunish then
         data.case = nil
         return
     end
@@ -917,10 +819,10 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
     end
 
     local presetMinHarm = tonumber(preset.minharm) or 0
-    local autoExpireMinHarm = tonumber(CFG.AutoExpireMinHarm) or 0
+    local autoExpireMinHarm = CFG.UnresolvedMinHarm
     local requiredHarm = math.max(presetMinHarm, autoExpireMinHarm)
-    local autoExpireAmount = math.max(0, math.floor(tonumber(CFG.AutoExpireAmount) or 0))
-    local autoExpireRoundCap = math.max(0, math.floor(tonumber(CFG.AutoExpireRoundCap) or 0))
+    local autoExpireAmount = math.max(0, CFG.UnresolvedKarmaPenalty)
+    local autoExpireRoundCap = math.max(0, CFG.UnresolvedKarmaCapPerRound)
 
     if autoExpireAmount <= 0 or autoExpireRoundCap <= 0 then
         data.case = nil
@@ -939,7 +841,7 @@ local function autoResolveExpiredCase(victim, data, activeCase, playerCache)
         local usedThisRound = getAutoExpireRoundLoss(steamid64)
         local remainingCap = math.max(0, autoExpireRoundCap - usedThisRound)
 
-        if row.actionAllowed == false or not shouldAllowGuiltInteraction(victim, attacker, true, row) then
+        if row.actionAllowed == false or getInteractionBlockReason(victim, attacker, true, row) then
             row.decided = true
             row.decision = "auto_expire_blocked"
             row.autoExpired = true
@@ -1034,7 +936,7 @@ local function getPendingCase(victim, playerCache)
             return nil
         end
 
-        local minimumExpiry = createdAt + math.max(5, tonumber(CFG.CaseExpiry) or 45)
+        local minimumExpiry = createdAt + CFG.MenuTimeoutSeconds
         if expiresAt < minimumExpiry then
             expiresAt = minimumExpiry
         end
@@ -1158,10 +1060,6 @@ local function getDamageRejectReason(victim, attacker, amount, dmginfo)
     if shouldSkipTransparencyCase(victim, attacker) then return "Skipped by transparency rules." end
 end
 
-local function canTrackDamage(victim, attacker, amount, dmginfo)
-    return getDamageRejectReason(victim, attacker, amount, dmginfo) == nil
-end
-
 local function refreshRoundBaselines(playerCache)
     local nativeSnapshots = {}
 
@@ -1205,14 +1103,6 @@ local function resolveAttackerPlayer(attacker, dmginfo)
     return nil
 end
 
-local function getDamageSource(attacker, dmginfo)
-    if zb and zb.GetGuiltDamageSource then
-        return zb.GetGuiltDamageSource(attacker, dmginfo)
-    end
-
-    return "damage"
-end
-
 local function normalizeThreatReasons(reasons)
     local out = {}
 
@@ -1247,7 +1137,7 @@ local function applyThreatFields(row, victim, attacker, fallback)
         return row
     end
     if not istable(state) and zb and zb.GetGuiltThreatState then
-        state = zb.GetGuiltThreatState(victim, attacker, nil, fallback.harm, fallback.harm)
+        state = zb.GetGuiltThreatState(victim, attacker, nil, fallback.harm)
     end
 
     state = istable(state) and state or {}
@@ -1343,7 +1233,7 @@ local function recordDamage(victim, attacker, amount, dmginfo)
     entry.name = attacker:Nick()
     entry.steamid = attacker:SteamID()
     entry.steamid64 = attackerSteamID64
-    entry.source = getDamageSource(attacker, dmginfo)
+    entry.source = zb and zb.GetGuiltDamageSource and zb.GetGuiltDamageSource(attacker, dmginfo) or "damage"
     entry.attackerWasTraitor = entry.attackerWasTraitor == true or wasTraitorThisRound(attacker)
     entry.disconnected = nil
     entry.disconnectedAt = nil
@@ -1359,7 +1249,7 @@ local function recordDamage(victim, attacker, amount, dmginfo)
 
     data.recentIncoming = data.recentIncoming or {}
 
-    local recentWindow = math.max(0, tonumber(CFG.SelfDefenseWindow) or 12)
+    local recentWindow = CFG.SelfDefenseSeconds
     local recent = data.recentIncoming[attackerSteamID64]
 
     if (not istable(recent)) or ((now - tonumber(recent.last or 0)) > recentWindow) then
@@ -1444,7 +1334,7 @@ local function buildNativeRows(victim, data, nativeSnapshot)
 
         local baselineHarm = tonumber(data.harmBaseline and data.harmBaseline[steamid64]) or 0
         local harm = getRecordedCaseHarm(tracked, currentHarm - baselineHarm)
-        if harm < CFG.MinHarm and not deathKiller then
+        if harm < CFG.MinHarmToOpenCase and not deathKiller then
             continue
         end
 
@@ -1500,13 +1390,13 @@ local function buildRowsFromCurrentLife(victim, data, nativeSnapshot)
             continue
         end
 
-        if now - (entry.last or 0) > CFG.HarmExpiry then
+        if now - (entry.last or 0) > CFG.HarmMemorySeconds then
             data.attackers[steamid64] = nil
             continue
         end
 
         local harm = getRecordedCaseHarm(entry)
-        if harm < CFG.MinHarm and not deathKiller then
+        if harm < CFG.MinHarmToOpenCase and not deathKiller then
             continue
         end
 
@@ -1569,7 +1459,7 @@ local function finalizeVictimDeath(victim)
         activeCase = {
             id = data.caseid,
             createdAt = now,
-            expiresAt = now + CFG.CaseExpiry,
+            expiresAt = now + CFG.MenuTimeoutSeconds,
             roundSerial = ZCITY_GUILT.RoundSerial,
             hmcdLike = isHMCDLikeMode(mode, modeName, roundName),
             rows = {}
@@ -1579,7 +1469,7 @@ local function finalizeVictimDeath(victim)
         data.caseid = (data.caseid or activeCase.id or 0) + 1
         activeCase.id = data.caseid
         activeCase.createdAt = now
-        activeCase.expiresAt = now + CFG.CaseExpiry
+        activeCase.expiresAt = now + CFG.MenuTimeoutSeconds
         activeCase.roundSerial = ZCITY_GUILT.RoundSerial
         activeCase.hmcdLike = activeCase.hmcdLike == true or isHMCDLikeMode(mode, modeName, roundName)
     end
@@ -1723,7 +1613,7 @@ hook.Add("HomigradDamage", "ZCITY_GUILT_TrackDamage", function(target, dmginfo, 
     local attacker = resolveAttackerPlayer(rawAttacker, dmginfo)
     local amount = tonumber(harm) or (dmginfo and dmginfo.GetDamage and dmginfo:GetDamage()) or 0
 
-    if not canTrackDamage(victim, attacker, amount, dmginfo) then return end
+    if getDamageRejectReason(victim, attacker, amount, dmginfo) then return end
 
     recordDamage(victim, attacker, amount, dmginfo)
 end)
@@ -2073,7 +1963,7 @@ local function openDebugCase(victim, rows)
     data.case = {
         id = data.caseid,
         createdAt = CurTime(),
-        expiresAt = CurTime() + math.max(tonumber(CFG.CaseExpiry) or 45, 30),
+        expiresAt = CurTime() + math.max(tonumber(CFG.MenuTimeoutSeconds) or 45, 30),
         hmcdLike = isHMCDLikeMode(mode, modeName, roundName),
         debug = true,
         rows = rows
@@ -2408,7 +2298,7 @@ local function canActOnTarget(victim, target, caseid, attackerSteamID64, action,
 end
 
 local function doForgive(victim, target, entry, activeCase)
-    if not CFG.AllowForgive then return false, "Forgiveness is disabled." end
+    if not CFG.EnableForgive then return false, "Forgiveness is disabled." end
 
     local nativeRefund = math.max(0, tonumber(entry.nativeKarma or entry.karma) or 0)
     if nativeRefund > 0 then
@@ -2437,7 +2327,7 @@ local function doRespect(victim, target, entry)
         return false, "This case is not eligible for respect."
     end
 
-    local reward = 3
+    local reward = CFG.RespectKarmaReward
     if not adjustCaseKarma(target, entry, reward) then return false, "Could not save the reward." end
     clearNativeGuiltFor(victim, target)
 
@@ -2451,7 +2341,7 @@ local function doRespect(victim, target, entry)
 end
 
 local function doPunish(victim, target, action, entry, activeCase)
-    if not CFG.AllowPunish then return false, "Punishment is disabled." end
+    if not CFG.EnablePunish then return false, "Punishment is disabled." end
 
     local modeBlockReason = getInteractionBlockReason(victim, target, true, entry)
     if modeBlockReason then
@@ -2481,7 +2371,7 @@ local function doPunish(victim, target, action, entry, activeCase)
         return false, "Punishment is locked because this appears to be proportional self-defense."
     end
 
-    local roundCap = math.max(0, math.floor(tonumber(CFG.ManualPunishRoundCap) or 0))
+    local roundCap = math.max(0, CFG.ManualPunishCapPerRound)
     local usedThisRound = getManualPunishRoundLoss(entry.steamid64)
     local remainingCap = math.max(0, roundCap - usedThisRound)
 
@@ -2509,7 +2399,7 @@ local function doPunish(victim, target, action, entry, activeCase)
 end
 
 local function doReport(victim, target, entry, activeCase)
-    if not CFG.AllowReport then return false, "Reporting is disabled." end
+    if not CFG.EnableReport then return false, "Reporting is disabled." end
 
     entry.decided = true
     entry.decision = "report"
@@ -2595,7 +2485,7 @@ concommand.Add("zcity_guilt_test_menu", function(ply)
     local activeCase = {
         id = (data.caseid or 0) + 1,
         createdAt = CurTime(),
-        expiresAt = CurTime() + CFG.CaseExpiry,
+        expiresAt = CurTime() + CFG.MenuTimeoutSeconds,
         debug = true,
         rows = {}
     }
@@ -2642,7 +2532,7 @@ concommand.Add("zcity_guilt_preview", function(ply)
     local activeCase = {
         id = (data.caseid or 0) + 1,
         createdAt = CurTime(),
-        expiresAt = CurTime() + math.max(tonumber(CFG.CaseExpiry) or 45, 30),
+        expiresAt = CurTime() + math.max(tonumber(CFG.MenuTimeoutSeconds) or 45, 30),
         debug = true,
         rows = {}
     }
