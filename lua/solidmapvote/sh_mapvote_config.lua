@@ -69,8 +69,8 @@ end
 
 -- Vote Power
 SolidMapVote["Config"]["Vote Power"] = function(ply)
-	if ply:IsAdmin() then return 1 end 
-	return 1
+	if ply:GetUserGroup() == "supporter" then return 2 end
+    return 1
 end
 
 -- Prefer the least played maps (disables Fair Map Recycling)
