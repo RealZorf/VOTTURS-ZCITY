@@ -87,17 +87,16 @@ MODE.LootTable = {
 		{0.13,"iron_sword"},
 	}},
 	{9,{
-		{10,"laser5"},
-		{10,"laser1"},
-		{8,"ent_att_holo7"},
+		{10,"*attachments*"},
+		{8,"*sight*"},
 
 		{6,"ent_armor_helmet1"},
 		{4,"ent_armor_vest3"},
 		{6,"ent_armor_helmet7"},
 	}},
 	{10,{
-		{4,"ent_att_holo16"},
-		{5,"supressor4"},
+		{4,"*sight*"},
+		{5,"*barrel*"},
 
 		{12,"weapon_mp-80"},
 		{12,"weapon_osapb"},
