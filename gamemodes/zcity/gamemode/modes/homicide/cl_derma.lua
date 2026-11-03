@@ -1,32 +1,212 @@
 local MODE = MODE
-local vgui_color_main = Color(155, 0, 0, 255)
-local vgui_color_bg = Color(50, 50, 50, 255)
-local vgui_color_ready = Color(0, 150, 50, 255)
-local vgui_color_notready = Color(0, 50, 0, 255)
 
--- surface.CreateFont("RoleSelection_Main", {
-	-- font = "Roboto",
-	-- extended = false,
-	-- size = ScreenScale(10),
-	-- weight = 500,
-	-- blursize = 0,
-	-- scanlines = 0,
-	-- antialias = true,
-	-- underline = false,
-	-- italic = false,
-	-- strikeout = false,
-	-- symbol = false,
-	-- rotary = false,
-	-- shadow = false,
-	-- additive = false,
-	-- outline = false,
--- })
+local CRT_R, CRT_G, CRT_B = 35, 225, 110
+local TRAITOR_R, TRAITOR_G, TRAITOR_B = 225, 35, 35
+local FRAME_R, FRAME_G, FRAME_B = 86, 94, 90
+local color_idle_dim = Color(112, 118, 116)
+local color_bezel = Color(12, 13, 13)
+local color_panel = Color(20, 22, 21)
+local color_text = Color(236, 238, 236)
+local color_gold = Color(220, 175, 55)
+local color_danger = Color(TRAITOR_R, TRAITOR_G, TRAITOR_B)
+local color_live = Color(CRT_R, CRT_G, CRT_B)
+local BEZEL = 3
+local INSET = BEZEL + 4
+local SND_CLICK = "shitty/tap_depress.wav"
+local SND_HOVER = "shitty/tap-resonant.wav"
+local GEAR_FILE = "zcity/hmcd_traitor_gear.json"
+local RANDOM_FILE = "zcity/hmcd_traitor_random.json"
+local ROW_H = 64
+
+local function S(n)
+	return math.max(1, math.Round(n * ScrH() / 1080))
+end
+
+local function CreateFonts()
+	surface.CreateFont("ZC_MM_Header", {font = "Bahnschrift", size = math.max(18, S(22)), weight = 700, antialias = true, extended = true})
+	surface.CreateFont("ZC_MM_Tiny", {font = "Bahnschrift", size = math.max(12, S(15)), weight = 500, antialias = true, extended = true})
+	surface.CreateFont("ZC_MM_Button", {font = "Bahnschrift", size = math.max(16, S(22)), weight = 600, antialias = true, extended = true})
+end
+CreateFonts()
+hook.Add("OnScreenSizeChanged", "HMCD_TraitorMenu_Fonts", CreateFonts)
+
+local function ClickSound(path)
+	local ply = LocalPlayer()
+	if IsValid(ply) then ply:EmitSound(path, 75, 100, 0.09) else surface.PlaySound(path) end
+end
+
+local function DrawTraitorFrame(x, y, w, h)
+	surface.SetDrawColor(color_bezel.r, color_bezel.g, color_bezel.b, 230)
+	surface.DrawRect(x, y, w, h)
+
+	local ix, iy, iw, ih = x + BEZEL, y + BEZEL, w - BEZEL * 2, h - BEZEL * 2
+	surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 200)
+	surface.DrawOutlinedRect(ix, iy, iw, ih, 1)
+
+	surface.SetDrawColor(TRAITOR_R, TRAITOR_G, TRAITOR_B, 230)
+	surface.DrawRect(ix, iy, 10, 2)
+	surface.DrawRect(ix, iy, 2, 10)
+	surface.DrawRect(ix + iw - 10, iy, 10, 2)
+	surface.DrawRect(ix + iw - 2, iy, 2, 10)
+	surface.DrawRect(ix, iy + ih - 2, 10, 2)
+	surface.DrawRect(ix, iy + ih - 10, 2, 10)
+	surface.DrawRect(ix + iw - 10, iy + ih - 2, 10, 2)
+	surface.DrawRect(ix + iw - 2, iy + ih - 10, 2, 10)
+
+	local px, py, pw, ph = ix + 1, iy + 1, iw - 2, ih - 2
+	surface.SetDrawColor(color_panel.r, color_panel.g, color_panel.b, 210)
+	surface.DrawRect(px, py, pw, ph)
+
+	local step = S(72)
+	local ox = (CurTime() * 18) % step
+	surface.SetDrawColor(TRAITOR_R, TRAITOR_G, TRAITOR_B, 6)
+	for gx = 0, math.ceil(pw / step) do
+		surface.DrawRect(px + gx * step - ox, py, 2, ph)
+	end
+	for gy = 0, math.ceil(ph / step) do
+		surface.DrawRect(px, py + gy * step - ox + step, pw, 2)
+	end
+end
+
+local function PaintScroll(scroll)
+	local bar = scroll:GetVBar()
+	bar:SetWide(S(8))
+	bar:SetHideButtons(true)
+	bar.Paint = function(_, w, h)
+		surface.SetDrawColor(0, 0, 0, 70)
+		surface.DrawRect(1, 0, w - 2, h)
+	end
+	bar.btnGrip.Paint = function(self, w, h)
+		local hover = self:IsHovered()
+		surface.SetDrawColor(hover and TRAITOR_R or FRAME_R, hover and TRAITOR_G or FRAME_G, hover and TRAITOR_B or FRAME_B, hover and 180 or 130)
+		surface.DrawRect(1, 0, w - 2, h)
+	end
+end
+
+local function paintBox(w, h, r, g, b, fill, outline)
+	surface.SetDrawColor(color_bezel)
+	surface.DrawRect(0, 0, w, h)
+	if fill then
+		surface.SetDrawColor(r, g, b, fill)
+		surface.DrawRect(1, 1, w - 2, h - 2)
+	end
+	surface.SetDrawColor(r, g, b, outline)
+	surface.DrawOutlinedRect(0, 0, w, h, 1)
+end
+
+local iconCache = {}
+local placeholderPool
+
+local function usableIcon(icon)
+	if isnumber(icon) then return icon > 0 end
+	return icon and icon.IsError and not icon:IsError()
+end
+
+local function lookupIcon(item)
+	if not item or item == "" then return end
+	if iconCache[item] ~= nil then return iconCache[item] or nil end
+
+	local stored = weapons.GetStored(item)
+	local icon, square
+	if stored then
+		icon = stored.WepSelectIcon2 or stored.WepSelectIcon
+		square = stored.WepSelectIcon2box
+	end
+	if not usableIcon(icon) then
+		local ent = scripted_ents.GetStored(item)
+		local path = ent and ent.t and ent.t.IconOverride
+		if path and path ~= "" then
+			icon = Material(path, "smooth")
+			square = true
+		end
+	end
+	if not usableIcon(icon) and stored and stored.IconOverride and stored.IconOverride ~= "" then
+		icon = Material(stored.IconOverride, "smooth")
+		square = true
+	end
+	if usableIcon(icon) and not isnumber(icon) then
+		icon:SetInt("$flags", 32)
+	end
+	iconCache[item] = usableIcon(icon) and {icon = icon, square = square} or false
+	return iconCache[item] or nil
+end
+
+local function placeholderIcons()
+	if placeholderPool then return placeholderPool end
+	placeholderPool = {}
+	for _, gear in pairs(MODE.TraitorGear or {}) do
+		for i = 1, #gear do
+			for j = 1, #gear[i] do
+				local info = lookupIcon(gear[i][j].item)
+				if info then placeholderPool[#placeholderPool + 1] = info end
+			end
+		end
+	end
+	return placeholderPool
+end
+
+local function drawWepIcon(info, w, h)
+	if not info then return end
+	local icon = info.icon
+	surface.SetDrawColor(255, 255, 255, 235)
+	if isnumber(icon) then surface.SetTexture(icon) else surface.SetMaterial(icon) end
+	local maxW, maxH = w - S(10), h - S(20)
+	local iw, ih
+	if info.square then
+		ih = math.min(maxH, maxW)
+		iw = ih
+	else
+		iw = math.min(maxW, maxH * 2)
+		ih = iw * 0.5
+	end
+	surface.DrawTexturedRect((w - iw) * 0.5, S(4), iw, ih)
+end
+
+local function PaintChip(self, w, h, on, col, label)
+	local hover = self:IsHovered()
+	local r, g, b = on and col.r or FRAME_R, on and col.g or FRAME_G, on and col.b or FRAME_B
+	paintBox(w, h, r, g, b, (on or hover) and (on and 36 or 18) or nil, (on or hover) and 210 or 130)
+	draw.SimpleText(label, "ZC_MM_Tiny", w * 0.5, h * 0.5, on and color_text or color_idle_dim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+end
+
+local function addText(parent, text, font, col, top)
+	if not text or text == "" then return end
+	local pnl = vgui.Create("DPanel", parent)
+	pnl.StackGap = top or 0
+	pnl.Text = text
+	pnl.Font = font
+	pnl.Color = col
+	pnl:SetPaintBackground(false)
+	pnl:SetMouseInputEnabled(false)
+	pnl.Paint = function(self, w, h)
+		draw.DrawText(self.DrawText or self.Text, self.Font, 0, 0, self.Color, TEXT_ALIGN_LEFT)
+	end
+	function pnl:SetText(value) self.Text = value self.DrawText = nil end
+	function pnl:SetTextColor(value) self.Color = value end
+	return pnl
+end
+
+local randomExclude = {standard = {}, soe = {}}
+
+local function writeRandomExclude()
+	for _, key in ipairs({"standard", "soe"}) do
+		local list = {}
+		for role in pairs(randomExclude[key]) do
+			list[#list + 1] = role
+		end
+		net.WriteUInt(math.min(#list, 32), 8)
+		for i = 1, math.min(#list, 32) do
+			net.WriteString(list[i])
+		end
+	end
+end
+
 local function syncTraitorRolePreferences()
 	if not MODE.ConVar_SubRole_Traitor or not MODE.ConVar_SubRole_Traitor_SOE then return end
-
 	net.Start("HMCD(SyncTraitorRolePreferences)")
 		net.WriteString(MODE.ConVar_SubRole_Traitor:GetString())
 		net.WriteString(MODE.ConVar_SubRole_Traitor_SOE:GetString())
+		writeRandomExclude()
 	net.SendToServer()
 end
 
@@ -34,7 +214,6 @@ local preferenceSyncQueued = false
 local function queueTraitorRolePreferenceSync()
 	if preferenceSyncQueued then return end
 	preferenceSyncQueued = true
-
 	timer.Simple(0, function()
 		preferenceSyncQueued = false
 		syncTraitorRolePreferences()
@@ -42,12 +221,7 @@ local function queueTraitorRolePreferenceSync()
 end
 
 local function set_role(role, mode)
-	if mode == "soe" then
-		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor_SOE, role)
-	else
-		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor, role)
-	end
-
+	RunConsoleCommand(mode == "soe" and MODE.ConVarName_SubRole_Traitor_SOE or MODE.ConVarName_SubRole_Traitor, role)
 	queueTraitorRolePreferenceSync()
 end
 
@@ -55,281 +229,90 @@ local function installTraitorRolePreferenceSync()
 	local standard_name = MODE.ConVarName_SubRole_Traitor
 	local soe_name = MODE.ConVarName_SubRole_Traitor_SOE
 	if not standard_name or not soe_name then return end
-
 	cvars.RemoveChangeCallback(standard_name, "HMCD_SyncStandardTraitorRolePreference")
 	cvars.RemoveChangeCallback(soe_name, "HMCD_SyncSOETraitorRolePreference")
-
 	cvars.AddChangeCallback(standard_name, queueTraitorRolePreferenceSync, "HMCD_SyncStandardTraitorRolePreference")
 	cvars.AddChangeCallback(soe_name, queueTraitorRolePreferenceSync, "HMCD_SyncSOETraitorRolePreference")
 	queueTraitorRolePreferenceSync()
 end
 
 timer.Simple(0, installTraitorRolePreferenceSync)
-
 hook.Add("InitPostEntity", "HMCD_SyncTraitorRolePreferences", function()
 	installTraitorRolePreferenceSync()
 	timer.Simple(2, queueTraitorRolePreferenceSync)
 end)
 
-local function getDisabledRoleToken(mode)
-	return mode == "soe" and (MODE.SubRole_Traitor_Disabled_SOE or "traitor_disabled_soe") or (MODE.SubRole_Traitor_Disabled or "traitor_disabled")
-end
-
-local function getRandomRoleToken(mode)
+local function randomToken(mode)
 	return mode == "soe" and (MODE.SubRole_Traitor_Random_SOE or "traitor_random_soe") or (MODE.SubRole_Traitor_Random or "traitor_random")
 end
 
-local function isTraitorModeDisabled(mode)
-	local token = getDisabledRoleToken(mode)
-	if mode == "soe" then
-		return MODE.ConVar_SubRole_Traitor_SOE:GetString() == token
-	end
-
-	return MODE.ConVar_SubRole_Traitor:GetString() == token
-end
-
-local function isTraitorModeRandom(mode)
-	local token = getRandomRoleToken(mode)
-	if mode == "soe" then
-		return MODE.ConVar_SubRole_Traitor_SOE:GetString() == token
-	end
-
-	return MODE.ConVar_SubRole_Traitor:GetString() == token
-end
-
-local function getDefaultTraitorRole(mode)
-	local roundType = mode == "soe" and "soe" or "standard"
-	local role = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[roundType] and MODE.RoleChooseRoundTypes[roundType].TraitorDefaultRole
-	if role and role ~= "" then return role end
-
-	return mode == "soe" and "traitor_default_soe" or "traitor_default"
-end
-
-local function roleExistsForMode(role, mode)
-	if not role or role == "" or role == getDisabledRoleToken(mode) or role == getRandomRoleToken(mode) then return false end
-
-	local roundType = mode == "soe" and "soe" or "standard"
-	local roles = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[roundType] and MODE.RoleChooseRoundTypes[roundType].Traitor
-
-	return roles and roles[role] == true
-end
-
-local function getCurrentTraitorRole(mode)
+local function currentRole(mode)
 	return mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() or MODE.ConVar_SubRole_Traitor:GetString()
 end
 
-local lastTraitorRoleBeforeDisable = {}
-local function setTraitorRolePreference(role, mode)
-	if roleExistsForMode(role, mode) then
-		lastTraitorRoleBeforeDisable[mode] = role
-	end
+local function isRandom(mode)
+	return currentRole(mode) == randomToken(mode)
+end
 
+local function roleExists(role, mode)
+	if not role or role == "" or role == randomToken(mode) then return false end
+	if role == (mode == "soe" and (MODE.SubRole_Traitor_Disabled_SOE or "traitor_disabled_soe") or (MODE.SubRole_Traitor_Disabled or "traitor_disabled")) then return false end
+	local roles = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[mode == "soe" and "soe" or "standard"]
+	return roles and roles.Traitor and roles.Traitor[role] == true
+end
+
+local lastRoleBeforeRandom = {}
+local function setTraitorRolePreference(role, mode)
+	if roleExists(role, mode) then lastRoleBeforeRandom[mode] = role end
 	set_role(role, mode)
 end
 
-local function toggleTraitorModeDisabled(mode)
-	if isTraitorModeDisabled(mode) then
-		local restoreRole = lastTraitorRoleBeforeDisable[mode]
-		if not roleExistsForMode(restoreRole, mode) then
-			restoreRole = getDefaultTraitorRole(mode)
+local function toggleRandom(mode)
+	if isRandom(mode) then
+		local restore = lastRoleBeforeRandom[mode]
+		if not roleExists(restore, mode) then
+			local round = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[mode == "soe" and "soe" or "standard"]
+			restore = (round and round.TraitorDefaultRole) or (mode == "soe" and "traitor_default_soe" or "traitor_default")
 		end
-
-		setTraitorRolePreference(restoreRole, mode)
+		setTraitorRolePreference(restore, mode)
 		return
 	end
-
-	local currentRole = getCurrentTraitorRole(mode)
-	if roleExistsForMode(currentRole, mode) then
-		lastTraitorRoleBeforeDisable[mode] = currentRole
-	end
-
-	set_role(getDisabledRoleToken(mode), mode)
-end
-
-local function toggleTraitorModeRandom(mode)
-	if isTraitorModeRandom(mode) then
-		local restoreRole = lastTraitorRoleBeforeDisable[mode]
-		if not roleExistsForMode(restoreRole, mode) then
-			restoreRole = getDefaultTraitorRole(mode)
-		end
-
-		setTraitorRolePreference(restoreRole, mode)
-		return
-	end
-
-	local currentRole = getCurrentTraitorRole(mode)
-	if roleExistsForMode(currentRole, mode) then
-		lastTraitorRoleBeforeDisable[mode] = currentRole
-	end
-
-	set_role(getRandomRoleToken(mode), mode)
-end
-
-local function screen_scale_2(num)
-	return ScreenScale(num) / (ScrW() / ScrH())
-end
-
-local function traitor_ui(num)
-	local scale = math.Clamp(math.min(ScrW() / 1920, ScrH() / 1080), 0.95, 1.35)
-	return math.Round(num * scale)
-end
-
-local traitorFontsW, traitorFontsH
-local function refreshTraitorTileFonts()
-	local sw, sh = ScrW(), ScrH()
-	if traitorFontsW == sw and traitorFontsH == sh then return end
-
-	traitorFontsW, traitorFontsH = sw, sh
-
-	surface.CreateFont("HMCD_TraitorTiles_Title", {
-		font = "Bahnschrift",
-		size = traitor_ui(34),
-		weight = 900,
-		extended = true,
-		antialias = true
-	})
-
-	surface.CreateFont("HMCD_TraitorTiles_Subtitle", {
-		font = "Bahnschrift SemiBold",
-		size = traitor_ui(17),
-		weight = 700,
-		extended = true,
-		antialias = true
-	})
-
-	surface.CreateFont("HMCD_TraitorTiles_Role", {
-		font = "Bahnschrift SemiBold",
-		size = traitor_ui(25),
-		weight = 800,
-		extended = true,
-		antialias = true
-	})
-
-	surface.CreateFont("HMCD_TraitorTiles_Code", {
-		font = "Bahnschrift",
-		size = traitor_ui(12),
-		weight = 700,
-		extended = true,
-		antialias = true
-	})
-
-	surface.CreateFont("HMCD_TraitorTiles_Text", {
-		font = "Bahnschrift",
-		size = traitor_ui(15),
-		weight = 500,
-		extended = true,
-		antialias = true
-	})
-
-	surface.CreateFont("HMCD_TraitorTiles_DetailHeader", {
-		font = "Bahnschrift SemiBold",
-		size = traitor_ui(18),
-		weight = 800,
-		extended = true,
-		antialias = true
-	})
-
-	surface.CreateFont("HMCD_TraitorTiles_Button", {
-		font = "Bahnschrift SemiBold",
-		size = traitor_ui(17),
-		weight = 800,
-		extended = true,
-		antialias = true
-	})
-end
-
-local traitorTileAccent = Color(35, 255, 110)
-local traitorTileAccentHot = Color(100, 255, 165)
-local traitorTilePanel = Color(2, 13, 8, 248)
-local traitorTilePanelAccent = Color(8, 33, 21, 238)
-local traitorTileText = Color(220, 238, 226)
-local traitorTileMuted = Color(135, 190, 154)
-local traitorTileDanger = Color(185, 52, 68)
-local traitorTileAmber = Color(255, 190, 75)
-local traitorGradientR = Material("vgui/gradient-r")
-local traitorGradientD = Material("vgui/gradient-d")
-local traitorGradientU = Material("vgui/gradient-u")
-
-local function stripSOESuffix(role)
-	return string.gsub(role or "", "_soe$", "")
+	local cur = currentRole(mode)
+	if roleExists(cur, mode) then lastRoleBeforeRandom[mode] = cur end
+	set_role(randomToken(mode), mode)
 end
 
 MODE.HMCDTraitorRoleStats = MODE.HMCDTraitorRoleStats or {}
 
 local function getTraitorRoleStats(role)
-	if not role or role == "" then
-		return {wins = 0, games = 0}
-	end
-
-	local normalized_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(role) or role
-	local stats = MODE.HMCDTraitorRoleStats and MODE.HMCDTraitorRoleStats[normalized_role]
-	if not stats then
-		return {wins = 0, games = 0}
-	end
-
+	role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(role) or role
+	local stats = role and MODE.HMCDTraitorRoleStats and MODE.HMCDTraitorRoleStats[role]
 	return {
-		wins = math.max(math.floor(tonumber(stats.wins or 0) or 0), 0),
-		games = math.max(math.floor(tonumber(stats.games or 0) or 0), 0)
+		wins = math.max(math.floor(tonumber(stats and stats.wins or 0) or 0), 0),
+		games = math.max(math.floor(tonumber(stats and stats.games or 0) or 0), 0)
 	}
 end
 
-local function combineTraitorRoleStats(...)
-	local combined = {wins = 0, games = 0}
-
-	for i = 1, select("#", ...) do
-		local role = select(i, ...)
-		local stats = getTraitorRoleStats(role)
-		combined.wins = combined.wins + stats.wins
-		combined.games = combined.games + stats.games
-	end
-
-	return combined
+local function combinedStats(a, b)
+	local sa, sb = getTraitorRoleStats(a), getTraitorRoleStats(b)
+	return {wins = sa.wins + sb.wins, games = sa.games + sb.games}
 end
 
-local function getTraitorWinratePercent(stats)
-	if not stats or (stats.games or 0) <= 0 then return nil end
-	return math.Clamp(math.Round((stats.wins / stats.games) * 100), 0, 100)
-end
-
-local function formatTraitorWinrateShort(stats)
-	local rate = getTraitorWinratePercent(stats)
-	if not rate then return "WR --" end
-
-	return string.format("WR %d%% / %dR", rate, stats.games)
-end
-
-local function formatTraitorWinrateLine(label, stats)
-	local rate = getTraitorWinratePercent(stats)
-	if not rate then
-		return label .. ": no server data yet"
-	end
-
-	return string.format("%s: %d%% over %d rounds (%dW/%dL)", label, rate, stats.games, stats.wins, math.max(stats.games - stats.wins, 0))
-end
-
-local function buildTraitorWinrateDetail(data)
-	if not data then return "" end
-
-	local combined = combineTraitorRoleStats(data.Standard, data.SOE)
-	if combined.games <= 0 then
-		return "No server data yet."
-	end
-
-	local lines = {
-		formatTraitorWinrateLine("Combined", combined),
-		formatTraitorWinrateLine("Standard", getTraitorRoleStats(data.Standard)),
-		formatTraitorWinrateLine("SOE", getTraitorRoleStats(data.SOE))
-	}
-
-	return table.concat(lines, "\n")
+local function statText(stats)
+	local games = stats and stats.games or 0
+	if games <= 0 then return "No rounds yet" end
+	local wins = stats.wins or 0
+	local losses = math.max(games - wins, 0)
+	return string.format("%d%% win rate out of %d rounds", math.Clamp(math.Round((wins / games) * 100), 0, 100), games),
+		string.format("%d rounds played", games),
+		string.format("%d%% win rate", math.Clamp(math.Round((wins / games) * 100), 0, 100)),
+		string.format("%d%% lose rate", math.Clamp(math.Round((losses / games) * 100), 0, 100))
 end
 
 local function requestTraitorRoleStats(force)
 	local now = SysTime()
 	if not force and (MODE.HMCDTraitorRoleStatsNextRequest or 0) > now then return end
-
 	MODE.HMCDTraitorRoleStatsNextRequest = now + 5
-
 	net.Start("HMCD_RequestTraitorRoleStats")
 	net.SendToServer()
 end
@@ -337,1246 +320,650 @@ end
 net.Receive("HMCD_TraitorRoleStats", function()
 	local count = net.ReadUInt(8)
 	local stats = {}
-
 	for _ = 1, count do
 		local role = net.ReadString()
-		local normalized_role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(role) or role
-		local wins = net.ReadUInt(24)
-		local games = net.ReadUInt(24)
-
-		if normalized_role and normalized_role ~= "" then
-			stats[normalized_role] = {
-				wins = wins,
-				games = games
-			}
-		end
+		role = MODE.NormalizeTraitorSubRole and MODE.NormalizeTraitorSubRole(role) or role
+		local wins, games = net.ReadUInt(24), net.ReadUInt(24)
+		if role and role ~= "" then stats[role] = {wins = wins, games = games} end
 	end
-
 	MODE.HMCDTraitorRoleStats = stats
-
 	if IsValid(VGUI_HMCD_TraitorTileMenu) and VGUI_HMCD_TraitorTileMenu.RefreshStats then
 		VGUI_HMCD_TraitorTileMenu:RefreshStats()
 	end
 end)
 
-local function resolveBindText(text)
-	if hg.ResolveKeybindText then return hg.ResolveKeybindText(text) end
-	return text
+local localGear = {}
+local function loadLocalGear()
+	local t = util.JSONToTable(file.Read(GEAR_FILE, "DATA") or "")
+	localGear = istable(t) and t or {}
+end
+loadLocalGear()
+
+function MODE.GetLocalTraitorGear(role, slot)
+	return localGear[role] and localGear[role][slot]
 end
 
-local function getRoleDescription(info)
-	if not info then return "" end
-
-	local text = info.Description or info.Objective or ""
-	text = string.gsub(text, "\r", "")
-	text = string.gsub(text, "\n+", "\n")
-
-	return resolveBindText(text)
-end
-
-local function getRoleSummary(info)
-	local text = getRoleDescription(info)
-	local lines = {}
-
-	for line in string.gmatch(text, "[^\n]+") do
-		line = string.Trim(line)
-		if line ~= "" then
-			lines[#lines + 1] = line
+local function syncTraitorGear()
+	local entries = {}
+	for role, slots in pairs(localGear) do
+		if istable(slots) then
+			for slot, item in pairs(slots) do
+				entries[#entries + 1] = {role, slot, item}
+			end
 		end
-
-		if #lines >= 3 then break end
 	end
-
-	return table.concat(lines, "\n")
+	net.Start("HMCD(SyncTraitorGear)")
+		net.WriteUInt(#entries, 16)
+		for i = 1, #entries do
+			net.WriteString(entries[i][1])
+			net.WriteString(entries[i][2])
+			net.WriteString(entries[i][3])
+		end
+	net.SendToServer()
 end
 
-local traitorLoadoutText = {
-	traitor_default = "Suppressed Ruger MK IV + spare ammo\nBuck 200 knife, RGD grenade, smoke grenade\nIED, poison vial, traitor suit, jam, shuriken\nAdrenaline, fiber wire, flashlight",
-	traitor_default_soe = "Suppressed Ruger MK IV + spare ammo\nSOG knife, RGD grenade, smoke grenade\nIED, poison 2 and poison 3\nWalkie-talkie, adrenaline, fiber wire, flashlight",
-	traitor_infiltrator = "SOG knife\nAdrenaline\nSmoke grenade\nFiber wire, flashlight",
-	traitor_infiltrator_soe = "Taser + 2 extra heads\nSOG knife, smoke grenade\nWalkie-talkie, adrenaline\nFiber wire, flashlight",
-	traitor_thief = "SOG knife\nAdrenaline\nSmoke grenade\nHidden starter gear tracking, flashlight",
-	traitor_thief_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nSmoke grenade, hidden starter gear tracking, flashlight",
-	traitor_assassin = "Katana with sling\nHigh recoil control\nExtra stamina\nBuilt to disarm and steal weapons",
-	traitor_assassin_soe = "Katana with sling\nWalkie-talkie\nAdrenaline\nFiber wire\nHigher recoil control and stamina",
-	traitor_chemist = "SOG knife\nAdrenaline\nPoison 1, 2, 3 and 4\nPoison consumable, sleep canister\nFiber wire, flashlight\n2 Neutralizer doses for traitor teammates",
-	traitor_chemist_soe = "SOG knife\nWalkie-talkie\nAdrenaline\nPoison 1, 2, 3 and 4\nPoison consumable, sleep canister\nFiber wire, flashlight\n2 Neutralizer doses for traitor teammates",
-	traitor_maniac = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health\nPermanent Fury, Rampage, Injury Defiance",
-	traitor_maniac_soe = "Poisoned fire axe\nM45, RGD grenade, molotov\nWalkie-talkie, poison 4, traitor suit\nAdrenaline, fiber wire, flashlight\nMassive stamina, bonus health, SOE recoil control\nPermanent Fury, Rampage, Injury Defiance",
-	traitor_juggernaut = "Athlete physical stats\n1.15x size, 2x stamina, 1.5x melee and leg strength\n1.15x jump power, reduced stamina exhaustion\nCrowbar\nAdrenaline, smoke grenade, flashlight\nHold ALT while lifting smaller non-Athletes to strangle\nSlam carried victims into walls or props for bonus damage and stun\nALT + E over an unconscious head stomps the skull",
-	traitor_juggernaut_soe = "Athlete physical stats\n1.15x size, 2x stamina, 1.5x melee and leg strength\n1.15x jump power, reduced stamina exhaustion\nCrowbar\nWalkie-talkie, adrenaline, smoke grenade, flashlight\nHold ALT while lifting smaller non-Athletes to strangle\nSlam carried victims into walls or props for bonus damage and stun\nALT + E over an unconscious head stomps the skull",
-	traitor_cannibal = "Cleaver\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nConsume dead bodies to restore health and blood\nEach consumed body increases stamina and melee damage",
-	traitor_cannibal_soe = "Cleaver\nWalkie-talkie\nAdrenaline\nSmoke grenade\nFiber wire, flashlight\nConsume dead bodies to restore health and blood\nEach consumed body increases stamina and melee damage",
-	traitor_revenant = "SOG knife\nFiber wire\nSmoke grenade\nTraitor suit\n3 neural chips\nPossess eligible dead, disconnected or unconscious innocent bodies for up to 30 seconds",
-	traitor_revenant_soe = "SOG knife\nFiber wire\nPB-4 Osa\nExplosive belt\nWalkie-talkie\nSmoke grenade\nTraitor suit\n3 neural chips\nPossess eligible dead, disconnected or unconscious innocent bodies for up to 30 seconds",
-	traitor_terrorist = "Bomb vest\nMatches\nClaymore, grenade\nIED, Buck 200 knife\nFlashlight",
-	traitor_terrorist_soe = "Bomb vest\nMatches\nClaymore, grenade\nIED, SOG knife\nFlashlight",
-	traitor_lastmanstanding = "Concealed De Lisle + 20 rounds\nBrass knuckles\nFlashlight\nFinal Stand: halved De Lisle recoil and handling times",
-	traitor_lastmanstanding_soe = "Concealed De Lisle + 20 rounds\nNail gun\nSling\nBrass knuckles\nFlashlight, SOE recoil control\nFinal Stand: halved De Lisle recoil and handling times",
-	traitor_stalker = "Wall camouflage activated with Reload\nSonar marking, Prey Sense and Silent Pursuit\nLimited tranquilizer and SOG knife\nDecoy grenade and one-use death decoy\nHammer + 4 nails\nFlashlight\nFirst marked hit staggers, drains stamina and deals bonus damage",
-	traitor_stalker_soe = "Wall camouflage activated with Reload\nSonar marking, Prey Sense and Silent Pursuit\nLimited tranquilizer and SOG knife\nWalkie-talkie\nDecoy grenade and one-use death decoy\nHammer + 4 nails\nFlashlight\nFirst marked hit staggers, drains stamina and deals bonus damage"
-}
-
-local function getLoadoutText(role)
-	return resolveBindText(traitorLoadoutText[role or ""] or "Loadout metadata missing for this profile.")
+local function setLocalTraitorGear(role, slot, item)
+	localGear[role] = localGear[role] or {}
+	localGear[role][slot] = item
+	file.CreateDir("zcity")
+	file.Write(GEAR_FILE, util.TableToJSON(localGear, true))
+	syncTraitorGear()
 end
+
+local function loadRandomPool()
+	local t = util.JSONToTable(file.Read(RANDOM_FILE, "DATA") or "")
+	if not istable(t) then return end
+	for _, key in ipairs({"standard", "soe"}) do
+		randomExclude[key] = {}
+		if istable(t[key]) then
+			for role, excluded in pairs(t[key]) do
+				if excluded then randomExclude[key][role] = true end
+			end
+		end
+	end
+end
+loadRandomPool()
+
+local function inRandomPool(role, mode)
+	return role and not randomExclude[mode][role]
+end
+
+local function toggleRandomPool(role, mode)
+	if not role then return end
+	if randomExclude[mode][role] then
+		randomExclude[mode][role] = nil
+	else
+		randomExclude[mode][role] = true
+	end
+	file.CreateDir("zcity")
+	file.Write(RANDOM_FILE, util.TableToJSON(randomExclude, true))
+	queueTraitorRolePreferenceSync()
+end
+
+hook.Add("InitPostEntity", "HMCD_SyncTraitorGear", function()
+	timer.Simple(2, function()
+		syncTraitorGear()
+		queueTraitorRolePreferenceSync()
+	end)
+end)
 
 local function collectTraitorRolePairs()
 	local roundTypes = MODE.RoleChooseRoundTypes or {}
-	local standardRoles = roundTypes.standard and roundTypes.standard.Traitor or {}
-	local soeRoles = roundTypes.soe and roundTypes.soe.Traitor or {}
 	local byBase = {}
-
-	for role in pairs(standardRoles) do
-		local base = stripSOESuffix(role)
+	for role in pairs(roundTypes.standard and roundTypes.standard.Traitor or {}) do
+		local base = string.gsub(role, "_soe$", "")
 		byBase[base] = byBase[base] or {}
 		byBase[base].standard = role
 	end
-
-	for role in pairs(soeRoles) do
-		local base = stripSOESuffix(role)
+	for role in pairs(roundTypes.soe and roundTypes.soe.Traitor or {}) do
+		local base = string.gsub(role, "_soe$", "")
 		byBase[base] = byBase[base] or {}
 		byBase[base].soe = role
 	end
 
 	local roles = {}
 	for base, pair in pairs(byBase) do
-		local standardInfo = pair.standard and MODE.SubRoles[pair.standard]
-		local soeInfo = pair.soe and MODE.SubRoles[pair.soe]
-		local info = standardInfo or soeInfo
+		local info = (pair.standard and MODE.SubRoles[pair.standard]) or (pair.soe and MODE.SubRoles[pair.soe])
 		if info then
+			local desc = info.Description or info.Objective or ""
+			if hg.ResolveKeybindText then desc = hg.ResolveKeybindText(desc) end
+			local stdObj = pair.standard and MODE.SubRoles[pair.standard] and MODE.SubRoles[pair.standard].Objective or ""
+			local soeObj = pair.soe and MODE.SubRoles[pair.soe] and MODE.SubRoles[pair.soe].Objective or ""
+			if hg.ResolveKeybindText then
+				stdObj = hg.ResolveKeybindText(stdObj)
+				soeObj = hg.ResolveKeybindText(soeObj)
+			end
 			roles[#roles + 1] = {
 				Base = base,
 				Name = info.Name or base,
-				Description = getRoleSummary(info),
-				DetailDescription = getRoleDescription(info),
-				StandardLoadout = getLoadoutText(pair.standard),
-				SOELoadout = getLoadoutText(pair.soe),
-				StandardObjective = resolveBindText(standardInfo and standardInfo.Objective or ""),
-				SOEObjective = resolveBindText(soeInfo and soeInfo.Objective or ""),
+				Description = desc,
+				StandardObjective = stdObj,
+				SOEObjective = soeObj,
 				Standard = pair.standard,
 				SOE = pair.soe
 			}
 		end
 	end
-
 	table.sort(roles, function(a, b)
 		if a.Base == "traitor_default" then return true end
 		if b.Base == "traitor_default" then return false end
-
 		return string.lower(a.Name) < string.lower(b.Name)
 	end)
-
 	return roles
 end
 
-local function drawCornerBrackets(x, y, w, h, len, col)
-	surface.SetDrawColor(col)
-	surface.DrawRect(x, y, len, 1)
-	surface.DrawRect(x, y, 1, len)
-	surface.DrawRect(x + w - len, y, len, 1)
-	surface.DrawRect(x + w - 1, y, 1, len)
-	surface.DrawRect(x, y + h - 1, len, 1)
-	surface.DrawRect(x, y + h - len, 1, len)
-	surface.DrawRect(x + w - len, y + h - 1, len, 1)
-	surface.DrawRect(x + w - 1, y + h - len, 1, len)
-end
+local function addGearRole(parent, title, role)
+	local gear = MODE.TraitorGear and MODE.TraitorGear[role]
+	if not gear or #gear == 0 then return end
 
-local function drawCutPoly(x, y, w, h, cut, col)
-	surface.SetDrawColor(col)
-	draw.NoTexture()
-	surface.DrawPoly({
-		{x = x + cut, y = y},
-		{x = x + w - cut, y = y},
-		{x = x + w, y = y + cut},
-		{x = x + w, y = y + h - cut},
-		{x = x + w - cut, y = y + h},
-		{x = x + cut, y = y + h},
-		{x = x, y = y + h - cut},
-		{x = x, y = y + cut}
-	})
-end
+	addText(parent, title, "ZC_MM_Header", color_text, S(10))
 
-local function drawCutOutline(x, y, w, h, cut, col, thick)
-	surface.SetDrawColor(col)
-	thick = thick or 1
+	local btnH = S(72)
+	for start = 1, #gear, 3 do
+		local last = math.min(start + 2, #gear)
+		local maxOpts = 1
+		for i = start, last do
+			maxOpts = math.max(maxOpts, #gear[i])
+		end
 
-	for i = 0, thick - 1 do
-		local xi, yi = x + i, y + i
-		local wi, hi = w - i * 2, h - i * 2
-		local ci = math.max(cut - i, 0)
+		local line = vgui.Create("DPanel", parent)
+		line.StackGap = S(6)
+		line:SetTall(S(28) + maxOpts * btnH + S(4) * (maxOpts - 1) + S(8))
+		line:SetPaintBackground(false)
+		line.PerformLayout = function(self, w)
+			local gap = S(6)
+			local colW = math.floor((w - gap * 2) / 3)
+			local x = 0
+			for _, col in ipairs(self:GetChildren()) do
+				col:SetPos(x, 0)
+				col:SetSize(colW, self:GetTall())
+				x = x + colW + gap
+			end
+		end
 
-		surface.DrawLine(xi + ci, yi, xi + wi - ci, yi)
-		surface.DrawLine(xi + wi - ci, yi, xi + wi, yi + ci)
-		surface.DrawLine(xi + wi, yi + ci, xi + wi, yi + hi - ci)
-		surface.DrawLine(xi + wi, yi + hi - ci, xi + wi - ci, yi + hi)
-		surface.DrawLine(xi + wi - ci, yi + hi, xi + ci, yi + hi)
-		surface.DrawLine(xi + ci, yi + hi, xi, yi + hi - ci)
-		surface.DrawLine(xi, yi + hi - ci, xi, yi + ci)
-		surface.DrawLine(xi, yi + ci, xi + ci, yi)
+		for i = start, last do
+			local spec = gear[i]
+			local col = vgui.Create("DPanel", line)
+			col:SetPaintBackground(false)
+			col.Paint = function(_, w, h)
+				surface.SetDrawColor(32, 34, 33, 180)
+				surface.DrawRect(0, 0, w, h)
+				surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 70)
+				surface.DrawOutlinedRect(0, 0, w, h, 1)
+				draw.SimpleText(string.upper(spec.slot), "ZC_MM_Tiny", w * 0.5, S(6), color_idle_dim, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+			end
+
+			local y = S(24)
+			for _, opt in ipairs(spec) do
+				local btn = vgui.Create("DButton", col)
+				btn:SetPos(S(6), y)
+				btn:SetTall(btnH)
+				btn.PerformLayout = function(self)
+					self:SetWide(math.max(col:GetWide() - S(12), 1))
+				end
+				y = y + btnH + S(4)
+				btn:SetText("")
+				local locked = opt.placeholder or not opt.item
+				local stored = opt.item and (weapons.GetStored(opt.item) or (scripted_ents.GetStored(opt.item) or {}).t)
+				local label = (stored and stored.PrintName) or "PLACEHOLDER"
+				local icon = lookupIcon(opt.item)
+				if not icon then
+					local pool = placeholderIcons()
+					if #pool > 0 then icon = pool[math.random(#pool)] end
+				end
+				btn.Paint = function(self, w, h)
+					local resolved = not locked and MODE.ResolveTraitorGearOption(nil, role, spec.slot)
+					local sel = resolved and resolved.item == opt.item
+					local hover = self:IsHovered()
+					local r, g, b = locked and 90 or (sel and TRAITOR_R or FRAME_R), locked and 90 or (sel and TRAITOR_G or FRAME_G), locked and 90 or (sel and TRAITOR_B or FRAME_B)
+					paintBox(w, h, r, g, b, (sel or (hover and not locked)) and (sel and 40 or 16) or nil, (sel or hover) and 210 or 120)
+					drawWepIcon(icon, w, h)
+					draw.SimpleText(label, "ZC_MM_Tiny", w * 0.5, h - S(8), locked and Color(140, 140, 140) or color_text, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+				end
+				if not locked then
+					btn.OnCursorEntered = function() ClickSound(SND_HOVER) end
+					btn.DoClick = function()
+						ClickSound(SND_CLICK)
+						setLocalTraitorGear(role, spec.slot, opt.item)
+					end
+				end
+			end
+		end
 	end
 end
 
-local function drawGlowLine(x, y, w, h, col)
-	surface.SetDrawColor(col.r, col.g, col.b, 18)
-	surface.DrawRect(x - 4, y - 4, w + 8, h + 8)
-	surface.SetDrawColor(col.r, col.g, col.b, 70)
-	surface.DrawRect(x - 1, y - 1, w + 2, h + 2)
-	surface.SetDrawColor(col)
-	surface.DrawRect(x, y, w, h)
-end
+local TILE = {}
 
-local function panelHoveredDeep(panel)
-	local hovered = vgui.GetHoveredPanel()
-
-	while IsValid(hovered) do
-		if hovered == panel then return true end
-		hovered = hovered:GetParent()
-	end
-
-	return false
-end
-
-local PANEL = {}
-
-function PANEL:Init()
+function TILE:Init()
+	self:SetTall(S(ROW_H))
 	self:SetMouseInputEnabled(true)
 
-	self.Scroll = vgui.Create("DScrollPanel", self)
-	self.Scroll.Paint = function() end
-	self.Scroll:GetVBar():SetWide(traitor_ui(5))
-	self.Scroll:GetVBar().Paint = function(_, w, h)
-		surface.SetDrawColor(0, 0, 0, 90)
-		surface.DrawRect(0, 0, w, h)
+	self.HeaderHit = vgui.Create("DButton", self)
+	self.HeaderHit:SetText("")
+	self.HeaderHit:SetCursor("hand")
+	self.HeaderHit.Paint = function() end
+	self.HeaderHit.DoClick = function()
+		if IsValid(self.OwnerSelector) then self.OwnerSelector:SetExpandedRole(self.RoleData, true) end
 	end
-	self.Scroll:GetVBar().btnGrip.Paint = function(_, w, h)
-		surface.SetDrawColor(35, 255, 110, 120)
-		surface.DrawRect(0, 0, w, h)
-	end
-	self.Scroll:GetVBar().btnUp.Paint = function() end
-	self.Scroll:GetVBar().btnDown.Paint = function() end
 
-	self.Body = vgui.Create("DPanel", self.Scroll)
-	self.Body.Paint = function(_, w, h)
-		if self.DetailMarkup then
-			self.DetailMarkup:Draw(0, 0, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 255)
+	self.StdButton = vgui.Create("DButton", self)
+	self.SoeButton = vgui.Create("DButton", self)
+	self.Expand = vgui.Create("DPanel", self)
+	self.Expand:SetVisible(false)
+	self.Expand:SetPaintBackground(false)
+end
+
+function TILE:SetupModeButton(button, label, mode, role)
+	button:SetText("")
+	button:SetEnabled(role ~= nil)
+	button.DoClick = function()
+		if not role then return end
+		setTraitorRolePreference(role, mode)
+		ClickSound(SND_CLICK)
+	end
+	button.OnCursorEntered = function() if role then ClickSound(SND_HOVER) end end
+	button.Paint = function(btn, w, h)
+		local selected = role and not isRandom(mode) and currentRole(mode) == role
+		local hover = role and btn:IsHovered()
+		local r, g, b = FRAME_R, FRAME_G, FRAME_B
+		if selected then r, g, b = TRAITOR_R, TRAITOR_G, TRAITOR_B end
+		paintBox(w, h, r, g, b, (selected or hover) and (selected and 40 or 16) or nil, (selected or hover) and 210 or 120)
+		if label == "State of Emergency" then
+			draw.SimpleText("State of", "ZC_MM_Tiny", w * 0.5, h * 0.32, role and color_text or color_idle_dim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			draw.SimpleText("Emergency", "ZC_MM_Tiny", w * 0.5, h * 0.68, role and color_text or color_idle_dim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		else
+			draw.SimpleText(label, "ZC_MM_Tiny", w * 0.5, h * 0.5, role and color_text or color_idle_dim, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		end
 	end
-
-	self.Scroll:AddItem(self.Body)
-	self.DetailParts = {}
-	self:SetRoleData(nil)
 end
 
-local function detailMarkupColor(color)
-	return string.format("%d,%d,%d,%d", color.r, color.g, color.b, color.a or 255)
-end
-
-function PANEL:ClearDetailLabels()
-	self.DetailParts = {}
-	self.DetailMarkup = nil
-	self.DetailMarkupWidth = nil
-end
-
-function PANEL:AddDetailLabel(text, font, color, topGap)
-	if not text or text == "" then return end
-
-	self.DetailParts[#self.DetailParts + 1] = {
-		Text = text,
-		Font = font,
-		Color = color,
-		TopGap = topGap or 0
-	}
-end
-
-function PANEL:AddDetailSection(title, body)
-	if not body or body == "" then return end
-
-	self:AddDetailLabel(title, "HMCD_TraitorTiles_DetailHeader", Color(220, 255, 232), #self.DetailParts > 0 and traitor_ui(18) or 0)
-	self:AddDetailLabel(body, "HMCD_TraitorTiles_Text", traitorTileMuted, traitor_ui(2))
-end
-
-function PANEL:BuildDetailMarkup(width)
-	width = math.max(width or 1, 1)
-	if self.DetailMarkup and self.DetailMarkupWidth == width then return end
-
-	local text = {}
-	for _, part in ipairs(self.DetailParts or {}) do
-		if part.TopGap and part.TopGap > 0 then
-			text[#text + 1] = "\n"
-		end
-
-		text[#text + 1] = string.format("<font=%s><colour=%s>%s</colour></font>", part.Font, detailMarkupColor(part.Color), part.Text)
-	end
-
-	self.DetailMarkup = markup.Parse(table.concat(text, "\n"), width)
-	self.DetailMarkupWidth = width
-end
-
-function PANEL:SetRoleData(data)
+function TILE:SetRoleData(data)
 	self.RoleData = data
-	self:ClearDetailLabels()
-
-	if not data then
-		self:AddDetailLabel("Hover or click a role node to inspect its full profile.\n\nSTD and SOE selections stay under each tile.", "HMCD_TraitorTiles_Text", traitorTileMuted)
-		self:InvalidateLayout(true)
-		return
-	end
-
-	local description = data.DetailDescription ~= "" and data.DetailDescription or data.Description
-	local standardText = data.StandardLoadout ~= "" and data.StandardLoadout or "No Standard loadout configured."
-	local soeText = data.SOELoadout ~= "" and data.SOELoadout or "No SOE loadout configured."
-	local objective = data.StandardObjective ~= "" and data.StandardObjective or data.SOEObjective
-	local winrateText = buildTraitorWinrateDetail(data)
-
-	self:AddDetailSection("WINRATE", winrateText)
-
-	if objective and objective ~= "" then
-		self:AddDetailSection("OBJECTIVE", objective)
-	end
-
-	if description and description ~= "" then
-		self:AddDetailSection("DESCRIPTION", description)
-	end
-
-	self:AddDetailSection("STANDARD LOADOUT", standardText)
-	self:AddDetailSection("SOE LOADOUT", soeText)
-	self:InvalidateLayout(true)
+	self:SetupModeButton(self.StdButton, "Standard", "standard", data.Standard)
+	self:SetupModeButton(self.SoeButton, "State of Emergency", "soe", data.SOE)
 end
 
-function PANEL:PerformLayout(w, h)
-	self.Scroll:SetPos(traitor_ui(18), traitor_ui(68))
-	self.Scroll:SetSize(w - traitor_ui(36), h - traitor_ui(86))
-	local bodyW = math.max(self.Scroll:GetWide() - traitor_ui(10), 1)
-
-	self:BuildDetailMarkup(bodyW)
-
-	self.Body:SetSize(bodyW, (self.DetailMarkup and self.DetailMarkup:GetHeight() or 0) + traitor_ui(8))
-end
-
-function PANEL:Paint(w, h)
-	drawCutPoly(0, 0, w, h, traitor_ui(14), Color(2, 14, 8, 228))
-	drawCutPoly(1, 1, w - 2, h - 2, traitor_ui(13), Color(7, 30, 19, 210))
-	drawCutOutline(0, 0, w, h, traitor_ui(14), Color(35, 255, 110, 105), 1)
+function TILE:FillExpand()
+	for _, child in ipairs(self.Expand:GetChildren()) do
+		child:Remove()
+	end
 
 	local data = self.RoleData
-	local title = data and string.upper(data.Name or "ROLE PROFILE") or "ROLE PROFILE"
-	local code = data and ("PROFILE / " .. string.upper(string.gsub(data.Base or "unknown", "traitor_", ""))) or "PROFILE / WAITING"
+	if not data then return end
 
-	draw.SimpleText(title, "HMCD_TraitorTiles_Role", traitor_ui(18), traitor_ui(15), traitorTileText, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-	draw.SimpleText(code, "HMCD_TraitorTiles_Code", traitor_ui(19), traitor_ui(47), Color(35, 255, 110, 150), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+	local summary, rounds, wins, losses = statText(combinedStats(data.Standard, data.SOE))
+	local statCol = rounds and color_live or color_gold
+	self.RoundLabel = addText(self.Expand, rounds or summary, "ZC_MM_Tiny", statCol, S(4))
+	self.WinLabel = wins and addText(self.Expand, wins, "ZC_MM_Tiny", statCol, S(2)) or nil
+	self.LoseLabel = losses and addText(self.Expand, losses, "ZC_MM_Tiny", statCol, S(2)) or nil
+
+	local objective = data.StandardObjective ~= "" and data.StandardObjective or data.SOEObjective
+	local description = data.Description or ""
+	if description ~= "" and description == objective then description = "" end
+	if description ~= "" then
+		addText(self.Expand, description, "ZC_MM_Tiny", color_idle_dim, S(12))
+	end
+	if objective ~= "" then
+		addText(self.Expand, objective, "ZC_MM_Tiny", color_text, S(8))
+	end
+
+	addText(self.Expand, "GEAR", "ZC_MM_Header", color_text, S(14))
+	addText(self.Expand, "Choices apply the next time you spawn as this role. Placeholders are not usable.", "ZC_MM_Tiny", color_idle_dim, S(4))
+	if data.Standard then addGearRole(self.Expand, "Standard", data.Standard) end
+	if data.SOE then addGearRole(self.Expand, "State of Emergency", data.SOE) end
 end
 
-vgui.Register("HMCD_TraitorDetailPanel", PANEL, "EditablePanel")
+function TILE:RefreshStats()
+	if not IsValid(self.RoundLabel) or not self.RoleData then return end
+	local summary, rounds, wins, losses = statText(combinedStats(self.RoleData.Standard, self.RoleData.SOE))
+	local statCol = rounds and color_live or color_gold
+	self.RoundLabel:SetText(rounds or summary)
+	self.RoundLabel:SetTextColor(statCol)
+	if IsValid(self.WinLabel) and wins then self.WinLabel:SetText(wins) self.WinLabel:SetTextColor(statCol) end
+	if IsValid(self.LoseLabel) and losses then self.LoseLabel:SetText(losses) self.LoseLabel:SetTextColor(statCol) end
+end
 
-local PANEL = {}
+function TILE:LayoutExpand()
+	local headerH, pad = S(ROW_H), S(12)
+	local innerW = math.max(self:GetWide() - pad * 2, 1)
+	self.Expand:SetPos(pad, headerH)
+	self.Expand:SetWide(innerW)
+	local y = 0
+	for _, child in ipairs(self.Expand:GetChildren()) do
+		y = y + (child.StackGap or 0)
+		child:SetPos(0, y)
+		child:SetWide(innerW)
+		if child.Text then
+			surface.SetFont(child.Font)
+			local _, lineH = surface.GetTextSize("Ag")
+			lineH = lineH + 2
+			local lines = {}
+			for _, para in ipairs(string.Explode("\n", child.Text)) do
+				para = string.Trim(para)
+				if para == "" then
+					lines[#lines + 1] = ""
+				else
+					local line = ""
+					for word in string.gmatch(para, "%S+") do
+						local trial = line == "" and word or (line .. " " .. word)
+						if line ~= "" and surface.GetTextSize(trial) > innerW then
+							lines[#lines + 1] = line
+							line = word
+						else
+							line = trial
+						end
+					end
+					lines[#lines + 1] = line
+				end
+			end
+			child.DrawText = table.concat(lines, "\n")
+			child:SetTall(math.max(#lines, 1) * lineH)
+		end
+		y = y + child:GetTall()
+	end
+	y = y + S(8)
+	self.Expand:SetTall(y)
+	self:SetTall(headerH + y + pad)
+end
 
-function PANEL:Init()
-	refreshTraitorTileFonts()
-	requestTraitorRoleStats(false)
+function TILE:SetExpanded(on)
+	self.Expanded = on
+	self.Expand:SetVisible(on)
+	if not on then
+		for _, child in ipairs(self.Expand:GetChildren()) do
+			child:Remove()
+		end
+		self:SetTall(S(ROW_H))
+		return
+	end
+	self:FillExpand()
+end
 
-	if IsValid(VGUI_HMCD_TraitorTileMenu) then
-		VGUI_HMCD_TraitorTileMenu:Remove()
+function TILE:PerformLayout(w)
+	if not IsValid(self.HeaderHit) or not IsValid(self.StdButton) or not IsValid(self.SoeButton) then return end
+	local pad, gap, headerH = S(12), S(8), S(ROW_H)
+	local btnH = S(42)
+	local soeW, stdW = S(132), S(96)
+	local buttonsW = pad + soeW + gap + stdW
+	self.HeaderHit:SetZPos(1)
+	self.StdButton:SetZPos(2)
+	self.SoeButton:SetZPos(2)
+	self.HeaderHit:SetPos(0, 0)
+	self.HeaderHit:SetSize(math.max(w - buttonsW, 1), headerH)
+	self.StdButton:SetSize(stdW, btnH)
+	self.SoeButton:SetSize(soeW, btnH)
+	self.SoeButton:SetPos(w - pad - soeW, math.floor((headerH - btnH) * 0.5))
+	self.StdButton:SetPos(w - pad - soeW - gap - stdW, math.floor((headerH - btnH) * 0.5))
+end
+
+function TILE:Paint(w, h)
+	local data = self.RoleData or {}
+	local hovered = vgui.GetHoveredPanel()
+	local hover = hovered == self or (IsValid(hovered) and hovered:HasParent(self))
+	local selected = (data.Standard and not isRandom("standard") and currentRole("standard") == data.Standard)
+		or (data.SOE and not isRandom("soe") and currentRole("soe") == data.SOE)
+
+	surface.SetDrawColor(32, 34, 33, hover and 210 or 160)
+	surface.DrawRect(0, 0, w, h)
+	surface.SetDrawColor(selected and TRAITOR_R or FRAME_R, selected and TRAITOR_G or FRAME_G, selected and TRAITOR_B or FRAME_B, selected and 180 or 70)
+	surface.DrawOutlinedRect(0, 0, w, h, 1)
+	if selected or self.Expanded then
+		surface.SetDrawColor(TRAITOR_R, TRAITOR_G, TRAITOR_B, 180)
+		surface.DrawRect(0, 0, 2, h)
 	end
 
+	draw.SimpleText(string.upper(data.Name or "UNKNOWN"), "ZC_MM_Header", S(16), S(12), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+	local summary = statText(combinedStats(data.Standard, data.SOE))
+	draw.SimpleText(summary, "ZC_MM_Tiny", S(16), S(36), summary == "No rounds yet" and color_gold or color_live, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+end
+
+vgui.Register("HMCD_TraitorRoleTile", TILE, "EditablePanel")
+
+local MENU = {}
+
+local function removeOtherTraitorMenus(keep)
+	local function scan(pnl)
+		if not IsValid(pnl) then return end
+		for _, child in ipairs(pnl:GetChildren()) do
+			if child ~= keep and child.GetClassName and child:GetClassName() == "HMCD_TraitorTileMenu" then
+				child:Remove()
+			elseif IsValid(child) then
+				scan(child)
+			end
+		end
+	end
+	scan(vgui.GetWorldPanel())
+end
+
+function MENU:Init()
+	CreateFonts()
+	removeOtherTraitorMenus(self)
 	VGUI_HMCD_TraitorTileMenu = self
+
 	local embedParent = hg and IsValid(hg.HMCD_TraitorTileEmbedParent) and hg.HMCD_TraitorTileEmbedParent or nil
-	if hg then
-		hg.HMCD_TraitorTileEmbedParent = nil
-	end
+	if hg then hg.HMCD_TraitorTileEmbedParent = nil end
 
 	self.EmbeddedInMainMenu = IsValid(embedParent)
 	if self.EmbeddedInMainMenu then
 		self:SetParent(embedParent)
 		self:SetPos(0, 0)
 		self:SetSize(embedParent:GetWide(), embedParent:GetTall())
+		embedParent.Paint = function(_, w, h)
+			DrawTraitorFrame(0, 0, w, h)
+		end
 	else
-		self:SetSize(math.min(ScrW() * 0.86, traitor_ui(1500)), math.min(ScrH() * 0.82, traitor_ui(860)))
+		self:SetSize(math.min(ScrW() * 0.86, S(1280)), math.min(ScrH() * 0.82, S(820)))
 		self:Center()
 		self:MakePopup()
-		if hg.AddSpaceCloseFooter then
-			hg.AddSpaceCloseFooter(self)
-		end
+		if hg.AddSpaceCloseFooter then hg.AddSpaceCloseFooter(self) end
 	end
 
 	self:SetKeyboardInputEnabled(false)
 	self:SetAlpha(0)
 	self:AlphaTo(255, 0.12)
-	self.OpenTime = SysTime()
 
 	self.CloseButton = vgui.Create("DButton", self)
 	self.CloseButton:SetText("")
+	self.CloseButton:SetVisible(not self.EmbeddedInMainMenu)
 	self.CloseButton.DoClick = function()
+		ClickSound(SND_CLICK)
 		self:Close()
 	end
 	self.CloseButton.Paint = function(panel, w, h)
-		local hover = panel:IsHovered() and 1 or 0
-		draw.RoundedBox(0, 0, 0, w, h, Color(3 + hover * 18, 8, 7, 218))
-		surface.SetDrawColor(traitorTileDanger.r, traitorTileDanger.g + hover * 55, traitorTileDanger.b + hover * 45, 165 + hover * 65)
-		surface.DrawOutlinedRect(0, 0, w, h, 1)
-		draw.SimpleText("X", "HMCD_TraitorTiles_Button", w * 0.5, h * 0.48, Color(255, 140 + hover * 70, 145 + hover * 55), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		local hover = panel:IsHovered()
+		paintBox(w, h, TRAITOR_R, TRAITOR_G, TRAITOR_B, nil, hover and 210 or 150)
+		draw.SimpleText("X", "ZC_MM_Button", w * 0.5, h * 0.5, hover and color_text or color_danger, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
-
-	self.DisableStdButton = vgui.Create("DButton", self)
-	self.DisableSoeButton = vgui.Create("DButton", self)
-	self.RandomStdButton = vgui.Create("DButton", self)
-	self.RandomSoeButton = vgui.Create("DButton", self)
-	self:SetupDisableButton(self.DisableStdButton, "DISABLE STD TRAITOR", "standard")
-	self:SetupDisableButton(self.DisableSoeButton, "DISABLE SOE TRAITOR", "soe")
-	self:SetupRandomButton(self.RandomStdButton, "RANDOM STD", "standard")
-	self:SetupRandomButton(self.RandomSoeButton, "RANDOM SOE", "soe")
+	self.CloseButton.OnCursorEntered = function() ClickSound(SND_HOVER) end
 
 	self.Scroll = vgui.Create("DScrollPanel", self)
 	self.Scroll.Paint = function() end
-	self.DetailPanel = vgui.Create("HMCD_TraitorDetailPanel", self)
-
-	local vbar = self.Scroll:GetVBar()
-	vbar:SetWide(traitor_ui(7))
-	vbar.Paint = function(_, w, h)
-		surface.SetDrawColor(0, 0, 0, 120)
-		surface.DrawRect(0, 0, w, h)
+	PaintScroll(self.Scroll)
+	self.Scroll.Rebuild = function(scroll)
+		if self.LayoutTiles then self:LayoutTiles() end
 	end
-	vbar.btnGrip.Paint = function(_, w, h)
-		surface.SetDrawColor(traitorTileAccent.r, traitorTileAccent.g, traitorTileAccent.b, 170)
-		surface.DrawRect(0, 0, w, h)
-	end
-	vbar.btnUp.Paint = function() end
-	vbar.btnDown.Paint = function() end
 
+	self.Side = vgui.Create("DPanel", self)
+	self.Side:SetPaintBackground(false)
+	self.Side.Paint = function(_, w, h)
+		surface.SetDrawColor(32, 34, 33, 210)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(TRAITOR_R, TRAITOR_G, TRAITOR_B, 70)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		draw.SimpleText("RANDOM", "ZC_MM_Header", S(12), S(12), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+	end
+
+	self.RandomStdButton = vgui.Create("DButton", self.Side)
+	self.RandomSoeButton = vgui.Create("DButton", self.Side)
+	self.RandomStdButton:SetText("")
+	self.RandomSoeButton:SetText("")
+	self.RandomStdButton.DoClick = function() toggleRandom("standard") ClickSound(SND_CLICK) end
+	self.RandomSoeButton.DoClick = function() toggleRandom("soe") ClickSound(SND_CLICK) end
+	self.RandomStdButton.OnCursorEntered = function() ClickSound(SND_HOVER) end
+	self.RandomSoeButton.OnCursorEntered = function() ClickSound(SND_HOVER) end
+	self.RandomStdButton.Paint = function(btn, w, h) PaintChip(btn, w, h, isRandom("standard"), color_gold, "RANDOM STD") end
+	self.RandomSoeButton.Paint = function(btn, w, h) PaintChip(btn, w, h, isRandom("soe"), color_gold, "RANDOM SOE") end
+
+	self.PoolHint = vgui.Create("DLabel", self.Side)
+	self.PoolHint:SetFont("ZC_MM_Tiny")
+	self.PoolHint:SetTextColor(color_idle_dim)
+	self.PoolHint:SetWrap(true)
+	self.PoolHint:SetAutoStretchVertical(true)
+	self.PoolHint:SetText("Include roles in random STD / SOE. Gold means the role can be rolled.")
+	self.PoolHint:SetMouseInputEnabled(false)
+
+	self.PoolScroll = vgui.Create("DScrollPanel", self.Side)
+	self.PoolScroll.Paint = function() end
+	PaintScroll(self.PoolScroll)
+
+	self.Roles = collectTraitorRolePairs()
 	self.Tiles = {}
-	local firstData
-	for i, data in ipairs(collectTraitorRolePairs()) do
+	for i, data in ipairs(self.Roles) do
 		local tile = vgui.Create("HMCD_TraitorRoleTile", self.Scroll)
-		self.Scroll:AddItem(tile)
-		tile.TileIndex = i
-		tile.RevealStart = SysTime() + (i - 1) * 0.035
 		tile.OwnerSelector = self
 		tile:SetRoleData(data)
-		firstData = firstData or data
-		self.Tiles[#self.Tiles + 1] = tile
+		self.Tiles[i] = tile
+		self:AddPoolRow(data)
 	end
 
-	self:SetDetailRole(firstData, true)
+	requestTraitorRoleStats(false)
+	syncTraitorGear()
+	queueTraitorRolePreferenceSync()
 end
 
-function PANEL:SetupDisableButton(button, label, mode)
-	button:SetText("")
-	button.Mode = mode
-	button.ModeLabel = label
-	button.DoClick = function()
-		toggleTraitorModeDisabled(mode)
-		surface.PlaySound("buttons/button14.wav")
+function MENU:AddPoolRow(data)
+	local row = vgui.Create("DPanel", self.PoolScroll)
+	row:Dock(TOP)
+	row:SetTall(S(40))
+	row:DockMargin(0, 0, S(6), S(6))
+	row:SetPaintBackground(false)
+	row.Paint = function(_, w, h)
+		surface.SetDrawColor(32, 34, 33, 180)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(FRAME_R, FRAME_G, FRAME_B, 70)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		draw.SimpleText(string.upper(data.Name or "UNKNOWN"), "ZC_MM_Tiny", S(10), h * 0.5, color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 	end
-	button.Paint = function(btn, w, h)
-		local disabled = isTraitorModeDisabled(btn.Mode)
-		local hover = btn:IsHovered() and 1 or 0
-		local cut = traitor_ui(9)
-		local bg = disabled and Color(155, 32, 45, 215) or Color(2 + hover * 8, 17 + hover * 18, 10 + hover * 8, 216)
-		local border = disabled and Color(255, 80, 95, 225) or Color(75, 135, 92, 180 + hover * 45)
-		local text = disabled and string.Replace(btn.ModeLabel, "DISABLE", "DISABLED") or btn.ModeLabel
-		local textColor = disabled and Color(255, 225, 225, 245) or Color(205, 238, 216, 220 + hover * 25)
 
-		drawCutPoly(0, 0, w, h, cut, bg)
-		drawCutOutline(0, 0, w, h, cut, border, disabled and 2 or 1)
-		draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-		if disabled or hover > 0 then
-			drawGlowLine(traitor_ui(14), h - 3, w - traitor_ui(28), 1, disabled and Color(255, 105, 120, 210) or Color(35, 255, 110, 130))
+	local function poolChip(label, mode, role)
+		local btn = vgui.Create("DButton", row)
+		btn:Dock(RIGHT)
+		btn:SetWide(S(52))
+		btn:DockMargin(0, S(6), S(6), S(6))
+		btn:SetText("")
+		btn:SetEnabled(role ~= nil)
+		btn.Paint = function(self, w, h)
+			if not role then
+				PaintChip(self, w, h, false, color_idle_dim, "N/A")
+				return
+			end
+			PaintChip(self, w, h, inRandomPool(role, mode), color_gold, label)
+		end
+		btn.OnCursorEntered = function() if role then ClickSound(SND_HOVER) end end
+		btn.DoClick = function()
+			if not role then return end
+			ClickSound(SND_CLICK)
+			toggleRandomPool(role, mode)
 		end
 	end
+
+	poolChip("SOE", "soe", data.SOE)
+	poolChip("STD", "standard", data.Standard)
 end
 
-function PANEL:SetupRandomButton(button, label, mode)
-	button:SetText("")
-	button.Mode = mode
-	button.ModeLabel = label
-	button.DoClick = function()
-		toggleTraitorModeRandom(mode)
-		surface.PlaySound("buttons/button14.wav")
-	end
-	button.Paint = function(btn, w, h)
-		local random = isTraitorModeRandom(btn.Mode)
-		local hover = btn:IsHovered() and 1 or 0
-		local cut = traitor_ui(9)
-		local bg = random and Color(172, 96, 18, 218) or Color(2 + hover * 8, 17 + hover * 18, 10 + hover * 8, 216)
-		local border = random and Color(255, 190, 75, 230) or Color(75, 135, 92, 180 + hover * 45)
-		local textColor = random and Color(255, 238, 205, 245) or Color(205, 238, 216, 220 + hover * 25)
-
-		drawCutPoly(0, 0, w, h, cut, bg)
-		drawCutOutline(0, 0, w, h, cut, border, random and 2 or 1)
-		draw.SimpleText(btn.ModeLabel, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.36, textColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		draw.SimpleText("+50 HP / +50 STAM", "HMCD_TraitorTiles_Code", w * 0.5, h * 0.72, random and Color(255, 225, 160, 225) or Color(145, 190, 150, 190), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-		if random or hover > 0 then
-			drawGlowLine(traitor_ui(14), h - 3, w - traitor_ui(28), 1, random and Color(255, 190, 75, 210) or Color(35, 255, 110, 130))
-		end
-	end
-end
-
-function PANEL:SetDetailRole(data, pinned)
-	if not data or not IsValid(self.DetailPanel) then return end
-	self.CurrentDetailRole = data
-	self.DetailPanel:SetRoleData(data)
-end
-
-function PANEL:RefreshStats()
-	if IsValid(self.DetailPanel) and self.CurrentDetailRole then
-		self.DetailPanel:SetRoleData(self.CurrentDetailRole)
-	end
-
+function MENU:LayoutTiles()
+	if self.LayingOutTiles or not IsValid(self.Scroll) then return end
+	self.LayingOutTiles = true
+	local canvas = self.Scroll:GetCanvas()
+	local w = canvas:GetWide()
+	if w < 1 then w = self.Scroll:GetWide() end
+	local y, gap = 0, S(8)
 	for _, tile in ipairs(self.Tiles or {}) do
-		if IsValid(tile) then
-			tile:InvalidateLayout(false)
-		end
+		tile:SetWide(w)
+		if tile.Expanded then tile:LayoutExpand() else tile:SetTall(S(ROW_H)) end
+		tile:SetPos(0, y)
+		y = y + tile:GetTall() + gap
+	end
+	canvas:SetTall(math.max(y, 1))
+	self.LayingOutTiles = false
+end
+
+function MENU:SetExpandedRole(data, closeIfOpen)
+	if closeIfOpen and self.CurrentDetailRole == data then data = nil end
+	self.CurrentDetailRole = data
+	for _, tile in ipairs(self.Tiles) do
+		tile:SetExpanded(data ~= nil and tile.RoleData == data)
+	end
+	self:LayoutTiles()
+end
+
+function MENU:RefreshStats()
+	for _, tile in ipairs(self.Tiles) do
+		tile:RefreshStats()
 	end
 end
 
-function PANEL:PerformLayout(w, h)
+function MENU:PerformLayout(w, h)
+	if not IsValid(self.CloseButton) or not IsValid(self.Scroll) or not IsValid(self.Side) then return end
+
 	if self.EmbeddedInMainMenu and IsValid(self:GetParent()) then
 		self:SetSize(self:GetParent():GetWide(), self:GetParent():GetTall())
 	end
 
-	local margin = self.EmbeddedInMainMenu and traitor_ui(18) or traitor_ui(26)
-	local headerH = self.EmbeddedInMainMenu and traitor_ui(108) or traitor_ui(118)
+	local margin = INSET
+	local headerH = S(48)
+	self.CloseButton:SetSize(S(32), S(32))
+	self.CloseButton:SetPos(w - margin - S(32), margin + S(2))
 
-	self.CloseButton:SetSize(traitor_ui(32), traitor_ui(32))
-	self.CloseButton:SetPos(w - margin - self.CloseButton:GetWide(), traitor_ui(30))
-
-	local controlsRight = w - margin - self.CloseButton:GetWide() - traitor_ui(18)
-	local disableH = traitor_ui(32)
-	local disableGap = traitor_ui(12)
-	local disableX = traitor_ui(520)
-	local disableY = traitor_ui(31)
-	local randomW = traitor_ui(140)
-	local disableW = traitor_ui(250)
-	local availableControlsW = controlsRight - disableX
-	if availableControlsW > 0 then
-		local preferredW = disableW * 2 + randomW * 2 + disableGap * 3
-		if preferredW > availableControlsW then
-			local scale = availableControlsW / preferredW
-			disableW = math.max(traitor_ui(172), math.floor(disableW * scale))
-			randomW = math.max(traitor_ui(112), math.floor(randomW * scale))
-		end
-	end
-	self.DisableStdButton:SetPos(disableX, disableY)
-	self.DisableStdButton:SetSize(disableW, disableH)
-	self.DisableSoeButton:SetPos(disableX + disableW + disableGap, disableY)
-	self.DisableSoeButton:SetSize(disableW, disableH)
-	self.RandomStdButton:SetPos(disableX + disableW * 2 + disableGap * 2, disableY)
-	self.RandomStdButton:SetSize(randomW, disableH)
-	self.RandomSoeButton:SetPos(disableX + disableW * 2 + randomW + disableGap * 3, disableY)
-	self.RandomSoeButton:SetSize(randomW, disableH)
-
-	local useSideDetail = w >= traitor_ui(1080)
-	local detailGap = traitor_ui(18)
-	local detailW = useSideDetail and traitor_ui(330) or 0
-	local detailH = useSideDetail and (h - headerH - margin) or traitor_ui(185)
-	local scrollW = useSideDetail and (w - margin * 2 - detailW - detailGap) or (w - margin * 2)
-	local scrollH = useSideDetail and (h - headerH - margin) or (h - headerH - margin * 2 - detailH)
+	local side = w >= S(980)
+	local detailW = side and S(360) or (w - margin * 2)
+	local detailH = side and (h - headerH - margin) or S(240)
+	local scrollW = side and (w - margin * 2 - detailW - S(10)) or (w - margin * 2)
+	local scrollH = side and (h - headerH - margin) or (h - headerH - margin - detailH - S(10))
 
 	self.Scroll:SetPos(margin, headerH)
 	self.Scroll:SetSize(scrollW, scrollH)
-	self.DetailPanel:SetPos(useSideDetail and (margin + scrollW + detailGap) or margin, useSideDetail and headerH or (headerH + scrollH + detailGap))
-	self.DetailPanel:SetSize(useSideDetail and detailW or scrollW, detailH)
+	self.Side:SetPos(side and (margin + scrollW + S(10)) or margin, side and headerH or (headerH + scrollH + S(10)))
+	self.Side:SetSize(detailW, detailH)
 
-	local gap = traitor_ui(18)
-	local available = self.Scroll:GetWide() - gap
-	local cols = ScrW() >= 2200 and 3 or 2
-	local tileW = math.floor((available - gap * (cols - 1)) / cols)
+	local pad, gap, btnH = S(12), S(8), S(32)
+	local btnW = math.floor((detailW - pad * 2 - gap) * 0.5)
+	self.RandomStdButton:SetPos(pad, S(40))
+	self.RandomSoeButton:SetPos(pad + btnW + gap, S(40))
+	self.RandomStdButton:SetSize(btnW, btnH)
+	self.RandomSoeButton:SetSize(btnW, btnH)
 
-	if tileW < traitor_ui(360) then
-		cols = 1
-		tileW = available
-	end
+	self.PoolHint:SetPos(pad, S(80))
+	self.PoolHint:SetWide(detailW - pad * 2)
+	self.PoolHint:SizeToContentsY()
 
-	local tileH = traitor_ui(280)
-	if self.EmbeddedInMainMenu then
-		tileH = traitor_ui(245)
-	end
-	for i, tile in ipairs(self.Tiles) do
-		local col = (i - 1) % cols
-		local row = math.floor((i - 1) / cols)
-
-		tile.BaseX = col * (tileW + gap)
-		tile.BaseY = row * (tileH + gap)
-		tile:SetPos(tile.BaseX, tile.BaseY)
-		tile:SetSize(tileW, tileH)
-	end
-
-	local rows = math.ceil(#self.Tiles / cols)
-	self.Scroll:GetCanvas():SetTall(rows * (tileH + gap))
+	local poolY = S(80) + self.PoolHint:GetTall() + S(8)
+	self.PoolScroll:SetPos(pad, poolY)
+	self.PoolScroll:SetSize(detailW - pad * 2, math.max(detailH - poolY - pad, 1))
 end
 
-function PANEL:Paint(w, h)
-	local pulse = 0.5 + math.sin((SysTime() - self.OpenTime) * 2.2) * 0.5
-	local sweepY = (SysTime() * traitor_ui(42)) % (h + traitor_ui(90)) - traitor_ui(90)
-
-	if self.EmbeddedInMainMenu then
-		drawCutPoly(0, 0, w, h, traitor_ui(16), Color(2, 8, 5, 196))
-	else
-		drawCutPoly(0, 0, w, h, traitor_ui(20), Color(2, 8, 5, 242))
+function MENU:Paint(w, h)
+	if not IsValid(self.Scroll) then return end
+	if not self.EmbeddedInMainMenu then
+		DrawTraitorFrame(0, 0, w, h)
 	end
-
-	surface.SetDrawColor(0, 0, 0, 120)
-	surface.DrawRect(0, 0, w, h)
-	drawCutOutline(0, 0, w, h, self.EmbeddedInMainMenu and traitor_ui(16) or traitor_ui(20), Color(traitorTileAccent.r, traitorTileAccent.g, traitorTileAccent.b, 90 + pulse * 50), 1)
-	drawCornerBrackets(0, 0, w, h, traitor_ui(34), Color(35, 255, 110, self.EmbeddedInMainMenu and 115 or 150))
-
-	surface.SetDrawColor(8, 45, 25, 120)
-	surface.SetMaterial(traitorGradientD)
-	surface.DrawTexturedRect(0, 0, w, h)
-
-	surface.SetDrawColor(traitorTileAccent.r, traitorTileAccent.g, traitorTileAccent.b, 14)
-	for y = 0, h, traitor_ui(28) do
-		surface.DrawRect(0, y, w, 1)
-	end
-
-	surface.SetDrawColor(35, 255, 110, 16)
-	surface.DrawRect(traitor_ui(14), sweepY, w - traitor_ui(28), traitor_ui(2))
-
-	local headerH = traitor_ui(94)
-	surface.SetDrawColor(1, 18, 10, 225)
-	surface.DrawRect(0, 0, w, headerH)
-	surface.SetDrawColor(traitorTileAccent.r, traitorTileAccent.g, traitorTileAccent.b, 42)
-	surface.DrawRect(traitor_ui(28), headerH - 1, w - traitor_ui(56), 1)
-	surface.SetDrawColor(135, 255, 178, 120)
-	surface.DrawRect(traitor_ui(28), headerH - traitor_ui(5), w - traitor_ui(56), 1)
-
-	draw.SimpleText("TRAITOR ROLE SELECTOR", "HMCD_TraitorTiles_Title", traitor_ui(34), traitor_ui(13), traitorTileText, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-	draw.SimpleText("SELECT LOADOUT PROFILE", "HMCD_TraitorTiles_Code", traitor_ui(37), traitor_ui(55), Color(35, 255, 110, 180), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+	surface.SetDrawColor(32, 34, 33, 210)
+	surface.DrawRect(INSET, INSET, w - INSET * 2, S(36))
+	surface.SetDrawColor(TRAITOR_R, TRAITOR_G, TRAITOR_B, 36)
+	surface.DrawRect(INSET, INSET, w - INSET * 2, S(36))
+	draw.SimpleText("TRAITOR ROLE", "ZC_MM_Header", INSET + S(12), INSET + S(18), color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 end
 
-function PANEL:Close()
+function MENU:Close()
 	if self.Closing then return end
 	self.Closing = true
 	self:AlphaTo(0, 0.1, 0, function()
-		if IsValid(self) then
-			self:Remove()
-		end
+		if IsValid(self) then self:Remove() end
 	end)
 end
 
-vgui.Register("HMCD_TraitorTileMenu", PANEL, "EditablePanel")
+vgui.Register("HMCD_TraitorTileMenu", MENU, "EditablePanel")
 
-local PANEL = {}
-
-function PANEL:SetRoleData(data)
-	self.RoleData = data
-	self.Hover = 0
-	self.StdButton = vgui.Create("DButton", self)
-	self.SoeButton = vgui.Create("DButton", self)
-	self.Description = vgui.Create("DLabel", self)
-	self.Description:SetText(data.Description or "")
-	self.Description:SetFont("HMCD_TraitorTiles_Text")
-	self.Description:SetTextColor(traitorTileMuted)
-	self.Description:SetWrap(true)
-	self.Description:SetContentAlignment(7)
-	self.Description:SetMouseInputEnabled(false)
-
-	self:SetupModeButton(self.StdButton, "STD", "standard", data.Standard)
-	self:SetupModeButton(self.SoeButton, "SOE", "soe", data.SOE)
-end
-
-function PANEL:SetupModeButton(button, label, mode, role)
-	button:SetText("")
-	button.ModeLabel = label
-	button.Mode = mode
-	button.Role = role
-	button:SetEnabled(role ~= nil)
-	button.DoClick = function(btn)
-		if not btn.Role then return end
-
-		setTraitorRolePreference(btn.Role, btn.Mode)
-		surface.PlaySound("buttons/button14.wav")
-	end
-	button.Paint = function(btn, w, h)
-		local disabledMode = isTraitorModeDisabled(btn.Mode)
-		local randomMode = isTraitorModeRandom(btn.Mode)
-		local selected = not disabledMode and not randomMode and (btn.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == btn.Role or MODE.ConVar_SubRole_Traitor:GetString() == btn.Role)
-		local enabled = btn.Role ~= nil
-		local hover = enabled and btn:IsHovered() and 1 or 0
-		local cut = traitor_ui(10)
-
-		local bg = selected and Color(15, 165, 82, 205) or (disabledMode and Color(22, 6, 8, enabled and 218 or 120) or (randomMode and Color(35, 25, 7, enabled and 218 or 120) or Color(2 + hover * 8, 17 + hover * 28, 10 + hover * 14, enabled and 226 or 120)))
-		drawCutPoly(0, 0, w, h, cut, bg)
-
-		local border = selected and traitorTileAccent or (disabledMode and Color(150, 54, 62, 155) or (randomMode and Color(190, 124, 45, 155) or (enabled and Color(75, 135, 92, 180) or Color(65, 70, 65, 130))))
-		drawCutOutline(0, 0, w, h, cut, border, selected and 2 or 1)
-
-		local text = enabled and btn.ModeLabel or (btn.ModeLabel .. " N/A")
-		local mainColor = enabled and (selected and color_white or (disabledMode and Color(190, 112, 118, 210) or (randomMode and Color(230, 185, 105, 220) or traitorTileText))) or Color(105, 110, 105)
-
-		if enabled then
-			local stats = getTraitorRoleStats(btn.Role)
-			local rate = getTraitorWinratePercent(stats)
-			local statText = rate and (rate .. "% / " .. stats.games .. "R") or "--"
-
-			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.36, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-			draw.SimpleText(disabledMode and "DISABLED" or (randomMode and "RANDOM" or statText), "HMCD_TraitorTiles_Code", w * 0.5, h * 0.68, selected and Color(220, 255, 232, 230) or (disabledMode and Color(210, 105, 112, 205) or (randomMode and Color(230, 185, 105, 210) or Color(135, 190, 154, 205))), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		else
-			draw.SimpleText(text, "HMCD_TraitorTiles_Button", w * 0.5, h * 0.5, mainColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		end
-
-		if selected then
-			drawGlowLine(traitor_ui(14), h - 3, w - traitor_ui(28), 1, Color(145, 255, 185, 220))
-		elseif hover > 0 then
-			drawGlowLine(traitor_ui(16), h - 2, (w - traitor_ui(32)) * hover, 1, Color(35, 255, 110, 130))
-		end
-	end
-end
-
-function PANEL:PerformLayout(w, h)
-	local pad = traitor_ui(18)
-	local btnGap = traitor_ui(10)
-	local btnH = traitor_ui(42)
-	local btnW = (w - pad * 2 - btnGap) * 0.5
-
-	self.StdButton:SetPos(pad, h - pad - btnH)
-	self.StdButton:SetSize(btnW, btnH)
-	self.SoeButton:SetPos(pad + btnW + btnGap, h - pad - btnH)
-	self.SoeButton:SetSize(btnW, btnH)
-	self.Description:SetPos(pad, traitor_ui(96))
-	self.Description:SetSize(w - pad * 2, h - traitor_ui(164))
-end
-
-function PANEL:Think()
-	local deepHover = panelHoveredDeep(self)
-	self.Hover = LerpFT(0.14, self.Hover or 0, deepHover and 1 or 0)
-
-	if deepHover and IsValid(self.OwnerSelector) then
-		self.OwnerSelector:SetDetailRole(self.RoleData, false)
-	end
-
-	local reveal = math.Clamp((SysTime() - (self.RevealStart or SysTime())) / 0.22, 0, 1)
-	reveal = 1 - (1 - reveal) * (1 - reveal)
-	self:SetAlpha(255 * reveal)
-
-	if self.BaseX and self.BaseY then
-		self:SetPos(self.BaseX + (1 - reveal) * traitor_ui(34), self.BaseY)
-	end
-end
-
-function PANEL:OnMousePressed(code)
-	if code == MOUSE_LEFT and IsValid(self.OwnerSelector) then
-		self.OwnerSelector:SetDetailRole(self.RoleData, true)
-	end
-end
-
-function PANEL:Paint(w, h)
-	local data = self.RoleData or {}
-	local hover = self.Hover or 0
-	local selectedStd = data.Standard and MODE.ConVar_SubRole_Traitor:GetString() == data.Standard
-	local selectedSoe = data.SOE and MODE.ConVar_SubRole_Traitor_SOE:GetString() == data.SOE
-	local stdDisabled = isTraitorModeDisabled("standard")
-	local soeDisabled = isTraitorModeDisabled("soe")
-	local stdRandom = isTraitorModeRandom("standard")
-	local soeRandom = isTraitorModeRandom("soe")
-	if stdDisabled then selectedStd = false end
-	if soeDisabled then selectedSoe = false end
-	if stdRandom then selectedStd = false end
-	if soeRandom then selectedSoe = false end
-	local selected = selectedStd or selectedSoe
-	local cut = traitor_ui(18)
-	local t = SysTime() + (self.TileIndex or 1) * 0.37
-	local pulse = 0.5 + math.sin(t * 2.3) * 0.5
-
-	drawCutPoly(0, 0, w, h, cut, Color(0, 0, 0, 145 + hover * 40))
-	drawCutPoly(1, 1, w - 2, h - 2, cut, selected and Color(4, 44, 23, 248) or traitorTilePanel)
-	drawCutPoly(traitor_ui(7), traitor_ui(7), w - traitor_ui(14), h - traitor_ui(14), traitor_ui(12), traitorTilePanelAccent)
-
-	local border = selected and Color(35, 255, 110, 230) or Color(35, 255, 110, 75 + hover * 90)
-	drawCutOutline(0, 0, w, h, cut, border, selected and 2 or 1)
-
-	if hover > 0 or selected then
-		surface.SetDrawColor(190, 255, 210, selected and 16 or (6 + hover * 10))
-		surface.DrawRect(traitor_ui(24), traitor_ui(14), w - traitor_ui(86), 1)
-	end
-
-	local scanW = traitor_ui(44)
-	local scanX = ((t * traitor_ui(30)) % (w + scanW * 2)) - scanW
-	surface.SetDrawColor(traitorTileAccent.r, traitorTileAccent.g, traitorTileAccent.b, selected and 4 or (1 + hover * 2))
-	surface.SetMaterial(traitorGradientR)
-	surface.DrawTexturedRect(scanX, traitor_ui(14), scanW, h - traitor_ui(28))
-
-	local railH = h - traitor_ui(44)
-	drawGlowLine(traitor_ui(12), traitor_ui(21), 2, railH, selected and Color(35, 255, 110, 220) or Color(35, 255, 110, 95 + hover * 80))
-	draw.SimpleText(string.upper(data.Name or "UNKNOWN"), "HMCD_TraitorTiles_Role", traitor_ui(26), traitor_ui(16), traitorTileText, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-	draw.SimpleText("NODE " .. string.format("%02d", self.TileIndex or 0) .. " / " .. string.upper(string.gsub(data.Base or "unknown", "traitor_", "")), "HMCD_TraitorTiles_Code", traitor_ui(27), traitor_ui(51), Color(35, 255, 110, 155), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
-	local combinedStats = combineTraitorRoleStats(data.Standard, data.SOE)
-	local winrateText = formatTraitorWinrateShort(combinedStats)
-	local rate = getTraitorWinratePercent(combinedStats)
-	local winrateColor = rate and Color(100, 255, 165, 205) or Color(255, 190, 75, 150)
-	draw.SimpleText(winrateText, "HMCD_TraitorTiles_Code", traitor_ui(27), traitor_ui(69), winrateColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
-
-	local status = {}
-	if selectedStd then status[#status + 1] = "STD ACTIVE" end
-	if selectedSoe then status[#status + 1] = "SOE ACTIVE" end
-	if stdDisabled then status[#status + 1] = "STD DISABLED" end
-	if soeDisabled then status[#status + 1] = "SOE DISABLED" end
-	if stdRandom then status[#status + 1] = "STD RANDOM" end
-	if soeRandom then status[#status + 1] = "SOE RANDOM" end
-
-	local statusText = #status > 0 and table.concat(status, " / ") or "PENDING"
-	local disabledOnly = not selected and (stdDisabled or soeDisabled)
-	local randomOnly = not selected and not disabledOnly and (stdRandom or soeRandom)
-	local statusColor = selected and traitorTileAccentHot or (disabledOnly and Color(255, 120, 130) or (randomOnly and Color(255, 190, 75) or traitorTileAmber))
-	local chipFill = selected and Color(35, 255, 110, 45) or (disabledOnly and Color(155, 32, 45, 38) or (randomOnly and Color(255, 150, 40, 24) or Color(255, 190, 75, 18)))
-	local chipBorder = selected and Color(35, 255, 110, 150) or (disabledOnly and Color(255, 80, 95, 100) or (randomOnly and Color(255, 190, 75, 110) or Color(255, 190, 75, 85)))
-
-	surface.SetFont("HMCD_TraitorTiles_Code")
-	local tw, th = surface.GetTextSize(statusText)
-	local chipW = tw + traitor_ui(22)
-	local chipH = th + traitor_ui(10)
-	local chipX = w - chipW - traitor_ui(16)
-	local chipY = traitor_ui(18)
-	drawCutPoly(chipX, chipY, chipW, chipH, traitor_ui(6), chipFill)
-	drawCutOutline(chipX, chipY, chipW, chipH, traitor_ui(6), chipBorder, 1)
-	draw.SimpleText(statusText, "HMCD_TraitorTiles_Code", chipX + chipW * 0.5, chipY + chipH * 0.5, Color(statusColor.r, statusColor.g, statusColor.b, #status > 0 and 230 or 175), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-end
-
-vgui.Register("HMCD_TraitorRoleTile", PANEL, "EditablePanel")
-
---\\SubRole View Panel
-local PANEL = {}
-
-function PANEL:Construct()
-	self:SetSkin(hg.GetMainSkin())
-	
-	self.Title = self.Title or "No title"
-	local width, height = self:GetSize()
-	local dock_bottom = 5
-	
-	local label_name = vgui.Create("DLabel", self)
-	label_name.ZRolePanel = self
-	local label_name_height = 50--height / 5
-	height = height - label_name_height - dock_bottom
-	label_name:SetText("")
-	label_name:SetSkin(hg.GetMainSkin())
-	label_name:DockMargin(0, 0, 0, dock_bottom)
-	label_name:Dock(TOP)
-	label_name:SetHeight(label_name_height)
-	label_name:SetMouseInputEnabled(true)
-	label_name.Paint = function(sel, w, h)
-		if((self.Mode == "soe" and not isTraitorModeDisabled("soe") and not isTraitorModeRandom("soe") and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and not isTraitorModeDisabled("standard") and not isTraitorModeRandom("standard") and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
-			surface.SetDrawColor(vgui_color_main)
-			surface.DrawOutlinedRect(1, 1, w - 2, h - 2, 3)
-		end
-		
-		surface.SetFont("ZB_InterfaceMedium")
-
-		local tw, th = surface.GetTextSize(self.Title)
-		
-		surface.SetTextColor(255, 255, 255)
-		surface.SetTextPos(w / 2 - tw / 2, h / 2 - th / 2)
-		surface.DrawText(self.Title)
-	end
-	
-	label_name.DoClick = function(sel)
-		setTraitorRolePreference(self.Role, self.Mode or "soe")
-	end
-	
-	local text_description = vgui.Create("RichText", self)
-	text_description.ZRolePanel = self
-	text_description:SetText(self.Description)
-	text_description:SetSkin(hg.GetMainSkin())
-	text_description:Dock(FILL)
-	text_description.PerformLayout = function(sel)
-		if(sel:GetFont() != "ZB_InterfaceSmall")then
-			sel:SetFontInternal("ZB_InterfaceSmall")
-		end
-		
-		sel:SetFGColor(color_white)
-	end
-	text_description.Paint = function(sel, w, h)
-		
-	end
-end
-
-function PANEL:PaintOver(w, h)
-
-end
-
-local tex_gradient = surface.GetTextureID("vgui/gradient-d")
-local mata = Material("vgui/traitor_icons/traitor_icon.png")
-
-local rolesmaterials = {
-	["traitor_default_soe"] = Material("vgui/traitor_icons/traitor_icon.png"),
-}
-
-local glow = Material("homigrad/vgui/models/circle.png")
-
-function PANEL:PostPaintPanel(w, h)
-	/*if((self.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
-		local y_start = 0
-		
-		surface.SetDrawColor(vgui_color_main)
-		--surface.SetTexture(tex_gradient)
-		surface.SetMaterial(mata)
-		surface.DrawTexturedRect(0, -100, w, h + 200)
-	end*/
-	if rolesmaterials[self.Role] then
-		--surface.SetDrawColor(vgui_color_main)
-		--surface.SetMaterial(rolesmaterials[self.Role])
-		--surface.DrawTexturedRect(0, -100, w, h + 200)
-
-		--[[ --whatever
-        render.SetStencilWriteMask(0xFF)
-        render.SetStencilTestMask(0xFF)
-        render.SetStencilReferenceValue(0)
-        render.SetStencilCompareFunction(STENCIL_NEVER)
-        render.SetStencilPassOperation(STENCIL_KEEP)
-        render.SetStencilFailOperation(STENCIL_KEEP)
-        render.SetStencilZFailOperation(STENCIL_KEEP)
-        render.ClearStencil()
-        
-        render.SetStencilEnable(true)
-        render.SetStencilReferenceValue(1)
-        render.SetStencilFailOperation(STENCIL_REPLACE)
-
-		surface.SetDrawColor(Color(255, 255, 255, 255))
-		surface.SetMaterial(glow)
-		local x, y = self:ScreenToLocal(gui.MouseX() - 0, gui.MouseY() - 0)
-		draw.Circle( x, y, 200, 16 )
-
-        render.SetStencilFailOperation(STENCIL_KEEP)
-        render.SetStencilCompareFunction(STENCIL_EQUAL)
-
-		surface.SetDrawColor(Color(255, 0, 0, 50))
-		surface.SetMaterial(rolesmaterials[self.Role])
-		surface.DrawTexturedRect(0, -100, w, h + 200)
-
-		render.SetStencilEnable( false )--]]
-	end
-end
-
-derma.DefineControl("HMCD_RolePanel", "", PANEL, "DPanel")
---||Sub role carousel
-local PANEL = {}
-
-function PANEL:Construct()
-	self:SetSkin(hg.GetMainSkin())
-	
-	self.RolesIDsList = self.RolesIDsList or MODE.RoleChooseRoundTypes["standard"].Traitor
-	local width, height = self:GetSize()
-	local dock_bottom = 5
-	
-	local hscroll = vgui.Create("ZHorizontalScroller", self)
-	local hscroll_height = height - 50
-	height = height - hscroll_height
-	hscroll:SetHeight(hscroll_height)
-	hscroll:SetSkin(hg.GetMainSkin())
-	hscroll:DockMargin(0, 0, 0, dock_bottom)
-	hscroll:Dock(TOP)
-	hscroll:SetOverlap(-10)
-	-- hscroll:SetUseLiveDrag(true)
-	-- hscroll:InvalidateParent(false)
-	for role_id, _ in pairs(self.RolesIDsList) do
-		local role_info = MODE.SubRoles[role_id]
-		local role_name = role_info.Name
-		local role_description = resolveBindText(role_info.Description)
-		
-		local role_panel = vgui.Create("HMCD_RolePanel", hscroll)
-		role_panel.Title = role_name
-		role_panel.Description = role_description
-		role_panel.Role = role_id
-		role_panel.Mode = self.Mode or "soe"
-		role_panel:SetWidth(ScreenScale(170))
-		-- role_panel:SetHeight(hscroll_height)
-		-- role_panel:InvalidateParent(false)
-		role_panel:Construct()
-		
-		hscroll:AddPanel(role_panel)
-	end
-	
-	local button_ready = vgui.Create("DButton", self)
-	button_ready:Dock(FILL)
-	button_ready:SetSkin(hg.GetMainSkin())
-	button_ready:SetText("APPLY")
-	button_ready.DoClick = function(sel)
-		--if(sel.Clicked)then
-			if(IsValid(VGUI_HMCD_RolePanelList))then
-				VGUI_HMCD_RolePanelList:Remove()
-			end
-		--end
-		
-		--sel.Clicked = true
-		
-		--net.Start("HMCD(StartPlayersRoleSelection)")
-		--net.SendToServer()
-	end
-	button_ready.Paint = function(sel, w, h)
-		if(sel.Clicked)then
-			surface.SetDrawColor(vgui_color_ready)
-		else
-			surface.SetDrawColor(vgui_color_notready)
-		end
-		
-		surface.DrawRect(0, 0, w, h)
-		surface.SetDrawColor(255, 255, 255, 10)
-		surface.DrawRect(0, 0, w, h * 0.45)
-		surface.SetDrawColor(color_black)
-		surface.DrawOutlinedRect(0, 0, w, h)
-	end
-end
-
-function PANEL:Paint()
-	
-end
-
-derma.DefineControl("HMCD_RolePanelList", "", PANEL, "DPanel")
---
-
---\\Manual Click detection
-local delta = 0
-hook.Add("CreateMove", "HMCD_RolePanelClick", function(cmd)
-	local dlta = (input.WasMousePressed(MOUSE_WHEEL_DOWN) and -1) or (input.WasMousePressed(MOUSE_WHEEL_UP) and 1) or 0
-
-	delta = LerpFT(0.05, delta, dlta)
-	local delta = delta * 2
-
-	if(math.abs(delta) > 0.01)then
-		local hovered_panel = vgui.GetHoveredPanel()
-
-		local parent_panel = IsValid(hovered_panel) and hovered_panel:GetParent()
-		local parent_panel2 = IsValid(parent_panel) and parent_panel:GetParent()
-		local parent_panel3 = IsValid(parent_panel2) and parent_panel2:GetParent()
-		local parent_panel4 = IsValid(parent_panel3) and parent_panel3:GetParent()
-		local parent_panel5 = IsValid(parent_panel4) and parent_panel4:GetParent()
-
-		if IsValid(hovered_panel) and hovered_panel.OnMouseWheeled then
-			hovered_panel:OnMouseWheeled(delta)
-		end
-
-		if IsValid(parent_panel) and parent_panel.OnMouseWheeled then
-			parent_panel:OnMouseWheeled(delta)
-		end
-
-		if IsValid(parent_panel2) and parent_panel2.OnMouseWheeled then
-			parent_panel2:OnMouseWheeled(delta)
-		end
-
-		if IsValid(parent_panel3) and parent_panel3.OnMouseWheeled then
-			parent_panel3:OnMouseWheeled(delta)
-		end
-
-		if IsValid(parent_panel4) and parent_panel4.OnMouseWheeled then
-			parent_panel4:OnMouseWheeled(delta)
-		end
-
-		if IsValid(parent_panel5) and parent_panel5.OnMouseWheeled then
-			parent_panel5:OnMouseWheeled(delta)
-		end
-	end
-
-	if(input.WasMousePressed(MOUSE_LEFT))then
-			-- print("Left mouse button was pressed")
-		local hovered_panel = vgui.GetHoveredPanel()
-		
-		if(IsValid(hovered_panel) and IsValid(hovered_panel.ZRolePanel))then
-			setTraitorRolePreference(hovered_panel.ZRolePanel.Role, hovered_panel.ZRolePanel.Mode)
-		end
-	end
+timer.Simple(0, function()
+	removeOtherTraitorMenus(IsValid(VGUI_HMCD_TraitorTileMenu) and VGUI_HMCD_TraitorTileMenu or nil)
 end)
---
-
---\\https://github.com/Facepunch/garrysmod/blob/master/garrysmod/lua/vgui/dhorizontalscroller.lua
-local PANEL = {}
-
-AccessorFunc( PANEL, "m_iOverlap",			"Overlap" )
-AccessorFunc( PANEL, "m_bShowDropTargets",	"ShowDropTargets", FORCE_BOOL )
-
-function PANEL:Init()
-
-	self.Panels = {}
-	self.OffsetX = 0
-	self.FrameTime = 0
-
-	self.pnlCanvas = vgui.Create( "DDragBase", self )
-	self.pnlCanvas:SetDropPos( "6" )
-	self.pnlCanvas:SetUseLiveDrag( false )
-	self.pnlCanvas.OnModified = function() self:OnDragModified() end
-
-	self.pnlCanvas.UpdateDropTarget = function( Canvas, drop, pnl )
-		if ( !self:GetShowDropTargets() ) then return end
-		DDragBase.UpdateDropTarget( Canvas, drop, pnl )
-	end
-
-	self.pnlCanvas.OnChildAdded = function( Canvas, child )
-
-		local dn = Canvas:GetDnD()
-		if ( dn ) then
-
-			child:Droppable( dn )
-			child.OnDrop = function()
-
-				local x, y = Canvas:LocalCursorPos()
-				local closest, id = self.pnlCanvas:GetClosestChild( x, Canvas:GetTall() / 2 ), 0
-
-				for k, v in pairs( self.Panels ) do
-					if ( v == closest ) then id = k break end
-				end
-
-				table.RemoveByValue( self.Panels, child )
-				table.insert( self.Panels, id, child )
-
-				self:InvalidateLayout()
-
-				return child
-
-			end
-		end
-
-	end
-
-	self:SetOverlap( 0 )
-
-	self.btnLeft = vgui.Create( "DButton", self )
-	self.btnLeft:SetText( "" )
-	self.btnLeft.Paint = function( panel, w, h ) derma.SkinHook( "Paint", "ButtonLeft", panel, w, h ) end
-
-	self.btnRight = vgui.Create( "DButton", self )
-	self.btnRight:SetText( "" )
-	self.btnRight.Paint = function( panel, w, h ) derma.SkinHook( "Paint", "ButtonRight", panel, w, h ) end
-
-end
-
-function PANEL:GetCanvas()
-	return self.pnlCanvas
-end
-
-function PANEL:ScrollToChild( panel )
-
-	-- make sure our size is all good
-	self:InvalidateLayout( true )
-
-	local x, y = self.pnlCanvas:GetChildPosition( panel )
-	local w, h = panel:GetSize()
-
-	x = x + w * 0.5
-	x = x - self:GetWide() * 0.5
-
-	self:SetScroll( x )
-
-end
-
-function PANEL:SetScroll( x )
-
-	self.OffsetX = x
-	self:InvalidateLayout( true )
-
-end
-
-function PANEL:SetUseLiveDrag( bool )
-	self.pnlCanvas:SetUseLiveDrag( bool )
-end
-
-function PANEL:MakeDroppable( name, allowCopy )
-	self.pnlCanvas:MakeDroppable( name, allowCopy )
-end
-
-function PANEL:AddPanel( pnl )
-
-	table.insert( self.Panels, pnl )
-
-	pnl:SetParent( self.pnlCanvas )
-	self:InvalidateLayout( true )
-
-end
-
-function PANEL:Clear()
-	self.pnlCanvas:Clear()
-	self.Panels = {}
-end
-
-function PANEL:OnMouseWheeled( dlta )
-
-	self.OffsetX = self.OffsetX + dlta * -30
-	self:InvalidateLayout( true )
-
-	return true
-
-end
-
-function PANEL:Think()
-
-	-- Hmm.. This needs to really just be done in one place
-	-- and made available to everyone.
-	local FrameRate = VGUIFrameTime() - self.FrameTime
-	self.FrameTime = VGUIFrameTime()
-
-	if ( self.btnRight:IsDown() ) then
-		self.OffsetX = self.OffsetX + ( 500 * FrameRate )
-		self:InvalidateLayout( true )
-	end
-
-	if ( self.btnLeft:IsDown() ) then
-		self.OffsetX = self.OffsetX - ( 500 * FrameRate )
-		self:InvalidateLayout( true )
-	end
-
-	if ( dragndrop.IsDragging() ) then
-
-		local x, y = self:LocalCursorPos()
-
-		if ( x < 30 ) then
-			self.OffsetX = self.OffsetX - ( 350 * FrameRate )
-		elseif ( x > self:GetWide() - 30 ) then
-			self.OffsetX = self.OffsetX + ( 350 * FrameRate )
-		end
-
-		self:InvalidateLayout( true )
-
-	end
-
-end
-
-function PANEL:PerformLayout()
-
-	local w, h = self:GetSize()
-
-	self.pnlCanvas:SetTall( h )
-
-	local x = 0
-
-	for k, v in pairs( self.Panels ) do
-		if ( !IsValid( v ) ) then continue end
-		if ( !v:IsVisible() ) then continue end
-
-		v:SetPos( x, 0 )
-		v:SetTall( h )
-		if ( v.ApplySchemeSettings ) then v:ApplySchemeSettings() end
-
-		x = x + v:GetWide() - self.m_iOverlap
-
-	end
-
-	self.pnlCanvas:SetWide( x + self.m_iOverlap )
-
-	if ( w < self.pnlCanvas:GetWide() ) then
-		self.OffsetX = math.Clamp( self.OffsetX, 0, self.pnlCanvas:GetWide() - self:GetWide() )
-	else
-		self.OffsetX = 0
-	end
-
-	self.pnlCanvas.x = self.OffsetX * -1
-
-	self.btnLeft:SetSize( 15, 15 )
-	self.btnLeft:AlignLeft( 4 )
-	self.btnLeft:AlignBottom( 5 )
-
-	self.btnRight:SetSize( 15, 15 )
-	self.btnRight:AlignRight( 4 )
-	self.btnRight:AlignBottom( 5 )
-
-	self.btnLeft:SetVisible( self.pnlCanvas.x < 0 )
-	self.btnRight:SetVisible( self.pnlCanvas.x + self.pnlCanvas:GetWide() > self:GetWide() )
-
-end
-
-function PANEL:OnDragModified()
-	-- Override me
-end
-
-derma.DefineControl( "ZHorizontalScroller", "", PANEL, "Panel" )
---

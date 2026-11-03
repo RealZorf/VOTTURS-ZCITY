@@ -1,11 +1,6 @@
 local MODE = MODE
 MODE.name = "hmcd"
 
---\\Local Functions
-local function screen_scale_2(num)
-	return ScreenScale(num) / (ScrW() / ScrH())
-end
---
 
 MODE.TypeSounds = {
 	["standard"] = {"snd_jack_hmcd_psycho.mp3","snd_jack_hmcd_shining.mp3"},
@@ -1862,51 +1857,16 @@ net.Receive("HMCD(StartPlayersRoleSelection)", function()
 end)
 
 function hg.SelectPlayerRole(role, mode, parent)
-	role = role or "Traitor"
-
-	if not mode then
-		if(IsValid(VGUI_HMCD_RolePanelList))then
-			VGUI_HMCD_RolePanelList:Remove()
-		end
-
-		if(IsValid(VGUI_HMCD_TraitorTileMenu))then
-			VGUI_HMCD_TraitorTileMenu:Remove()
-		end
-
-		hg.HMCD_TraitorTileEmbedParent = IsValid(parent) and parent or nil
-		VGUI_HMCD_TraitorTileMenu = vgui.Create("HMCD_TraitorTileMenu")
-		return
-	end
-
-	if(IsValid(VGUI_HMCD_RolePanelList))then
-		VGUI_HMCD_RolePanelList:Remove()
-	end
-
-	if(IsValid(VGUI_HMCD_TraitorTileMenu))then
+	if IsValid(VGUI_HMCD_TraitorTileMenu) then
 		VGUI_HMCD_TraitorTileMenu:Remove()
 	end
 
-	if(MODE.RoleChooseRoundTypes[mode])then
-		--VGUI_HMCD_RolePanelList = vgui.Create("ZB_TraitorSelectionMenu")
-		--VGUI_HMCD_RolePanelList:Center()
-		VGUI_HMCD_RolePanelList = vgui.Create("HMCD_RolePanelList")
-		VGUI_HMCD_RolePanelList.RolesIDsList = MODE.RoleChooseRoundTypes[mode][role]	--; WARNING TCP Reroute
-		VGUI_HMCD_RolePanelList.Mode = mode
-		-- VGUI_HMCD_RolePanelList:SetSize(ScreenScale(600), ScreenScale(300))
-		VGUI_HMCD_RolePanelList:SetSize(screen_scale_2(700), screen_scale_2(300))
-		VGUI_HMCD_RolePanelList:Center()
-		VGUI_HMCD_RolePanelList:InvalidateParent(false)
-		VGUI_HMCD_RolePanelList:Construct()
-		VGUI_HMCD_RolePanelList:MakePopup()
-	end
+	hg.HMCD_TraitorTileEmbedParent = IsValid(parent) and parent or nil
+	VGUI_HMCD_TraitorTileMenu = vgui.Create("HMCD_TraitorTileMenu")
 end
 
 net.Receive("HMCD(EndPlayersRoleSelection)", function()
-	if(IsValid(VGUI_HMCD_RolePanelList))then
-		VGUI_HMCD_RolePanelList:Remove()
-	end
-
-	if(IsValid(VGUI_HMCD_TraitorTileMenu))then
+	if IsValid(VGUI_HMCD_TraitorTileMenu) then
 		VGUI_HMCD_TraitorTileMenu:Remove()
 	end
 end)

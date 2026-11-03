@@ -462,8 +462,11 @@ function PANEL:RebuildContent(callback)
 	local pp = self.panelparrent
 	if not IsValid(pp) then return end
 
+	self.RebuildToken = (self.RebuildToken or 0) + 1
+	local token = self.RebuildToken
+
 	pp:AlphaTo(0, 0.12, 0, function()
-		if not IsValid(self) then return end
+		if not IsValid(self) or self.RebuildToken ~= token then return end
 		if IsValid(pp) then pp:Remove() end
 
 		self.panelparrent = vgui.Create("DPanel", self)
@@ -552,15 +555,16 @@ function PANEL:AddSelect(parent, tbl, buttonH, first)
 
 		if current_panel == self.Id then
 			MenuSound("shitty/tap_release.wav", 0.05)
-			menu:RebuildContent()
 			current_panel = nil
+			menu:RebuildContent()
 			return
 		end
 
 		MenuSound("shitty/tap_depress.wav", 0.09)
+		current_panel = self.Id
 		menu:RebuildContent(function(nextPP)
+			if current_panel ~= btn.Id then return end
 			tbl.Func(menu, nextPP)
-			current_panel = btn.Id
 		end)
 	end
 end

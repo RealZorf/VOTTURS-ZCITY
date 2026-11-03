@@ -45,6 +45,983 @@ function MODE.NormalizeTraitorSubRole(subrole)
 	return subrole
 end
 
+MODE.TraitorGear = {
+	traitor_default = {
+		{slot = "pistol",
+			{item = "weapon_rugermk4", attachments = {"supressor4", "holo7"}, ammoMags = 2},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_buck200knife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "grenade",
+			{item = "weapon_hg_rgd_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "shuriken",
+			{item = "weapon_hg_shuriken"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "ied",
+			{item = "weapon_traitor_ied"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "poison",
+			{item = "weapon_traitor_poison1"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wedge",
+			{item = "weapon_hg_jam"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_default_soe = {
+		{slot = "pistol",
+			{item = "weapon_rugermk4", attachments = {"supressor4", "holo7"}, ammoMags = 2},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "grenade",
+			{item = "weapon_hg_rgd_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "ied",
+			{item = "weapon_traitor_ied"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "vx",
+			{item = "weapon_traitor_poison2"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "cyanide",
+			{item = "weapon_traitor_poison3"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_infiltrator = {
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_infiltrator_soe = {
+		{slot = "taser",
+			{item = "weapon_taser", ammoMags = 2},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_thief = {
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_thief_soe = {
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_assassin = {
+		{slot = "katana",
+			{item = "weapon_katana"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sling",
+			{item = "hg_sling", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_assassin_soe = {
+		{slot = "katana",
+			{item = "weapon_katana"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sling",
+			{item = "hg_sling", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_chemist = {
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "tetrodotoxin",
+			{item = "weapon_traitor_poison1"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "vx",
+			{item = "weapon_traitor_poison2"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "cyanide",
+			{item = "weapon_traitor_poison3"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "curare",
+			{item = "weapon_traitor_poison4"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "capsule",
+			{item = "weapon_traitor_poison_consumable"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sleep",
+			{item = "weapon_traitor_sleepcanister"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_chemist_soe = {
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "tetrodotoxin",
+			{item = "weapon_traitor_poison1"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "vx",
+			{item = "weapon_traitor_poison2"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "cyanide",
+			{item = "weapon_traitor_poison3"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "curare",
+			{item = "weapon_traitor_poison4"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "capsule",
+			{item = "weapon_traitor_poison_consumable"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sleep",
+			{item = "weapon_traitor_sleepcanister"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_maniac = {
+		{slot = "pistol",
+			{item = "weapon_m45"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "axe",
+			{item = "weapon_hg_fireaxe", setup = function(_, wep)
+				wep.poisoned2 = true
+				wep.NoHolster = false
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "molotov",
+			{item = "weapon_hg_molotov_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "grenade",
+			{item = "weapon_hg_rgd_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "curare",
+			{item = "weapon_traitor_poison4"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sling",
+			{item = "hg_sling", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_maniac_soe = {
+		{slot = "pistol",
+			{item = "weapon_m45"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "axe",
+			{item = "weapon_hg_fireaxe", setup = function(_, wep)
+				wep.poisoned2 = true
+				wep.NoHolster = false
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "molotov",
+			{item = "weapon_hg_molotov_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "grenade",
+			{item = "weapon_hg_rgd_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "curare",
+			{item = "weapon_traitor_poison4"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sling",
+			{item = "hg_sling", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_juggernaut = {
+		{slot = "crowbar",
+			{item = "weapon_hg_crowbar", give = function(ply)
+				return MODE.GiveJuggernautCrowbar(ply)
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_juggernaut_soe = {
+		{slot = "crowbar",
+			{item = "weapon_hg_crowbar", give = function(ply)
+				return MODE.GiveJuggernautCrowbar(ply)
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_cannibal = {
+		{slot = "cleaver",
+			{item = "weapon_hg_cleaver", setup = function(_, wep)
+				wep.NoHolster = false
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_cannibal_soe = {
+		{slot = "cleaver",
+			{item = "weapon_hg_cleaver", setup = function(_, wep)
+				wep.NoHolster = false
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "epinephrine",
+			{item = "weapon_adrenaline"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_revenant = {
+		{slot = "pistol",
+			{item = "weapon_osapb"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_revenant_soe = {
+		{slot = "pistol",
+			{item = "weapon_osapb"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "wire",
+			{item = "weapon_hg_fiberwire"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "vest",
+			{item = "weapon_bombvest"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "smoke",
+			{item = "weapon_hg_smokenade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "suit",
+			{item = "weapon_traitor_suit"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_terrorist = {
+		{slot = "vest",
+			{item = "weapon_bombvest"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "claymore",
+			{item = "weapon_claymore"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "grenade",
+			{item = "weapon_hg_rgd_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "frag",
+			{item = "weapon_hg_type59_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "ied",
+			{item = "weapon_traitor_ied"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_buck200knife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_terrorist_soe = {
+		{slot = "claymore",
+			{item = "weapon_claymore"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "grenade",
+			{item = "weapon_hg_rgd_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "frag",
+			{item = "weapon_hg_type59_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "ied",
+			{item = "weapon_traitor_ied"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "vest",
+			{item = "weapon_bombvest"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_lastmanstanding = {
+		{slot = "rifle", fallbackAmmo = {20, "7.62x51mm"},
+			{item = "weapon_delisle", setup = function(ply, wep)
+				if hg.AddAttachmentForce then hg.AddAttachmentForce(ply, wep, "optic12") end
+				wep.shouldntDrawHolstered = true
+				wep:SetNWBool("ZCityPocketHolster", true)
+				ply:GiveAmmo(20, wep:GetPrimaryAmmoType(), true)
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knuckles",
+			{item = "hg_brassknuckles", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sling",
+			{item = "hg_sling", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_lastmanstanding_soe = {
+		{slot = "rifle", fallbackAmmo = {20, "7.62x51mm"},
+			{item = "weapon_delisle", setup = function(ply, wep)
+				if hg.AddAttachmentForce then hg.AddAttachmentForce(ply, wep, "optic12") end
+				wep.shouldntDrawHolstered = true
+				wep:SetNWBool("ZCityPocketHolster", true)
+				ply:GiveAmmo(20, wep:GetPrimaryAmmoType(), true)
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "nailgun",
+			{item = "weapon_nailgun"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knuckles",
+			{item = "hg_brassknuckles", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "sling",
+			{item = "hg_sling", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_stalker = {
+		{slot = "tranquilizer",
+			{item = "weapon_tranquilizer"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "decoy",
+			{item = "weapon_hg_decoynade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "deathdecoy",
+			{item = "weapon_hg_stalker_decoy"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "hammer",
+			{item = "weapon_hammer", setup = function(ply)
+				ply:GiveAmmo(4, "Nails", true)
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+	traitor_stalker_soe = {
+		{slot = "tranquilizer",
+			{item = "weapon_tranquilizer"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "knife",
+			{item = "weapon_sogknife"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "radio",
+			{item = "weapon_walkie_talkie"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "decoy",
+			{item = "weapon_hg_decoynade_tpik"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "deathdecoy",
+			{item = "weapon_hg_stalker_decoy"},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "hammer",
+			{item = "weapon_hammer", setup = function(ply)
+				ply:GiveAmmo(4, "Nails", true)
+			end},
+			{placeholder = true},
+			{placeholder = true},
+		},
+		{slot = "flashlight",
+			{item = "hg_flashlight", inventory = true},
+			{placeholder = true},
+			{placeholder = true},
+		},
+	},
+}
+
+function MODE.GetTraitorGearSlot(role, slot)
+	local gear = MODE.TraitorGear and MODE.TraitorGear[role]
+	if not gear then return end
+	for i = 1, #gear do
+		if gear[i].slot == slot then return gear[i] end
+	end
+end
+
+function MODE.ResolveTraitorGearOption(ply, role, slot)
+	local options = MODE.GetTraitorGearSlot(role, slot)
+	if not options then return end
+
+	local item
+	if SERVER and IsValid(ply) then
+		local picked = ply.HMCDTraitorGear
+		item = picked and picked[role] and picked[role][slot]
+	elseif CLIENT and MODE.GetLocalTraitorGear then
+		item = MODE.GetLocalTraitorGear(role, slot)
+	end
+
+	local fallback
+	for i = 1, #options do
+		local opt = options[i]
+		if opt.item and not opt.placeholder then
+			if item == opt.item then return opt end
+			fallback = fallback or opt
+		end
+	end
+
+	return fallback
+end
+
+function MODE.GiveTraitorGear(ply, role)
+	local gear = MODE.TraitorGear and MODE.TraitorGear[role]
+	if not gear or not SERVER or not IsValid(ply) then return end
+
+	local inv
+	for i = 1, #gear do
+		local spec = gear[i]
+		local opt = MODE.ResolveTraitorGearOption(ply, role, spec.slot)
+		local given
+		if opt and opt.item then
+			if opt.inventory then
+				inv = inv or ply:GetNetVar("Inventory", {})
+				inv["Weapons"] = inv["Weapons"] or {}
+				inv["Weapons"][opt.item] = true
+				given = true
+			else
+				local wep = opt.give and opt.give(ply) or ply:Give(opt.item)
+				if IsValid(wep) then
+					if opt.attachments and hg.AddAttachmentForce then
+						hg.AddAttachmentForce(ply, wep, opt.attachments)
+					end
+					if opt.ammoMags then
+						ply:GiveAmmo(wep:GetMaxClip1() * opt.ammoMags, wep:GetPrimaryAmmoType(), true)
+					end
+					if opt.setup then opt.setup(ply, wep) end
+					given = true
+				end
+			end
+		end
+		if not given and spec.fallbackAmmo then
+			ply:GiveAmmo(spec.fallbackAmmo[1], spec.fallbackAmmo[2], true)
+		end
+	end
+	if inv then ply:SetNetVar("Inventory", inv) end
+end
+
 if SERVER then
 	function MODE.MarkThiefStartInventory(ply)
 		if not IsValid(ply) then return end
@@ -118,30 +1095,8 @@ You are equipped with various weapons, poisons and explosives, grenades and your
 		Objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
 		SpawnFunction = function(ply)
 			if not IsValid(ply) then return end
-			local rugermk4 = ply:Give("weapon_rugermk4")
-			if not IsValid(rugermk4) then return end
-			ply:GiveAmmo(rugermk4:GetMaxClip1() * 2, rugermk4:GetPrimaryAmmoType(), true)
-			
-			hg.AddAttachmentForce(ply, rugermk4, {"supressor4", "holo7"})
-			
-			ply:Give("weapon_buck200knife")	
-			ply:Give("weapon_hg_rgd_tpik")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_shuriken")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_traitor_ied")
-			ply:Give("weapon_traitor_poison1")
-			ply:Give("weapon_traitor_suit")
-			ply:Give("weapon_hg_jam")
-			ply:Give("weapon_hg_fiberwire")
-			-- ply:Give("weapon_traitor_poison2")
-			-- ply:Give("weapon_traitor_poison3")
-			
+			MODE.GiveTraitorGear(ply, "traitor_default")
 			ply.organism.stamina.max = 220
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_default_soe"] = {
@@ -152,28 +1107,9 @@ You are equipped with various weapons, poisons and explosives, grenades and your
 		Objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
 		SpawnFunction = function(ply)
 			if not IsValid(ply) then return end
-			local rugermk4 = ply:Give("weapon_rugermk4")
-			if not IsValid(rugermk4) then return end
-			ply:GiveAmmo(rugermk4:GetMaxClip1() * 2, rugermk4:GetPrimaryAmmoType(), true)
-			
-			hg.AddAttachmentForce(ply, rugermk4, {"supressor4", "holo7"})
-			
-			ply:Give("weapon_sogknife")	
-			ply:Give("weapon_hg_rgd_tpik")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_traitor_ied")
-			ply:Give("weapon_traitor_poison2")
-			ply:Give("weapon_traitor_poison3")
-			ply:Give("weapon_hg_fiberwire")
-			
+			MODE.GiveTraitorGear(ply, "traitor_default_soe")
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.max = 220
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			
-			ply:SetNetVar("Inventory",inv)
 		end,
 	},
 	--==//
@@ -187,16 +1123,8 @@ Has no weapons or tools except knife, epipen and smoke grenade.
 For people who like to play chess.]],
 		Objective = "You're an expert in diversion. Be discreet and kill one by one",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_hg_fiberwire")
-			
+			MODE.GiveTraitorGear(ply, "traitor_infiltrator")
 			ply.organism.stamina.max = 220
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_infiltrator_soe"] = {
@@ -207,22 +1135,9 @@ Has smoke grenade, walkie-talkie, knife, taser with 2 additional shooting heads 
 For people who like to play chess.]],
 		Objective = "You're an expert in diversion. Be discreet and kill one by one",
 		SpawnFunction = function(ply)
-			local taser = ply:Give("weapon_taser")
-			
-			ply:GiveAmmo(taser:GetMaxClip1() * 2, taser:GetPrimaryAmmoType(), true)
-			ply:Give("weapon_sogknife")
-			-- ply:Give("weapon_hg_rgd_tpik")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_hg_fiberwire")
-			
+			MODE.GiveTraitorGear(ply, "traitor_infiltrator_soe")
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.max = 220
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	--==//
@@ -237,16 +1152,8 @@ Your starting gear is hidden from anyone searching you; only items you pick up d
 		SpawnFunction = function(ply)
 			ply.HMCD_ThiefInitializing = true
 
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_smokenade_tpik")
-
+			MODE.GiveTraitorGear(ply, "traitor_thief")
 			ply.organism.stamina.max = 280
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"] = inv["Weapons"] or {}
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 			MODE.MarkThiefStartInventory(ply)
 		end,
 	},
@@ -263,18 +1170,9 @@ Equipped with a walkie-talkie for State of Emergency coordination.]],
 		SpawnFunction = function(ply)
 			ply.HMCD_ThiefInitializing = true
 
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_smokenade_tpik")
-
+			MODE.GiveTraitorGear(ply, "traitor_thief_soe")
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.max = 280
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"] = inv["Weapons"] or {}
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 			MODE.MarkThiefStartInventory(ply)
 		end,
 	},
@@ -292,20 +1190,9 @@ Equipped with walkie-talkie and a katana as last resort melee weapon.
 For people who like to play checkers.]],
 		Objective = "You're an expert in guns and in disarmament. Disarm gunman and use his weapon against others",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_katana")
-			-- ply:Give("weapon_sogknife")	
-			-- ply:Give("weapon_adrenaline")
-			-- ply:Give("weapon_hg_smokenade_tpik")
-			-- ply:Give("weapon_hg_shuriken")
-			
+			MODE.GiveTraitorGear(ply, "traitor_assassin")
 			ply.organism.recoilmul = 0.6
 			ply.organism.stamina.max = 300
-			-- local inv = ply:GetNetVar("Inventory", {})
-			-- inv["Weapons"]["hg_flashlight"] = true
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_sling"] = true
-			
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_assassin_soe"] = {
@@ -320,21 +1207,9 @@ Equipped with walkie-talkie, knife, epipen, flashlight and a katana as last reso
 For people who like to play checkers.]],
 		Objective = "You're an expert in guns and in disarmament. Disarm gunman and use his weapon against others",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_katana")	
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_hg_fiberwire")
-			-- ply:Give("weapon_hg_smokenade_tpik")
-			-- ply:Give("weapon_hg_shuriken")
-			
+			MODE.GiveTraitorGear(ply, "traitor_assassin_soe")
 			ply.organism.recoilmul = 0.4
 			ply.organism.stamina.max = 300
-			--local inv = ply:GetNetVar("Inventory", {})
-			--inv["Weapons"]["hg_flashlight"] = true
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_sling"] = true
-			
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	--==//
@@ -348,21 +1223,8 @@ Can detect presence and potency of chemical agents in the air.
 Carries two Neutralizer doses that purge a traitor teammate's chemicals and grant 45 seconds of chemical resistance.]],
 		Objective = "You're a chemist who decided to use his knowledge to hurt others. Poison everything.",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_traitor_poison1")
-			ply:Give("weapon_traitor_poison2")
-			ply:Give("weapon_traitor_poison3")
-			ply:Give("weapon_traitor_poison4")
-			ply:Give("weapon_traitor_poison_consumable")
-			ply:Give("weapon_traitor_sleepcanister")
-			ply:Give("weapon_hg_fiberwire")
-			
+			MODE.GiveTraitorGear(ply, "traitor_chemist")
 			ply.organism.stamina.max = 220
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			
-			ply:SetNetVar("Inventory", inv)
 			if CleanChemicalsOfPlayer then
 				CleanChemicalsOfPlayer(ply)
 			end
@@ -380,22 +1242,8 @@ Can detect presence and potency of chemical agents in the air.
 Carries two Neutralizer doses that purge a traitor teammate's chemicals and grant 45 seconds of chemical resistance.]],
 			Objective = "You're a chemist who decided to use his knowledge to hurt others. Poison everything.",
 			SpawnFunction = function(ply)
-				ply:Give("weapon_sogknife")
-				ply:Give("weapon_walkie_talkie")
-				ply:Give("weapon_adrenaline")
-				ply:Give("weapon_traitor_poison1")
-				ply:Give("weapon_traitor_poison2")
-				ply:Give("weapon_traitor_poison3")
-				ply:Give("weapon_traitor_poison4")
-				ply:Give("weapon_traitor_poison_consumable")
-				ply:Give("weapon_traitor_sleepcanister")
-				ply:Give("weapon_hg_fiberwire")
-			
+				MODE.GiveTraitorGear(ply, "traitor_chemist_soe")
 				ply.organism.stamina.max = 220
-				local inv = ply:GetNetVar("Inventory", {})
-				inv["Weapons"]["hg_flashlight"] = true
-			
-				ply:SetNetVar("Inventory", inv)
 				if CleanChemicalsOfPlayer then
 					CleanChemicalsOfPlayer(ply)
 				end
@@ -414,31 +1262,11 @@ The first serious wound you take triggers permanent adrenaline and fentanyl-like
 Melee attacks build Rampage, increasing your speed, damage and attack rate. Fury lets attached injured limbs keep functioning.]],
 		Objective = "You are a Maniac. Charge into the chaos, survive your first serious wound, and butcher your victims up close.",
 		SpawnFunction = function(ply)
-			-- Axe that will be poisonous and holsterable
-			local axe = ply:Give("weapon_hg_fireaxe")
-			if IsValid(axe) then
-				axe.poisoned2 = true	--applys the poison
-				axe.NoHolster = false	--allows holstering
-			end
-			ply:Give("weapon_hg_molotov_tpik")
-			ply:Give("weapon_m45")
-			ply:Give("weapon_hg_rgd_tpik")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_traitor_poison4")
-			ply:Give("weapon_traitor_suit")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_fiberwire")
-			
+			MODE.GiveTraitorGear(ply, "traitor_maniac")
 			ply.organism.stamina.max = 440
 			local maniacHealth = math.max(120, math.Round((ply:GetMaxHealth() > 0 and ply:GetMaxHealth() or 100) * 1.2))
 			ply:SetMaxHealth(maniacHealth)
 			ply:SetHealth(maniacHealth)
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			inv["Weapons"]["hg_sling"] = true
-			
-			
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_maniac_soe"] = {
@@ -450,30 +1278,12 @@ The first serious wound you take triggers permanent adrenaline and fentanyl-like
 Melee attacks build Rampage, increasing your speed, damage and attack rate. Fury lets attached injured limbs keep functioning.]],
 		Objective = "You are a Maniac. Charge into the chaos, survive your first serious wound, and butcher your victims up close.",
 		SpawnFunction = function(ply)
-			local axe = ply:Give("weapon_hg_fireaxe")
-			if IsValid(axe) then
-				axe.poisoned2 = true
-				axe.NoHolster = false
-			end
-			ply:Give("weapon_hg_molotov_tpik")
-			ply:Give("weapon_m45")
-			ply:Give("weapon_hg_rgd_tpik")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_traitor_poison4")
-			ply:Give("weapon_traitor_suit")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_fiberwire")
-
+			MODE.GiveTraitorGear(ply, "traitor_maniac_soe")
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.max = 440
 			local maniacHealth = math.max(120, math.Round((ply:GetMaxHealth() > 0 and ply:GetMaxHealth() or 100) * 1.2))
 			ply:SetMaxHealth(maniacHealth)
 			ply:SetHealth(maniacHealth)
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-			inv["Weapons"]["hg_sling"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_juggernaut"] = {
@@ -486,18 +1296,8 @@ Slam carried victims into walls or props to deal bonus impact damage and briefly
 Press ALT + E over an unconscious victim's head to stomp their skull.]],
 		Objective = "You are the Juggernaut. Overpower smaller victims, strangle them while lifted.",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_traitor_suit")
-			ply:Give("weapon_hg_smokenade_tpik")
-			MODE.GiveJuggernautCrowbar(ply)
-
+			MODE.GiveTraitorGear(ply, "traitor_juggernaut")
 			MODE.ApplyJuggernautStats(ply)
-
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"] = inv["Weapons"] or {}
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_juggernaut_soe"] = {
@@ -510,20 +1310,9 @@ Slam carried victims into walls or props to deal bonus impact damage and briefly
 Press ALT + E over an unconscious victim's head to stomp their skull.]],
 		Objective = "You are the Juggernaut. Overpower smaller victims, strangle them while lifted.",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_traitor_suit")
-			ply:Give("weapon_hg_smokenade_tpik")
-			MODE.GiveJuggernautCrowbar(ply)
-
+			MODE.GiveTraitorGear(ply, "traitor_juggernaut_soe")
 			MODE.ApplyJuggernautStats(ply)
-
 			ply.organism.recoilmul = 1
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"] = inv["Weapons"] or {}
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_cannibal"] = {
@@ -539,22 +1328,10 @@ For people who enjoy aggressive and high-risk gameplay.]],
 			ply.Ability_CannibalBaseStaminaRange = nil
 			ply:SetNWInt("HMCD_CannibalStacks", 0)
 
-			local cleaver = ply:Give("weapon_hg_cleaver")
-			if IsValid(cleaver) then
-				cleaver.NoHolster = false
-			end
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_hg_fiberwire")
-			ply:Give("weapon_traitor_suit")
+			MODE.GiveTraitorGear(ply, "traitor_cannibal")
 
 			ply.organism.stamina.range = 240
 			ply.organism.stamina.max = 240
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"] = inv["Weapons"] or {}
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_cannibal_soe"] = {
@@ -570,24 +1347,11 @@ For people who enjoy aggressive and high-risk gameplay.]],
 			ply.Ability_CannibalBaseStaminaRange = nil
 			ply:SetNWInt("HMCD_CannibalStacks", 0)
 
-			local cleaver = ply:Give("weapon_hg_cleaver")
-			if IsValid(cleaver) then
-				cleaver.NoHolster = false
-			end
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_adrenaline")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_hg_fiberwire")
-			ply:Give("weapon_traitor_suit")
+			MODE.GiveTraitorGear(ply, "traitor_cannibal_soe")
 
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.range = 240
 			ply.organism.stamina.max = 240
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"] = inv["Weapons"] or {}
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_revenant"] = {
@@ -598,11 +1362,7 @@ Your real body remains behind and completely vulnerable while you control the bo
 The body keeps its appearance, wounds, limbs and equipment.]],
 		Objective = "You are the Revenant. Use stolen bodies to deceive and support your teammate without losing your own.",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_osapb")
-			ply:Give("weapon_hg_fiberwire")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_traitor_suit")
+			MODE.GiveTraitorGear(ply, "traitor_revenant")
 			ply.Ability_RevenantCharges = MODE.RevenantCharges or 3
 			ply:SetNWInt("HMCD_RevenantCharges", ply.Ability_RevenantCharges)
 		end,
@@ -615,13 +1375,7 @@ Your real body remains behind and completely vulnerable while you control the bo
 The body keeps its appearance, wounds, limbs and equipment.]],
 		Objective = "You are the Revenant. Use stolen bodies to deceive and support your teammate without losing your own.",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_hg_fiberwire")
-			ply:Give("weapon_osapb")
-			ply:Give("weapon_bombvest")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_hg_smokenade_tpik")
-			ply:Give("weapon_traitor_suit")
+			MODE.GiveTraitorGear(ply, "traitor_revenant_soe")
 			ply.Ability_RevenantCharges = MODE.RevenantCharges or 3
 			ply:SetNWInt("HMCD_RevenantCharges", ply.Ability_RevenantCharges)
 		end,
@@ -633,18 +1387,8 @@ You rely on fire, explosives and a bomb vest to turn the whole round into a mass
 Perfect for aggressive players who want to spread chaos and kill as many people as possible.]],
 		Objective = "You are a terrorist. Burn, blast and butcher everyone before they can stop you.",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_bombvest")
-			ply:Give("weapon_claymore")
-			ply:Give("weapon_hg_rgd_tpik")
-			ply:Give("weapon_hg_type59_tpik")
-			ply:Give("weapon_traitor_ied")
-			ply:Give("weapon_buck200knife")
-
+			MODE.GiveTraitorGear(ply, "traitor_terrorist")
 			ply.organism.stamina.max = 300
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_terrorist_soe"] = {
@@ -654,19 +1398,9 @@ You rely on fire, explosives and a bomb vest to turn the whole round into a mass
 Perfect for aggressive players who want to spread chaos and kill as many people as possible.]],
 		Objective = "You are a terrorist. Burn, blast and butcher everyone before they can stop you.",
 		SpawnFunction = function(ply)
-			ply:Give("weapon_claymore")
-			ply:Give("weapon_hg_rgd_tpik")
-			ply:Give("weapon_hg_type59_tpik")
-			ply:Give("weapon_traitor_ied")
-			ply:Give("weapon_bombvest")
-			ply:Give("weapon_sogknife")
-
+			MODE.GiveTraitorGear(ply, "traitor_terrorist_soe")
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.max = 300
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_lastmanstanding"] = {
@@ -682,22 +1416,7 @@ When your last living traitor teammate falls, Final Stand halves De Lisle recoil
 			ply:SetNWBool("HMCD_LMSFinalStand", false)
 			ply:SetNWFloat("HMCD_LMSFinalStandMultiplier", 1)
 
-			local gun = ply:Give("weapon_delisle")
-			if IsValid(gun) then
-				hg.AddAttachmentForce(ply, gun, "optic12")
-				gun.shouldntDrawHolstered = true
-				gun:SetNWBool("ZCityPocketHolster", true)
-				ply:GiveAmmo(20, gun:GetPrimaryAmmoType(), true)
-			else
-				ply:GiveAmmo(20, "7.62x51mm", true)
-			end
-
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_sling"] = true
-			inv["Weapons"]["hg_brassknuckles"] = true
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
+			MODE.GiveTraitorGear(ply, "traitor_lastmanstanding")
 			timer.Simple(0, function()
 				if IsValid(ply) and MODE.CheckLastManStandingFinalStand then
 					MODE.CheckLastManStandingFinalStand()
@@ -718,23 +1437,8 @@ When your last living traitor teammate falls, Final Stand halves De Lisle recoil
 			ply:SetNWBool("HMCD_LMSFinalStand", false)
 			ply:SetNWFloat("HMCD_LMSFinalStandMultiplier", 1)
 
-			local gun = ply:Give("weapon_delisle")
-			if IsValid(gun) then
-				hg.AddAttachmentForce(ply, gun, "optic12")
-				gun.shouldntDrawHolstered = true
-				gun:SetNWBool("ZCityPocketHolster", true)
-				ply:GiveAmmo(20, gun:GetPrimaryAmmoType(), true)
-			else
-				ply:GiveAmmo(20, "7.62x51mm", true)
-			end
-			ply:Give("weapon_nailgun")
+			MODE.GiveTraitorGear(ply, "traitor_lastmanstanding_soe")
 			ply.organism.recoilmul = 1
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_sling"] = true
-			inv["Weapons"]["hg_brassknuckles"] = true
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 			timer.Simple(0, function()
 				if IsValid(ply) and MODE.CheckLastManStandingFinalStand then
 					MODE.CheckLastManStandingFinalStand()
@@ -754,18 +1458,8 @@ A limited tranquilizer, hammer and misdirection tools help you isolate prey with
 		Objective = "You are the Stalker. Mark your prey, disappear into cover and strike when they are isolated.",
 		SpawnFunction = function(ply)
 			ply.HMCDStalkerDeathDecoyUsed = nil
-			ply:Give("weapon_tranquilizer")
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_hg_decoynade_tpik")
-			ply:Give("weapon_hg_stalker_decoy")
-			ply:Give("weapon_hammer")
-			ply:GiveAmmo(4, "Nails", true)
-
+			MODE.GiveTraitorGear(ply, "traitor_stalker")
 			ply.organism.stamina.max = 240
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	["traitor_stalker_soe"] = {
@@ -780,20 +1474,9 @@ A limited tranquilizer, hammer and misdirection tools help you isolate prey with
 		Objective = "You are the Stalker. Mark your prey, disappear into cover and strike when they are isolated.",
 		SpawnFunction = function(ply)
 			ply.HMCDStalkerDeathDecoyUsed = nil
-			ply:Give("weapon_tranquilizer")
-			ply:Give("weapon_sogknife")
-			ply:Give("weapon_walkie_talkie")
-			ply:Give("weapon_hg_decoynade_tpik")
-			ply:Give("weapon_hg_stalker_decoy")
-			ply:Give("weapon_hammer")
-			ply:GiveAmmo(4, "Nails", true)
-
+			MODE.GiveTraitorGear(ply, "traitor_stalker_soe")
 			ply.organism.recoilmul = 1
 			ply.organism.stamina.max = 240
-			local inv = ply:GetNetVar("Inventory", {})
-			inv["Weapons"]["hg_flashlight"] = true
-
-			ply:SetNetVar("Inventory", inv)
 		end,
 	},
 	--[[
