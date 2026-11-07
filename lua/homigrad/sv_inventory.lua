@@ -129,7 +129,7 @@ end
 local function weaponUsesSling(wepClass, weaponEnt)
 	if wepClass == "hg_sling" then return true end
 
-	if IsValid(weaponEnt) and weaponEnt.IsPistolHoldType then
+	if isentity(weaponEnt) and IsValid(weaponEnt) and weaponEnt.IsPistolHoldType then
 		return not weaponEnt:IsPistolHoldType()
 	end
 
