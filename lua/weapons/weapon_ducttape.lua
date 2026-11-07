@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_tpik_base"
 SWEP.PrintName = "Duct Tape"
-SWEP.Instructions = "Reinforced duct tape, useful if you're a terrorist and want to take someone prisoner. It is also useful for creating barricades."
+SWEP.Instructions = "Reinforced duct tape, useful if you're a terrorist and want to take someone prisoner. It is also useful for creating barricades. RMB on a downed person's mouth to tape it shut."
 SWEP.Category = "ZCity Other"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -449,11 +449,39 @@ function SWEP:PrimaryAttack()
 	--self:SetNextPrimaryFire(CurTime() + 1.5)
 end
 
-function SWEP:SecondaryAttack()
+function SWEP:CanSecondaryAttack()
+	return true
 end
 
-function SWEP:CanSecondaryAttack()
-	return false
+function SWEP:SecondaryAttack()
+	if not IsFirstTimePredicted() then return end
+	local owner = self:GetOwner()
+	if not IsValid(owner) or not owner:IsPlayer() or not owner:Alive() then return end
+	if owner:KeyDown(IN_SPEED) or not hg.CanUseLeftHand(owner) or not hg.CanUseRightHand(owner) then return end
+
+	self:SetNextSecondaryFire(CurTime() + 0.6)
+	if CLIENT then return end
+
+	local tr = hg.eyeTrace(owner, 90)
+	if not tr or not tr.Hit then return end
+	local victim = hg.RagdollOwner(tr.Entity)
+	if not IsValid(victim) or victim == owner or not victim:Alive() or victim:GetNWBool("MouthTaped") then return end
+
+	local bone = tr.Entity:LookupBone("ValveBiped.Bip01_Head1")
+	if not bone then return end
+	local head = tr.Entity:GetBonePosition(bone)
+	if not head or tr.HitPos:DistToSqr(head) > 14 * 14 then return end
+
+	if not self.TapeAmount then self.TapeAmount = 100 end
+	if self.TapeAmount <= 0 then return end
+	self.TapeAmount = 0
+	self:SetTapeAmount(0)
+	local wep = self
+	timer.Simple(0.1, function() if IsValid(wep) then wep:Remove() end end)
+
+	victim:SetNWBool("MouthTaped", true)
+	hg.MouthTapeSpray(victim)
+	tr.Entity:EmitSound("physics/cardboard/cardboard_box_impact_soft2.wav", 65)
 end
 
 function SWEP:SprayDecals()

@@ -2247,10 +2247,14 @@ end
 
 function SWEP:CutDuct()
     if self.DamageType ~= DMG_SLASH or CLIENT then return end
-    
-    local ent = hg.eyeTrace(self:GetOwner()).Entity
-    
+
+    local tr = hg.eyeTrace(self:GetOwner())
+    if not tr then return end
+    local ent = tr.Entity
+
     if IsValid(ent) then
+        if hg.MouthTapeCut(self:GetOwner(), ent, tr.HitPos) then return true end
+
         if hgIsDoor(ent) and ent.LockedDoor then
             ent.LockedDoor = ent.LockedDoor - FrameTime() * 10
             

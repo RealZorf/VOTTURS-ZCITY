@@ -205,10 +205,6 @@ function SWEP:ThinkAdd()
     self:SyncModeAnimList()
 end
 
-function SWEP:CutDuct()
-    return false
-end
-
 function SWEP:PlayAnim(anim, time, cycling, callback, reverse, sendtoclient)
     anim = self:ResolveAnimName(anim)
     if not anim then return end
