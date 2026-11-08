@@ -49,501 +49,499 @@ MODE.TraitorGear = {
 	traitor_default = {
 		{slot = "pistol",
 			{item = "weapon_rugermk4", attachments = {"supressor4", "holo7"}, ammoMags = 2},
-			{placeholder = true},
-			{placeholder = true},
+			{item = "weapon_p22", attachments = {"supressor4"}, ammoMags = 2},
 		},
 		{slot = "knife",
 			{item = "weapon_buck200knife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "grenade",
 			{item = "weapon_hg_rgd_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "shuriken",
 			{item = "weapon_hg_shuriken"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "ied",
 			{item = "weapon_traitor_ied"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "poison",
 			{item = "weapon_traitor_poison1"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wedge",
 			{item = "weapon_hg_jam"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_default_soe = {
 		{slot = "pistol",
 			{item = "weapon_rugermk4", attachments = {"supressor4", "holo7"}, ammoMags = 2},
-			{placeholder = true},
-			{placeholder = true},
+			{item = "weapon_p22", attachments = {"supressor4"}, ammoMags = 2},
 		},
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "grenade",
 			{item = "weapon_hg_rgd_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "ied",
 			{item = "weapon_traitor_ied"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "vx",
 			{item = "weapon_traitor_poison2"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "cyanide",
 			{item = "weapon_traitor_poison3"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_infiltrator = {
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_infiltrator_soe = {
 		{slot = "taser",
 			{item = "weapon_taser", ammoMags = 2},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_thief = {
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_thief_soe = {
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_assassin = {
 		{slot = "katana",
 			{item = "weapon_katana"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sling",
 			{item = "hg_sling", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_assassin_soe = {
 		{slot = "katana",
 			{item = "weapon_katana"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sling",
 			{item = "hg_sling", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_chemist = {
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "tetrodotoxin",
 			{item = "weapon_traitor_poison1"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "vx",
 			{item = "weapon_traitor_poison2"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "cyanide",
 			{item = "weapon_traitor_poison3"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "curare",
 			{item = "weapon_traitor_poison4"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "capsule",
 			{item = "weapon_traitor_poison_consumable"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sleep",
 			{item = "weapon_traitor_sleepcanister"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_chemist_soe = {
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "tetrodotoxin",
 			{item = "weapon_traitor_poison1"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "vx",
 			{item = "weapon_traitor_poison2"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "cyanide",
 			{item = "weapon_traitor_poison3"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "curare",
 			{item = "weapon_traitor_poison4"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "capsule",
 			{item = "weapon_traitor_poison_consumable"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sleep",
 			{item = "weapon_traitor_sleepcanister"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_maniac = {
 		{slot = "pistol",
 			{item = "weapon_m45"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "axe",
 			{item = "weapon_hg_fireaxe", setup = function(_, wep)
 				wep.poisoned2 = true
 				wep.NoHolster = false
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "molotov",
 			{item = "weapon_hg_molotov_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "grenade",
 			{item = "weapon_hg_rgd_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "curare",
 			{item = "weapon_traitor_poison4"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sling",
 			{item = "hg_sling", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_maniac_soe = {
 		{slot = "pistol",
 			{item = "weapon_m45"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "axe",
 			{item = "weapon_hg_fireaxe", setup = function(_, wep)
 				wep.poisoned2 = true
 				wep.NoHolster = false
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "molotov",
 			{item = "weapon_hg_molotov_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "grenade",
 			{item = "weapon_hg_rgd_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "curare",
 			{item = "weapon_traitor_poison4"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sling",
 			{item = "hg_sling", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_juggernaut = {
@@ -551,28 +549,28 @@ MODE.TraitorGear = {
 			{item = "weapon_hg_crowbar", give = function(ply)
 				return MODE.GiveJuggernautCrowbar(ply)
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_juggernaut_soe = {
@@ -580,33 +578,33 @@ MODE.TraitorGear = {
 			{item = "weapon_hg_crowbar", give = function(ply)
 				return MODE.GiveJuggernautCrowbar(ply)
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_cannibal = {
@@ -614,33 +612,33 @@ MODE.TraitorGear = {
 			{item = "weapon_hg_cleaver", setup = function(_, wep)
 				wep.NoHolster = false
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_cannibal_soe = {
@@ -648,176 +646,176 @@ MODE.TraitorGear = {
 			{item = "weapon_hg_cleaver", setup = function(_, wep)
 				wep.NoHolster = false
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "epinephrine",
 			{item = "weapon_adrenaline"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_revenant = {
 		{slot = "pistol",
 			{item = "weapon_osapb"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_revenant_soe = {
 		{slot = "pistol",
 			{item = "weapon_osapb"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "wire",
 			{item = "weapon_hg_fiberwire"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "vest",
 			{item = "weapon_bombvest"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "smoke",
 			{item = "weapon_hg_smokenade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "suit",
 			{item = "weapon_traitor_suit"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_terrorist = {
 		{slot = "vest",
 			{item = "weapon_bombvest"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "claymore",
 			{item = "weapon_claymore"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "grenade",
 			{item = "weapon_hg_rgd_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "frag",
 			{item = "weapon_hg_type59_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "ied",
 			{item = "weapon_traitor_ied"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knife",
 			{item = "weapon_buck200knife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_terrorist_soe = {
 		{slot = "claymore",
 			{item = "weapon_claymore"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "grenade",
 			{item = "weapon_hg_rgd_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "frag",
 			{item = "weapon_hg_type59_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "ied",
 			{item = "weapon_traitor_ied"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "vest",
 			{item = "weapon_bombvest"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_lastmanstanding = {
@@ -828,23 +826,23 @@ MODE.TraitorGear = {
 				wep:SetNWBool("ZCityPocketHolster", true)
 				ply:GiveAmmo(20, wep:GetPrimaryAmmoType(), true)
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knuckles",
 			{item = "hg_brassknuckles", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sling",
 			{item = "hg_sling", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_lastmanstanding_soe = {
@@ -855,101 +853,101 @@ MODE.TraitorGear = {
 				wep:SetNWBool("ZCityPocketHolster", true)
 				ply:GiveAmmo(20, wep:GetPrimaryAmmoType(), true)
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "nailgun",
 			{item = "weapon_nailgun"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knuckles",
 			{item = "hg_brassknuckles", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "sling",
 			{item = "hg_sling", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_stalker = {
 		{slot = "tranquilizer",
 			{item = "weapon_tranquilizer"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "decoy",
 			{item = "weapon_hg_decoynade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "deathdecoy",
 			{item = "weapon_hg_stalker_decoy"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "hammer",
 			{item = "weapon_hammer", setup = function(ply)
 				ply:GiveAmmo(4, "Nails", true)
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 	traitor_stalker_soe = {
 		{slot = "tranquilizer",
 			{item = "weapon_tranquilizer"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "knife",
 			{item = "weapon_sogknife"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "radio",
 			{item = "weapon_walkie_talkie"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "decoy",
 			{item = "weapon_hg_decoynade_tpik"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "deathdecoy",
 			{item = "weapon_hg_stalker_decoy"},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "hammer",
 			{item = "weapon_hammer", setup = function(ply)
 				ply:GiveAmmo(4, "Nails", true)
 			end},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 		{slot = "flashlight",
 			{item = "hg_flashlight", inventory = true},
-			{placeholder = true},
-			{placeholder = true},
+			
+			
 		},
 	},
 }
