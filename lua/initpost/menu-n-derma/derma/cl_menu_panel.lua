@@ -28,6 +28,7 @@ local OtherServers = {
 	{Name = "EU2", Address = "91.207.248.51:27016"},
 	{Name = "EU3", Address = "91.207.248.51:27017"},
 	{Name = "EU4", Address = "91.207.248.51:27018"},
+	{Name = "EU5", Address = "91.207.248.51:27019"},
 }
 
 local Pluv = Material("pluv/pluvkid.jpg")
