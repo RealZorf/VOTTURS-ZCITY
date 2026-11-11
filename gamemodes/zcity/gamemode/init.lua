@@ -572,7 +572,7 @@ local SB_STAFF_GROUPS = {
     headadmin = true,
     admin = true,
 	developer = true,
-	moderator = true,
+	mod = true,
 }
 
 local function IsScoreboardStaff(ply)

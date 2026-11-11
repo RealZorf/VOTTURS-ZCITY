@@ -885,7 +885,7 @@ local STAFF_GROUPS = {
     headadmin = true,
     admin = true,
 	developer = true,
-	moderator = true,
+	mod = true,
 }
 
 local TEAM_SCORE_INFO = {

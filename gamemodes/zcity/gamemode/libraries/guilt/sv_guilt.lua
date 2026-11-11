@@ -27,7 +27,7 @@ local PLAYER_KARMA_CAPS = {
     headadmin = 250,
     developer = 99999,
     admin = 250,
-    moderator = 250,
+    mod = 250,
     supporter = 250,
     booster = 150
 }
@@ -104,7 +104,7 @@ local IMMUNE_GROUPS = {
     "headadmin",
     "developer",
     "admin",
-    "moderator",
+    "mod",
 }
 
 local function IsBanImmune(ply)

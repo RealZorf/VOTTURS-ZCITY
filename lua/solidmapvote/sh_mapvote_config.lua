@@ -8,7 +8,7 @@ local staffGroups = {
     staffmanager = true,
     headadmin = true,
     developer = true,
-    moderator = true,
+    mod = true,
     operator = true,
 }
 
@@ -46,7 +46,7 @@ local namecolor = {
 	superadmin = Color(200, 0, 0),
     headadmin = Color(255, 165, 0),
     admin = Color(0, 170, 255),
-    moderator = Color(0, 170, 255),
+    mod = Color(0, 170, 255),
     booster = Color(0, 200, 20),
     special = Color(0, 200, 20),
     trusted = Color(255, 204, 0),
