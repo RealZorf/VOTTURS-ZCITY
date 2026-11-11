@@ -528,25 +528,11 @@ net.Receive("HMCD(SyncTraitorRolePreferences)", function(_, ply)
 	local soe = HMCDValidateTraitorRolePreference(net.ReadString(), "soe")
 	if not standard or not soe then return end
 
-	local exclude = {standard = {}, soe = {}}
-	if net.BytesLeft() >= 2 then
-		for _, key in ipairs({"standard", "soe"}) do
-			local count = math.min(net.ReadUInt(8), 32)
-			for _ = 1, count do
-				local role = HMCDValidateTraitorRolePreference(net.ReadString(), key)
-				if role and role ~= HMCDGetTraitorDisabledToken(key) and role ~= HMCDGetTraitorRandomToken(key) then
-					exclude[key][role] = true
-				end
-			end
-		end
-	end
-
 	ply.HMCDNextTraitorRolePreferenceSync = CurTime() + 0.1
 	ply.HMCDTraitorRolePreferences = {
 		standard = standard,
 		soe = soe
 	}
-	ply.HMCDTraitorRandomExclude = exclude
 	ply.HMCDTraitorRolePreferencesReady = true
 end)
 
@@ -563,7 +549,7 @@ net.Receive("HMCD(SyncTraitorGear)", function(_, ply)
 		if options then
 			for i = 1, #options do
 				local opt = options[i]
-				if not opt.placeholder and opt.class == class then
+				if not opt.placeholder and opt.item == class then
 					gear[role] = gear[role] or {}
 					gear[role][slot] = class
 					break
@@ -580,14 +566,13 @@ local function HMCDPlayerDisabledTraitorMode(ply, round_type)
 	return HMCDGetPlayerTraitorRolePreference(ply, round_type) == HMCDGetTraitorDisabledToken(round_type)
 end
 
-local function HMCDChooseRandomTraitorSubRole(ply, round_type)
+local function HMCDChooseRandomTraitorSubRole(round_type)
 	local round_config = MODE.RoleChooseRoundTypes and MODE.RoleChooseRoundTypes[round_type]
 	if not round_config or not istable(round_config.Traitor) then return nil end
 
-	local exclude = ply.HMCDTraitorRandomExclude and ply.HMCDTraitorRandomExclude[round_type]
 	local choices = {}
 	for role, enabled in pairs(round_config.Traitor) do
-		if enabled and isstring(role) and MODE.SubRoles and MODE.SubRoles[role] and not (exclude and exclude[role]) then
+		if enabled and isstring(role) and MODE.SubRoles and MODE.SubRoles[role] then
 			choices[#choices + 1] = role
 		end
 	end
@@ -607,7 +592,7 @@ local function HMCDResolvePlayerTraitorSubRole(ply, round_type)
 	end
 
 	if sub_role == HMCDGetTraitorRandomToken(round_type) then
-		return HMCDChooseRandomTraitorSubRole(ply, round_type) or default_role, true
+		return HMCDChooseRandomTraitorSubRole(round_type) or default_role, true
 	end
 
 	return sub_role, false
