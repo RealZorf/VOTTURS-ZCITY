@@ -140,7 +140,7 @@ end)
 
 hook.Add("Initialize", "ZC_Killzone", function()
 	if ULib and ULib.ucl and ULib.ucl.registerAccess then
-		ULib.ucl.registerAccess(ACCESS, nil, "Set, clear, and view the map killzone.", "ZCity")
+		ULib.ucl.registerAccess(ACCESS, nil, "Set, clear, and view the map killzone.", "Z-City")
 	end
 
 	load()

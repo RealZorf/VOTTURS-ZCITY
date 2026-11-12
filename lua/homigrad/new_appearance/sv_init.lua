@@ -11,22 +11,14 @@ local PSmodule = hg.PointShop
 
 local PERMAMODEL_PDATA_KEY = "zcity_permamodel_enabled"
 local PERMAMODEL_DEFAULT_MODEL = "models/player/kleiner.mdl"
-local PERMAMODEL_ALLOWED_GROUPS = {
-    superadmin = true,
-    owner = true,
-    servermanager = true,
-    headdeveloper = true,
-    staffmanager = true,
-    headadmin = true,
-    developer = true,
-    admin = true,
-}
 
 local function CanUsePermamodel(ply)
     if !IsValid(ply) or !ply:IsPlayer() then return false end
 
-    local userGroup = string.lower((ply.GetUserGroup and ply:GetUserGroup()) or "")
-    return PERMAMODEL_ALLOWED_GROUPS[userGroup] == true
+    local ucl = ULib and ULib.ucl
+    if !ucl or !ucl.query or !ucl.authed or !ucl.authed[ply:UniqueID()] then return false end
+
+    return ucl.query(ply, "ulx permamodel") == true
 end
 
 local function LoadPermamodelPreference(ply)

@@ -969,7 +969,7 @@ local function AddSettingRow(parent, work, field)
 end
 
 local function openGuiltAdminMenu(cfg)
-    if not IsValid(LocalPlayer()) or not LocalPlayer():IsAdmin() then return end
+    if not IsValid(LocalPlayer()) then return end
     CreateGuiltFonts()
 
     local work = ZCITY_GUILT.SanitizeConfig(cfg)
@@ -1146,7 +1146,6 @@ local function openGuiltAdminMenu(cfg)
 end
 
 concommand.Add("zcity_guilt_admin_menu", function()
-    if not IsValid(LocalPlayer()) or not LocalPlayer():IsAdmin() then return end
     RunConsoleCommand("zcity_guilt_admin")
 end)
 
@@ -1155,6 +1154,5 @@ net.Receive("zcity_guilt_admin_open", function()
 end)
 
 net.Receive("zcity_guilt_admin_openmenu", function()
-    if not IsValid(LocalPlayer()) or not LocalPlayer():IsAdmin() then return end
     RunConsoleCommand("zcity_guilt_admin")
 end)

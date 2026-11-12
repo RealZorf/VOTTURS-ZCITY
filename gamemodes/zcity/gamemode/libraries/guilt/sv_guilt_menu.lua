@@ -181,7 +181,7 @@ loadDeferredPunish()
 local CFG = ZCITY_GUILT.Config
 
 local function canEditGuiltConfig(ply)
-    return IsValid(ply) and ply:IsPlayer() and ply:IsAdmin()
+    return IsValid(ply) and ply:IsPlayer() and ULib and ULib.ucl and ULib.ucl.query(ply, "ulx guiltadmin") == true
 end
 
 local function canUseDebugTestMenu(ply)

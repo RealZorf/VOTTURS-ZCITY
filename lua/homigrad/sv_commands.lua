@@ -242,19 +242,7 @@ if SERVER then
     end
 
     local function ZC_CanUsePowerCommand(ply)
-        if not IsValid(ply) then return false end
-
-        local group = ply:GetUserGroup()
-
-        if validUserGroupSuperAdmin[group] then
-            return true
-        end
-
-        if validUserGroup[group] then
-            return true
-        end
-
-        return false
+        return IsValid(ply) and ULib and ULib.ucl and ULib.ucl.query(ply, "ulx power") == true
     end
 
     local function ZC_HasPowerMelee(attacker)
@@ -476,7 +464,7 @@ if SERVER then
     COMMANDS.power = {function(ply, args)
         if not ZC_CanUsePowerCommand(ply) then
             if IsValid(ply) then
-                ply:Notify("this command is only for the usergroups superadmin and headadmin")
+                ply:Notify("You do not have access to ulx power.")
             end
             return
         end
@@ -533,7 +521,7 @@ if SERVER then
                 target_ply:Notify("super power disabled by " .. ply:Name())
             end
         end
-    end,2,"[player]"}
+    end,0,"[player]"}
 
     hook.Add("PlayerSpawn", "ZC_GodModelPersist", function(ply)
         if not IsValid(ply) or not ply.organism or not ply.organism.godmode then return end
