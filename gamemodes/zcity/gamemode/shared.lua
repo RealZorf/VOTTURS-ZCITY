@@ -36,69 +36,71 @@ function hg.DrawBlur(panel, amount, passes, alpha)
 	end
 end
 
-local function BlockSpawn(ply, ent)
-	if game.SinglePlayer() or ply:IsAdmin() or ply:IsUserGroup("mapper") then return true end
-	if HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive() then
-		if HG_SANDBOX.IsBypassPlayer and HG_SANDBOX.IsBypassPlayer(ply) then
-			return true
-		end
-
-		return
-	end
-
-	return false
+function zb.HasAccess(ply, access)
+	local ucl = ULib and ULib.ucl
+	if not IsValid(ply) or not ucl or not ucl.query or not ucl.authed or not ucl.authed[ply:UniqueID()] then return false end
+	return ucl.query(ply, access) == true
 end
 
-local spawn = {"PlayerGiveSWEP", "PlayerSpawnEffect", "PlayerSpawnNPC", "PlayerSpawnObject", "PlayerSpawnProp", "PlayerSpawnRagdoll", "PlayerSpawnSENT", "PlayerSpawnSWEP", "PlayerSpawnVehicle"}
+local spawnAccess = {
+	PlayerGiveSWEP = "give weapons",
+	PlayerSpawnSWEP = "weapons",
+	PlayerSpawnEffect = "effects",
+	PlayerSpawnNPC = "npcs",
+	PlayerSpawnObject = "objects",
+	PlayerSpawnProp = "props",
+	PlayerSpawnRagdoll = "ragdolls",
+	PlayerSpawnSENT = "entities",
+	PlayerSpawnVehicle = "vehicles",
+}
 
-for _, v in ipairs(spawn) do
-	hook.Add(v, "BlockSpawn", BlockSpawn)
+if SERVER then
+	local function registerAccess()
+		local ucl = ULib and ULib.ucl
+		if not ucl or not ucl.registerAccess then return end
+		for _, name in pairs(spawnAccess) do
+			ucl.registerAccess(name, nil, name, "Spawnmenu")
+		end
+		ucl.registerAccess("noclip", nil, "Use noclip", "ZCity")
+		ucl.registerAccess("openSpawnmenu", nil, "Open the spawn menu", "ZCity")
+		ucl.registerAccess("scoreboard hide", nil, "Hide yourself on other players' scoreboards", "ZCity")
+		ucl.registerAccess("scoreboard role", nil, "Hide your rank on the scoreboard unless you choose to show it", "ZCity")
+		ucl.registerAccess("contextmenu", nil, "Use context menu properties", "ZCity")
+		ucl.registerAccess("ulx addkarma", nil, "Grants access to the ulx addkarma command", "ZCity")
+		ucl.registerAccess("ulx removekarma", nil, "Grants access to the ulx removekarma command", "ZCity")
+		ucl.registerAccess("ulx setspectator", nil, "Grants access to the ulx setspectator command", "ZCity")
+	end
+
+	registerAccess()
+	hook.Add("Initialize", "ZC_RegisterAccess", registerAccess)
+end
+
+for hookName, access in pairs(spawnAccess) do
+	hook.Add(hookName, "BlockSpawn", function(ply)
+		if game.SinglePlayer() or zb.HasAccess(ply, access) then return true end
+		if HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive() then
+			if HG_SANDBOX.IsBypassPlayer and HG_SANDBOX.IsBypassPlayer(ply) then
+				return true
+			end
+
+			return
+		end
+
+		return false
+	end)
 end
 
 hook.Add( "PlayerNoClip", "FeelFreeToTurnItOff", function( ply, desiredState )
 	if ( desiredState == false ) then -- the player wants to turn noclip off
 		return true -- always allow
-	elseif ( ply:IsAdmin() or ply:IsUserGroup("mapper") ) then
-		return true -- allow administrators to enter noclip
+	elseif game.SinglePlayer() or zb.HasAccess(ply, "noclip") then
+		return true
 	end
 
 	return false
 end )
 
 if CLIENT then
-	local ZCTools_ULXGroups = {
-		superadmin = true,
-		owner = true,
-		servermanager = true,
-		headdeveloper = true,
-		staffmanager = true,
-		headadmin = true,
-		developer = true,
-		admin = true
-	}
-
-	local function ZCTools_HasULXAccess(ply)
-		if not IsValid(ply) then return false end
-
-		-- Native GMod admin checks
-		if ply:IsSuperAdmin() then return true end
-		if ply:IsAdmin() then return true end
-
-		-- ULX / ULib usergroup check
-		if ply.GetUserGroup then
-			local group = string.lower(tostring(ply:GetUserGroup() or ""))
-			if ZCTools_ULXGroups[group] then return true end
-		end
-
-		return false
-	end
-
-	hook.Add("PlayerBindPress", "PlayerBindPressExample", function(ply, bind, pressed)
-		if string.find(bind, "+menu", 1, true) then
-			-- return true
-		end
-	end)
-
 	hook.Add("SpawnMenuOpen", "SpawnMenuWhitelist", function()
 		local ply = LocalPlayer()
 
@@ -107,7 +109,7 @@ if CLIENT then
 			if HG_SANDBOX.IsRestrictedPlayer and HG_SANDBOX.IsRestrictedPlayer(ply) then return true end
 		end
 
-		if ZCTools_HasULXAccess(ply) then return true end
+		if game.SinglePlayer() or zb.HasAccess(ply, "spawnmenu") then return true end
 
 		return false
 	end)

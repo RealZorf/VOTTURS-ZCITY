@@ -876,18 +876,6 @@ local MEDAL_ICONS = {
 	Material("icon16/medal_bronze_1.png")
 }
 
-local STAFF_GROUPS = {
-    superadmin = true,
-    owner = true,
-    servermanager = true,
-    headdeveloper = true,
-    staffmanager = true,
-    headadmin = true,
-    admin = true,
-	developer = true,
-	mod = true,
-}
-
 local TEAM_SCORE_INFO = {
 	tdm = {
 		[0] = {name = "TERRORISTS", color = Color(225, 35, 35)},
@@ -993,13 +981,6 @@ end
 
 local function SB_DrawInH(text, fontName, x, h, color, align)
 	return SB_DrawInRect(text, fontName, x, 0, h, color, align)
-end
-
-local function IsStaffPly(ply)
-	if not IsValid(ply) then return false end
-	if ply:IsAdmin() or ply:IsSuperAdmin() then return true end
-	if not ply.GetUserGroup then return false end
-	return STAFF_GROUPS[string.lower(ply:GetUserGroup() or "user")] == true
 end
 
 local function ShouldHideScoreboardPly(ply)
@@ -1328,83 +1309,95 @@ local function AddULXSubMenu(menu, title, icon)
 	return sub
 end
 
-local function AddULXCmd(menu, title, icon, cmd)
-	AddMenuOption(menu, title, icon, function() RunULXCommand(cmd) end)
-end
-
 local function AddStaffULXMenu(menu, ply)
-	if not IsStaffPly(LocalPlayer()) or not IsValid(ply) then return end
+	local lp = LocalPlayer()
+	if not IsValid(lp) or not IsValid(ply) then return end
 
 	local nick = string.gsub(ply:Nick() or "unknown", "\"", "")
 	local quoted = '"' .. nick .. '"'
-	local staffMenu = AddULXSubMenu(menu, "Staff tools", "icon16/shield.png")
-
-	local tpMenu = AddULXSubMenu(staffMenu, "Teleport", "icon16/arrow_right.png")
-	AddULXCmd(tpMenu, "Bring here", "icon16/arrow_left.png", "ulx bring " .. quoted)
-	AddULXCmd(tpMenu, "Go to player", "icon16/arrow_up.png", "ulx goto " .. quoted)
-	AddULXCmd(tpMenu, "Return player", "icon16/arrow_undo.png", "ulx return " .. quoted)
-
-	local modMenu = AddULXSubMenu(staffMenu, "Moderation", "icon16/wrench.png")
-	AddULXCmd(modMenu, "Freeze", "icon16/weather_snow.png", "ulx freeze " .. quoted)
-	AddULXCmd(modMenu, "Unfreeze", "icon16/weather_sun.png", "ulx unfreeze " .. quoted)
-	AddULXCmd(modMenu, "Jail", "icon16/lock.png", "ulx jail " .. quoted)
-	AddULXCmd(modMenu, "Unjail", "icon16/lock_open.png", "ulx unjail " .. quoted)
-	AddULXCmd(modMenu, "Spectate", "icon16/eye.png", "ulx spectate " .. quoted)
-	AddMenuOption(modMenu, "Slay", "icon16/bomb.png", function()
-		Derma_Query("Kill " .. nick .. " now?", "Slay player", "Yes", function()
-			RunULXCommand("ulx slay " .. quoted)
-		end, "No")
-	end)
-	AddMenuOption(modMenu, "Kick", "icon16/door_out.png", function()
-		Derma_StringRequest("Kick " .. nick, "Why are you kicking them?", "", function(reason)
-			RunULXCommand("ulx kick " .. quoted .. ' "' .. string.gsub(reason ~= "" and reason or "No reason", '"', "'") .. '"')
-		end)
-	end)
-	AddMenuOption(modMenu, "Ban for 1 hour", "icon16/delete.png", function()
-		Derma_StringRequest("Ban " .. nick, "Why are you banning them for 60 minutes?", "", function(reason)
-			RunULXCommand("ulx ban " .. quoted .. ' 60 "' .. string.gsub(reason ~= "" and reason or "No reason", '"', "'") .. '"')
-		end)
-	end)
-
-	local zcityMenu = AddULXSubMenu(staffMenu, "Z-City", "icon16/heart.png")
-	AddMenuOption(zcityMenu, "Set karma", "icon16/heart.png", function()
-		RequestULXAmount("Set karma", "What should " .. nick .. "'s karma be?", GetScoreboardKarma(ply), function(value)
-			RunULXCommand("ulx setkarma " .. quoted .. " " .. value)
-		end)
-	end)
-	AddMenuOption(zcityMenu, "Add karma", "icon16/add.png", function()
-		RequestULXAmount("Add karma", "How much karma should " .. nick .. " gain?", 10, function(value)
-			RunULXCommand("ulx addkarma " .. quoted .. " " .. value)
-		end)
-	end)
-	AddMenuOption(zcityMenu, "Remove karma", "icon16/delete.png", function()
-		RequestULXAmount("Remove karma", "How much karma should " .. nick .. " lose?", 10, function(value)
-			RunULXCommand("ulx removekarma " .. quoted .. " " .. value)
-		end)
-	end)
-	AddMenuOption(zcityMenu, "Move to spectators", "icon16/user_go.png", function()
-		Derma_Query("Move " .. nick .. " to spectators?", "Set spectator", "Yes", function()
-			RunULXCommand("ulx setspectator " .. quoted)
-		end, "No")
-	end)
+	local entries = {
+		{"Teleport", "icon16/arrow_right.png", "Bring here", "icon16/arrow_left.png", "ulx bring"},
+		{"Teleport", "icon16/arrow_right.png", "Go to player", "icon16/arrow_up.png", "ulx goto"},
+		{"Teleport", "icon16/arrow_right.png", "Return player", "icon16/arrow_undo.png", "ulx return"},
+		{"Moderation", "icon16/wrench.png", "Freeze", "icon16/weather_snow.png", "ulx freeze"},
+		{"Moderation", "icon16/wrench.png", "Unfreeze", "icon16/weather_sun.png", "ulx unfreeze"},
+		{"Moderation", "icon16/wrench.png", "Jail", "icon16/lock.png", "ulx jail"},
+		{"Moderation", "icon16/wrench.png", "Unjail", "icon16/lock_open.png", "ulx unjail"},
+		{"Moderation", "icon16/wrench.png", "Spectate", "icon16/eye.png", "ulx spectate"},
+		{"Moderation", "icon16/wrench.png", "Slay", "icon16/bomb.png", "ulx slay", function()
+			Derma_Query("Kill " .. nick .. " now?", "Slay player", "Yes", function()
+				RunULXCommand("ulx slay " .. quoted)
+			end, "No")
+		end},
+		{"Moderation", "icon16/wrench.png", "Kick", "icon16/door_out.png", "ulx kick", function()
+			Derma_StringRequest("Kick " .. nick, "Why are you kicking them?", "", function(reason)
+				RunULXCommand("ulx kick " .. quoted .. ' "' .. string.gsub(reason ~= "" and reason or "No reason", '"', "'") .. '"')
+			end)
+		end},
+		{"Moderation", "icon16/wrench.png", "Ban for 1 hour", "icon16/delete.png", "ulx ban", function()
+			Derma_StringRequest("Ban " .. nick, "Why are you banning them for 60 minutes?", "", function(reason)
+				RunULXCommand("ulx ban " .. quoted .. ' 60 "' .. string.gsub(reason ~= "" and reason or "No reason", '"', "'") .. '"')
+			end)
+		end},
+		{"Z-City", "icon16/heart.png", "Set karma", "icon16/heart.png", "ulx setkarma", function()
+			RequestULXAmount("Set karma", "What should " .. nick .. "'s karma be?", GetScoreboardKarma(ply), function(value)
+				RunULXCommand("ulx setkarma " .. quoted .. " " .. value)
+			end)
+		end},
+		{"Z-City", "icon16/heart.png", "Add karma", "icon16/add.png", "ulx addkarma", function()
+			RequestULXAmount("Add karma", "How much karma should " .. nick .. " gain?", 10, function(value)
+				RunULXCommand("ulx addkarma " .. quoted .. " " .. value)
+			end)
+		end},
+		{"Z-City", "icon16/heart.png", "Remove karma", "icon16/delete.png", "ulx removekarma", function()
+			RequestULXAmount("Remove karma", "How much karma should " .. nick .. " lose?", 10, function(value)
+				RunULXCommand("ulx removekarma " .. quoted .. " " .. value)
+			end)
+		end},
+		{"Z-City", "icon16/heart.png", "Move to spectators", "icon16/user_go.png", "ulx setspectator", function()
+			Derma_Query("Move " .. nick .. " to spectators?", "Set spectator", "Yes", function()
+				RunULXCommand("ulx setspectator " .. quoted)
+			end, "No")
+		end},
+	}
 
 	local store = ZCITY_ULX_STORE
-	if istable(store) and store.Loaded and istable(store.Commands) and store.Commands.settokens and store.Commands.addtokens and store.Commands.removetokens then
-		AddMenuOption(zcityMenu, "Set tokens", "icon16/coins.png", function()
-			RequestULXAmount("Set tokens", "How many tokens should " .. nick .. " have?", ply:GetNWInt("ZCStore_Tokens", 0), function(value)
-				RunULXCommand("ulx " .. tostring(store.Commands.settokens) .. " " .. quoted .. " " .. value)
+	local storeCommands = istable(store) and store.Loaded and istable(store.Commands) and store.Commands
+	local tokenCmds = storeCommands and {
+		{storeCommands.settokens, "Set tokens", "icon16/coins.png", "How many tokens should " .. nick .. " have?", ply:GetNWInt("ZCStore_Tokens", 0)},
+		{storeCommands.addtokens, "Add tokens", "icon16/add.png", "How many tokens should " .. nick .. " gain?", 10},
+		{storeCommands.removetokens, "Remove tokens", "icon16/delete.png", "How many tokens should " .. nick .. " lose?", 10},
+	}
+	if tokenCmds then
+		for i = 1, #tokenCmds do
+			local token = tokenCmds[i]
+			if token[1] then
+				local cmd = "ulx " .. token[1]
+				entries[#entries + 1] = {"Z-City", "icon16/heart.png", token[2], token[3], cmd, function()
+					RequestULXAmount(token[2], token[4], token[5], function(value)
+						RunULXCommand(cmd .. " " .. quoted .. " " .. value)
+					end)
+				end}
+			end
+		end
+	end
+
+	local staffMenu, sections
+	for i = 1, #entries do
+		local entry = entries[i]
+		if zb.HasAccess(lp, entry[5]) then
+			staffMenu = staffMenu or AddULXSubMenu(menu, "Staff tools", "icon16/shield.png")
+			sections = sections or {}
+			local section = sections[entry[1]]
+			if not section then
+				section = AddULXSubMenu(staffMenu, entry[1], entry[2])
+				sections[entry[1]] = section
+			end
+			local access = entry[5]
+			AddMenuOption(section, entry[3], entry[4], entry[6] or function()
+				RunULXCommand(access .. " " .. quoted)
 			end)
-		end)
-		AddMenuOption(zcityMenu, "Add tokens", "icon16/add.png", function()
-			RequestULXAmount("Add tokens", "How many tokens should " .. nick .. " gain?", 10, function(value)
-				RunULXCommand("ulx " .. tostring(store.Commands.addtokens) .. " " .. quoted .. " " .. value)
-			end)
-		end)
-		AddMenuOption(zcityMenu, "Remove tokens", "icon16/delete.png", function()
-			RequestULXAmount("Remove tokens", "How many tokens should " .. nick .. " lose?", 10, function(value)
-				RunULXCommand("ulx " .. tostring(store.Commands.removetokens) .. " " .. quoted .. " " .. value)
-			end)
-		end)
+		end
 	end
 end
 
@@ -1636,10 +1629,10 @@ local function CreatePlayerRow(parent, ply, accent, hideKarma, gunGame, rank)
 		local group = ply.GetUserGroup and (ply:GetUserGroup() or "user") or "user"
 		local showRole = ply:GetNWBool("ZB_SB_ShowRole", false)
 		local hideSelf = localPly and ply:GetNWBool("ZB_SB_HideSelf", false)
-		local staff = IsStaffPly(ply)
-		if self._name ~= name or self._group ~= group or self._showRole ~= showRole or self._hideSelf ~= hideSelf or self._staff ~= staff then
-			self._name, self._group, self._showRole, self._hideSelf, self._staff = name, group, showRole, hideSelf, staff
-			if staff and not showRole then
+		local maskRole = zb.HasAccess(ply, "scoreboard role")
+		if self._name ~= name or self._group ~= group or self._showRole ~= showRole or self._hideSelf ~= hideSelf or self._maskRole ~= maskRole then
+			self._name, self._group, self._showRole, self._hideSelf, self._maskRole = name, group, showRole, hideSelf, maskRole
+			if maskRole and not showRole then
 				group = "USER"
 			else
 				group = string.upper(string.Replace(tostring(group), "_", " "))
@@ -1919,22 +1912,28 @@ function GM:ScoreboardShow()
 		hg.mutespect = not hg.mutespect
 		RefreshAllVoice(true)
 	end, function() return hg.mutespect end, "Mute dead players and spectators")
-	if IsStaffPly(LocalPlayer()) then
+	local lp = LocalPlayer()
+	local canHide = zb.HasAccess(lp, "scoreboard hide")
+	local canRole = zb.HasAccess(lp, "scoreboard role")
+	if canHide or canRole then
 		local function SendStaffOpts(hideSelf, showRole)
 			net.Start("ZB_SB_StaffOpt")
 			net.WriteBool(hideSelf)
 			net.WriteBool(showRole)
 			net.SendToServer()
 		end
-		AddToolButton("HIDE SELF", function()
-			local lp = LocalPlayer()
-			SendStaffOpts(not lp:GetNWBool("ZB_SB_HideSelf", false), lp:GetNWBool("ZB_SB_ShowRole", false))
-		end, function() return LocalPlayer():GetNWBool("ZB_SB_HideSelf", false) end, "Hide your name from other players' scoreboards")
-
-		AddToolButton("SHOW ROLE", function()
-			local lp = LocalPlayer()
-			SendStaffOpts(lp:GetNWBool("ZB_SB_HideSelf", false), not lp:GetNWBool("ZB_SB_ShowRole", false))
-		end, function() return LocalPlayer():GetNWBool("ZB_SB_ShowRole", false) end, "Show your staff rank on the scoreboard")
+		if canHide then
+			AddToolButton("HIDE SELF", function()
+				local ply = LocalPlayer()
+				SendStaffOpts(not ply:GetNWBool("ZB_SB_HideSelf", false), ply:GetNWBool("ZB_SB_ShowRole", false))
+			end, function() return LocalPlayer():GetNWBool("ZB_SB_HideSelf", false) end, "Hide your name from other players' scoreboards")
+		end
+		if canRole then
+			AddToolButton("SHOW ROLE", function()
+				local ply = LocalPlayer()
+				SendStaffOpts(ply:GetNWBool("ZB_SB_HideSelf", false), not ply:GetNWBool("ZB_SB_ShowRole", false))
+			end, function() return LocalPlayer():GetNWBool("ZB_SB_ShowRole", false) end, "Show your rank on the scoreboard")
+		end
 	end
 
 	for i = 1, #toolButtons do

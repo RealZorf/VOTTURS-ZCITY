@@ -563,49 +563,24 @@ end
 util.AddNetworkString("ZB_SpecMode")
 util.AddNetworkString("ZB_SB_StaffOpt")
 
-local SB_STAFF_GROUPS = {
-    superadmin = true,
-    owner = true,
-    servermanager = true,
-    headdeveloper = true,
-    staffmanager = true,
-    headadmin = true,
-    admin = true,
-	developer = true,
-	mod = true,
-}
-
-local function IsScoreboardStaff(ply)
-	if not IsValid(ply) then return false end
-	if ply:IsAdmin() or ply:IsSuperAdmin() then return true end
-	return ply.GetUserGroup and SB_STAFF_GROUPS[string.lower(ply:GetUserGroup() or "user")] == true
-end
-
-local function ApplyScoreboardStaffFlags(ply)
+hook.Add("UCLAuthed", "ZB_SB_StaffOpt", function(ply)
 	if not IsValid(ply) then return end
-	if not IsScoreboardStaff(ply) then
-		ply:SetNWBool("ZB_SB_HideSelf", false)
-		ply:SetNWBool("ZB_SB_ShowRole", false)
-		return
-	end
-	ply:SetNWBool("ZB_SB_HideSelf", ply:GetPData("zb_sb_hideself", "0") == "1")
-	ply:SetNWBool("ZB_SB_ShowRole", ply:GetPData("zb_sb_showrole", "0") == "1")
-end
-
-hook.Add("PlayerInitialSpawn", "ZB_SB_StaffOpt", function(ply)
-	timer.Simple(0, function()
-		ApplyScoreboardStaffFlags(ply)
-	end)
+	ply:SetNWBool("ZB_SB_HideSelf", zb.HasAccess(ply, "scoreboard hide") and ply:GetPData("zb_sb_hideself", "0") == "1")
+	ply:SetNWBool("ZB_SB_ShowRole", zb.HasAccess(ply, "scoreboard role") and ply:GetPData("zb_sb_showrole", "0") == "1")
 end)
 
 net.Receive("ZB_SB_StaffOpt", function(_, ply)
-	if not IsScoreboardStaff(ply) then return end
+	if not IsValid(ply) then return end
 	local hideSelf = net.ReadBool()
 	local showRole = net.ReadBool()
-	ply:SetNWBool("ZB_SB_HideSelf", hideSelf)
-	ply:SetNWBool("ZB_SB_ShowRole", showRole)
-	ply:SetPData("zb_sb_hideself", hideSelf and "1" or "0")
-	ply:SetPData("zb_sb_showrole", showRole and "1" or "0")
+	if zb.HasAccess(ply, "scoreboard hide") then
+		ply:SetNWBool("ZB_SB_HideSelf", hideSelf)
+		ply:SetPData("zb_sb_hideself", hideSelf and "1" or "0")
+	end
+	if zb.HasAccess(ply, "scoreboard role") then
+		ply:SetNWBool("ZB_SB_ShowRole", showRole)
+		ply:SetPData("zb_sb_showrole", showRole and "1" or "0")
+	end
 end)
 
 net.Receive("ZB_SpecMode",function(len,ply)
@@ -754,8 +729,6 @@ function GM:EntityKeyValue( ent, key, value )
 
 end
 
-hook.Add("CanProperty", "AntiExploit", function(ply, property, ent)
-	if(!ply:IsAdmin())then
-		return false
-	end
+hook.Add("CanProperty", "AntiExploit", function(ply)
+	if not zb.HasAccess(ply, "contextmenu") then return false end
 end)
