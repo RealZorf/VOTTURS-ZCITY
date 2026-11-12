@@ -61,14 +61,14 @@ if SERVER then
 		for _, name in pairs(spawnAccess) do
 			ucl.registerAccess(name, nil, name, "Spawnmenu")
 		end
-		ucl.registerAccess("noclip", nil, "Use noclip", "ZCity")
-		ucl.registerAccess("openSpawnmenu", nil, "Open the spawn menu", "ZCity")
-		ucl.registerAccess("scoreboard hide", nil, "Hide yourself on other players' scoreboards", "ZCity")
-		ucl.registerAccess("scoreboard role", nil, "Hide your rank on the scoreboard unless you choose to show it", "ZCity")
-		ucl.registerAccess("contextmenu", nil, "Use context menu properties", "ZCity")
-		ucl.registerAccess("ulx addkarma", nil, "Grants access to the ulx addkarma command", "ZCity")
-		ucl.registerAccess("ulx removekarma", nil, "Grants access to the ulx removekarma command", "ZCity")
-		ucl.registerAccess("ulx setspectator", nil, "Grants access to the ulx setspectator command", "ZCity")
+		ucl.registerAccess("openSpawnmenu", nil, "Open the spawn menu", "Spawnmenu")
+		ucl.registerAccess("contextmenu", nil, "Use context menu properties", "Context menu")
+		ucl.registerAccess("ulx addkarma", nil, "Grants access to the ulx addkarma command", "Guilt")
+		ucl.registerAccess("ulx removekarma", nil, "Grants access to the ulx removekarma command", "Guilt")
+		ucl.registerAccess("noclip", nil, "Use noclip", "Z-City")
+		ucl.registerAccess("scoreboard hide", nil, "Hide yourself on other players' scoreboards", "Z-City")
+		ucl.registerAccess("scoreboard role", nil, "Hide your rank on the scoreboard unless you choose to show it", "Z-City")
+		ucl.registerAccess("ulx setspectator", nil, "Grants access to the ulx setspectator command", "Z-City")
 	end
 
 	registerAccess()

@@ -26,9 +26,9 @@ end
 
 local function registerGuiltAccess()
     if not ULib or not ULib.ucl or not ULib.ucl.registerAccess then return end
-    ULib.ucl.registerAccess("ulx guiltbanimmune", nil, "Exempts the player from guilt bans and low-karma seizures and vomiting", "Command")
-    ULib.ucl.registerAccess("ulx getkarma", nil, "Grants access to view player karma", "Command")
-    ULib.ucl.registerAccess("ulx setkarma", nil, "Grants access to set player karma", "Command")
+    ULib.ucl.registerAccess("ulx guiltbanimmune", nil, "Exempts the player from guilt bans and low-karma seizures and vomiting", "Guilt")
+    ULib.ucl.registerAccess("ulx getkarma", nil, "Grants access to view player karma", "Guilt")
+    ULib.ucl.registerAccess("ulx setkarma", nil, "Grants access to set player karma", "Guilt")
 end
 
 registerGuiltAccess()

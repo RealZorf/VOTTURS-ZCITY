@@ -221,7 +221,7 @@ end
 local hmcdtraitor = ulx.command("Homicide", "ulx hmcdtraitor", ulx.hmcdtraitor, "!hmcdtraitor")
 hmcdtraitor:addParam{type = ULib.cmds.PlayerArg, default = "^", ULib.cmds.optional}
 hmcdtraitor:help("Makes the target player the main traitor in the current Homicide round.")
-if SERVER then ULib.ucl.registerAccess("ulx hmcdtraitor", nil, "Grants access to the ulx hmcdtraitor command", "Command") end
+if SERVER then ULib.ucl.registerAccess("ulx hmcdtraitor", nil, "Grants access to the ulx hmcdtraitor command", "Homicide") end
 
 function ulx.permamodel(calling_ply)
 	if not SERVER or not IsValid(calling_ply) then return end
@@ -238,7 +238,7 @@ end
 
 local permamodel = ulx.command("Z-City", "ulx permamodel", ulx.permamodel, "!permamodel")
 permamodel:help("Toggles persistent spawning with the selected player model instead of Appearance.")
-if SERVER then ULib.ucl.registerAccess("ulx permamodel", nil, "Grants access to the ulx permamodel command", "Command") end
+if SERVER then ULib.ucl.registerAccess("ulx permamodel", nil, "Grants access to the ulx permamodel command", "Z-City") end
 
 function ulx.innoclass(calling_ply, target_ply, class_name)
 	if not SERVER then return end
@@ -273,7 +273,7 @@ local innoclass = ulx.command("Homicide", "ulx innoclass", ulx.innoclass)
 innoclass:addParam{type = ULib.cmds.PlayerArg, default = "^", ULib.cmds.optional}
 innoclass:addParam{type = ULib.cmds.StringArg, hint = "class", completes = {"builder", "cook", "engineer", "huntsman", "lucky guy", "medic", "thug"}, ULib.cmds.takeRestOfLine}
 innoclass:help("Sets a player's preferred Homicide innocent class.")
-if SERVER then ULib.ucl.registerAccess("ulx innoclass", nil, "Grants access to the ulx innoclass command", "Command") end
+if SERVER then ULib.ucl.registerAccess("ulx innoclass", nil, "Grants access to the ulx innoclass command", "Homicide") end
 
 function ulx.power(calling_ply, target_ply)
 	if not SERVER then return end
@@ -294,7 +294,7 @@ end
 local power = ulx.command("Z-City", "ulx power", ulx.power)
 power:addParam{type = ULib.cmds.PlayerArg, default = "^", ULib.cmds.optional}
 power:help("Toggles super power for a player.")
-if SERVER then ULib.ucl.registerAccess("ulx power", nil, "Grants access to the ulx power command", "Command") end
+if SERVER then ULib.ucl.registerAccess("ulx power", nil, "Grants access to the ulx power command", "Z-City") end
 
 function ulx.guiltadmin(calling_ply)
 	if not SERVER or not IsValid(calling_ply) then return end
@@ -304,6 +304,6 @@ function ulx.guiltadmin(calling_ply)
 	ulx.fancyLogAdmin(calling_ply, "#A opened the guilt admin menu")
 end
 
-local guiltadmin = ulx.command("Z-City", "ulx guiltadmin", ulx.guiltadmin, "!guiltadmin")
+local guiltadmin = ulx.command("Guilt", "ulx guiltadmin", ulx.guiltadmin, "!guiltadmin")
 guiltadmin:help("Opens the Z-City guilt admin menu.")
-if SERVER then ULib.ucl.registerAccess("ulx guiltadmin", nil, "Grants access to the ulx guiltadmin command", "Command") end
+if SERVER then ULib.ucl.registerAccess("ulx guiltadmin", nil, "Grants access to the ulx guiltadmin command", "Guilt") end
