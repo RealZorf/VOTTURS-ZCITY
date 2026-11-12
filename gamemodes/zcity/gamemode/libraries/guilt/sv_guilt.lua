@@ -89,9 +89,13 @@ local PLAYER_KARMA_CAPS = {
     headdeveloper = 99999,
     staffmanager = 250,
     headadmin = 250,
+    senioradmin = 250,
     developer = 99999,
     admin = 250,
+    trialadmin = 250,
+    seniormod = 250,
     mod = 250,
+    trialmod = 150,
     supporter = 250,
     booster = 150
 }
