@@ -56,10 +56,47 @@ local function resolveCharacterTarget(ent, target)
 	if target.organism then return target end
 end
 
-local function canTargetPlayer(actor, target)
-	if not IsValid(actor) or not IsValid(target) or not target:IsPlayer() then return false end
-	if target ~= actor and target:IsAdmin() and not actor:ZCTools_GetAccess(true) then return false end
-	return true
+local function allow(ply, access)
+	if not zb or not zb.HasAccess then return false end
+	return zb.HasAccess(ply, access)
+end
+
+local propertyAccess = {
+	"copy steamid",
+	"notify",
+	"give weapon",
+	"strip",
+	"full strip",
+	"reset organism",
+	"freeze",
+	"snatch",
+	"stun toggle",
+	"vomit",
+	"lobotomize",
+	"silent kill",
+	"kick",
+	"set player class",
+	"break limb",
+	"amputate limb",
+	"toggle door",
+	"lock door",
+	"unlock door",
+	"respawn player into body",
+	"respawn self into body",
+	"respawn body owner",
+}
+
+if SERVER then
+	local function registerAccess()
+		local ucl = ULib and ULib.ucl
+		if not ucl or not ucl.registerAccess then return end
+		for i = 1, #propertyAccess do
+			ucl.registerAccess(propertyAccess[i], nil, propertyAccess[i], "Context menu")
+		end
+	end
+
+	registerAccess()
+	hook.Add("Initialize", "ZC_PlayerPropertyAccess", registerAccess)
 end
 
 local function isTargetInRange(actor, ent, target)
@@ -68,21 +105,15 @@ local function isTargetInRange(actor, ent, target)
 	return actor:EyePos():DistToSqr(target_pos) <= PROPERTY_TARGET_RANGE ^ 2
 end
 
-local function check(self, ent, ply)
-	if not IsValid(ply) or not ply:ZCTools_GetAccess() then return false end
-	local target = resolvePlayerTarget(ent)
-	return IsValid(target) and canTargetPlayer(ply, target)
+local function check(access)
+	return function(_, ent, ply)
+		return allow(ply, access) and IsValid(resolvePlayerTarget(ent))
+	end
 end
 
-local function checkSuper(self, ent, ply)
-	if not IsValid(ply) or not ply:ZCTools_GetAccess(true) then return false end
-	local target = resolvePlayerTarget(ent)
-	return IsValid(target) and canTargetPlayer(ply, target)
-end
-
-local function beginRequest(ply, action, length, superadmin, cooldown, max_bits)
+local function beginRequest(ply, action, length, cooldown, max_bits)
 	if not SERVER or not IsValid(ply) or not ply:IsPlayer() then return false end
-	if not ply:ZCTools_GetAccess(superadmin == true) then
+	if not allow(ply, action) then
 		securityLog(ply, "blocked " .. action .. " without permission")
 		return false
 	end
@@ -108,8 +139,8 @@ end
 
 local function authorizePlayerTarget(ply, ent, action, require_alive)
 	local target = resolvePlayerTarget(ent)
-	if not IsValid(target) or not canTargetPlayer(ply, target) then
-		securityLog(ply, "blocked " .. action .. " with an invalid or protected target")
+	if not IsValid(target) then
+		securityLog(ply, "blocked " .. action .. " with an invalid target")
 		return nil
 	end
 	if require_alive and not target:Alive() then return nil end
@@ -126,8 +157,8 @@ local function authorizePlayerTarget(ply, ent, action, require_alive)
 	return target
 end
 
-local function readPlayerRequest(ply, action, length, superadmin, require_alive, cooldown, max_bits)
-	if not beginRequest(ply, action, length, superadmin, cooldown, max_bits) then return nil end
+local function readPlayerRequest(ply, action, length, require_alive, cooldown, max_bits)
+	if not beginRequest(ply, action, length, cooldown, max_bits) then return nil end
 	local ent = net.ReadEntity()
 	local target = authorizePlayerTarget(ply, ent, action, require_alive)
 	return target, ent
@@ -138,7 +169,7 @@ properties.Add("copy_steamid", {
     Order = 1,
     MenuIcon = "icon16/user.png",
 
-    Filter = check,
+    Filter = check("copy steamid"),
 
     Action = function(self, ent) -- CLIENT
         local ply = hg.RagdollOwner(ent) or ent
@@ -159,7 +190,7 @@ properties.Add( "notify", {
 	Order = 2, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/note_add.png", -- The icon to display next to the property
 
-	Filter = check,
+	Filter = check("notify"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
         Derma_StringRequest(
 			"Notify " .. targetDisplayName(ent),
@@ -175,7 +206,7 @@ properties.Add( "notify", {
 
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target = readPlayerRequest(ply, "notify", length, false, false, 0.5, 4096)
+		local target = readPlayerRequest(ply, "notify", length, false, 0.5, 4096)
 		if not IsValid(target) then return end
 		local text = string.Trim(string.sub(net.ReadString(), 1, 256))
 		if text == "" then return end
@@ -190,7 +221,7 @@ properties.Add( "givegun", {
 	Order = 3, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/gun.png", -- The icon to display next to the property
 
-	Filter = checkSuper,
+	Filter = check("give weapon"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
         Derma_StringRequest(
 			"Give " .. targetDisplayName(ent),
@@ -206,7 +237,7 @@ properties.Add( "givegun", {
 
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target = readPlayerRequest(ply, "give weapon", length, true, true, 0.35, 2048)
+		local target = readPlayerRequest(ply, "give weapon", length, true, 0.35, 2048)
 		if not IsValid(target) then return end
 		local class = string.lower(string.Trim(string.sub(net.ReadString(), 1, 64)))
 		if class == "" or not string.match(class, "^[%w_]+$") or not weapons.GetStored(class) then
@@ -226,7 +257,7 @@ properties.Add( "strip", {
 	Order = 4, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/basket_delete.png", -- The icon to display next to the property
 
-	Filter = checkSuper,
+	Filter = check("strip"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
         Derma_Query(
             "The player will be stripped down to only their fists.",
@@ -242,7 +273,7 @@ properties.Add( "strip", {
 
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target = readPlayerRequest(ply, "strip", length, true, true, 0.35, 512)
+		local target = readPlayerRequest(ply, "strip", length, true, 0.35, 512)
 		if not IsValid(target) then return end
 		target:StripWeapons()
 		target:Give("weapon_hands_sh")
@@ -255,7 +286,7 @@ properties.Add( "fullstrip", {
 	Order = 5, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/lorry_delete.png", -- The icon to display next to the property
 
-	Filter = checkSuper,
+	Filter = check("full strip"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
         Derma_Query(
             "All weapons, including fists, will be stripped.",
@@ -271,7 +302,7 @@ properties.Add( "fullstrip", {
 
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target = readPlayerRequest(ply, "full strip", length, true, true, 0.35, 512)
+		local target = readPlayerRequest(ply, "full strip", length, true, 0.35, 512)
 		if not IsValid(target) then return end
 		target:StripWeapons()
 		auditLog(ply, "full strip", target)
@@ -283,7 +314,7 @@ properties.Add( "reset_org", {
 	Order = 6, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/heart_add.png", -- The icon to display next to the property
 
-	Filter = checkSuper,
+	Filter = check("reset organism"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
         Derma_Query(
             "Organism will be new like a respawn",
@@ -299,7 +330,7 @@ properties.Add( "reset_org", {
 
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target, selected = readPlayerRequest(ply, "reset organism", length, true, true, 0.5, 512)
+		local target, selected = readPlayerRequest(ply, "reset organism", length, true, 0.5, 512)
 		if not IsValid(target) then return end
 		local character = resolveCharacterTarget(selected, target)
 		if not IsValid(character) or not character.organism then return end
@@ -315,8 +346,9 @@ properties.Add( "freeze", {
 	MenuIcon = "icon16/control_pause_blue.png", -- The icon to display next to the property
 
 	Filter = function( self, ent, ply )
-		if not check(self, ent, ply) then return false end
+		if not allow(ply, "freeze") then return false end
 		local target = resolvePlayerTarget(ent)
+		if not IsValid(target) then return false end
 		self.MenuLabel = target:IsFrozen() and "Unfreeze" or "Freeze"
 		self.MenuIcon = target:IsFrozen() and "icon16/control_pause.png" or "icon16/control_pause_blue.png"
 		return true
@@ -327,7 +359,7 @@ properties.Add( "freeze", {
         self:MsgEnd()
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target = readPlayerRequest(ply, "freeze", length, false, false, 0.25, 512)
+		local target = readPlayerRequest(ply, "freeze", length, false, 0.25, 512)
 		if not IsValid(target) then return end
 		local freeze = not target:IsFrozen()
 		target:Freeze(freeze)
@@ -340,10 +372,9 @@ properties.Add( "snatch", {
 	Order = 8, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/cross.png", -- The icon to display next to the property
 
-	Filter = function(self, ent, ply)
-        if !CurrentRound then return false end
-        
-		return checkSuper(self, ent, ply)
+	Filter = function(_, ent, ply)
+        if not CurrentRound then return false end
+		return allow(ply, "snatch") and IsValid(resolvePlayerTarget(ent))
     end,
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
         Derma_Query(
@@ -360,7 +391,7 @@ properties.Add( "snatch", {
 
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target = readPlayerRequest(ply, "snatch", length, true, true, 2, 512)
+		local target = readPlayerRequest(ply, "snatch", length, true, 2, 512)
 		if not IsValid(target) then return end
 		if not CurrentRound or not CurrentRound() or not zb or zb.ROUND_STATE ~= 1 then return end
 		local bot = ents.Create("bot_fear")
@@ -376,14 +407,14 @@ properties.Add( "ragdollize", {
 	Order = 9, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/anchor.png", -- The icon to display next to the property
 
-	Filter = check,
+	Filter = check("stun toggle"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
 		self:MsgStart()
 			net.WriteEntity( ent )
 		self:MsgEnd()
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target = readPlayerRequest(ply, "stun toggle", length, false, true, 0.5, 512)
+		local target = readPlayerRequest(ply, "stun toggle", length, true, 0.5, 512)
 		if not IsValid(target) then return end
 
 		if not IsValid(target.FakeRagdoll) then
@@ -401,14 +432,14 @@ properties.Add( "vomit", {
 	Order = 10, -- The order to display this property relative to other properties
 	MenuIcon = "pluv/pluv51.png", -- The icon to display next to the property
 
-	Filter = check,
+	Filter = check("vomit"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
 		self:MsgStart()
 			net.WriteEntity( ent )
 		self:MsgEnd()
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target, selected = readPlayerRequest(ply, "vomit", length, false, true, 1, 512)
+		local target, selected = readPlayerRequest(ply, "vomit", length, true, 1, 512)
 		if not IsValid(target) then return end
 		local character = resolveCharacterTarget(selected, target)
 		if not IsValid(character) or not character.organism then return end
@@ -422,14 +453,14 @@ properties.Add( "lobotomize", {
 	Order = 11, -- The order to display this property relative to other properties
 	MenuIcon = "pluv/pluv51.png", -- The icon to display next to the property
 
-	Filter = checkSuper,
+	Filter = check("lobotomize"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
 		self:MsgStart()
 			net.WriteEntity( ent )
 		self:MsgEnd()
 	end,
 	Receive = function( self, length, ply ) -- The action to perform upon using the property ( Serverside )
-		local target, selected = readPlayerRequest(ply, "lobotomize", length, true, true, 0.5, 512)
+		local target, selected = readPlayerRequest(ply, "lobotomize", length, true, 0.5, 512)
 		if not IsValid(target) then return end
 		local character = resolveCharacterTarget(selected, target)
 		if not IsValid(character) or not character.organism then return end
@@ -449,14 +480,14 @@ properties.Add("killsilent", {
 	Order = 12,
 	MenuIcon = "icon16/cross.png",
 
-	Filter = checkSuper,
+	Filter = check("silent kill"),
 	Action = function( self, ent )
 		self:MsgStart()
 			net.WriteEntity( ent )
 		self:MsgEnd()
 	end,
 	Receive = function( self, length, ply )
-		local target = readPlayerRequest(ply, "silent kill", length, true, true, 0.5, 512)
+		local target = readPlayerRequest(ply, "silent kill", length, true, 0.5, 512)
 		if not IsValid(target) then return end
 		auditLog(ply, "silent kill", target)
 		target:Kill()
@@ -468,7 +499,7 @@ properties.Add("removeply", {
 	Order = 13,
 	MenuIcon = "icon16/cross.png",
 
-	Filter = checkSuper,
+	Filter = check("kick"),
 	Action = function( self, ent )
 		Derma_Query(
 			"The player will be disconnected from the server.",
@@ -483,7 +514,7 @@ properties.Add("removeply", {
 		)
 	end,
 	Receive = function( self, length, ply )
-		local target = readPlayerRequest(ply, "kick", length, true, false, 1, 512)
+		local target = readPlayerRequest(ply, "kick", length, false, 1, 512)
 		if not IsValid(target) or target == ply then return end
 		auditLog(ply, "kick", target)
 		target:Kick("Removed by a server administrator.")
@@ -495,7 +526,7 @@ properties.Add( "setplayerclass", {
 	Order = 14, -- The order to display this property relative to other properties
 	MenuIcon = "vgui/entities/npc_nukude_proto_h", -- The icon to display next to the property
 
-	Filter = checkSuper,
+	Filter = check("set player class"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
 		self:MsgStart()
 			net.WriteEntity( ent )
@@ -508,7 +539,7 @@ properties.Add( "setplayerclass", {
 		self:MsgEnd()
 	end,
 	Receive = function( self, length, ply )
-		local target = readPlayerRequest(ply, "set player class", length, true, false, 0.5, 2048)
+		local target = readPlayerRequest(ply, "set player class", length, false, 0.5, 2048)
 		if not IsValid(target) then return end
 		local class = string.sub(net.ReadString(), 1, 64)
 		if not player.classList[class] then
@@ -541,7 +572,7 @@ properties.Add( "break_limb", {
 	Order = 15,
 	MenuIcon = "pluv/pluv51.png",
 
-	Filter = checkSuper,
+	Filter = check("break limb"),
 	MenuOpen = function( self, option, ent, tr )
 		local target = resolvePlayerTarget(ent)
 		ent = resolveCharacterTarget(ent, target)
@@ -606,7 +637,7 @@ properties.Add( "break_limb", {
 	end,
 
 	Receive = function( self, length, ply )
-		local target, selected = readPlayerRequest(ply, "break limb", length, true, true, 0.35, 768)
+		local target, selected = readPlayerRequest(ply, "break limb", length, true, 0.35, 768)
 		if not IsValid(target) then return end
 		local limb = net.ReadUInt( 8 )
 		if limb > 7 then
@@ -644,7 +675,7 @@ properties.Add( "amputate_limb", {
 	Order = 16,
 	MenuIcon = "effects/arc9_eft/evil.png",
 
-	Filter = checkSuper,
+	Filter = check("amputate limb"),
 	MenuOpen = function( self, option, ent, tr )
 		local target = resolvePlayerTarget(ent)
 		ent = resolveCharacterTarget(ent, target)
@@ -691,7 +722,7 @@ properties.Add( "amputate_limb", {
 	end,
 
 	Receive = function( self, length, ply )
-		local target, selected = readPlayerRequest(ply, "amputate limb", length, true, true, 0.5, 768)
+		local target, selected = readPlayerRequest(ply, "amputate limb", length, true, 0.5, 768)
 		if not IsValid(target) then return end
 		local limb = net.ReadUInt( 8 )
 		if limb > 4 then
@@ -725,14 +756,10 @@ local doorClasses = {
 	prop_door_rotating = true,
 }
 
-local function doorCheck(self, ent, ply)
-	return IsValid(ply) and ply:ZCTools_GetAccess() and IsValid(ent) and doorClasses[ent:GetClass()] == true
-end
-
 local function readDoorRequest(ply, action, length)
-	if not beginRequest(ply, action, length, false, 0.25, 512) then return nil end
+	if not beginRequest(ply, action, length, 0.25, 512) then return nil end
 	local ent = net.ReadEntity()
-	if not doorCheck(nil, ent, ply) then
+	if not IsValid(ent) or not doorClasses[ent:GetClass()] then
 		securityLog(ply, "blocked " .. action .. " on a non-door entity")
 		return nil
 	end
@@ -743,59 +770,34 @@ local function readDoorRequest(ply, action, length)
 	return ent
 end
 
-properties.Add( "door_toggle", {
-    MenuLabel = "Toggle Door",
-    Order = 7,
-    MenuIcon = "icon16/door.png",
-    Filter = doorCheck,
-    Action = function(self, ent)
-        self:MsgStart()
-            net.WriteEntity(ent)
-        self:MsgEnd()
-    end,
-    Receive = function(self, length, ply)
-		local ent = readDoorRequest(ply, "toggle door", length)
-		if not IsValid(ent) then return end
-		ent:Fire("toggle")
-		auditLog(ply, "toggle door", ply, ent:GetClass() .. " #" .. ent:EntIndex())
-    end
-})
+local doorProperties = {
+	{"door_toggle", "Toggle Door", "icon16/door.png", "toggle", "toggle door", 7},
+	{"door_lock", "Lock Door", "icon16/lock.png", "lock", "lock door", 8},
+	{"door_unlock", "Unlock Door", "icon16/lock_open.png", "unlock", "unlock door", 9},
+}
 
-properties.Add( "door_lock", {
-    MenuLabel = "Lock Door",
-    Order = 8,
-    MenuIcon = "icon16/lock.png",
-    Filter = doorCheck,
-    Action = function(self, ent)
-        self:MsgStart()
-            net.WriteEntity(ent)
-        self:MsgEnd()
-    end,
-    Receive = function(self, length, ply)
-		local ent = readDoorRequest(ply, "lock door", length)
-		if not IsValid(ent) then return end
-		ent:Fire("lock")
-		auditLog(ply, "lock door", ply, ent:GetClass() .. " #" .. ent:EntIndex())
-    end
-})
-
-properties.Add( "door_unlock", {
-    MenuLabel = "Unlock Door",
-    Order = 9,
-    MenuIcon = "icon16/lock_open.png",
-    Filter = doorCheck,
-    Action = function(self, ent)
-        self:MsgStart()
-            net.WriteEntity(ent)
-        self:MsgEnd()
-    end,
-    Receive = function(self, length, ply)
-		local ent = readDoorRequest(ply, "unlock door", length)
-		if not IsValid(ent) then return end
-		ent:Fire("unlock")
-		auditLog(ply, "unlock door", ply, ent:GetClass() .. " #" .. ent:EntIndex())
-    end
-})
+for i = 1, #doorProperties do
+	local name, label, icon, fire, access, order = doorProperties[i][1], doorProperties[i][2], doorProperties[i][3], doorProperties[i][4], doorProperties[i][5], doorProperties[i][6]
+	properties.Add(name, {
+		MenuLabel = label,
+		Order = order,
+		MenuIcon = icon,
+		Filter = function(_, ent, ply)
+			return allow(ply, access) and IsValid(ent) and doorClasses[ent:GetClass()] == true
+		end,
+		Action = function(self, ent)
+			self:MsgStart()
+				net.WriteEntity(ent)
+			self:MsgEnd()
+		end,
+		Receive = function(_, length, ply)
+			local ent = readDoorRequest(ply, access, length)
+			if not IsValid(ent) then return end
+			ent:Fire(fire)
+			auditLog(ply, access, ply, ent:GetClass() .. " #" .. ent:EntIndex())
+		end
+	})
+end
 
 local defaultinv = {
     Weapons = {},
@@ -892,17 +894,18 @@ end
 
 hg.RespawnIntoBody = Respawn
 
-local function bodyCheck(self, body, ply)
-	if not IsValid(ply) or not ply:ZCTools_GetAccess(true) then return false end
-	if not IsValid(body) or not body:IsRagdoll() then return false end
-	if SERVER and IsValid(body.HGRespawnClaimedBy) then return false end
-	return true
+local function bodyCheck(access)
+	return function(_, body, ply)
+		if not allow(ply, access) or not IsValid(body) or not body:IsRagdoll() then return false end
+		if SERVER and IsValid(body.HGRespawnClaimedBy) then return false end
+		return true
+	end
 end
 
 local function readBodyRequest(ply, action, length, cooldown, max_bits)
-	if not beginRequest(ply, action, length, true, cooldown or 1, max_bits or 768) then return nil end
+	if not beginRequest(ply, action, length, cooldown or 1, max_bits or 768) then return nil end
 	local body = net.ReadEntity()
-	if not bodyCheck(nil, body, ply) then
+	if not IsValid(body) or not body:IsRagdoll() or IsValid(body.HGRespawnClaimedBy) then
 		securityLog(ply, "blocked " .. action .. " with an invalid or claimed body")
 		return nil
 	end
@@ -918,7 +921,7 @@ properties.Add( "respawn_ply_in_rag", {
 	Order = 1, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/heart.png", -- The icon to display next to the property
 
-	Filter = bodyCheck,
+	Filter = bodyCheck("respawn player into body"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
 
         hg.DermaPlayerQuery(
@@ -934,8 +937,8 @@ properties.Add( "respawn_ply_in_rag", {
 		local body = readBodyRequest(ply, "respawn player into body", length, 1, 1024)
 		if not IsValid(body) then return end
 		local target = net.ReadEntity()
-		if not IsValid(target) or not target:IsPlayer() or not canTargetPlayer(ply, target) then
-			securityLog(ply, "blocked respawn with an invalid or protected player")
+		if not IsValid(target) or not target:IsPlayer() then
+			securityLog(ply, "blocked respawn with an invalid player")
 			return
 		end
 
@@ -948,7 +951,7 @@ properties.Add( "respawn_lply_in_rag", {
 	Order = 2, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/heart.png", -- The icon to display next to the property
 
-	Filter = bodyCheck,
+	Filter = bodyCheck("respawn self into body"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
 
         Derma_Query(
@@ -978,7 +981,7 @@ properties.Add( "respawn_ragply_in_rag", {
 	Order = 3, -- The order to display this property relative to other properties
 	MenuIcon = "icon16/heart.png", -- The icon to display next to the property
 
-	Filter = bodyCheck,
+	Filter = bodyCheck("respawn body owner"),
 	Action = function( self, ent ) -- The action to perform upon using the property ( Clientside )
 
         Derma_Query(
@@ -997,7 +1000,7 @@ properties.Add( "respawn_ragply_in_rag", {
 		local body = readBodyRequest(ply, "respawn body owner", length, 1, 768)
 		if not IsValid(body) then return end
 		local target = resolvePlayerTarget(body)
-		if not IsValid(target) or not canTargetPlayer(ply, target) then return end
+		if not IsValid(target) then return end
 
 		if Respawn(target, body) then auditLog(ply, "respawn body owner", target, "body #" .. body:EntIndex()) end
 	end 
