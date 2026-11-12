@@ -420,30 +420,9 @@ local firstTime4 = true
 local firstTime5 = true
 local firstTime6 = true
 
--- first time?..
-local ZCTools_ULXGroups = {
-	superadmin = true,
-	owner = true,
-	servermanager = true,
-	headdeveloper = true,
-	staffmanager = true,
-	headadmin = true,
-	developer = true,
-	admin = true
-}
-
-local function ZCTools_HasULXAccess(ply)
-	if not IsValid(ply) then return false end
-
-	if ply:IsSuperAdmin() then return true end
-	if ply:IsAdmin() then return true end
-
-	if ply.GetUserGroup then
-		local group = string.lower(tostring(ply:GetUserGroup() or ""))
-		if ZCTools_ULXGroups[group] then return true end
-	end
-
-	return false
+local function ZCTools_HasULXAccess(ply, access)
+	if not IsValid(ply) or not zb or not zb.HasAccess then return false end
+	return zb.HasAccess(ply, access)
 end
 
 hook.Add("HG_OnOtrub", "resetshit", function(ply)
@@ -464,13 +443,16 @@ hook.Add("PlayerBindPress", "PlayerBindPressExample2huy", function(ply, bind, pr
 		end
 
 		if bind == "+menu" then
+			local sandboxMenu = HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive()
+			if game.SinglePlayer() or sandboxMenu or ZCTools_HasULXAccess(lply, "openSpawnmenu") then return end
+
 			if pressed and not IsValid(MENUPANELHUYHUY) then
 				CreateRadialMenu()
 			else
 				PressRadialMenu(1)
 			end
-		else
-			if ZCTools_HasULXAccess(lply) then return end
+		elseif game.SinglePlayer() or ZCTools_HasULXAccess(lply, "openContextmenu") then
+			return
 		end
 
 		return true

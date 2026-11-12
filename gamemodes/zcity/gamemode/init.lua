@@ -730,5 +730,6 @@ function GM:EntityKeyValue( ent, key, value )
 end
 
 hook.Add("CanProperty", "AntiExploit", function(ply)
-	if not zb.HasAccess(ply, "contextmenu") then return false end
+	if zb.HasAccess(ply, "openContextmenu") then return end
+	return false
 end)

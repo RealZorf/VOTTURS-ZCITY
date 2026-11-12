@@ -62,7 +62,7 @@ if SERVER then
 			ucl.registerAccess(name, nil, name, "Spawnmenu")
 		end
 		ucl.registerAccess("openSpawnmenu", nil, "Open the spawn menu", "Spawnmenu")
-		ucl.registerAccess("contextmenu", nil, "Use context menu properties", "Context menu")
+		ucl.registerAccess("openContextmenu", nil, "Open the context menu", "Context menu")
 		ucl.registerAccess("ulx addkarma", nil, "Grants access to the ulx addkarma command", "Guilt")
 		ucl.registerAccess("ulx removekarma", nil, "Grants access to the ulx removekarma command", "Guilt")
 		ucl.registerAccess("noclip", nil, "Use noclip", "Z-City")
@@ -104,12 +104,11 @@ if CLIENT then
 	hook.Add("SpawnMenuOpen", "SpawnMenuWhitelist", function()
 		local ply = LocalPlayer()
 
-		if HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive() then
-			if HG_SANDBOX.IsBypassPlayer and HG_SANDBOX.IsBypassPlayer(ply) then return true end
-			if HG_SANDBOX.IsRestrictedPlayer and HG_SANDBOX.IsRestrictedPlayer(ply) then return true end
-		end
+		if game.SinglePlayer() or zb.HasAccess(ply, "openSpawnmenu") then return true end
 
-		if game.SinglePlayer() or zb.HasAccess(ply, "spawnmenu") then return true end
+		if HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive() then
+			return true
+		end
 
 		return false
 	end)

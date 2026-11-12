@@ -315,7 +315,11 @@ function HG_SANDBOX.ShouldBlockPlayer(ply)
 end
 
 function HG_SANDBOX.ShouldHideSpawnmenu(ply)
-    return IsValid(ply) and not HG_SANDBOX.IsBypassPlayer(ply) and not HG_SANDBOX.IsSandboxModeActive()
+    if not IsValid(ply) then return true end
+    if game.SinglePlayer() or HG_SANDBOX.IsSandboxModeActive() then return false end
+    if zb and zb.HasAccess and zb.HasAccess(ply, "openSpawnmenu") then return false end
+
+    return true
 end
 
 function HG_SANDBOX.IsBlockedWeaponClass(class)
@@ -928,6 +932,7 @@ if SERVER then
     end)
 
     hook.Add("CanProperty", "HG_SandboxBlockProperties", function(ply)
+        if zb and zb.HasAccess and zb.HasAccess(ply, "openContextmenu") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "properties_disabled", "Properties and utilities are disabled in Sandbox Mode.")
@@ -1121,18 +1126,9 @@ if CLIENT then
     end
 
     hook.Add("SpawnMenuOpen", "HG_SandboxSpawnMenuAccess", function()
-        local ply = getLocalPlayer()
-        if not IsValid(ply) then return end
-
         if HG_SANDBOX.IsSandboxModeActive() then
             return true
         end
-
-        if HG_SANDBOX.IsBypassPlayer(ply) then
-            return
-        end
-
-        return false
     end)
 
     hook.Add("SpawnMenuCreated", "HG_SandboxSpawnMenuCreated", function()
