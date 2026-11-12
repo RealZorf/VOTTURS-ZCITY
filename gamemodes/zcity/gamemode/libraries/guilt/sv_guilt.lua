@@ -18,19 +18,21 @@ local function cfg()
     return ZCITY_GUILT.Config or ZCITY_GUILT.DefaultConfig
 end
 
-local PLAYER_KARMA_CAPS = {
-    superadmin = 99999,
-    owner = 99999,
-    servermanager = 99999,
-    headdeveloper = 99999,
-    staffmanager = 250,
-    headadmin = 250,
-    developer = 99999,
-    admin = 250,
-    mod = 250,
-    supporter = 250,
-    booster = 150
-}
+local function hasGuiltAccess(ply, access)
+    local ucl = ULib and ULib.ucl
+    if not IsValid(ply) or not ply:IsPlayer() or not ucl or not ucl.query or not ucl.authed or not ucl.authed[ply:UniqueID()] then return false end
+    return ucl.query(ply, access) == true
+end
+
+local function registerGuiltAccess()
+    if not ULib or not ULib.ucl or not ULib.ucl.registerAccess then return end
+    ULib.ucl.registerAccess("ulx guiltbanimmune", nil, "Exempts the player from guilt bans and low-karma seizures and vomiting", "Command")
+    ULib.ucl.registerAccess("ulx getkarma", nil, "Grants access to view player karma", "Command")
+    ULib.ucl.registerAccess("ulx setkarma", nil, "Grants access to set player karma", "Command")
+end
+
+registerGuiltAccess()
+hook.Add("Initialize", "ZC_GuiltAccess", registerGuiltAccess)
 
 zb.GuiltRoundId = zb.GuiltRoundId or 0
 
@@ -80,37 +82,31 @@ local function ShouldSkipHmcdGuiltPenalty(attacker, victim, rnd)
     return false
 end
 
+local PLAYER_KARMA_CAPS = {
+    superadmin = 99999,
+    owner = 99999,
+    servermanager = 99999,
+    headdeveloper = 99999,
+    staffmanager = 250,
+    headadmin = 250,
+    developer = 99999,
+    admin = 250,
+    mod = 250,
+    supporter = 250,
+    booster = 150
+}
+
 local function GetPlayerKarmaCap(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return zb.MaxKarma end
 
-    local userGroup = string.lower((ply.GetUserGroup and ply:GetUserGroup()) or "")
-    if PLAYER_KARMA_CAPS[userGroup] then
-        return PLAYER_KARMA_CAPS[userGroup]
-    end
-
-    return zb.MaxKarma
+    local cap = PLAYER_KARMA_CAPS[string.lower((ply.GetUserGroup and ply:GetUserGroup()) or "")]
+    return cap or zb.MaxKarma
 end
 
-function zb.GetPlayerKarmaCap(ply)
-    return GetPlayerKarmaCap(ply)
-end
-
-local IMMUNE_GROUPS = {
-    "superadmin",
-    "owner",
-    "servermanager",
-    "headdeveloper",
-    "staffmanager",
-    "headadmin",
-    "developer",
-    "admin",
-    "mod",
-}
+zb.GetPlayerKarmaCap = GetPlayerKarmaCap
 
 local function IsBanImmune(ply)
-    if not IsValid(ply) or not ply:IsPlayer() then return false end
-    local grp = string.lower(ply:GetUserGroup() or "")
-    return table.HasValue(IMMUNE_GROUPS, grp)
+    return hasGuiltAccess(ply, "ulx guiltbanimmune")
 end
 
 local function IsRefundableWrongKill(attacker, victim, rnd)
@@ -1234,7 +1230,7 @@ end)
 
 util.AddNetworkString("get_karma")
 net.Receive("get_karma",function(len, ply)
-    if not ply:IsAdmin() then return end
+    if not hasGuiltAccess(ply, "ulx getkarma") then return end
 
     local tbl = {}
 
@@ -1248,7 +1244,7 @@ net.Receive("get_karma",function(len, ply)
 end)
 
 concommand.Add("hg_setkarma",function(ply,cmd,args)
-    if not ply:IsAdmin() then return end
+    if not hasGuiltAccess(ply, "ulx setkarma") then return end
     
     local lenargs = #args
     local newply = player.GetListByName(lenargs > 1 and args[1] or ply:Name())[1]

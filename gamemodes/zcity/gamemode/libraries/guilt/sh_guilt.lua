@@ -99,7 +99,7 @@ ZCITY_GUILT.Settings = {
     { group = "Karma economy", key = "SuicideRefundRate", label = "Innocent-kill suicide refund rate", desc = "Fraction of karma lost for killing innocents that is refunded if that player suicides soon after.", type = "number", default = 0.1, min = 0, max = 1 },
     { group = "Karma economy", key = "SuicideRefundWindow", label = "Suicide refund window (seconds)", desc = "The suicide has to happen within this many seconds of the player's own suicide damage to refund innocent-kill losses.", type = "number", default = 30, min = 0, max = 300 },
 
-    { group = "Low karma effects", key = "SeizureKarmaBelow", label = "Seizure below karma", desc = "Players under this karma can randomly seize during a round (staff-immune groups are skipped).", type = "number", default = 50, min = 0, max = 120 },
+    { group = "Low karma effects", key = "SeizureKarmaBelow", label = "Seizure below karma", desc = "Players under this karma can randomly seize during a round. Players with ulx guiltbanimmune are skipped.", type = "number", default = 50, min = 0, max = 120 },
     { group = "Low karma effects", key = "SeizureDuration", label = "Seizure duration (seconds)", desc = "How long a low-karma seizure lasts.", type = "number", default = 15, min = 1, max = 120 },
     { group = "Low karma effects", key = "VomitKarmaBelow", label = "Vomit below karma", desc = "Players under this karma can randomly vomit.", type = "number", default = 35, min = 0, max = 120 },
     { group = "Low karma effects", key = "VomitChance", label = "Vomit chance (1 in N)", desc = "Each organism think, 1 in this many chance to vomit when below the vomit karma threshold.", type = "int", default = 2000, min = 1, max = 100000 },

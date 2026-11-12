@@ -7,8 +7,7 @@ hook.Add("OnNetVarSet", "Guilt", function(index, key, var)
     end
 end)
 
-concommand.Add("hg_getkarma", function(ply)
-    if not ply:IsAdmin() then return end
+concommand.Add("hg_getkarma", function()
     net.Start("get_karma")
     net.SendToServer()
 end)
