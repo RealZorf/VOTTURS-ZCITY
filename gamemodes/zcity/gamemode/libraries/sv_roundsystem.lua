@@ -1,6 +1,51 @@
 local player_GetAll = player.GetAll
 zb.modes = zb.modes or {}
 
+local firstRoundWait = CreateConVar("zb_first_round_wait", "35", FCVAR_ARCHIVE,
+	"Seconds to wait for reconnecting players before the first round of each map. 0 disables.", 0, 600)
+zb.MapJoinWindow = zb.MapJoinWindow or {complete = zb.ROUND_STATE == 1 or (zb.Roundscount or 0) > 1}
+
+local function publishMapJoinDeadline(deadline)
+	if GetGlobalFloat("ZB_FirstRoundWaitUntil", 0) ~= deadline then
+		SetGlobalFloat("ZB_FirstRoundWaitUntil", deadline)
+	end
+end
+
+local function resetMapJoinWindow()
+	zb.MapJoinWindow.startedAt = nil
+	zb.MapJoinWindow.prepared = nil
+	zb.START_TIME = nil
+	publishMapJoinDeadline(0)
+end
+
+function zb:GetMapJoinWaitUntil()
+	local window = self.MapJoinWindow
+	if window.complete or firstRoundWait:GetInt() <= 0 then
+		publishMapJoinDeadline(0)
+		return 0
+	end
+	if #player.GetHumans() == 0 then
+		resetMapJoinWindow()
+		return math.huge
+	end
+	window.startedAt = window.startedAt or CurTime()
+	local deadline = window.startedAt + firstRoundWait:GetInt()
+	publishMapJoinDeadline(deadline > CurTime() and deadline or 0)
+	return deadline
+end
+
+hook.Add("PlayerInitialSpawn", "ZB_FirstRoundJoinWindow", function(ply)
+	if not ply:IsBot() then zb:GetMapJoinWaitUntil() end
+end)
+
+hook.Add("PlayerDisconnected", "ZB_FirstRoundJoinWindow", function(ply)
+	if zb.MapJoinWindow.complete then return end
+	for _, human in ipairs(player.GetHumans()) do
+		if human ~= ply then return end
+	end
+	resetMapJoinWindow()
+end)
+
 util.AddNetworkString("FadeScreen")
 
 function zb.AddFade()
@@ -64,6 +109,7 @@ function NextRound(round)
 end
 
 function zb:PreRound()
+	local joinDeadline = self:GetMapJoinWaitUntil()
 	if ((((zb.Roundscount or 0) > 15) and !GetConVar("zb_dev"):GetBool()) or ( (player.GetCount() > 1) and zb.ROUND_STATE == 0 and zb.CheckRTVVotes() )) and !(zb.RoundsLeft and (zb.CROUND == "cstrike" or zb.CROUND == "ww2")) then
 		zb.StartRTV(20)
 		zb.ROUND_STATE = 0
@@ -72,6 +118,15 @@ function zb:PreRound()
 
 	if zb.ROUND_STATE == 0 and #player_GetAll() > 1 then
 		zb.END_TIME = nil
+		if not self.MapJoinWindow.complete and not self.MapJoinWindow.prepared
+			and joinDeadline ~= math.huge then
+			self:EndRound()
+			return
+		end
+		if CurTime() < joinDeadline then
+			zb.START_TIME = nil
+			return
+		end
 
 		zb.START_TIME = zb.START_TIME or CurTime() + (CurrentRound().start_time or 5)
 		if zb.START_TIME < CurTime() then zb:RoundStart() end
@@ -156,6 +211,9 @@ function zb:EndRoundThink()
 				SetGlobalVar("coop_first_round_timer", zb.END_TIME)
 			end
 		end
+		-- Role selection, team setup and equipment happen in Intermission, so
+		-- hold that preparation too; delaying only RoundStart would be too late.
+		if CurTime() < self:GetMapJoinWaitUntil() then return end
 		
 		zb.SHOULD_FADE = zb.SHOULD_FADE != nil and zb.SHOULD_FADE or true
 
@@ -201,6 +259,7 @@ function zb:EndRoundThink()
 
 			CurrentRound():Intermission()
 			CurrentRound():GiveEquipment()
+			self.MapJoinWindow.prepared = true
 		end
 	end
 end
@@ -652,6 +711,10 @@ net.Receive("ZB_UpdateRoundList", function(len, ply)
 end)
 
 function zb:RoundStart()
+	if CurTime() < self:GetMapJoinWaitUntil() then return false end
+	if not self.MapJoinWindow.complete and not self.MapJoinWindow.prepared then return false end
+	self.MapJoinWindow.complete = true
+	publishMapJoinDeadline(0)
 	if CurrentRound().shouldfreeze then zb:Unfreeze() end
 
 	zb.ROUND_STATE = 1
