@@ -63,6 +63,9 @@ if SERVER then
 		end
 		ucl.registerAccess("openSpawnmenu", nil, "Open the spawn menu", "Spawnmenu")
 		ucl.registerAccess("openContextmenu", nil, "Open the context menu", "Context menu")
+		ucl.registerAccess("ignite", nil, "Ignite entities from the context menu", "Context menu")
+		ucl.registerAccess("gravity", nil, "Toggle entity gravity from the context menu", "Context menu")
+		ucl.registerAccess("puppet", nil, "Puppet ragdolls from the context menu", "Context menu")
 		ucl.registerAccess("ulx addkarma", nil, "Grants access to the ulx addkarma command", "Guilt")
 		ucl.registerAccess("ulx removekarma", nil, "Grants access to the ulx removekarma command", "Guilt")
 		ucl.registerAccess("noclip", nil, "Use noclip", "Z-City")
@@ -74,6 +77,24 @@ if SERVER then
 	registerAccess()
 	hook.Add("Initialize", "ZC_RegisterAccess", registerAccess)
 end
+
+local contextPropertyAccess = {
+	ignite = "ignite",
+	gravity = "gravity",
+	statue = "puppet",
+	puppet = "puppet",
+}
+
+hook.Add("CanProperty", "AntiExploit", function(ply, property)
+	if game.SinglePlayer() then return end
+	local access = contextPropertyAccess[property]
+	if access then
+		if zb.HasAccess(ply, access) then return end
+		return false
+	end
+	if zb.HasAccess(ply, "openContextmenu") then return end
+	return false
+end)
 
 for hookName, access in pairs(spawnAccess) do
 	hook.Add(hookName, "BlockSpawn", function(ply)
