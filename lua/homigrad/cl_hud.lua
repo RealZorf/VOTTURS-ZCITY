@@ -436,6 +436,21 @@ hook.Add("HG_OnOtrub", "resetshit", function(ply)
 end)
 
 hook.Add("PlayerBindPress", "PlayerBindPressExample2huy", function(ply, bind, pressed)
+	if bind == "gm_showhelp" then
+		local sandboxMenu = HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive()
+		if not (game.SinglePlayer() or sandboxMenu or ZCTools_HasULXAccess(lply, "openSpawnmenu")) then return end
+
+		if not pressed then return true end
+
+		if IsValid(g_SpawnMenu) and g_SpawnMenu:IsVisible() then
+			hook.Run("OnSpawnMenuClose")
+		else
+			hook.Run("OnSpawnMenuOpen")
+		end
+
+		return true
+	end
+
 	if string.find(bind, "+menu", 1, true) then
 
 		if lply.organism and lply.organism.otrub then
@@ -443,9 +458,6 @@ hook.Add("PlayerBindPress", "PlayerBindPressExample2huy", function(ply, bind, pr
 		end
 
 		if bind == "+menu" then
-			local sandboxMenu = HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive()
-			if game.SinglePlayer() or sandboxMenu or ZCTools_HasULXAccess(lply, "openSpawnmenu") then return end
-
 			if pressed and not IsValid(MENUPANELHUYHUY) then
 				CreateRadialMenu()
 			else
