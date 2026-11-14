@@ -1,4 +1,4 @@
-local text = Color(29, 167, 52)
+local text = Color(237, 234, 222)
 local subtitle = Color(65, 201, 92)
 local outline = Color(0, 0, 0, 180)
 
