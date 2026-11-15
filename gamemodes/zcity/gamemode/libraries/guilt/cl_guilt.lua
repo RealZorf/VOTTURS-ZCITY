@@ -230,12 +230,13 @@ end
 
 local function lockText(reason)
     reason = tostring(reason or "")
-    if reason == "" then return "Punish is locked." end
-    if reason == "Victim was a traitor." then return "You were a traitor, so this is not punishable." end
-    if reason == "Attacker was a traitor." then return "They were a traitor, so this is not punishable." end
-    if reason == "Victim was already marked guilty." then return "You were already marked guilty." end
-    if reason == "Attacker was berserk." then return "They were berserk." end
-    if reason:find("Protected self-defense", 1, true) then return "Punish is locked: they were defending themselves." end
+    if reason == "" then return "You cannot punish them for this." end
+    if reason == "Victim was a traitor." then return "You were a traitor, so you cannot punish them." end
+    if reason == "Attacker was a traitor." then return "They were a traitor, so you cannot punish them." end
+    if reason == "Victim was already marked guilty." then return "You were already guilty, so you cannot punish them." end
+    if reason == "Attacker was berserk." then return "They were berserk, so you cannot punish them." end
+    if reason:find("Different-team", 1, true) then return "This was a team fight, so you cannot punish them here." end
+    if reason:find("disabled", 1, true) then return "Punishment is turned off right now." end
     return reason
 end
 
@@ -278,66 +279,62 @@ local function wrapLines(text, font, maxW)
     return lines
 end
 
-local function isDefenseLocked(row)
-    if not row then return false end
-    if row.actionAllowed == false then return true end
-    local c = CFG()
-    local incoming = tonumber(row.incomingHarm) or 0
-    local harm = tonumber(row.harm) or 0
-    local score = tonumber(row.threatScore) or 0
-    return (tonumber(row.selfDefenseMul) or 1) <= (c.PunishLockKarmaScale or 0.2)
-        or (incoming >= harm * (c.PunishLockIncomingVsHarm or 0.8) and score >= (c.PunishLockMinThreatScore or 0.35))
-end
-
 local function describeThreat(row)
-    local them = getCaseName(row)
     local harm = math.Round(tonumber(row.harm) or 0, 1)
     local incoming = math.Round(tonumber(row.incomingHarm) or 0, 1)
-    local ratio = tonumber(row.responseRatio) or 0
+    local theyStarted, youStarted, detail = false, false, nil
     local facts = {
-        them .. " hurt you with " .. getSourceLabel(row.damageSource) .. ".",
-        "Harm they dealt you: " .. harm,
+        getCaseName(row) .. " hurt you for " .. harm .. " harm with " .. getSourceLabel(row.damageSource) .. ".",
+        incoming > 0 and ("You hurt them for " .. incoming .. " harm in the same fight.") or "You had not hurt them."
     }
-    if incoming > 0 then
-        facts[#facts + 1] = "Harm you dealt them first: " .. incoming
-        facts[#facts + 1] = ratio <= 1.1 and "They hit back about as hard as you had hit them."
-            or ("They hit you " .. math.Round(ratio, 1) .. " times harder than you had hit them.")
-    else
-        facts[#facts + 1] = "You had not hurt them first."
-    end
 
-    local seen = {}
     for _, reason in ipairs(istable(row.threatReasons) and row.threatReasons or {}) do
-        local low = string.lower(tostring(reason or ""))
-        local extra
-        if low:find("amputat", 1, true) or low:find("limb", 1, true) then
-            extra = "You took a limb off them before they hit you."
-        elseif low:find("fired a bullet", 1, true) or (low:find("gunfire", 1, true) and low:find("initiated", 1, true)) then
-            extra = "They shot at you first."
-        elseif low:find("struck first with", 1, true) or low:find("lethal melee", 1, true) then
-            extra = "They swung a lethal melee weapon at you first."
-        elseif low:find("blocked", 1, true) then
-            extra = "You blocked their melee swing."
+        local low = string.lower(tostring(reason))
+        if low:find("they hit you first", 1, true) then theyStarted = true end
+        if low:find("you hit them first", 1, true) or low:find("you hit first", 1, true) or low:find("you shot at them", 1, true) or low:find("limb", 1, true) then
+            youStarted = true
         end
-        if extra and not seen[extra] then
-            seen[extra] = true
-            facts[#facts + 1] = extra
+        if not detail then
+            if low:find("limb", 1, true) then
+                detail = "You took a limb off them before they hit you."
+            elseif low:find("shot at them", 1, true) then
+                detail = "You shot at them first."
+            elseif low:find("lethal melee", 1, true) then
+                detail = "A lethal melee weapon was used to start this."
+            elseif low:find("blocked", 1, true) then
+                detail = "A melee swing was blocked."
+            end
         end
     end
+    local firstHit = detail or (theyStarted and "They landed the first hit." or youStarted and "You landed the first hit.")
+    if firstHit then facts[#facts + 1] = firstHit end
 
-    local verdict
-    if row.actionAllowed == false then
-        verdict = lockText(row.actionLockReason)
-    elseif isDefenseLocked(row) then
-        verdict = "This looks like self-defense. Punish is locked."
-    elseif incoming <= 0 then
-        verdict = "They started it."
-    elseif ratio > 2 then
-        verdict = "They went much further than they needed to."
-    else
-        verdict = "This was a fight. Decide if they went too far."
+    local lockReason = string.lower(tostring(row.actionLockReason or ""))
+    local rulesBlocked = row.actionAllowed == false and not lockReason:find("defend", 1, true) and not lockReason:find("self-defense", 1, true)
+    local c = CFG()
+    local defense = not theyStarted and not rulesBlocked and (
+        row.actionAllowed == false
+        or (tonumber(row.selfDefenseMul) or 1) <= (c.PunishLockKarmaScale or 0.2)
+        or (tonumber(row.incomingHarm) or 0) >= (tonumber(row.harm) or 0) * (c.PunishLockIncomingVsHarm or 0.8)
+            and (tonumber(row.threatScore) or 0) >= (c.PunishLockMinThreatScore or 0.35)
+    )
+
+    if row.respectEligible then
+        return "You were a traitor. You can give them respect for the kill. You cannot punish them.", facts, "respect"
     end
-    return verdict, facts
+    if rulesBlocked then
+        return lockText(row.actionLockReason) .. " You cannot forgive this either.", facts, "blocked"
+    end
+    if defense then
+        return "You started this fight, so they were defending themselves. You can forgive them, but you cannot punish them.", facts, "defend"
+    end
+    if theyStarted then
+        return "They started this fight and kept hitting you. You can forgive them or punish them.", facts, "started"
+    end
+    if incoming <= 0 then
+        return "They attacked you before you had hit them. You can forgive them or punish them.", facts, "open"
+    end
+    return "You were both fighting. You can forgive them, or punish them if you think they went too far.", facts, "open"
 end
 
 local function createActionButton(parent, title, colorBg, enabled, callback, subtitle, extra)
@@ -441,7 +438,7 @@ local function rebuildRightPanel()
     end
 
     local harm = tonumber(selectedData.harm) or 0
-    local verdict, facts = describeThreat(selectedData)
+    local verdict, facts, status = describeThreat(selectedData)
     local review = rightScroll:Add("DPanel")
     review:Dock(TOP)
     review:DockMargin(S(12), 0, S(12), S(10))
@@ -476,24 +473,26 @@ local function rebuildRightPanel()
             sendAction(selectedData, "respect")
         end, "They killed you as a traitor.", "+" .. c.RespectKarmaReward .. " karma")
     elseif c.EnableForgive then
-        createActionButton(rightScroll, "Forgive", Color(CRT_R, CRT_G, CRT_B), true, function()
+        local canForgive = status ~= "blocked"
+        local forgiveWhy = canForgive and (status == "defend" and "You can still forgive this." or "Gives their karma back.") or "You cannot forgive this."
+        createActionButton(rightScroll, "Forgive", Color(CRT_R, CRT_G, CRT_B), canForgive, function()
             sendAction(selectedData, "forgive")
-        end, "No extra karma taken.")
+        end, forgiveWhy)
     end
 
     if c.EnablePunish and not selectedData.respectEligible then
-        local defenseLocked = isDefenseLocked(selectedData)
+        local punishLocked = status == "defend" or status == "blocked"
         for _, preset in ipairs(c.Presets or {}) do
             local minharm = tonumber(preset.minharm) or 0
             local punishAmount = ZCITY_GUILT.GetPunishAmount(preset, selectedData)
-            local unlocked = harm >= minharm and punishAmount > 0 and not defenseLocked
-            local subtitle
-            if selectedData.actionAllowed == false then
-                subtitle = lockText(selectedData.actionLockReason)
-            elseif defenseLocked then
-                subtitle = "Looks like self-defense"
+            local unlocked = harm >= minharm and punishAmount > 0 and not punishLocked
+            local subtitle = status == "started" and "They started the fight." or "You can punish this."
+            if status == "blocked" then
+                subtitle = "You cannot punish this."
+            elseif punishLocked then
+                subtitle = "They were defending themselves."
             elseif not unlocked then
-                subtitle = "Needs " .. minharm .. " harm"
+                subtitle = "Needs " .. minharm .. " harm."
             end
             local shown = math.Round((unlocked and punishAmount or tonumber(preset.amount) or 0), 1)
             createActionButton(

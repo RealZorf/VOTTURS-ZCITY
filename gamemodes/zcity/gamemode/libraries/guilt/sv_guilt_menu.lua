@@ -1183,9 +1183,9 @@ local function applyActionFields(row, victim, attacker, evidence)
     if row.protectedSelfDefense == true or row.severeSelfDefense == true then
         row.actionAllowed = false
         row.actionLockReason = row.severeSelfDefense
-            and "Protected self-defense after a recent limb amputation."
-            or row.meleeSelfDefense and "Protected self-defense against a recent lethal melee attack."
-            or "Protected self-defense against recent incoming gunfire."
+            and "You cut a limb off them, so they were defending themselves and you cannot punish them."
+            or row.meleeSelfDefense and "You hit them with a lethal melee weapon, so they were defending themselves and you cannot punish them."
+            or "You shot at them, so they were defending themselves and you cannot punish them."
     end
 
     if blockReason and blockReason ~= "" then
@@ -2359,7 +2359,7 @@ local function doPunish(victim, target, action, entry, activeCase)
     end
 
     if entry.groupSelfDefense == true then
-        return false, "Punishment is locked because this appears to be self-defense against multiple attackers."
+        return false, "They were defending themselves against more than one person, so you cannot punish them."
     end
 
     if entry.actionAllowed == false then
@@ -2368,7 +2368,7 @@ local function doPunish(victim, target, action, entry, activeCase)
     end
 
     if isProportionalSelfDefense(entry, harm) then
-        return false, "Punishment is locked because this appears to be proportional self-defense."
+        return false, "They were defending themselves, so you cannot punish them."
     end
 
     local roundCap = math.max(0, CFG.ManualPunishCapPerRound)

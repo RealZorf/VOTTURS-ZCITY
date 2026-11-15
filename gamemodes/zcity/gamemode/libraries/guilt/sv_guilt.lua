@@ -319,29 +319,32 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
     local nativeResponse = zb.HarmDone[victim] and zb.HarmDone[victim][attacker] or 0
     local response = math.Clamp(tonumber(responseHarm) or tonumber(nativeResponse) or 0, 0, maxHarm)
     local ratio = response / math.max(incomingHarm, c.ThreatMinIncomingHarm)
-    local recency = 1 - math.Clamp(age / math.max(threatWindow, 0.01), 0, 1)
-    local severity = math.Clamp(incomingHarm / maxHarm, 0, 1)
-
-    state.score = math.Clamp(0.15 + recency * 0.45 + severity * 0.4, 0, 1)
     state.incomingHarm = incomingHarm
     state.responseRatio = ratio
     state.source = tostring(source or reciprocal.source or "damage")
 
     local strike = GetStrikeContext(attacker, victim, incomingHarm)
-    state.karmaMul = GetSelfDefenseKarmaMul(ratio, strike.victimStruckFirst)
-    state.proportional = ratio <= c.ProportionalResponseMaxRatio
-    state.excessive = ratio > c.ModerateResponseMaxRatio
+
+    if not strike.victimStruckFirst then
+        state.reasons = { "They hit you first in this fight." }
+        return state
+    end
+
+    local recency = 1 - math.Clamp(age / math.max(threatWindow, 0.01), 0, 1)
+    local severity = math.Clamp(incomingHarm / maxHarm, 0, 1)
+    state.score = math.Clamp(0.15 + recency * 0.45 + severity * 0.4, 0, 1)
+    state.karmaMul = GetSelfDefenseKarmaMul(ratio, true)
 
     state.reasons = {
         recentBlock and incomingHarm == 0 and "You swung at them and they blocked it."
-            or "You had already hurt them (" .. math.Round(incomingHarm, 1) .. " harm) before they hit you.",
-        ratio <= c.ProportionalResponseMaxRatio and "Their hit-back was in line with how hard you hit them." or "They hit you harder than you had hit them.",
-        strike.victimStruckFirst and "You hit them first in this fight." or "They hit you before you had hit them.",
+            or "You had already hurt them for " .. math.Round(incomingHarm, 1) .. " harm before they hit you.",
+        ratio <= c.ProportionalResponseMaxRatio and "They hit back about as hard as you hit them." or "They hit you harder than you had hit them.",
+        "You hit them first in this fight.",
         "This was " .. math.Round(age, 1) .. " seconds after the last hit between you."
     }
 
     local severeAt = tonumber(reciprocal.severeInjuryAt)
-    if strike.victimStruckFirst and severeAt and CurTime() >= severeAt and CurTime() - severeAt <= threatWindow then
+    if severeAt and CurTime() >= severeAt and CurTime() - severeAt <= threatWindow then
         state.severeSelfDefense = true
         state.protectedSelfDefense = true
         state.karmaMul = 0
@@ -351,7 +354,7 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
         }
     end
 
-    if strike.victimStruckFirst and recentGunfire then
+    if recentGunfire then
         state.protectedSelfDefense = true
         state.karmaMul = 0
         state.reasons = {
@@ -360,7 +363,7 @@ function zb.GetGuiltThreatState(victim, attacker, source, responseHarm)
         }
     end
 
-    if strike.victimStruckFirst and recentMelee then
+    if recentMelee then
         state.protectedSelfDefense = true
         state.meleeSelfDefense = true
         state.karmaMul = 0
@@ -749,6 +752,11 @@ function zb.EvaluateEngagement(attacker, victim, opts)
         result.defender = attacker
         reasons[#reasons + 1] = "Victim has an elevated aggression score from prior unjustified harm."
         confidence = 0.65 + victimAggression * 0.35
+    elseif not victimStruckFirst and incomingHarm >= c.ThreatMinIncomingHarm then
+        result.aggressor = attacker
+        result.defender = victim
+        reasons[#reasons + 1] = "Attacker started the fight. Hitting back does not make their later hits self-defense."
+        confidence = 0.75
     elseif activeThreat or retaliation then
         result.aggressor = victim
         result.defender = attacker
