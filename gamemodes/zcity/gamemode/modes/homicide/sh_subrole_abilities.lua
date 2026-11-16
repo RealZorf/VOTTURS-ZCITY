@@ -205,6 +205,13 @@ function MODE.CanJuggernautStrangle(ply)
 	return IsValid(carried) and IsValid(victim), carried, victim
 end
 
+function MODE.CanUseJuggernautGrabMode(ply)
+	return CurrentRound() == MODE and zb.ROUND_STATE == 1 and IsValid(ply)
+		and MODE.IsJuggernautRole(ply.SubRole) and ply:Alive()
+		and ply.organism ~= nil and not ply.organism.otrub and not ply:InVehicle()
+		and not IsValid(ply.FakeRagdoll) and not ply:GetNetVar("handcuffed", false)
+end
+
 function MODE.GetJuggernautStrangleProgress(ply)
 	if not IsValid(ply) then return 0 end
 

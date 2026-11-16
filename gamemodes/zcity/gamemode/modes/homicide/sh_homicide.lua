@@ -967,6 +967,7 @@ Melee attacks build Rampage, increasing your speed, damage and attack rate. Fury
 You share the Athlete's larger build, but use it for brutal close-quarters control.
 You have the same stamina, melee strength, leg strength and jump boost as an Athlete.
 Grab smaller non-Athlete victims and hold ALT while lifting them to strangle them.
+You can disable player grabbing by pressing ALT + E. Stomp prioritizes the keybind.
 Slam carried victims into walls or props to deal bonus impact damage and briefly stun them.
 Press ALT + E over an unconscious victim's head to stomp their skull.]],
 		Objective = "You are the Juggernaut. Overpower smaller victims, strangle them while lifted.",

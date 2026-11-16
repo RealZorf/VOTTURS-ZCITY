@@ -102,6 +102,12 @@ local function isJuggernautHands(owner)
 	return IsValid(owner) and (owner.SubRole == "traitor_juggernaut" or owner.SubRole == "traitor_juggernaut_soe")
 end
 
+local function isJuggernautGrabMode(owner)
+	if not isJuggernautHands(owner) or not owner:GetNWBool("HMCD_JuggernautGrabMode", false) then return false end
+	local mode = CurrentRound()
+	return mode and mode.CanUseJuggernautGrabMode and mode.CanUseJuggernautGrabMode(owner) or false
+end
+
 local function canJuggernautOverpower(owner, target)
 	if not isJuggernautHands(owner) or not IsValid(target) or not target:IsPlayer() then return false end
 	if target == owner or not target:Alive() or target.Profession == "athlete" then return false end
@@ -1243,6 +1249,7 @@ function SWEP:SecondaryAttack()
 	if not IsFirstTimePredicted() then return end
 	local mode = CurrentRound and CurrentRound()
 	if mode and mode.TryZombieDrag and mode:TryZombieDrag(self) then return end
+	local juggernautGrabMode = isJuggernautGrabMode(owner)
 	if self:GetFists() and owner.PlayerClassName == "sc_infiltrator" then
 		self:PrimaryAttack(true)
 	end
@@ -1315,9 +1322,13 @@ function SWEP:SecondaryAttack()
 
 				owner:SetVelocity(owner:GetAimVector() * 20)
 				tr.Entity:SetVelocity((owner:KeyDown(IN_SPEED) and 1 or -1) * owner:GetAimVector() * 50)
-				if owner.organism.superfighter or owner.PlayerClassName == "sc_infiltrator" or canJuggernautOverpower(owner, tr.Entity) or (useClawHandsVisual(owner) and !(tr.Entity.PlayerClassName == "furry" or (tr.Entity.IsBerserk and tr.Entity:IsBerserk()))) or owner:IsBerserk() then
+				local juggernautGrab = juggernautGrabMode and canJuggernautOverpower(owner, tr.Entity)
+				if owner.organism.superfighter or owner.PlayerClassName == "sc_infiltrator" or juggernautGrab or (useClawHandsVisual(owner) and !(tr.Entity.PlayerClassName == "furry" or (tr.Entity.IsBerserk and tr.Entity:IsBerserk()))) or owner:IsBerserk() then
 					hg.LightStunPlayer(tr.Entity, 3)
 					timer.Simple(0,function()
+						if juggernautGrab and (not IsValid(self) or not IsValid(owner) or not IsValid(tr.Entity)
+							or owner:GetActiveWeapon() ~= self or not owner:KeyDown(IN_ATTACK2)
+							or not isJuggernautGrabMode(owner) or not canJuggernautOverpower(owner, tr.Entity)) then return end
 						local rag = hg.GetCurrentCharacter(tr.Entity)
 						if IsValid(rag) and rag ~= tr.Entity then
 							self:SetCarrying(rag, tr.PhysicsBone, tr.HitPos, Dist)

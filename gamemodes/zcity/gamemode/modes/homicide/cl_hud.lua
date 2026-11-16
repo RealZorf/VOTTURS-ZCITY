@@ -229,7 +229,7 @@ hook.Add("HUDPaint", "HMCD_SubRoles_Abilities", function()
 	end
 
 	if MODE.IsJuggernautRole and MODE.IsJuggernautRole(ply.SubRole) then
-		local can_strangle, carried = MODE.CanJuggernautStrangle and MODE.CanJuggernautStrangle(ply)
+		local can_strangle, carried = MODE.CanJuggernautStrangle(ply)
 		local active_victim = ply:GetNWEntity("HMCD_JuggernautStrangleVictim")
 		if can_strangle or IsValid(active_victim) then
 			local draw_ent = IsValid(carried) and carried or active_victim

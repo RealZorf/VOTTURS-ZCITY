@@ -2371,6 +2371,38 @@ function MODE.ContinueRevenantImplant(ply)
 	end
 end
 
+function MODE.SetJuggernautGrabMode(ply, enabled)
+	if ply:GetNWBool("HMCD_JuggernautGrabMode", false) == enabled then return end
+	ply:SetNWBool("HMCD_JuggernautGrabMode", enabled)
+	if enabled then return end
+	
+	local wep = ply:GetWeapon("weapon_hands_sh")
+	if IsValid(wep) then
+		local carried = wep:GetCarrying()
+		local victim = IsValid(carried) and (carried:IsPlayer() and carried or hg.RagdollOwner(carried) or carried.ply)
+		if IsValid(victim) and victim:IsPlayer() and victim:Alive() then wep:SetCarrying() end
+	end
+	MODE.StopJuggernautStrangle(ply)
+end
+
+function MODE.JuggernautSpecialInteraction(ply, can_strangle)
+	if not MODE.CanUseJuggernautGrabMode(ply) then return end
+	if not can_strangle then
+		local rag, victim = MODE.GetJuggernautStompTarget(ply)
+		if IsValid(rag) and IsValid(victim) then MODE.StartJuggernautStomp(ply, rag, victim) return end
+	end
+	local enabled = not ply:GetNWBool("HMCD_JuggernautGrabMode", false)
+	MODE.SetJuggernautGrabMode(ply, enabled)
+	ply:ChatPrint(enabled and "Player grab toggled on" or "Player grab toggled off")
+end
+
+hook.Add("ZB_EndRound", "HMCD_JuggernautGrabCleanup", function()
+	for _, ply in player.Iterator() do MODE.SetJuggernautGrabMode(ply, false) end
+end)
+hook.Add("PlayerDisconnected", "HMCD_JuggernautGrabCleanup", function(ply)
+	MODE.SetJuggernautGrabMode(ply, false)
+end)
+
 function MODE.UpdateJuggernautCarryState(ply)
 	local carried, victim = MODE.GetJuggernautCarryTarget(ply)
 	local old_carried = ply.Ability_JuggernautCarriedEnt
@@ -2442,6 +2474,7 @@ end
 function MODE.ResetJuggernaut(ply, force_clear_scale)
 	if not IsValid(ply) then return end
 
+	MODE.SetJuggernautGrabMode(ply, false)
 	MODE.StopJuggernautStrangle(ply)
 	if IsValid(ply.Ability_JuggernautCarriedEnt) then
 		ply.Ability_JuggernautCarriedEnt.HMCD_JuggernautCarryExpire = CurTime() + 0.75
@@ -2771,6 +2804,9 @@ end
 --
 
 hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
+	if ply:GetNWBool("HMCD_JuggernautGrabMode", false) and not MODE.CanUseJuggernautGrabMode(ply) then
+		MODE.SetJuggernautGrabMode(ply, false)
+	end
 	if(MODE.RoleChooseRoundTypes[MODE.Type])then
 		if ply:GetNWBool("HMCD_RevenantPassenger", false) and (ply.HMCD_RevenantPassengerSyncNext or 0) <= CurTime() then
 			ply.HMCD_RevenantPassengerSyncNext = CurTime() + 0.1
@@ -3058,11 +3094,8 @@ hook.Add("PlayerPostThink", "HMCD_SubRoles_Abilities", function(ply)
 					MODE.StopJuggernautStrangle(ply)
 				end
 
-				if((not can_strangle) and ply:KeyDown(IN_WALK) and ply:KeyPressed(IN_USE))then
-					local rag, stomp_victim = MODE.GetJuggernautStompTarget(ply)
-					if(IsValid(rag) and IsValid(stomp_victim))then
-						MODE.StartJuggernautStomp(ply, rag, stomp_victim)
-					end
+				if(ply:KeyDown(IN_WALK) and ply:KeyPressed(IN_USE))then
+					MODE.JuggernautSpecialInteraction(ply, can_strangle)
 				end
 			elseif(ply.Ability_JuggernautStrangle or IsValid(ply.Ability_JuggernautCarriedEnt))then
 				MODE.ResetJuggernaut(ply)

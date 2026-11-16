@@ -10,12 +10,12 @@ module[1] = function(org)
 	org.adrenalineStorage = 5
 
 	org.stamina = {
-		range = 75 * 3,
-		regen = 1,
+		range = 80 * 3,
+		regen = 1.05,
 		sub = 0,
 		subadd = 0,
 		weight = 0,
-		max = 75 * 3,
+		max = 80 * 3,
 	}
 
 	org.energy = 0

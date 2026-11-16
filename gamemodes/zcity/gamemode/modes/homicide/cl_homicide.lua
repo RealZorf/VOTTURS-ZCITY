@@ -470,7 +470,7 @@ local hmcd_traitor_self_tip_openers = {
 		"Let your axe announce the collapse, not the plan;"
 	},
 	traitor_juggernaut = {
-		"Grab smaller non-Athletes and lift them;",
+		"ALT + E toggles grabbing players; hold RMB to grab non-Athletes;",
 		"Hold ALT while carrying a victim;",
 		"Slam carried victims into walls or props;",
 		"Press ALT + E over an unconscious head;",
