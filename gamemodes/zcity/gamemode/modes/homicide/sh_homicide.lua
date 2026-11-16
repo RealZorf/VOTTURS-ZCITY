@@ -561,6 +561,12 @@ MODE.TraitorGear = {
 				wep:SetNWBool("ZCityPocketHolster", true)
 				ply:GiveAmmo(20, wep:GetPrimaryAmmoType(), true)
 			end},
+			{item = "weapon_kar98", setup = function(ply, wep)
+				if hg.AddAttachmentForce then hg.AddAttachmentForce(ply, wep, "optic12") end
+				wep.shouldntDrawHolstered = true
+				wep:SetNWBool("ZCityPocketHolster", true)
+				ply:GiveAmmo(6, wep:GetPrimaryAmmoType(), true)
+			end},
 		},
 		{slot = "nailgun",
 			{item = "weapon_nailgun"},
