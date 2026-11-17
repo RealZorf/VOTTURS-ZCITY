@@ -52,20 +52,16 @@ module[2] = function(owner, org, timeValue)
 	local shouldPainAdd = not (org.otrub or org.spine2 >= hg.organism.fake_spine2 or org.spine3 >= hg.organism.fake_spine3)
 	
 	local add = math.min(timeValue * 20, org.painadd)
-	local sub = (add <= 0.2) and (timeValue * 2 * (org.otrub and 2 or 1) + timeValue * (org.painkiller * 2) + timeValue * (org.analgesia * 4)) or (0)
+	local sub = (add <= timeValue * 2) and (timeValue * 2 * (org.otrub and 2 or 1) + timeValue * (org.painkiller * 2) + timeValue * (org.analgesia * 4)) or (0)
 
 	if adrenaline > 0.5 then
 		sub = sub * math.max(1 - adrenaline, 0.05) / 1.5-- / (adrenaline >= 2 and 16 or 8)
 		add = add * math.max(1 - adrenaline, 0.05) / 1.5-- / (adrenaline >= 2 and 16 or 8)
 	end
 
+	local queuedPain = add
 	if org.pain > 60 and not org.otrub then
 		add = add / 5
-		if org.pain > 70 and add > 0.01 then
-			sub = sub / 20
-		else
-			sub = sub / 5
-		end
 
 		org.disorientation = math.max(org.pain / 50, org.disorientation)--org.disorientation + add
 		org.fearadd = 1
@@ -73,7 +69,7 @@ module[2] = function(owner, org, timeValue)
 
 	org.disorientation = math.min(org.disorientation, 10)
 
-	if org.pain > 80 then
+	if org.pain > 120 then
 		org.shock = math.Approach(org.shock, 70, timeValue * 4)
 	end
 
@@ -103,7 +99,7 @@ module[2] = function(owner, org, timeValue)
 
 	org.pain = org.avgpain * math.max(1 - adrenaline / 4, 0.75) * math.max(1 - org.analgesia, 0)
 
-	org.painadd = min(max(org.painadd - add * analgesiaMul, 0), 150)
+	org.painadd = min(max(org.painadd - queuedPain * analgesiaMul, 0), 150)
 
 	--org.painkiller = Approach(org.painkiller, 0, timeValue / 240 * (org.naloxone * 25 + 1))
 

@@ -1333,10 +1333,15 @@ local finally_fixed = {
 	"One dislocation away.",
 }
 
+local function addDislocationReductionPain(org, amount)
+	local remaining = math.max(60 - org.avgpain - math.max(org.painadd, 0), 0)
+	org.painadd = org.painadd + math.min(amount, remaining)
+end
+
 local function fixlimb(org, key, fixer)
 	if math.random(100) > (97 + (fixer != org.owner and (fixer.organism and fixer.organism.pain or 0) or 0) - (org.analgesia * 50 + org.painkiller * 15) - (fixer != org.owner and 30 or 0) - (fixer.tries or 0) * 10 - (fixer.Profession == "doctor" and 100 or 0) - (org.owner == fixer and (IsValid(org.owner.FakeRagdoll) or (org.owner.Crouching and org.owner:Crouching())) and 10 or 0)) then
 		org[key.."dislocation"] = false
-		org.painadd = org.painadd + 5 * math.random(1, 3)
+		addDislocationReductionPain(org, 5 * math.random(1, 3))
 		org.fearadd = org.fearadd + 0.1
 
 		org.owner:EmitSound("physics/flesh/flesh_impact_hard6.wav", 65)
@@ -1348,7 +1353,7 @@ local function fixlimb(org, key, fixer)
 		fixer.tries = 0
 	else
 		fixer.tries = (fixer.tries or 0) + 1
-		org.painadd = org.painadd + 15 * math.random(1, 3)
+		addDislocationReductionPain(org, 15 * math.random(1, 3))
 
 		org.fearadd = org.fearadd + 0.3
 
