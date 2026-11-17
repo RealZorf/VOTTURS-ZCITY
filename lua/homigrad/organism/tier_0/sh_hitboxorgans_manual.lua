@@ -157,7 +157,7 @@ male["ValveBiped.Bip01_Spine2"] = {
 	{"lungsR", nil, Vector(4, 3, -3), Angle(0, 0, 0), Vector(4, 2, 2), Color(0, 255, 255)},
 	{"lungsL", nil, Vector(4, 3, 3), Angle(0, 0, 0), Vector(4, 2, 2), Color(0, 255, 255)},
 	{"trachea", nil, Vector(6, 3, 0), Angle(0, 0, 0), Vector(6, 0.75, 0.75), Color(0, 125, 255)},
-	{"heart", nil, Vector(1, 2, 1), Angle(0, 0, 0), Vector(1.5, 1.5, 1.5), Color(200, 0, 0)}
+	{"heart", nil, Vector(4, 3, 1.5), Angle(0, 0, 0), Vector(1.5, 1.5, 1.5), Color(200, 0, 0)}
 }
 
 local bone = 0.5

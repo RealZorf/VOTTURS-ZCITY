@@ -7,10 +7,32 @@ module[1] = function(org)
 	org.heartstop = false
 	org.pulse = 70 -- that's the blood pressure
 	org.heartbeat = 70
+	org.heartDestroyedAt = nil
 
 	org.tempchanging = 0
 	org.heatbuff = 30 -- seconds of heat supply
 	org.needed_temp = 36.7
+end
+
+function hg.organism.UpdateHeartTrauma(org)
+	if org.heart < 1 then
+		org.heartDestroyedAt = nil
+		return
+	end
+	if not org.alive or org.godmode then return end
+	
+	org.heartDestroyedAt = org.heartDestroyedAt or CurTime()
+	org.heartstop = true
+	org.pulse = 0
+	org.heartbeat = 0
+	org.consciousness = math.min(org.consciousness or 1, 0.05)
+	org.needfake = true
+	org.needotrub = true
+
+	if CurTime() - org.heartDestroyedAt >= 15 then
+		org.brain = math.max(org.brain, 0.7)
+		org.alive = false
+	end
 end
 
 function hg.organism.should_gain_fear(org)
@@ -126,6 +148,8 @@ module[2] = function(owner, org, timeValue)
 		
 		org.lastsoundtime = CurTime() + math.random(25,35)
 	end
+
+	hg.organism.UpdateHeartTrauma(org)
 end
 
 --if org.heartstop then org.needotrub = true end --not really...

@@ -17,6 +17,14 @@ local function damageOrgan(org, dmg, dmgInfo, key)
 end
 
 local input_list = hg.organism.input_list
+
+local function penetratingOrganWound(dmg, dmgInfo)
+	if not dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT + DMG_SLASH) then return 0 end
+	local inflictor = dmgInfo:GetInflictor()
+	if IsValid(inflictor) and inflictor.RubberBullets then return 0 end
+	return math.Clamp(dmg, 0, 1)
+end
+
 input_list.heart = function(org, bone, dmg, dmgInfo)
 	local oldDmg = org.heart
 
@@ -25,7 +33,9 @@ input_list.heart = function(org, bone, dmg, dmgInfo)
 	hg.AddHarmToAttacker(dmgInfo, (org.heart - oldDmg) * 10, "Heart damage harm")
 	
 	org.shock = org.shock + dmg * 20
-	org.internalBleed = org.internalBleed + (org.heart - oldDmg) * 10
+	local wound = penetratingOrganWound(dmg, dmgInfo)
+	org.internalBleed = org.internalBleed + (org.heart - oldDmg) * (wound > 0 and 40 or 10) + wound * 6
+	hg.organism.UpdateHeartTrauma(org)
 
 	return result
 end
@@ -271,7 +281,7 @@ input_list.lungsL = function(org, bone, dmg, dmgInfo)
 	org.lungsL[1] = math.min(org.lungsL[1] + dmg / 4, 1)
 	if (dmgInfo:IsDamageType(DMG_BULLET+DMG_SLASH+DMG_BUCKSHOT)) or (math.random(3) == 1) then org.lungsL[2] = math.min(org.lungsL[2] + dmg * 1, 1) end
 
-	org.internalBleed = org.internalBleed + (org.lungsL[1] - oldval) * 2
+	org.internalBleed = org.internalBleed + (org.lungsL[1] - oldval) * 2 + penetratingOrganWound(dmg, dmgInfo) * 2
 	
 	dmgInfo:ScaleDamage(0.8)
 
@@ -286,7 +296,7 @@ input_list.lungsR = function(org, bone, dmg, dmgInfo)
 	org.lungsR[1] = math.min(org.lungsR[1] + dmg / 4, 1)
 	if (dmgInfo:IsDamageType(DMG_BULLET+DMG_SLASH+DMG_BUCKSHOT)) or (math.random(3) == 1) then org.lungsR[2] = math.min(org.lungsR[2] + dmg * 1, 1) end
 
-	org.internalBleed = org.internalBleed + (org.lungsR[1] - oldval) * 2
+	org.internalBleed = org.internalBleed + (org.lungsR[1] - oldval) * 2 + penetratingOrganWound(dmg, dmgInfo) * 2
 
 	dmgInfo:ScaleDamage(0.8)
 

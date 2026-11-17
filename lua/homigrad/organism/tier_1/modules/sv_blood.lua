@@ -187,8 +187,9 @@ module[2] = function(owner, org, mulTime)
 	end
 
 	if org.heart == 1 then
-		org.blood = math.max(org.blood - mulTime * 100 * org.pulse / 70,0)
-		bleedoutspeed = bleedoutspeed + mulTime * 100 * org.pulse / 70
+		local heartBleed = mulTime * 100 * math.max(org.pulse, 20) / 70
+		org.blood = math.max(org.blood - heartBleed, 0)
+		bleedoutspeed = bleedoutspeed + heartBleed
 	end
 
 	if org.liver > 0.5 then
