@@ -66,6 +66,13 @@ if SERVER then
 		ucl.registerAccess("ignite", nil, "Ignite entities from the context menu", "Context menu")
 		ucl.registerAccess("gravity", nil, "Toggle entity gravity from the context menu", "Context menu")
 		ucl.registerAccess("puppet", nil, "Puppet ragdolls from the context menu", "Context menu")
+		ucl.registerAccess("skin", nil, "Change entity skin from the context menu", "Context menu")
+		ucl.registerAccess("keepupright", nil, "Keep entities upright from the context menu", "Context menu")
+		ucl.registerAccess("remover", nil, "Remove entities from the context menu", "Context menu")
+		ucl.registerAccess("drive", nil, "Drive entities from the context menu", "Context menu")
+		ucl.registerAccess("collision", nil, "Disable entity collisions from the context menu", "Context menu")
+		ucl.registerAccess("toolgun", nil, "Use the toolgun", "Toolgun")
+		ucl.registerAccess("permaall", nil, "Use the PermaAll tool", "Toolgun")
 		ucl.registerAccess("ulx addkarma", nil, "Grants access to the ulx addkarma command", "Guilt")
 		ucl.registerAccess("ulx removekarma", nil, "Grants access to the ulx removekarma command", "Guilt")
 		ucl.registerAccess("noclip", nil, "Use noclip", "Z-City")
@@ -78,27 +85,31 @@ if SERVER then
 	hook.Add("Initialize", "ZC_RegisterAccess", registerAccess)
 end
 
-local contextPropertyAccess = {
+zb.ContextProperties = {
 	ignite = "ignite",
 	gravity = "gravity",
 	statue = "puppet",
 	puppet = "puppet",
+	skin = "skin",
+	keepupright = "keepupright",
+	remover = "remover",
+	drive = "drive",
+	collision = "collision",
 }
 
 hook.Add("CanProperty", "AntiExploit", function(ply, property)
 	if game.SinglePlayer() then return end
-	local access = contextPropertyAccess[property]
-	if access then
-		if zb.HasAccess(ply, access) then return end
-		return false
-	end
-	if zb.HasAccess(ply, "openContextmenu") then return end
+	local access = zb.ContextProperties[property]
+	if access and zb.HasAccess(ply, access) then return end
 	return false
 end)
 
 for hookName, access in pairs(spawnAccess) do
-	hook.Add(hookName, "BlockSpawn", function(ply)
-		if game.SinglePlayer() or zb.HasAccess(ply, access) then return true end
+	local eventName, perm = hookName, access
+	hook.Add(eventName, "BlockSpawn", function(ply)
+		if game.SinglePlayer() or zb.HasAccess(ply, perm) then return true end
+		if eventName == "PlayerSpawnObject" and (zb.HasAccess(ply, "props") or zb.HasAccess(ply, "ragdolls") or zb.HasAccess(ply, "effects")) then return true end
+		if (eventName == "PlayerGiveSWEP" or eventName == "PlayerSpawnSWEP") and (zb.HasAccess(ply, "weapons") or zb.HasAccess(ply, "give weapons")) then return true end
 		if HG_SANDBOX and HG_SANDBOX.IsSandboxModeActive and HG_SANDBOX.IsSandboxModeActive() then
 			if HG_SANDBOX.IsBypassPlayer and HG_SANDBOX.IsBypassPlayer(ply) then
 				return true
@@ -110,6 +121,12 @@ for hookName, access in pairs(spawnAccess) do
 		return false
 	end)
 end
+
+hook.Add("CanTool", "ZC_ToolgunAccess", function(ply, _, toolname)
+	if game.SinglePlayer() then return end
+	if toolname == "permaall" and not zb.HasAccess(ply, "permaall") then return false end
+	if zb.HasAccess(ply, "toolgun") then return true end
+end)
 
 hook.Add( "PlayerNoClip", "FeelFreeToTurnItOff", function( ply, desiredState )
 	if ( desiredState == false ) then -- the player wants to turn noclip off

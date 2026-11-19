@@ -851,7 +851,12 @@ if SERVER then
         HG_SANDBOX.TrackSpawn(ply, ent, "vehicles")
     end)
 
+    local function hasAccess(ply, access)
+        return zb and zb.HasAccess and zb.HasAccess(ply, access)
+    end
+
     hook.Add("PlayerSpawnProp", "HG_SandboxDirectBlockProp", function(ply)
+        if hasAccess(ply, "props") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "props_disabled", "Props are disabled in Sandbox Mode.")
@@ -860,6 +865,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerSpawnRagdoll", "HG_SandboxDirectBlockRagdoll", function(ply)
+        if hasAccess(ply, "ragdolls") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "ragdolls_disabled", "Ragdolls are disabled in Sandbox Mode.")
@@ -868,6 +874,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerSpawnNPC", "HG_SandboxDirectBlockNPC", function(ply)
+        if hasAccess(ply, "npcs") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "npcs_disabled", "NPCs are disabled in Sandbox Mode.")
@@ -876,6 +883,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerSpawnEffect", "HG_SandboxDirectBlockEffect", function(ply)
+        if hasAccess(ply, "effects") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "effects_disabled", "Effects are disabled in Sandbox Mode.")
@@ -884,6 +892,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerSpawnObject", "HG_SandboxDirectBlockObject", function(ply)
+        if hasAccess(ply, "objects") or hasAccess(ply, "props") or hasAccess(ply, "ragdolls") or hasAccess(ply, "effects") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "objects_disabled", "You can only spawn weapons, entities, and vehicles in Sandbox Mode.")
@@ -892,6 +901,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerSpawnSWEP", "HG_SandboxDirectSWEP", function(ply, class)
+        if hasAccess(ply, "weapons") or hasAccess(ply, "give weapons") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             return HG_SANDBOX.CanSpawnWeapon(ply, class)
@@ -899,6 +909,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerGiveSWEP", "HG_SandboxDirectGiveSWEP", function(ply, class)
+        if hasAccess(ply, "give weapons") or hasAccess(ply, "weapons") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             return HG_SANDBOX.CanSpawnWeapon(ply, class)
@@ -906,6 +917,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerSpawnVehicle", "HG_SandboxDirectVehicle", function(ply, class)
+        if hasAccess(ply, "vehicles") then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             return HG_SANDBOX.CanSpawnVehicle(ply, class)
@@ -913,6 +925,7 @@ if SERVER then
     end)
 
     hook.Add("PlayerSpawnSENT", "HG_SandboxDirectSENT", function(ply, class)
+        if hasAccess(ply, "entities") or (HG_SANDBOX.IsVehicleClass(class) and hasAccess(ply, "vehicles")) then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             if HG_SANDBOX.IsVehicleClass(class) then
@@ -923,7 +936,8 @@ if SERVER then
         end
     end)
 
-    hook.Add("CanTool", "HG_SandboxBlockTools", function(ply)
+    hook.Add("CanTool", "HG_SandboxBlockTools", function(ply, _, toolname)
+        if hasAccess(ply, "toolgun") or (toolname == "permaall" and hasAccess(ply, "permaall")) then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "tools_disabled", "Tools are disabled in Sandbox Mode.")
@@ -931,8 +945,9 @@ if SERVER then
         end
     end)
 
-    hook.Add("CanProperty", "HG_SandboxBlockProperties", function(ply)
-        if zb and zb.HasAccess and zb.HasAccess(ply, "openContextmenu") then return end
+    hook.Add("CanProperty", "HG_SandboxBlockProperties", function(ply, property)
+        local access = zb and zb.ContextProperties and zb.ContextProperties[property]
+        if access and hasAccess(ply, access) then return end
         if HG_SANDBOX.ShouldBlockPlayer(ply) then return false end
         if HG_SANDBOX.IsRestrictedPlayer(ply) then
             HG_SANDBOX.NotifyDenied(ply, "properties_disabled", "Properties and utilities are disabled in Sandbox Mode.")
